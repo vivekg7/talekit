@@ -9,6 +9,16 @@ export interface Problem {
   message: string;
 }
 
+/** Inner SVG only: no <svg> wrapper, no <image>, nothing fetched from outside the file. */
+function forbiddenMarkup(svg: string): string | undefined {
+  if (/<svg[\s>]/i.test(svg))
+    return 'contains an <svg> element; write inner elements only (paths, circles, groups)';
+  if (/<image[\s>]/i.test(svg)) return 'contains an <image> element; draw with paths instead';
+  if (/href=['"]\s*(https?:|file:|\/\/)/i.test(svg))
+    return 'references an external URL; inner SVG must be self-contained';
+  return undefined;
+}
+
 export function validateCharacter(c: Character): Problem[] {
   const out: Problem[] = [];
   const rig = RIGS[c.rig];
@@ -21,12 +31,8 @@ export function validateCharacter(c: Character): Problem[] {
       out.push({ level: 'error', where, message: `part '${name}' has no variants` });
     for (const f of fragments) {
       if (!f.trim()) out.push({ level: 'error', where, message: `part '${name}' is empty` });
-      if (/<svg[\s>]/i.test(f))
-        out.push({
-          level: 'error',
-          where,
-          message: `part '${name}' contains an <svg> element; write inner elements only (paths, circles, groups)`,
-        });
+      const bad = forbiddenMarkup(f);
+      if (bad) out.push({ level: 'error', where, message: `part '${name}' ${bad}` });
       const missing = missingColorTokens(f, c.colors);
       if (missing.length)
         out.push({
@@ -65,12 +71,13 @@ export function validateCharacter(c: Character): Problem[] {
 export function validateScene(s: Scene, width: number, height: number): Problem[] {
   const out: Problem[] = [];
   const where = `scene '${s.id}'`;
-  if (/<svg[\s>]/i.test(s.svg) || (s.foreground && /<svg[\s>]/i.test(s.foreground)))
-    out.push({
-      level: 'error',
-      where,
-      message: 'svg contains an <svg> element; write inner elements only',
-    });
+  for (const [field, svg] of [
+    ['svg', s.svg],
+    ['foreground', s.foreground],
+  ] as const) {
+    const bad = svg && forbiddenMarkup(svg);
+    if (bad) out.push({ level: 'error', where, message: `${field} ${bad}` });
+  }
   for (const [name, a] of Object.entries(s.anchors)) {
     if ((STAGE_SHORTCUTS as readonly string[]).includes(name))
       out.push({ level: 'warning', where, message: `anchor '${name}' shadows a stage shortcut` });

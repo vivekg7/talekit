@@ -126,7 +126,7 @@ export const ActionSchema = z
     'an action needs at least one of: do, say, emotion, face, caption, camera, set'
   )
   .refine(
-    (a) => !(a.do || a.say || a.emotion || a.face || (a.set && !a.camera)) || a.actor,
+    (a) => !(a.do || a.say || a.emotion || a.face || a.set) || a.actor,
     'actor is required for do/say/emotion/face/set'
   );
 export type Action = z.infer<typeof ActionSchema>;

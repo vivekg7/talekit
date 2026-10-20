@@ -120,6 +120,33 @@ describe('validation', () => {
     expect(messages).toMatch(/nope/);
     expect(messages).toMatch(/<svg>/);
   });
+  it('rejects <image> elements and external references', () => {
+    const c = CharacterSchema.parse({
+      id: 'x',
+      name: 'x',
+      parts: {
+        torso: "<image href='https://example.com/a.png'/>",
+        head: "<use href='//cdn.example.com/x.svg#a'/>",
+      },
+    });
+    const messages = validateCharacter(c)
+      .map((x) => x.message)
+      .join('\n');
+    expect(messages).toMatch(/<image>/);
+    expect(messages).toMatch(/external URL/);
+  });
+  it('allows camera-only actions but needs an actor once set is present', () => {
+    const base = { id: 's', scene: 'park', duration: 1 };
+    expect(() =>
+      ShotSchema.parse({ ...base, actions: [{ t: 0, camera: { zoom: 1.5 } }] })
+    ).not.toThrow();
+    expect(() =>
+      ShotSchema.parse({
+        ...base,
+        actions: [{ t: 0, camera: { zoom: 1.5 }, set: { facing: 'left' } }],
+      })
+    ).toThrow(/actor is required/);
+  });
   it('requires an actor for actor-bound actions', () => {
     expect(() =>
       ShotSchema.parse({ id: 's', scene: 'park', duration: 1, actions: [{ t: 0, do: 'wave' }] })
