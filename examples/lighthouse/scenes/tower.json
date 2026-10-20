@@ -1,0 +1,28 @@
+{
+  "id": "tower",
+  "name": "Lamp room at the top of the lighthouse",
+  "svg": "<defs><linearGradient id='tower-night' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#141a33'/><stop offset='1' stop-color='#2a3a5c'/></linearGradient></defs><rect width='1280' height='720' fill='url(#tower-night)'/><circle cx='210' cy='120' r='3' fill='#fff' opacity='0.8'/><circle cx='520' cy='70' r='2' fill='#fff' opacity='0.7'/><circle cx='900' cy='110' r='3' fill='#fff' opacity='0.8'/><circle cx='1100' cy='60' r='2' fill='#fff' opacity='0.6'/><circle cx='700' cy='160' r='2' fill='#fff' opacity='0.6'/><rect x='0' y='330' width='1280' height='170' fill='#1b2f4a'/><path d='M0 350 Q160 340 320 350 T640 350 T960 350 T1280 350' stroke='#4e7fa6' stroke-width='3' fill='none' opacity='0.5'/><g stroke='#3b3b3b' stroke-width='22' fill='none'><path d='M0 70 L1280 70'/><path d='M0 500 L1280 500'/><path d='M120 70 L120 500'/><path d='M420 70 L420 500'/><path d='M860 70 L860 500'/><path d='M1160 70 L1160 500'/></g><rect x='0' y='0' width='1280' height='60' fill='#2a2a2a'/><rect x='0' y='510' width='1280' height='210' fill='#5a4632'/><path d='M0 520 L1280 520' stroke='#3f2f1f' stroke-width='4'/><path d='M0 580 L1280 580' stroke='#3f2f1f' stroke-width='2' opacity='0.5'/><path d='M0 650 L1280 650' stroke='#3f2f1f' stroke-width='2' opacity='0.5'/><rect x='0' y='500' width='1280' height='14' fill='#8a7360'/><rect x='560' y='440' width='160' height='200' rx='6' fill='#4a3a2c'/><rect x='548' y='430' width='184' height='18' rx='4' fill='#6e5a46'/><rect x='560' y='640' width='160' height='12' fill='#30241a'/><rect x='170' y='560' width='150' height='90' fill='#2a1e14'/><path d='M170 560 L320 560 L320 650 L170 650 Z' stroke='#8a7360' stroke-width='6' fill='none'/><path d='M190 650 L190 600 L230 600 L230 650' fill='#1d140d'/><path d='M960 520 L1000 500 L1000 650' fill='#3f2f1f'/><rect x='1040' y='540' width='120' height='40' rx='4' fill='#3f2f1f'/><rect x='1050' y='548' width='100' height='8' fill='#8a7360'/><path d='M1060 575 L1060 640 M1140 575 L1140 640' stroke='#3f2f1f' stroke-width='8'/>",
+  "ground": 640,
+  "anchors": {
+    "stairs": {
+      "x": 245,
+      "y": 650,
+      "scale": 1
+    },
+    "pedestal-top": {
+      "x": 640,
+      "y": 440,
+      "scale": 1
+    },
+    "beside-pedestal": {
+      "x": 470,
+      "y": 660,
+      "scale": 1
+    },
+    "window": {
+      "x": 1000,
+      "y": 660,
+      "scale": 1
+    }
+  }
+}

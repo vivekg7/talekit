@@ -96,11 +96,19 @@ actions }`. Cast places characters at anchors. Actions are
 - [x] **Phase 5 — Viewer.** `talekit serve` with a shot picker and scrubber.
 - [ ] **Phase 6 — Polish loop.** Run the MCP from Claude Code on a fresh
       story, watch where the agent struggles, and fix the guide or the engine.
+      First pass done with `examples/lighthouse` (seagull and lantern drawn
+      from scratch, two new scenes). It surfaced: empty variants were rejected
+      (now allowed in a variant map), custom part variants were invisible on
+      the pose sheet (now shown), the guide understated `say` duration (fixed,
+      and `write_shot` now warns on overlapping speech), and no way to carry a
+      prop (documented workaround; proper attach is below). Repeat with a
+      different agent before calling the phase done.
 
 ## Later (deliberately not now)
 
 - Audio: narration via TTS, music bed, lip-sync from phonemes.
-- Quadruped rig, more emotions, eyebrows, hands with props.
+- Quadruped rig, more emotions, eyebrows, hands with props (an `attach` that
+  parents a simple-rig character to a hand, so carrying is one action).
 - Image-model generated backgrounds as a scene layer.
 - Parallel rasterisation across worker threads for long films.
 - Bundled font for identical output across machines (currently system fonts).

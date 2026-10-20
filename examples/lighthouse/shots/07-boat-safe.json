@@ -1,0 +1,78 @@
+{
+  "id": "boat-safe",
+  "scene": "beach",
+  "duration": 14,
+  "cast": {
+    "grandma": {
+      "at": "path-foot",
+      "facing": "right",
+      "scale": 1,
+      "visible": true,
+      "emotion": "happy"
+    },
+    "pip": {
+      "at": "offLeft",
+      "facing": "right",
+      "scale": 1,
+      "visible": true,
+      "emotion": "happy"
+    },
+    "gus": {
+      "at": "rock-top",
+      "facing": "left",
+      "scale": 1,
+      "visible": true,
+      "emotion": "happy"
+    }
+  },
+  "camera": {
+    "zoom": 1
+  },
+  "fadeIn": 0,
+  "fadeOut": 1.5,
+  "actions": [
+    {
+      "t": 0.5,
+      "duration": 2.5,
+      "actor": "pip",
+      "do": "run",
+      "to": "center"
+    },
+    {
+      "t": 3,
+      "actor": "grandma",
+      "say": "The boat came home safe, Pip!"
+    },
+    {
+      "t": 3.2,
+      "actor": "grandma",
+      "do": "wave"
+    },
+    {
+      "t": 6.8,
+      "actor": "pip",
+      "say": "We did it, Gus!"
+    },
+    {
+      "t": 7.2,
+      "actor": "pip",
+      "do": "jump"
+    },
+    {
+      "t": 9.4,
+      "actor": "gus",
+      "do": "bounce"
+    },
+    {
+      "t": 9.4,
+      "actor": "gus",
+      "say": "Squawk!"
+    },
+    {
+      "t": 10.5,
+      "duration": 3.5,
+      "caption": "The End",
+      "captionStyle": "title"
+    }
+  ]
+}

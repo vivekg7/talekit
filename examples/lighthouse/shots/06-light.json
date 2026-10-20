@@ -1,0 +1,85 @@
+{
+  "id": "light",
+  "scene": "tower",
+  "duration": 13,
+  "cast": {
+    "pip": {
+      "at": "beside-pedestal",
+      "facing": "right",
+      "scale": 1,
+      "visible": true,
+      "emotion": "neutral"
+    },
+    "lantern": {
+      "at": "pedestal-top",
+      "facing": "right",
+      "scale": 1,
+      "visible": true,
+      "emotion": "neutral"
+    },
+    "gus": {
+      "at": "window",
+      "facing": "left",
+      "scale": 1,
+      "visible": true,
+      "emotion": "neutral"
+    }
+  },
+  "camera": {
+    "zoom": 1
+  },
+  "fadeIn": 0,
+  "fadeOut": 0,
+  "actions": [
+    {
+      "t": 0.5,
+      "actor": "pip",
+      "say": "Please work…",
+      "bubble": "thought",
+      "emotion": "scared"
+    },
+    {
+      "t": 3,
+      "duration": 1.5,
+      "camera": {
+        "zoom": 1.5,
+        "x": 640,
+        "y": 480
+      }
+    },
+    {
+      "t": 4.5,
+      "actor": "lantern",
+      "face": {
+        "body": "lit"
+      }
+    },
+    {
+      "t": 5,
+      "actor": "pip",
+      "do": "jump",
+      "emotion": "happy"
+    },
+    {
+      "t": 5.5,
+      "actor": "pip",
+      "say": "It's shining!",
+      "bubble": "shout"
+    },
+    {
+      "t": 8,
+      "duration": 1,
+      "camera": {
+        "zoom": 1,
+        "x": 640,
+        "y": 360
+      }
+    },
+    {
+      "t": 9,
+      "actor": "gus",
+      "say": "Squawk! Look, the boat is turning home!",
+      "emotion": "happy"
+    }
+  ]
+}

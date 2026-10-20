@@ -1,0 +1,65 @@
+{
+  "id": "gus-arrives",
+  "scene": "beach",
+  "duration": 13,
+  "cast": {
+    "grandma": {
+      "at": "path-foot",
+      "facing": "right",
+      "scale": 1,
+      "visible": true,
+      "emotion": "sad"
+    },
+    "pip": {
+      "at": "left",
+      "facing": "right",
+      "scale": 1,
+      "visible": true,
+      "emotion": "scared"
+    },
+    "gus": {
+      "at": "sky-right",
+      "facing": "left",
+      "scale": 1,
+      "visible": true,
+      "emotion": "neutral"
+    }
+  },
+  "camera": {
+    "zoom": 1
+  },
+  "fadeIn": 0,
+  "fadeOut": 0,
+  "actions": [
+    {
+      "t": 0.5,
+      "duration": 3,
+      "actor": "gus",
+      "do": "fly",
+      "to": "rock-top"
+    },
+    {
+      "t": 4,
+      "actor": "gus",
+      "say": "Squawk! I saw a shiny lantern in the rocks!"
+    },
+    {
+      "t": 9,
+      "actor": "pip",
+      "say": "A spare lantern! Let's go!",
+      "emotion": "happy"
+    },
+    {
+      "t": 9,
+      "actor": "grandma",
+      "emotion": "happy"
+    },
+    {
+      "t": 10.5,
+      "duration": 2.4,
+      "actor": "pip",
+      "do": "run",
+      "to": "rocks"
+    }
+  ]
+}

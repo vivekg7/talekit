@@ -1,0 +1,58 @@
+{
+  "id": "title",
+  "scene": "beach",
+  "duration": 11,
+  "cast": {
+    "grandma": {
+      "at": "path-foot",
+      "facing": "right",
+      "scale": 1,
+      "visible": true,
+      "emotion": "neutral"
+    },
+    "pip": {
+      "at": "offLeft",
+      "facing": "right",
+      "scale": 1,
+      "visible": true,
+      "emotion": "neutral"
+    }
+  },
+  "camera": {
+    "zoom": 1
+  },
+  "fadeIn": 1,
+  "fadeOut": 0,
+  "actions": [
+    {
+      "t": 0,
+      "duration": 3.5,
+      "caption": "Pip and the Lighthouse",
+      "captionStyle": "title"
+    },
+    {
+      "t": 1,
+      "duration": 3,
+      "actor": "pip",
+      "do": "walk",
+      "to": "left"
+    },
+    {
+      "t": 4.5,
+      "actor": "pip",
+      "say": "Grandma, why is the lighthouse dark?",
+      "emotion": "surprised"
+    },
+    {
+      "t": 5,
+      "actor": "pip",
+      "do": "point"
+    },
+    {
+      "t": 8,
+      "actor": "grandma",
+      "say": "Come and see, Pip.",
+      "emotion": "sad"
+    }
+  ]
+}

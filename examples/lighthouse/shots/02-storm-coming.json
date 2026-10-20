@@ -1,0 +1,72 @@
+{
+  "id": "storm-coming",
+  "scene": "beach",
+  "duration": 13,
+  "cast": {
+    "grandma": {
+      "at": "path-foot",
+      "facing": "right",
+      "scale": 1,
+      "visible": true,
+      "emotion": "sad"
+    },
+    "pip": {
+      "at": "left",
+      "facing": "right",
+      "scale": 1,
+      "visible": true,
+      "emotion": "neutral"
+    }
+  },
+  "camera": {
+    "zoom": 1
+  },
+  "fadeIn": 0,
+  "fadeOut": 0,
+  "actions": [
+    {
+      "t": 0.5,
+      "actor": "grandma",
+      "say": "The big lamp has gone out."
+    },
+    {
+      "t": 3,
+      "duration": 1.5,
+      "camera": {
+        "zoom": 1.5,
+        "x": 300,
+        "y": 480
+      }
+    },
+    {
+      "t": 3.8,
+      "actor": "grandma",
+      "say": "And a storm is coming tonight."
+    },
+    {
+      "t": 7.2,
+      "duration": 1,
+      "camera": {
+        "zoom": 1,
+        "x": 640,
+        "y": 360
+      }
+    },
+    {
+      "t": 7.5,
+      "actor": "pip",
+      "do": "point"
+    },
+    {
+      "t": 7.8,
+      "actor": "pip",
+      "say": "Oh no! The fishing boat is still out!",
+      "bubble": "shout"
+    },
+    {
+      "t": 11.5,
+      "actor": "grandma",
+      "do": "shake"
+    }
+  ]
+}

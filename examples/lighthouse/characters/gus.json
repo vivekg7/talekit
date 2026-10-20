@@ -1,0 +1,26 @@
+{
+  "id": "gus",
+  "name": "Gus the seagull",
+  "rig": "simple",
+  "height": 120,
+  "colors": {
+    "feather": "#f7f7f7",
+    "wing": "#b8bfc6",
+    "beak": "#f4a300",
+    "leg": "#f4a300"
+  },
+  "parts": {
+    "body": "<g><path d='M80 176 L74 198' stroke='{leg}' stroke-width='6' stroke-linecap='round'/><path d='M112 176 L118 198' stroke='{leg}' stroke-width='6' stroke-linecap='round'/><path d='M62 198 L86 198' stroke='{leg}' stroke-width='6' stroke-linecap='round'/><path d='M106 198 L130 198' stroke='{leg}' stroke-width='6' stroke-linecap='round'/><path d='M30 120 L60 112 L52 140 Z' fill='{wing}'/><ellipse cx='96' cy='140' rx='62' ry='40' fill='{feather}'/><path d='M48 128 Q96 108 140 146 Q104 160 48 128 Z' fill='{wing}'/><circle cx='138' cy='96' r='30' fill='{feather}'/><path d='M164 92 L196 100 L164 108 Z' fill='{beak}'/><path d='M164 100 L190 100' stroke='#c27d00' stroke-width='2'/></g>",
+    "eyes": {
+      "open": "<g><circle cx='146' cy='90' r='6' fill='#fff'/><circle cx='148' cy='90' r='3.5' fill='#222'/></g>",
+      "closed": "<path d='M140 90 Q146 94 152 90' stroke='#222' stroke-width='2' fill='none'/>",
+      "wide": "<g><circle cx='146' cy='90' r='8' fill='#fff'/><circle cx='148' cy='90' r='3' fill='#222'/></g>",
+      "happy": "<path d='M140 92 Q146 84 152 92' stroke='#222' stroke-width='2.5' fill='none'/>"
+    },
+    "mouth": {
+      "closed": "",
+      "open": "<path d='M164 100 L190 104 L164 112 Z' fill='#d98c00'/>",
+      "smile": "<path d='M166 102 Q176 106 184 101' stroke='#c27d00' stroke-width='2' fill='none'/>"
+    }
+  }
+}

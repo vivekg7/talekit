@@ -1,0 +1,83 @@
+{
+  "id": "find-lantern",
+  "scene": "beach",
+  "duration": 12,
+  "cast": {
+    "pip": {
+      "at": "rocks",
+      "facing": "right",
+      "scale": 1,
+      "visible": true,
+      "emotion": "happy"
+    },
+    "gus": {
+      "at": "rock-top",
+      "facing": "left",
+      "scale": 1,
+      "visible": true,
+      "emotion": "neutral"
+    },
+    "lantern": {
+      "at": {
+        "x": 1030,
+        "y": 600
+      },
+      "facing": "right",
+      "scale": 1,
+      "visible": false,
+      "emotion": "neutral"
+    }
+  },
+  "camera": {
+    "zoom": 1
+  },
+  "fadeIn": 0,
+  "fadeOut": 0,
+  "actions": [
+    {
+      "t": 0.5,
+      "actor": "pip",
+      "say": "Where is it, Gus?"
+    },
+    {
+      "t": 3.5,
+      "actor": "gus",
+      "do": "point"
+    },
+    {
+      "t": 3.5,
+      "actor": "gus",
+      "say": "There! Between the rocks!"
+    },
+    {
+      "t": 4,
+      "duration": 1.5,
+      "camera": {
+        "zoom": 1.7,
+        "x": 1000,
+        "y": 560
+      }
+    },
+    {
+      "t": 5,
+      "actor": "lantern",
+      "do": "appear"
+    },
+    {
+      "t": 6.5,
+      "actor": "pip",
+      "do": "jump"
+    },
+    {
+      "t": 6.8,
+      "actor": "pip",
+      "say": "Found it!",
+      "bubble": "shout"
+    },
+    {
+      "t": 9.5,
+      "actor": "gus",
+      "do": "bounce"
+    }
+  ]
+}

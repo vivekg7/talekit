@@ -1,0 +1,84 @@
+{
+  "id": "climb",
+  "scene": "tower",
+  "duration": 10,
+  "cast": {
+    "pip": {
+      "at": "stairs",
+      "facing": "right",
+      "scale": 1,
+      "visible": true,
+      "emotion": "happy"
+    },
+    "lantern": {
+      "at": {
+        "x": 300,
+        "y": 610
+      },
+      "facing": "right",
+      "scale": 1,
+      "visible": true,
+      "emotion": "neutral"
+    },
+    "gus": {
+      "at": "stairs",
+      "facing": "right",
+      "scale": 1,
+      "visible": false,
+      "emotion": "neutral"
+    }
+  },
+  "camera": {
+    "zoom": 1
+  },
+  "fadeIn": 0.5,
+  "fadeOut": 0,
+  "actions": [
+    {
+      "t": 0,
+      "duration": 3.5,
+      "caption": "Up the winding stairs they went, round and round…"
+    },
+    {
+      "t": 1,
+      "duration": 3,
+      "actor": "pip",
+      "do": "walk",
+      "to": "beside-pedestal"
+    },
+    {
+      "t": 1,
+      "duration": 3,
+      "actor": "lantern",
+      "do": "move",
+      "to": {
+        "x": 525,
+        "y": 610
+      }
+    },
+    {
+      "t": 4.5,
+      "actor": "gus",
+      "do": "appear"
+    },
+    {
+      "t": 4.8,
+      "duration": 2.5,
+      "actor": "gus",
+      "do": "fly",
+      "to": "window"
+    },
+    {
+      "t": 5,
+      "actor": "pip",
+      "say": "Nearly there, Gus!"
+    },
+    {
+      "t": 7.5,
+      "duration": 1.5,
+      "actor": "lantern",
+      "do": "move",
+      "to": "pedestal-top"
+    }
+  ]
+}
