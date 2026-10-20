@@ -1,0 +1,109 @@
+{
+  "id": "leap",
+  "scene": "well",
+  "duration": 11,
+  "cast": {
+    "rabbit": {
+      "at": "rabbit-spot",
+      "facing": "right",
+      "scale": 1,
+      "visible": true,
+      "emotion": "neutral"
+    },
+    "lion": {
+      "at": {
+        "x": 700,
+        "y": 672
+      },
+      "facing": "right",
+      "scale": 1,
+      "visible": true,
+      "emotion": "angry"
+    },
+    "reflection": {
+      "at": "well-mouth",
+      "facing": "right",
+      "scale": 1,
+      "visible": true,
+      "emotion": "angry"
+    }
+  },
+  "camera": {
+    "zoom": 1.6,
+    "x": 780,
+    "y": 520
+  },
+  "fadeIn": 0,
+  "fadeOut": 0,
+  "actions": [
+    {
+      "t": 0.2,
+      "duration": 1.8,
+      "actor": "lion",
+      "say": "Then FIGHT me!",
+      "bubble": "shout"
+    },
+    {
+      "t": 2.2,
+      "duration": 0.9,
+      "actor": "lion",
+      "do": "jump",
+      "to": {
+        "x": 840,
+        "y": 650
+      }
+    },
+    {
+      "t": 3.1,
+      "duration": 0.7,
+      "actor": "lion",
+      "do": "move",
+      "to": {
+        "x": 840,
+        "y": 730,
+        "scale": 0.3
+      }
+    },
+    {
+      "t": 3.2,
+      "actor": "reflection",
+      "do": "disappear"
+    },
+    {
+      "t": 3.8,
+      "duration": 0.1,
+      "actor": "lion",
+      "do": "disappear"
+    },
+    {
+      "t": 4,
+      "duration": 3.5,
+      "caption": "SPLASH! The lion was never seen again."
+    },
+    {
+      "t": 4.5,
+      "duration": 1.5,
+      "camera": {
+        "zoom": 1,
+        "x": 640,
+        "y": 360
+      }
+    },
+    {
+      "t": 6,
+      "actor": "rabbit",
+      "emotion": "happy"
+    },
+    {
+      "t": 6.5,
+      "actor": "rabbit",
+      "do": "jump"
+    },
+    {
+      "t": 7.8,
+      "duration": 3,
+      "actor": "rabbit",
+      "say": "A king, beaten by his own reflection."
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "id": "peace",
+  "scene": "clearing",
+  "duration": 10,
+  "cast": {
+    "rabbit": {
+      "at": "court",
+      "facing": "left",
+      "scale": 1,
+      "visible": true,
+      "emotion": "happy"
+    },
+    "deer": {
+      "at": "crowd-front",
+      "facing": "right",
+      "scale": 1,
+      "visible": true,
+      "emotion": "happy"
+    },
+    "monkey": {
+      "at": "crowd-back",
+      "facing": "right",
+      "scale": 1,
+      "visible": true,
+      "emotion": "happy"
+    }
+  },
+  "camera": {
+    "zoom": 1
+  },
+  "fadeIn": 0,
+  "fadeOut": 1.5,
+  "actions": [
+    {
+      "t": 0,
+      "duration": 3.5,
+      "caption": "And the animals of the forest lived in peace."
+    },
+    {
+      "t": 0.8,
+      "actor": "deer",
+      "do": "jump"
+    },
+    {
+      "t": 1.2,
+      "actor": "monkey",
+      "do": "bounce"
+    },
+    {
+      "t": 1.6,
+      "actor": "rabbit",
+      "do": "jump"
+    },
+    {
+      "t": 2.5,
+      "duration": 2.6,
+      "actor": "deer",
+      "say": "Hurray for the clever rabbit!"
+    },
+    {
+      "t": 5.4,
+      "duration": 2.6,
+      "actor": "rabbit",
+      "say": "Wits beat claws, my friends."
+    },
+    {
+      "t": 7,
+      "duration": 3,
+      "caption": "The End",
+      "captionStyle": "title"
+    }
+  ]
+}

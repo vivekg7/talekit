@@ -1,0 +1,56 @@
+{
+  "id": "lead",
+  "scene": "path",
+  "duration": 8,
+  "cast": {
+    "rabbit": {
+      "at": "start",
+      "facing": "right",
+      "scale": 1,
+      "visible": true,
+      "emotion": "neutral"
+    },
+    "lion": {
+      "at": "offLeft",
+      "facing": "right",
+      "scale": 1,
+      "visible": true,
+      "emotion": "angry"
+    }
+  },
+  "camera": {
+    "zoom": 1
+  },
+  "fadeIn": 0,
+  "fadeOut": 0,
+  "actions": [
+    {
+      "t": 0,
+      "duration": 3,
+      "caption": "The rabbit led the lion to an old stone well."
+    },
+    {
+      "t": 0.3,
+      "duration": 4.5,
+      "actor": "rabbit",
+      "do": "run",
+      "to": "end"
+    },
+    {
+      "t": 0.3,
+      "duration": 4.5,
+      "actor": "lion",
+      "do": "run",
+      "to": {
+        "x": 880,
+        "y": 664
+      }
+    },
+    {
+      "t": 5.2,
+      "duration": 2.6,
+      "actor": "lion",
+      "say": "Where is he? I will tear him apart!"
+    }
+  ]
+}

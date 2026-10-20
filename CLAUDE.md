@@ -19,6 +19,8 @@ reasoning are in `docs/PLAN.md`. Read both before changing the data model.
 - `examples/lost-kite/` — one-minute story used as the integration check.
   `examples/lighthouse/` — written through the MCP tools as the phase 6 run;
   it exercises from-scratch characters, custom variants and the carry trick.
+  `examples/clever-rabbit/` — made by a subagent given only the story and
+  the tool; an all-animal cast on the simple rig, kept as the cold-run fixture.
 
 ## Rules
 

@@ -1,0 +1,63 @@
+{
+  "id": "late",
+  "scene": "clearing",
+  "duration": 11,
+  "cast": {
+    "lion": {
+      "at": "den",
+      "facing": "left",
+      "scale": 1,
+      "visible": true,
+      "emotion": "angry"
+    },
+    "rabbit": {
+      "at": "path-left",
+      "facing": "right",
+      "scale": 1,
+      "visible": true,
+      "emotion": "neutral"
+    }
+  },
+  "camera": {
+    "zoom": 1
+  },
+  "fadeIn": 0,
+  "fadeOut": 0,
+  "actions": [
+    {
+      "t": 0,
+      "duration": 3,
+      "caption": "The sun was high. The rabbit was very late."
+    },
+    {
+      "t": 0.3,
+      "duration": 3.7,
+      "actor": "rabbit",
+      "do": "walk",
+      "to": "court"
+    },
+    {
+      "t": 4.2,
+      "duration": 2.8,
+      "actor": "lion",
+      "say": "WHY ARE YOU LATE?",
+      "bubble": "shout"
+    },
+    {
+      "t": 4.3,
+      "actor": "rabbit",
+      "emotion": "scared"
+    },
+    {
+      "t": 7.2,
+      "actor": "rabbit",
+      "do": "bounce"
+    },
+    {
+      "t": 7.4,
+      "duration": 3.4,
+      "actor": "rabbit",
+      "say": "Forgive me, king! I was stopped on the way."
+    }
+  ]
+}

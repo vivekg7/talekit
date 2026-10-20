@@ -1,0 +1,69 @@
+{
+  "id": "rival",
+  "scene": "clearing",
+  "duration": 14,
+  "cast": {
+    "lion": {
+      "at": "den",
+      "facing": "left",
+      "scale": 1,
+      "visible": true,
+      "emotion": "angry"
+    },
+    "rabbit": {
+      "at": {
+        "x": 760,
+        "y": 664
+      },
+      "facing": "right",
+      "scale": 1,
+      "visible": true,
+      "emotion": "scared"
+    }
+  },
+  "camera": {
+    "zoom": 1.3,
+    "x": 860,
+    "y": 540
+  },
+  "fadeIn": 0,
+  "fadeOut": 0,
+  "actions": [
+    {
+      "t": 0.2,
+      "duration": 3,
+      "actor": "rabbit",
+      "say": "Another lion stopped me on the way!"
+    },
+    {
+      "t": 3.5,
+      "duration": 3.5,
+      "actor": "rabbit",
+      "say": "He says HE is the true king of this forest."
+    },
+    {
+      "t": 7.3,
+      "duration": 3.4,
+      "actor": "rabbit",
+      "say": "He wanted to eat me. I escaped to warn you."
+    },
+    {
+      "t": 7.3,
+      "actor": "lion",
+      "emotion": "surprised"
+    },
+    {
+      "t": 10.8,
+      "actor": "lion",
+      "do": "jump"
+    },
+    {
+      "t": 11,
+      "duration": 2.8,
+      "actor": "lion",
+      "say": "ANOTHER king? Take me to him!",
+      "bubble": "shout",
+      "emotion": "angry"
+    }
+  ]
+}

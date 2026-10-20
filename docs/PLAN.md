@@ -75,8 +75,8 @@ parts }`. Each part is an SVG fragment string, or a map of named variants
 - **Shot**: `{ id, scene, duration, cast, camera?, fadeIn?, fadeOut?,
 actions }`. Cast places characters at anchors. Actions are
   `{ t, actor?, do?, to?, duration?, say?, emotion?, caption?, camera?, set? }`.
-  Verbs: walk, run, move, fly, jump, wave, nod, shake, point, sit, stand,
-  bounce, spin, appear, disappear. Dialogue is `say` (speech or thought
+  Verbs: walk, run, move, fly, jump, wave, nod, shake, point, tremble, sit,
+  stand, bounce, spin, appear, disappear. Dialogue is `say` (speech or thought
   bubble); it also drives the mouth. The movie is the shots in filename order.
 
 ## Phases
@@ -90,7 +90,7 @@ actions }`. Cast places characters at anchors. Actions are
       copy-and-recolour starting points. A one-minute example story that
       doubles as the integration test.
 - [x] **Phase 4 — MCP server.** `get_guide`, `create_project`, `project_info`,
-      `get_item`, `list_library`, `copy_from_library`, `write_character`,
+      `get_item`, `list_library`, `get_library_item`, `copy_from_library`, `write_character`,
       `write_scene`, `write_shot`, `delete_item`, `preview_frame`,
       `preview_shot`, `render`. Every write validates and returns an image.
 - [x] **Phase 5 — Viewer.** `talekit serve` with a shot picker and scrubber.
@@ -101,8 +101,16 @@ actions }`. Cast places characters at anchors. Actions are
       (now allowed in a variant map), custom part variants were invisible on
       the pose sheet (now shown), the guide understated `say` duration (fixed,
       and `write_shot` now warns on overlapping speech), and no way to carry a
-      prop (documented workaround; proper attach is below). Repeat with a
-      different agent before calling the phase done.
+      prop (documented workaround; proper attach is below).
+      Second pass: a fresh subagent given only a Panchatantra story and the
+      tool made `examples/clever-rabbit` (five animals from scratch, 101 s)
+      with two staging rewrites. Its report led to: tool argument names in
+      the guide, a worked simple-rig box and `get_library_item`, draw order
+      documented, face fallbacks listed and labelled on the pose sheet,
+      larger contact-sheet frames, a film sheet from `render`, a leaning
+      `point` and a `tremble` verb for the simple rig, the scene ghost sized
+      to the tallest character, and the scale tween documented. Next: a run
+      with a non-Claude agent, and a story that needs humanoid interaction.
 
 ## Later (deliberately not now)
 

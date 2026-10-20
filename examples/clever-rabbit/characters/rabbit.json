@@ -1,0 +1,30 @@
+{
+  "id": "rabbit",
+  "name": "Rabbit",
+  "description": "Small grey rabbit with tall ears and a cotton tail; faces right.",
+  "rig": "simple",
+  "height": 100,
+  "colors": {
+    "fur": "#bfc3c9",
+    "furDark": "#8f949b",
+    "inner": "#f3b6c4",
+    "nose": "#d46a7e"
+  },
+  "parts": {
+    "body": "<circle cx='46' cy='150' r='14' fill='#fff'/><ellipse cx='96' cy='152' rx='54' ry='40' fill='{fur}'/><ellipse cx='78' cy='192' rx='24' ry='8' fill='{furDark}'/><ellipse cx='128' cy='192' rx='24' ry='8' fill='{furDark}'/><path d='M124 92 Q112 18 134 16 Q150 28 144 94 Z' fill='{fur}'/><path d='M128 88 Q120 34 134 30 Q142 40 140 88 Z' fill='{inner}'/><path d='M146 92 Q152 14 172 20 Q178 40 162 96 Z' fill='{fur}'/><path d='M150 88 Q156 34 168 32 Q172 44 160 90 Z' fill='{inner}'/><circle cx='144' cy='112' r='34' fill='{fur}'/><ellipse cx='164' cy='124' rx='14' ry='10' fill='#dfe2e6'/><polygon points='170,116 178,116 174,122' fill='{nose}'/><path d='M176 124 L196 118 M176 126 L196 128' stroke='{furDark}' stroke-width='1.5' stroke-linecap='round'/>",
+    "eyes": {
+      "open": "<circle cx='140' cy='106' r='4.5' fill='#222'/><circle cx='141.5' cy='104.5' r='1.5' fill='#fff'/><circle cx='160' cy='104' r='4.5' fill='#222'/><circle cx='161.5' cy='102.5' r='1.5' fill='#fff'/>",
+      "closed": "<path d='M136 107 Q140 110 144 107' stroke='#222' stroke-width='2' fill='none' stroke-linecap='round'/><path d='M156 105 Q160 108 164 105' stroke='#222' stroke-width='2' fill='none' stroke-linecap='round'/>",
+      "wide": "<circle cx='140' cy='106' r='7' fill='#fff'/><circle cx='141' cy='107' r='3.5' fill='#222'/><circle cx='160' cy='104' r='7' fill='#fff'/><circle cx='161' cy='105' r='3.5' fill='#222'/>",
+      "happy": "<path d='M136 107 Q140 101 144 107' stroke='#222' stroke-width='2' fill='none' stroke-linecap='round'/><path d='M156 105 Q160 99 164 105' stroke='#222' stroke-width='2' fill='none' stroke-linecap='round'/>",
+      "sad": "<circle cx='140' cy='106' r='4' fill='#222'/><circle cx='160' cy='104' r='4' fill='#222'/><path d='M134 98 L146 102' stroke='{furDark}' stroke-width='2.5' stroke-linecap='round'/><path d='M166 96 L154 101' stroke='{furDark}' stroke-width='2.5' stroke-linecap='round'/>"
+    },
+    "mouth": {
+      "closed": "<path d='M168 130 Q172 134 176 130' stroke='#7a4a52' stroke-width='2' fill='none' stroke-linecap='round'/>",
+      "smile": "<path d='M164 129 Q172 138 180 129' stroke='#7a4a52' stroke-width='2' fill='none' stroke-linecap='round'/>",
+      "open": "<ellipse cx='172' cy='133' rx='6' ry='5' fill='#7a2a3a'/>",
+      "sad": "<path d='M166 134 Q172 128 178 134' stroke='#7a4a52' stroke-width='2' fill='none' stroke-linecap='round'/>",
+      "scared": "<ellipse cx='172' cy='134' rx='4' ry='6' fill='#7a2a3a'/>"
+    }
+  }
+}

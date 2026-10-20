@@ -1,0 +1,55 @@
+{
+  "id": "slow-walk",
+  "scene": "path",
+  "duration": 10,
+  "cast": {
+    "rabbit": {
+      "at": "start",
+      "facing": "right",
+      "scale": 1,
+      "visible": true,
+      "emotion": "sad"
+    }
+  },
+  "camera": {
+    "zoom": 1
+  },
+  "fadeIn": 0,
+  "fadeOut": 0,
+  "actions": [
+    {
+      "t": 0,
+      "duration": 3,
+      "caption": "One day it was the turn of a small rabbit."
+    },
+    {
+      "t": 0.5,
+      "duration": 6.5,
+      "actor": "rabbit",
+      "do": "walk",
+      "to": "middle"
+    },
+    {
+      "t": 3.5,
+      "duration": 3.5,
+      "caption": "He walked very, very slowly, and he thought."
+    },
+    {
+      "t": 7.2,
+      "duration": 2.8,
+      "actor": "rabbit",
+      "say": "A lion who fears nothing... hmm.",
+      "bubble": "thought",
+      "emotion": "neutral"
+    },
+    {
+      "t": 6.4,
+      "duration": 1.5,
+      "camera": {
+        "zoom": 1.7,
+        "x": 640,
+        "y": 560
+      }
+    }
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "id": "bargain",
+  "scene": "clearing",
+  "duration": 13,
+  "cast": {
+    "lion": {
+      "at": "den",
+      "facing": "left",
+      "scale": 1,
+      "visible": true,
+      "emotion": "angry"
+    },
+    "deer": {
+      "at": "crowd-front",
+      "facing": "right",
+      "scale": 1,
+      "visible": true,
+      "emotion": "scared"
+    },
+    "monkey": {
+      "at": "crowd-back",
+      "facing": "right",
+      "scale": 1,
+      "visible": true,
+      "emotion": "scared"
+    }
+  },
+  "camera": {
+    "zoom": 1
+  },
+  "fadeIn": 0,
+  "fadeOut": 0,
+  "actions": [
+    {
+      "t": 0,
+      "duration": 3.5,
+      "caption": "The frightened animals went to the lion with a bargain."
+    },
+    {
+      "t": 0.5,
+      "duration": 3.5,
+      "actor": "deer",
+      "do": "walk",
+      "to": {
+        "x": 760,
+        "y": 664
+      }
+    },
+    {
+      "t": 4.3,
+      "duration": 4,
+      "actor": "deer",
+      "say": "Great king, each day one of us will come to you as food."
+    },
+    {
+      "t": 8.6,
+      "duration": 2,
+      "actor": "deer",
+      "say": "Only hunt no more."
+    },
+    {
+      "t": 10.8,
+      "actor": "lion",
+      "do": "nod"
+    },
+    {
+      "t": 10.8,
+      "duration": 2.2,
+      "actor": "lion",
+      "say": "Agreed. But never be late!",
+      "emotion": "neutral"
+    }
+  ]
+}

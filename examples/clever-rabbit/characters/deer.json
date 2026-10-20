@@ -1,0 +1,29 @@
+{
+  "id": "deer",
+  "name": "Deer",
+  "description": "Slim spotted deer with small antlers; faces right.",
+  "rig": "simple",
+  "height": 190,
+  "colors": {
+    "fur": "#c98a4b",
+    "furLight": "#f0d3a5",
+    "antler": "#6b4a2a",
+    "nose": "#2b2b2b"
+  },
+  "parts": {
+    "body": "<path d='M92 38 L96 70 M92 38 L78 22 M92 38 L104 24 M88 52 L74 44' stroke='{antler}' stroke-width='5' stroke-linecap='round' fill='none'/><path d='M30 118 Q14 110 20 96' stroke='{fur}' stroke-width='8' stroke-linecap='round' fill='none'/><rect x='36' y='140' width='14' height='60' rx='6' fill='{fur}'/><rect x='118' y='140' width='14' height='60' rx='6' fill='{fur}'/><ellipse cx='84' cy='124' rx='56' ry='34' fill='{fur}'/><rect x='52' y='146' width='14' height='54' rx='6' fill='{fur}'/><rect x='134' y='146' width='14' height='54' rx='6' fill='{fur}'/><g fill='{furLight}'><circle cx='70' cy='118' r='5'/><circle cx='92' cy='110' r='5'/><circle cx='84' cy='132' r='5'/><circle cx='108' cy='124' r='5'/></g><path d='M118 110 Q110 70 102 60' stroke='{fur}' stroke-width='26' stroke-linecap='round' fill='none'/><ellipse cx='76' cy='66' rx='12' ry='7' fill='{fur}'/><ellipse cx='120' cy='60' rx='12' ry='7' fill='{fur}'/><circle cx='104' cy='64' r='24' fill='{fur}'/><ellipse cx='122' cy='76' rx='16' ry='11' fill='{furLight}'/><circle cx='134' cy='72' r='5' fill='{nose}'/>",
+    "eyes": {
+      "open": "<circle cx='98' cy='60' r='4.5' fill='#222'/><circle cx='99.5' cy='58.5' r='1.5' fill='#fff'/><circle cx='116' cy='58' r='4.5' fill='#222'/><circle cx='117.5' cy='56.5' r='1.5' fill='#fff'/>",
+      "closed": "<path d='M94 61 Q98 64 102 61' stroke='#222' stroke-width='2' fill='none' stroke-linecap='round'/><path d='M112 59 Q116 62 120 59' stroke='#222' stroke-width='2' fill='none' stroke-linecap='round'/>",
+      "wide": "<circle cx='98' cy='60' r='7' fill='#fff'/><circle cx='99' cy='61' r='3.5' fill='#222'/><circle cx='116' cy='58' r='7' fill='#fff'/><circle cx='117' cy='59' r='3.5' fill='#222'/>",
+      "happy": "<path d='M94 61 Q98 55 102 61' stroke='#222' stroke-width='2' fill='none' stroke-linecap='round'/><path d='M112 59 Q116 53 120 59' stroke='#222' stroke-width='2' fill='none' stroke-linecap='round'/>"
+    },
+    "mouth": {
+      "closed": "<path d='M124 84 Q130 88 136 84' stroke='#5a3a2a' stroke-width='2' fill='none' stroke-linecap='round'/>",
+      "smile": "<path d='M122 83 Q130 91 138 83' stroke='#5a3a2a' stroke-width='2' fill='none' stroke-linecap='round'/>",
+      "open": "<ellipse cx='130' cy='86' rx='6' ry='5' fill='#6e2a2a'/>",
+      "sad": "<path d='M124 88 Q130 82 136 88' stroke='#5a3a2a' stroke-width='2' fill='none' stroke-linecap='round'/>",
+      "scared": "<ellipse cx='130' cy='88' rx='4' ry='6' fill='#6e2a2a'/>"
+    }
+  }
+}

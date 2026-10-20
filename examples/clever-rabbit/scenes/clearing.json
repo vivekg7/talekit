@@ -1,0 +1,34 @@
+{
+  "id": "clearing",
+  "name": "Lion's clearing",
+  "description": "Forest clearing with a dark tree line and a rocky den on the right where the lion sits.",
+  "svg": "<defs><linearGradient id='clearing-sky' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#f6c86a'/><stop offset='1' stop-color='#cfe8c8'/></linearGradient><linearGradient id='clearing-grass' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#7fbf5a'/><stop offset='1' stop-color='#4f8f3a'/></linearGradient></defs><rect width='1280' height='720' fill='url(#clearing-sky)'/><circle cx='200' cy='130' r='56' fill='#fff2b0'/><path d='M0 420 Q320 300 640 400 T1280 380 L1280 720 L0 720 Z' fill='#3f7a46'/><rect x='47' y='423' width='26' height='117' rx='7.8' fill='#5c3a21'/><circle cx='60' cy='378.8' r='78' fill='#2f6b3a'/><circle cx='8' cy='415.2' r='57.2' fill='#2f6b3a'/><circle cx='112' cy='410' r='62.4' fill='#2f6b3a'/><circle cx='60' cy='326.8' r='46.8' fill='#2f6b3a'/><rect x='185' y='405' width='30' height='135' rx='9' fill='#5c3a21'/><circle cx='200' cy='354' r='90' fill='#2f6b3a'/><circle cx='140' cy='396' r='66' fill='#2f6b3a'/><circle cx='260' cy='390' r='72' fill='#2f6b3a'/><circle cx='200' cy='294' r='54' fill='#2f6b3a'/><rect x='313' y='387' width='34' height='153' rx='10.2' fill='#5c3a21'/><circle cx='330' cy='329.2' r='102' fill='#2f6b3a'/><circle cx='262' cy='376.8' r='74.8' fill='#2f6b3a'/><circle cx='398' cy='370' r='81.6' fill='#2f6b3a'/><circle cx='330' cy='261.2' r='61.199999999999996' fill='#2f6b3a'/><rect x='457' y='423' width='26' height='117' rx='7.8' fill='#5c3a21'/><circle cx='470' cy='378.8' r='78' fill='#2f6b3a'/><circle cx='418' cy='415.2' r='57.2' fill='#2f6b3a'/><circle cx='522' cy='410' r='62.4' fill='#2f6b3a'/><circle cx='470' cy='326.8' r='46.8' fill='#2f6b3a'/><rect x='585' y='405' width='30' height='135' rx='9' fill='#5c3a21'/><circle cx='600' cy='354' r='90' fill='#2f6b3a'/><circle cx='540' cy='396' r='66' fill='#2f6b3a'/><circle cx='660' cy='390' r='72' fill='#2f6b3a'/><circle cx='600' cy='294' r='54' fill='#2f6b3a'/><rect x='723' y='387' width='34' height='153' rx='10.2' fill='#5c3a21'/><circle cx='740' cy='329.2' r='102' fill='#2f6b3a'/><circle cx='672' cy='376.8' r='74.8' fill='#2f6b3a'/><circle cx='808' cy='370' r='81.6' fill='#2f6b3a'/><circle cx='740' cy='261.2' r='61.199999999999996' fill='#2f6b3a'/><rect x='867' y='423' width='26' height='117' rx='7.8' fill='#5c3a21'/><circle cx='880' cy='378.8' r='78' fill='#2f6b3a'/><circle cx='828' cy='415.2' r='57.2' fill='#2f6b3a'/><circle cx='932' cy='410' r='62.4' fill='#2f6b3a'/><circle cx='880' cy='326.8' r='46.8' fill='#2f6b3a'/><rect x='1005' y='405' width='30' height='135' rx='9' fill='#5c3a21'/><circle cx='1020' cy='354' r='90' fill='#2f6b3a'/><circle cx='960' cy='396' r='66' fill='#2f6b3a'/><circle cx='1080' cy='390' r='72' fill='#2f6b3a'/><circle cx='1020' cy='294' r='54' fill='#2f6b3a'/><rect x='1143' y='387' width='34' height='153' rx='10.2' fill='#5c3a21'/><circle cx='1160' cy='329.2' r='102' fill='#2f6b3a'/><circle cx='1092' cy='376.8' r='74.8' fill='#2f6b3a'/><circle cx='1228' cy='370' r='81.6' fill='#2f6b3a'/><circle cx='1160' cy='261.2' r='61.199999999999996' fill='#2f6b3a'/><rect x='1247' y='423' width='26' height='117' rx='7.8' fill='#5c3a21'/><circle cx='1260' cy='378.8' r='78' fill='#2f6b3a'/><circle cx='1208' cy='415.2' r='57.2' fill='#2f6b3a'/><circle cx='1312' cy='410' r='62.4' fill='#2f6b3a'/><circle cx='1260' cy='326.8' r='46.8' fill='#2f6b3a'/><path d='M0 560 Q320 520 640 550 T1280 540 L1280 720 L0 720 Z' fill='url(#clearing-grass)'/><g><ellipse cx='1080' cy='630' rx='230' ry='60' fill='#6d6a63'/><path d='M860 630 Q880 420 1060 400 Q1240 400 1280 520 L1280 640 Z' fill='#8a867c'/><path d='M900 630 Q930 480 1060 460 Q1180 470 1220 630 Z' fill='#2d2a26'/><ellipse cx='1080' cy='635' rx='140' ry='22' fill='#403d38'/><path d='M960 440 Q1000 380 1080 420' stroke='#a5a198' stroke-width='10' stroke-linecap='round' fill='none'/></g><g fill='#9bd36a'><ellipse cx='120' cy='690' rx='60' ry='14'/><ellipse cx='500' cy='700' rx='80' ry='14'/><ellipse cx='760' cy='690' rx='60' ry='12'/></g><g fill='#d8e86a'><circle cx='90' cy='660' r='6'/><circle cx='420' cy='676' r='6'/><circle cx='560' cy='690' r='6'/></g>",
+  "ground": 660,
+  "anchors": {
+    "den": {
+      "x": 1070,
+      "y": 650,
+      "scale": 1
+    },
+    "court": {
+      "x": 640,
+      "y": 665,
+      "scale": 1
+    },
+    "crowd-front": {
+      "x": 200,
+      "y": 670,
+      "scale": 1
+    },
+    "crowd-back": {
+      "x": 400,
+      "y": 600,
+      "scale": 0.8
+    },
+    "path-left": {
+      "x": 120,
+      "y": 660,
+      "scale": 1
+    }
+  }
+}

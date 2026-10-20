@@ -1,0 +1,104 @@
+{
+  "id": "well",
+  "scene": "well",
+  "duration": 15,
+  "cast": {
+    "rabbit": {
+      "at": "arrive",
+      "facing": "right",
+      "scale": 1,
+      "visible": true,
+      "emotion": "neutral"
+    },
+    "lion": {
+      "at": "offLeft",
+      "facing": "right",
+      "scale": 1,
+      "visible": true,
+      "emotion": "angry"
+    },
+    "reflection": {
+      "at": "well-mouth",
+      "facing": "right",
+      "scale": 1,
+      "visible": false,
+      "emotion": "angry"
+    }
+  },
+  "camera": {
+    "zoom": 1
+  },
+  "fadeIn": 0,
+  "fadeOut": 0,
+  "actions": [
+    {
+      "t": 0,
+      "duration": 2.5,
+      "actor": "rabbit",
+      "do": "walk",
+      "to": "rabbit-spot"
+    },
+    {
+      "t": 0.8,
+      "duration": 3,
+      "actor": "lion",
+      "do": "walk",
+      "to": "well-side"
+    },
+    {
+      "t": 4.1,
+      "actor": "rabbit",
+      "do": "point"
+    },
+    {
+      "t": 4.1,
+      "duration": 2.8,
+      "actor": "rabbit",
+      "say": "He lives down there, in that well."
+    },
+    {
+      "t": 7.1,
+      "duration": 1,
+      "actor": "lion",
+      "do": "walk",
+      "to": {
+        "x": 700,
+        "y": 672
+      }
+    },
+    {
+      "t": 7.8,
+      "duration": 1.5,
+      "camera": {
+        "zoom": 1.6,
+        "x": 780,
+        "y": 520
+      }
+    },
+    {
+      "t": 8.3,
+      "actor": "reflection",
+      "do": "appear"
+    },
+    {
+      "t": 8.4,
+      "actor": "lion",
+      "emotion": "surprised"
+    },
+    {
+      "t": 9.2,
+      "duration": 2.8,
+      "actor": "lion",
+      "say": "A lion! YOU call yourself king?",
+      "bubble": "shout",
+      "emotion": "angry"
+    },
+    {
+      "t": 12.2,
+      "duration": 2.4,
+      "actor": "reflection",
+      "say": "...yourself king? ...KING?",
+      "bubble": "shout"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "id": "monkey",
+  "name": "Monkey",
+  "description": "Small brown monkey with a curly tail; faces right.",
+  "rig": "simple",
+  "height": 130,
+  "colors": {
+    "fur": "#8c5a33",
+    "face": "#f0c9a0",
+    "nose": "#3b2419"
+  },
+  "parts": {
+    "body": "<path d='M60 150 Q10 150 20 100 Q28 78 44 90' stroke='{fur}' stroke-width='10' stroke-linecap='round' fill='none'/><ellipse cx='100' cy='150' rx='44' ry='40' fill='{fur}'/><ellipse cx='100' cy='160' rx='26' ry='24' fill='{face}'/><rect x='64' y='160' width='18' height='40' rx='8' fill='{fur}'/><rect x='118' y='160' width='18' height='40' rx='8' fill='{fur}'/><path d='M70 130 Q50 150 58 176' stroke='{fur}' stroke-width='14' stroke-linecap='round' fill='none'/><circle cx='70' cy='92' r='13' fill='{fur}'/><circle cx='70' cy='92' r='7' fill='{face}'/><circle cx='138' cy='90' r='13' fill='{fur}'/><circle cx='138' cy='90' r='7' fill='{face}'/><circle cx='104' cy='92' r='34' fill='{fur}'/><path d='M80 100 Q104 72 128 100 Q130 124 104 128 Q78 124 80 100 Z' fill='{face}'/><path d='M130 140 Q150 150 142 176' stroke='{fur}' stroke-width='14' stroke-linecap='round' fill='none'/>",
+    "eyes": {
+      "open": "<circle cx='94' cy='98' r='4.5' fill='#222'/><circle cx='95.5' cy='96.5' r='1.5' fill='#fff'/><circle cx='114' cy='98' r='4.5' fill='#222'/><circle cx='115.5' cy='96.5' r='1.5' fill='#fff'/>",
+      "closed": "<path d='M90 99 Q94 102 98 99' stroke='#222' stroke-width='2' fill='none' stroke-linecap='round'/><path d='M110 99 Q114 102 118 99' stroke='#222' stroke-width='2' fill='none' stroke-linecap='round'/>",
+      "wide": "<circle cx='94' cy='98' r='7' fill='#fff'/><circle cx='95' cy='99' r='3.5' fill='#222'/><circle cx='114' cy='98' r='7' fill='#fff'/><circle cx='115' cy='99' r='3.5' fill='#222'/>",
+      "happy": "<path d='M90 99 Q94 93 98 99' stroke='#222' stroke-width='2' fill='none' stroke-linecap='round'/><path d='M110 99 Q114 93 118 99' stroke='#222' stroke-width='2' fill='none' stroke-linecap='round'/>"
+    },
+    "mouth": {
+      "closed": "<path d='M98 116 Q104 120 110 116' stroke='{nose}' stroke-width='2' fill='none' stroke-linecap='round'/>",
+      "smile": "<path d='M94 114 Q104 124 114 114' stroke='{nose}' stroke-width='2' fill='none' stroke-linecap='round'/>",
+      "open": "<ellipse cx='104' cy='118' rx='7' ry='5' fill='#6e2a2a'/>",
+      "sad": "<path d='M98 120 Q104 114 110 120' stroke='{nose}' stroke-width='2' fill='none' stroke-linecap='round'/>",
+      "scared": "<ellipse cx='104' cy='119' rx='4' ry='6' fill='#6e2a2a'/>"
+    }
+  }
+}
