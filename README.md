@@ -82,6 +82,7 @@ my-story/
 | `create_project`           | a new project directory                                                 |
 | `project_info`             | characters, scenes, shots and validation problems                       |
 | `list_library`             | built-in characters (kid, grownup, dog) and scenes (park, home, street) |
+| `get_library_item`         | the JSON of a built-in, to learn a rig's layout before drawing          |
 | `copy_from_library`        | copies a built-in under a new id / name / colours, returns its sheet    |
 | `write_character`          | validates, saves, returns a **pose sheet** (every pose and expression)  |
 | `write_scene`              | validates, saves, returns the scene with **anchors marked**             |
@@ -89,7 +90,7 @@ my-story/
 | `get_item` / `delete_item` | read back or remove one file                                            |
 | `preview_frame`            | one frame at a time `t`, optional debug markers                         |
 | `preview_shot`             | contact sheet of a shot                                                 |
-| `render`                   | mp4 of one shot or the whole film                                       |
+| `render`                   | mp4 of one shot or the whole film, plus a **film sheet** (frame/shot)   |
 
 ## CLI
 

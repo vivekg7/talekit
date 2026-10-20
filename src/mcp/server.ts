@@ -7,7 +7,13 @@ import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { composeFrame } from '../engine/compose.js';
 import { movieDuration, STAGE_SHORTCUTS } from '../engine/timeline.js';
-import { CharacterSchema, SceneSchema, ShotSchema, type Project } from '../engine/types.js';
+import {
+  CharacterSchema,
+  SceneSchema,
+  ShotSchema,
+  type Character,
+  type Project,
+} from '../engine/types.js';
 import { LIBRARY } from '../library/index.js';
 import {
   createProject,
@@ -27,7 +33,13 @@ import {
   type Problem,
 } from '../project/validate.js';
 import { rasterize } from '../render/raster.js';
-import { characterSheetSvg, contactSheetSvg, sceneSheetSvg } from '../render/sheets.js';
+import {
+  characterSheetSvg,
+  contactSheetSvg,
+  filmSheetSvg,
+  sceneSheetSvg,
+} from '../render/sheets.js';
+import { faceFallbacks } from '../engine/motion.js';
 import { renderVideo } from '../render/video.js';
 
 type Content =
@@ -40,6 +52,16 @@ const image = (svg: string, width?: number): Content => ({
   mimeType: 'image/png',
 });
 const ok = (...content: Content[]) => ({ content });
+/** Validation text plus which emotions will not get the face variant they prefer. */
+const characterReport = (c: Character, problems: Problem[]): string => {
+  const fallbacks = faceFallbacks(c.parts);
+  return (
+    formatProblems(problems) +
+    (fallbacks.length
+      ? `\nFallbacks (add the variant or accept the substitute):\n- ${fallbacks.join('\n- ')}`
+      : '')
+  );
+};
 const fail = (message: string) => ({ content: [text(message)], isError: true as const });
 
 function guidePath(): string {
@@ -203,6 +225,24 @@ export function buildServer(): McpServer {
   );
 
   server.registerTool(
+    'get_library_item',
+    {
+      title: 'Get library item JSON',
+      description:
+        'The full JSON of a built-in character or scene without copying it into the project. Read a character on the rig you are about to draw (e.g. `dog` for the simple rig) to see how its parts and variants are laid out, then write your own with write_character.',
+      inputSchema: { libraryId: z.string() },
+    },
+    async ({ libraryId }) => {
+      const item = LIBRARY.characters[libraryId] ?? LIBRARY.scenes[libraryId];
+      if (!item)
+        return fail(
+          `no library item '${libraryId}'; available: ${[...Object.keys(LIBRARY.characters), ...Object.keys(LIBRARY.scenes)].join(', ')}`
+        );
+      return ok(text(JSON.stringify(item, null, 2)));
+    }
+  );
+
+  server.registerTool(
     'copy_from_library',
     {
       title: 'Copy from library',
@@ -236,7 +276,7 @@ export function buildServer(): McpServer {
           });
           const file = await saveCharacter(root, character);
           return ok(
-            text(`wrote ${file}\n${formatProblems(validateCharacter(character))}`),
+            text(`wrote ${file}\n${characterReport(character, validateCharacter(character))}`),
             image(characterSheetSvg(character))
           );
         }
@@ -259,7 +299,7 @@ export function buildServer(): McpServer {
     {
       title: 'Write character',
       description:
-        'Validate and save a character (creates or replaces characters/<id>.json). Returns a pose sheet showing every pose and expression the engine can produce, plus one cell per variant of any other part (selected in shots with a `face` action), so you can check proportions, pivots and variants. Fix and re-write until it looks right.',
+        'Validate and save a character (creates or replaces characters/<id>.json). Returns a pose sheet showing every pose and expression the engine can produce, plus one cell per variant of any other part (selected in shots with a `face` action), so you can check proportions, pivots and variants. The text lists emotions that fall back to a substitute variant (e.g. angry eyes → open) because the preferred one is missing. Fix and re-write until it looks right.',
       inputSchema: { path: pathArg, character: CharacterSchema },
     },
     async ({ path: root, character }) => {
@@ -268,7 +308,7 @@ export function buildServer(): McpServer {
         if (hasErrors(problems)) return fail(formatProblems(problems));
         const file = await saveCharacter(root, character);
         return ok(
-          text(`wrote ${file}\n${formatProblems(problems)}`),
+          text(`wrote ${file}\n${characterReport(character, problems)}`),
           image(characterSheetSvg(character))
         );
       } catch (e) {
@@ -322,7 +362,7 @@ export function buildServer(): McpServer {
           .min(1)
           .max(12)
           .optional()
-          .describe('Contact sheet frame count (default 6)'),
+          .describe('Contact sheet frame count (default 6, in two columns of 630px)'),
       },
     },
     async ({ path: root, shot, order, frames }) => {
@@ -429,7 +469,7 @@ export function buildServer(): McpServer {
     {
       title: 'Render video',
       description:
-        'Render the whole movie (or one shot) to an H.264 mp4 in <project>/out/. Validation errors block rendering. A minute of 720p takes about half a minute.',
+        'Render the whole movie (or one shot) to an H.264 mp4 in <project>/out/. Validation errors block rendering. A minute of 720p takes about half a minute. Returns a film sheet: one frame from the middle of each rendered shot, so you can confirm the cut without opening the file.',
       inputSchema: { path: pathArg, shotId: z.string().optional() },
     },
     async ({ path: root, shotId }) => {
@@ -445,7 +485,8 @@ export function buildServer(): McpServer {
         return ok(
           text(
             `rendered ${outPath}: ${r.seconds.toFixed(1)}s, ${r.frames} frames, in ${((Date.now() - started) / 1000).toFixed(1)}s\n${formatProblems(problems)}`
-          )
+          ),
+          image(filmSheetSvg(project, shots))
         );
       } catch (e) {
         return fail((e as Error).message);

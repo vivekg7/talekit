@@ -6,8 +6,10 @@ import { CharacterSchema, SceneSchema, ShotSchema, type Project } from '../src/e
 import { LIBRARY } from '../src/library/index.js';
 import { validateCharacter, validateShot } from '../src/project/validate.js';
 import { rasterize } from '../src/render/raster.js';
-import { characterSheetSvg } from '../src/render/sheets.js';
+import { characterSheetSvg, filmSheetSvg } from '../src/render/sheets.js';
 import { poseFor } from '../src/engine/actor.js';
+import { applyVerb, basePose, faceFallbacks } from '../src/engine/motion.js';
+import { RIGS } from '../src/engine/rigs.js';
 
 function project(shotInput: unknown): Project {
   const shot = ShotSchema.parse(shotInput);
@@ -238,6 +240,50 @@ describe('pose sheet', () => {
     expect(svg).toContain('body: dark');
     expect(svg).toContain('body: lit');
     expect(svg).toContain("fill='gold'");
+  });
+  it('labels emotion cells whose preferred variant is missing, and lists the fallbacks', () => {
+    const monkey = CharacterSchema.parse({
+      id: 'm',
+      name: 'm',
+      rig: 'simple',
+      parts: {
+        body: "<circle r='9'/>",
+        eyes: { open: "<circle r='1'/>", closed: "<path d='M0 0h2'/>" },
+        mouth: { closed: "<path d='M0 0h2'/>", open: "<circle r='2'/>", sad: "<path d='M0 0h3'/>" },
+      },
+    });
+    const svg = characterSheetSvg(monkey);
+    expect(svg).toContain('angry · mouth→sad eyes→open');
+    expect(svg).toContain('happy · mouth→closed eyes→open');
+    const list = faceFallbacks(monkey.parts);
+    expect(list).toContain("angry: eyes → open (no 'angry')");
+    expect(list).not.toContain(expect.stringMatching(/^neutral/));
+    expect(faceFallbacks(LIBRARY.characters.kid.parts)).toEqual([]);
+  });
+  it('tiles one frame per shot on the film sheet', () => {
+    const p = project({ id: 'a', scene: 'park', duration: 4, cast: { kid: { at: 'gate' } } });
+    p.shots.push(ShotSchema.parse({ id: 'b', scene: 'park', duration: 6 }));
+    const svg = filmSheetSvg(p, p.shots);
+    expect(svg).toContain('1. a · 4s');
+    expect(svg).toContain('2. b · 6s');
+    expect(svg.match(/class='scene'/g)).toHaveLength(2);
+  });
+});
+
+describe('simple-rig verbs', () => {
+  it('point leans the body and tremble shakes it', () => {
+    const rig = RIGS.simple;
+    const still = basePose(rig, 'idle', 0, 0);
+    const lean = basePose(rig, 'idle', 0, 0);
+    applyVerb(rig, lean, 'point', 0.5);
+    expect(lean.rot.body).toBeLessThan(-15);
+    expect(lean.dx).toBeGreaterThan(still.dx);
+    const shiver = basePose(rig, 'idle', 0, 0);
+    applyVerb(rig, shiver, 'tremble', 0.27);
+    expect(shiver.dx).not.toBe(still.dx);
+    const settled = basePose(rig, 'idle', 0, 0);
+    applyVerb(rig, settled, 'tremble', 1);
+    expect(Math.abs(settled.dx - still.dx)).toBeLessThan(0.01);
   });
 });
 

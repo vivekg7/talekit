@@ -9,18 +9,26 @@ write. Fix what looks wrong before moving on.
 
 1. **Read the story and plan.** List characters, locations and 6–40 shots of
    5–20 seconds each. A shot is one location with one bit of action.
-2. **`create_project`** once. Then **`list_library`**.
-3. **Characters.** Prefer `copy_from_library` with a new `asId`, `name` and
-   `colors` (hair, skin, dress, shirt…). Draw from scratch with
-   `write_character` only for something the library lacks (a dragon, a robot,
-   a prop like a kite). Look at the returned pose sheet: proportions, pivots,
-   expressions. Rewrite until it looks right.
-4. **Scenes.** `copy_from_library` or `write_scene`. Look at the anchor sheet:
-   every place a character will stand or sit needs an anchor on the floor.
-5. **Shots.** `write_shot` one at a time, in order. Study the contact sheet:
-   are people where you expect, facing each other, bubbles readable, timing
-   sensible? Use `preview_frame` for an exact moment.
-6. **`render`** a single shot early to check motion, then the whole film.
+2. **`create_project(path, title)`** once; `path` is the absolute project
+   directory and every later tool takes the same `path`. Then
+   **`list_library()`**.
+3. **Characters.** Prefer `copy_from_library(path, libraryId, asId, name,
+colors)` (colour tokens: hair, skin, dress, shirt…). Draw from scratch with
+   `write_character(path, character)` only for something the library lacks
+   (an animal other than a dog, a dragon, a robot, a prop like a kite); read
+   `get_library_item(libraryId)` first to see how a character on that rig is
+   laid out. Look at the returned pose sheet: proportions, pivots,
+   expressions, and the fallback list in the text. Rewrite until it looks
+   right.
+4. **Scenes.** `copy_from_library` or `write_scene(path, scene)`. Look at the
+   anchor sheet: every place a character will stand or sit needs an anchor on
+   the floor.
+5. **Shots.** `write_shot(path, shot, order)` one at a time, in order. Study
+   the contact sheet: are people where you expect, facing each other, bubbles
+   readable, timing sensible? Use `preview_frame(path, shotId, t)` for an
+   exact moment and `preview_shot(path, shotId, frames)` for more frames.
+6. **`render(path, shotId?)`** a single shot early to check motion, then the
+   whole film. It returns a film sheet, one frame per shot, to confirm the cut.
 
 ## Coordinate boxes
 
@@ -65,7 +73,25 @@ stroke-width='18' stroke-linecap='round' fill='none'/>` plus a hand circle
 
 One required `body` part plus optional `eyes` and `mouth`. The engine bobs and
 tilts the whole body for walk/run, hops it for `bounce`, wobbles it for `fly`,
-rotates it for `spin`. Use it for animals, vehicles, kites, balls, monsters.
+rotates it for `spin`, leans it forward for `point`, shivers it for `tremble`.
+Use it for animals, vehicles, kites, balls, monsters, props.
+
+```
+ x   0 ──────────── 200
+ y 0 ┌──────────────┐
+     │   (tail)  head│   faces RIGHT: head and face in the right half, around
+     │  ╭──────╮ ◠ ◡ │   x 130–190; tail or back on the left. The engine
+     │  │ body │(eyes│   mirrors the whole box for facing: "left".
+     │  ╰──┬┬──╯mouth│
+ y200└────┴┴────────┘   base line y=200: feet, wheels or base touch it.
+```
+
+A minimal animal: `body` is one `<path>`/`<ellipse>` group with legs, tail
+and head drawn in; `eyes` has `open`, `closed`, `wide`, `happy`; `mouth` has
+`closed`, `open`, `smile`, `sad`. Bubbles hang from the top of the box, so
+keep the head near the top. `get_library_item("dog")` is a complete worked
+example to copy the layout from; `height` on screen is typically 80–140 for
+small animals and 200–260 for large ones.
 
 ### Variants
 
@@ -77,8 +103,11 @@ picks the variant from the current emotion, talking state and blinking:
 | `mouth` | `closed` (rest), `open` (talking flap, surprised), `smile`, `sad`, `angry`, `scared` |
 | `eyes`  | `open`, `closed` (blink), `wide` (surprised/scared), `happy`, `sad`, `angry`         |
 
-Missing variants fall back gracefully, but `mouth.open` and `eyes.closed` are
-what make a character feel alive. A variant may be the empty string `""` to
+Missing variants fall back to the next in the list (angry eyes → open, scared
+mouth → open → closed); `write_character` lists every fallback in its text
+and the pose sheet labels the cell (`angry · eyes→open`), so a missing
+variant is never silent. `mouth.open` and `eyes.closed` are what make a
+character feel alive. A variant may be the empty string `""` to
 draw nothing (a beak's closed mouth when the beak is part of the body) as long
 as one variant of the part draws something. Any other part may have variants
 too (`body: { dark, lit }` on a lantern, `hat: { on, tilted }`); select them
@@ -98,7 +127,9 @@ named **anchors**: floor points where characters stand. Add an anchor for
 every door, chair, tree, table, path end you will use. Optional `scale` on an
 anchor shrinks characters that stand further back (`0.7` for a distant path).
 `ground` is the floor y for the built-in shortcuts `left`, `center`, `right`,
-`offLeft`, `offRight` (off = just outside the frame, for entrances and exits).
+`offLeft`, `offRight` (off = 15% of the frame width outside the edge, 192 px
+at 1280, so anything up to about 350 px wide starts fully hidden; for wider
+characters use an explicit point further out).
 
 Seating: `sit` puts the **hips** on the anchor, so a seat anchor goes on the
 seat surface (e.g. `"bench-seat": { "x": 1010, "y": 604 }`), not on the floor.
@@ -111,7 +142,9 @@ Optional `foreground` is drawn in front of the actors (a table edge, a fence).
 
 Design tips: the floor band should be the bottom 15–25% of the frame; keep
 the middle third uncluttered where faces and bubbles go; a 220px character is
-about a third of the frame height — the anchor sheet shows a ghost for scale.
+about a third of the frame height. The anchor sheet shows a ghost for scale:
+the project's tallest character once one exists (so write characters before
+scenes), otherwise a 220px humanoid.
 Gradients and `<defs>` are fine; prefix ids with the scene id.
 
 ## Shots
@@ -140,8 +173,15 @@ Gradients and `<defs>` are fine; prefix ids with the scene id.
 
 - `cast` places everyone at the start. Characters not in the cast are not in
   the shot. `visible: false` hides until an `appear`.
+- **Draw order is by feet position:** the actor whose feet are lower on
+  screen is nearer and is drawn in front. Cast order and size do not matter.
+  When two actors share a path and one must pass behind, give it an anchor or
+  point with a smaller `y`.
 - A position (`at`, `to`, `set.at`) is an anchor name or an explicit point in
   scene pixels, `{ "x": 640, "y": 610, "scale": 0.8 }` (`scale` optional).
+  A `to` with a `scale` tweens the size during `walk`/`move`/`fly`: use it to
+  walk into the distance, or to sink into a well (`move` to a point with
+  `scale: 0.3` behind a `foreground`).
   Anchors read better and survive a scene redraw; use points for spots the
   scene has no name for, such as a kite in the sky.
 - `t` is seconds from the start of the shot. Actions on the same actor can
@@ -156,8 +196,9 @@ Gradients and `<defs>` are fine; prefix ids with the scene id.
 | `move`                | glide to `to` without a cycle (sliding, floating objects)                   | distance ÷ 300   |
 | `fly`                 | move with a gentle wobble (birds, kites, balloons); `to` may be in the sky  | distance ÷ 260   |
 | `jump`                | hop in place, or to `to` if given                                           | 0.8s             |
-| `wave`, `point`       | near arm up and waving / pointing forward                                   | 1.5s             |
+| `wave`, `point`       | near arm up and waving / pointing forward (simple rig: lean toward it)      | 1.5s             |
 | `nod`, `shake`        | head yes / no                                                               | 0.8s             |
+| `tremble`             | frightened shiver (head and shoulders, or the whole simple body)            | 1.2s             |
 | `sit` / `stand`       | persistent: hips on `to` (a seat anchor) or the current spot, until `stand` | instant          |
 | `bounce`, `spin`      | squashy hop / full rotation (best on the simple rig)                        | 1s / 0.8s        |
 | `appear`, `disappear` | fade in / out                                                               | 0.3s             |
@@ -166,8 +207,10 @@ Walking speed is about 220 px/s, so crossing the frame takes 4–5 seconds;
 `run` is about 420 px/s, `fly` 260, `move` 300. Set `duration` to override any
 default.
 
-On the `simple` rig `wave`, `point`, `nod` and `shake` only tilt or nudge the
-body; `bounce`, `jump` and `spin` read far better there.
+On the `simple` rig `wave`, `nod` and `shake` only tilt or nudge the body;
+`point` leans the body toward what it faces, `tremble` shivers it, and
+`bounce`, `jump` and `spin` read best there. Face the actor toward the thing
+first (`set: { "facing": … }`) and `point` will lean that way.
 
 There is no way to attach a prop to a hand. To have someone carry something,
 make the prop a `simple` character and give it a `move` with the same `t`,
@@ -181,14 +224,19 @@ hand; then `move` it to its resting anchor when they arrive.
 set it explicitly for pacing. `bubble` can be `speech` (default), `thought` or
 `shout`. Keep lines short (≤ 12 words) and sequence speakers so bubbles do not
 overlap: `write_shot` warns when one actor starts speaking before another has
-finished. Bubbles stay readable at any camera zoom.
+finished. Bubbles are always laid out inside the frame and keep the same size
+at any camera zoom, so a bubble that looks clipped on a small contact-sheet
+frame is not; check the text, not the edges.
 
 ### Emotion, face, captions, camera, set
 
 - `emotion`: `neutral | happy | sad | surprised | angry | scared` — persistent
   until changed. `face: { "mouth": "grin" }` forces specific variants.
 - `caption`: narrator text at the bottom (`captionStyle: "narration"`, the
-  default) or a big centred card (`"title"`). Default 3 s.
+  default) or a big centred card (`"title"`). Default 3 s. Captions are a
+  layer above everything and never move: a narration strip can run under a
+  speech bubble without touching it, but a title card sits in the middle of
+  the frame where faces and bubbles are, so do not talk over one.
 - `camera: { zoom, x, y }` tweens from the current camera over `duration`
   (default 1 s; `0` cuts). `x, y` is the world point at frame centre. Zoom in
   on a face for reactions, pull back for arrivals. Keep zoom between 1 and 2:
@@ -211,5 +259,7 @@ finished. Bubbles stay readable at any camera zoom.
 
 - `project_info` shows no validation errors or warnings you did not intend.
 - Every shot's contact sheet looks staged: nobody floating, nobody clipped,
-  bubbles inside the frame, right people facing each other.
-- Total duration matches the target (5–10 minutes = 300–600 s).
+  right people facing each other, the right actor in front.
+- Total duration matches what was asked for: a short fable is 60–120 s, a
+  full picture-book story 5–10 minutes.
+- The film sheet returned by `render` shows every shot the way you intended.

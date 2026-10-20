@@ -69,6 +69,7 @@ export const VerbSchema = z.enum([
   'nod',
   'shake',
   'point',
+  'tremble',
   'sit',
   'stand',
   'bounce',

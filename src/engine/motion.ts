@@ -44,6 +44,7 @@ export const VERB_DURATION: Partial<Record<Verb, number>> = {
   nod: 0.8,
   shake: 0.8,
   point: 1.5,
+  tremble: 1.2,
   bounce: 1.0,
   spin: 0.8,
   appear: 0.3,
@@ -51,7 +52,7 @@ export const VERB_DURATION: Partial<Record<Verb, number>> = {
 };
 
 /** Resting face for an emotion, in order of preference per part. */
-const EMOTION_FACE: Record<Emotion, Record<string, string[]>> = {
+export const EMOTION_FACE: Record<Emotion, Record<string, string[]>> = {
   neutral: { mouth: ['closed', 'smile'], eyes: ['open'] },
   happy: { mouth: ['smile', 'closed'], eyes: ['happy', 'open'] },
   sad: { mouth: ['sad', 'closed'], eyes: ['sad', 'open'] },
@@ -122,8 +123,24 @@ export function applyVerb(rig: Rig, pose: Pose, verb: Verb, u: number): void {
       break;
     case 'point':
       if (humanoid) pose.rot.armR = -95;
-      else pose.rot.body = -10;
+      else {
+        // No arm to raise: lean the whole body toward the thing, held for the duration,
+        // easing in and out so it neither pops in nor snaps back.
+        const k = Math.min(1, u * 4, (1 - u) * 4);
+        pose.rot.body = -24 * k;
+        pose.dx += 18 * k;
+      }
       break;
+    case 'tremble': {
+      // Fast small shiver, fading in and out so it does not pop.
+      const env = Math.sin(u * Math.PI);
+      const j = Math.sin(u * TAU * 11) * 5 * env;
+      if (humanoid) {
+        pose.off.head = [j, 0];
+        pose.off.torso = [j * 0.6, 0];
+      } else pose.dx += j;
+      break;
+    }
     case 'nod': {
       const n = Math.sin(u * TAU * 2);
       pose.rot.head = (pose.rot.head ?? 0) + 6 * n;
@@ -191,6 +208,26 @@ export function pickVariant(
   if (variants.default !== undefined) return 'default';
   const first = Object.keys(variants)[0];
   return first ?? part;
+}
+
+/**
+ * Where an emotion will not get the variant it prefers, in words the author can act on:
+ * "angry: eyes → open (no 'angry')". Only parts with variants are reported.
+ */
+export function faceFallbacks(parts: Record<string, string | Record<string, string>>): string[] {
+  const out: string[] = [];
+  for (const [emotion, prefs] of Object.entries(EMOTION_FACE) as [
+    Emotion,
+    Record<string, string[]>,
+  ][]) {
+    for (const [name, wanted] of Object.entries(prefs)) {
+      const part = parts[name];
+      if (!part || typeof part === 'string') continue;
+      const picked = pickVariant(part, name, wanted);
+      if (picked !== wanted[0]) out.push(`${emotion}: ${name} → ${picked} (no '${wanted[0]}')`);
+    }
+  }
+  return out;
 }
 
 export interface FaceContext {
