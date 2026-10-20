@@ -55,7 +55,7 @@ render
    │
    ▼
 interfaces
-   cli.ts        init / check / sheet / preview / render / serve / mcp
+   cli.ts        init / check / library / copy / sheet / frame / contact / render / serve / mcp
    serve.ts      local web viewer with a scrubber (live SVG frames)
    mcp/server.ts tools over stdio for Claude Code and other agents
 ```
@@ -90,9 +90,9 @@ actions }`. Cast places characters at anchors. Actions are
       copy-and-recolour starting points. A one-minute example story that
       doubles as the integration test.
 - [x] **Phase 4 — MCP server.** `get_guide`, `create_project`, `project_info`,
-      `list_library`, `copy_from_library`, `write_character`, `write_scene`,
-      `write_shot`, `preview_frame`, `render`. Every write validates and
-      returns an image.
+      `get_item`, `list_library`, `copy_from_library`, `write_character`,
+      `write_scene`, `write_shot`, `delete_item`, `preview_frame`,
+      `preview_shot`, `render`. Every write validates and returns an image.
 - [x] **Phase 5 — Viewer.** `talekit serve` with a shot picker and scrubber.
 - [ ] **Phase 6 — Polish loop.** Run the MCP from Claude Code on a fresh
       story, watch where the agent struggles, and fix the guide or the engine.

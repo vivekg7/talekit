@@ -132,6 +132,10 @@ Gradients and `<defs>` are fine; prefix ids with the scene id.
 
 - `cast` places everyone at the start. Characters not in the cast are not in
   the shot. `visible: false` hides until an `appear`.
+- A position (`at`, `to`, `set.at`) is an anchor name or an explicit point in
+  scene pixels, `{ "x": 640, "y": 610, "scale": 0.8 }` (`scale` optional).
+  Anchors read better and survive a scene redraw; use points for spots the
+  scene has no name for, such as a kite in the sky.
 - `t` is seconds from the start of the shot. Actions on the same actor can
   overlap (walk and say at once). Actions never carry across shots.
 - Shots play in file order; pass `order` to `write_shot` to set it.
@@ -169,8 +173,9 @@ camera zoom.
   default) or a big centred card (`"title"`). Default 3 s.
 - `camera: { zoom, x, y }` tweens from the current camera over `duration`
   (default 1 s; `0` cuts). `x, y` is the world point at frame centre. Zoom in
-  on a face for reactions, pull back for arrivals. Keep zoom ≤ 2. The view is
-  clamped to the scene, so a zoom near an edge shifts toward the middle.
+  on a face for reactions, pull back for arrivals. Keep zoom between 1 and 2:
+  below 1 is raised to 1 (the scene has nothing outside its edges), and the
+  view is clamped to the scene, so a zoom near an edge shifts toward the middle.
 - `set: { facing, scale, visible, at }` changes state instantly (teleport,
   turn to face someone, grow).
 

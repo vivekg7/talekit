@@ -429,7 +429,7 @@ export function buildServer(): McpServer {
     {
       title: 'Render video',
       description:
-        'Render the whole movie (or one shot) to an H.264 mp4 in <project>/out/. Validation errors block rendering. Takes roughly real time for a 720p film.',
+        'Render the whole movie (or one shot) to an H.264 mp4 in <project>/out/. Validation errors block rendering. A minute of 720p takes about half a minute.',
       inputSchema: { path: pathArg, shotId: z.string().optional() },
     },
     async ({ path: root, shotId }) => {
