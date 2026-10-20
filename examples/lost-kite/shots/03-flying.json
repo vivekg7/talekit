@@ -1,0 +1,27 @@
+{
+  "id": "flying",
+  "scene": "park",
+  "description": "The kite flies high, then the wind takes it.",
+  "duration": 14,
+  "cast": {
+    "mia": { "at": "gate", "facing": "right", "emotion": "happy" },
+    "dad": { "at": "tree", "facing": "right", "emotion": "happy" },
+    "biscuit": { "at": { "x": 250, "y": 660 }, "facing": "right" },
+    "kite": { "at": { "x": 200, "y": 560 }, "scale": 0.8 }
+  },
+  "actions": [
+    { "t": 0, "actor": "mia", "do": "run", "to": "center", "duration": 2.5 },
+    { "t": 0.3, "actor": "kite", "do": "fly", "to": { "x": 760, "y": 260 }, "duration": 3.5 },
+    { "t": 0.5, "actor": "biscuit", "do": "run", "to": { "x": 520, "y": 665 }, "duration": 2.5 },
+    { "t": 3, "actor": "mia", "do": "point" },
+    { "t": 3.2, "actor": "mia", "say": "Look how high it goes!" },
+    { "t": 4, "actor": "dad", "do": "wave" },
+    { "t": 6.5, "actor": "dad", "say": "Hold on tight, Mia!" },
+    { "t": 8.5, "actor": "kite", "do": "fly", "to": { "x": 1500, "y": 120 }, "duration": 3 },
+    { "t": 9.2, "actor": "mia", "emotion": "surprised" },
+    { "t": 9.6, "actor": "mia", "say": "Oh no! My kite!", "bubble": "shout", "emotion": "sad" },
+    { "t": 10, "actor": "dad", "emotion": "surprised" },
+    { "t": 10, "actor": "biscuit", "emotion": "surprised" },
+    { "t": 11.5, "camera": { "zoom": 1.7, "x": 640, "y": 540 }, "duration": 2 }
+  ]
+}

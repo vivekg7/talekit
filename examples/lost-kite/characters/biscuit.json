@@ -1,0 +1,28 @@
+{
+  "id": "biscuit",
+  "name": "Biscuit",
+  "description": "Small floppy-eared dog (simple rig); bobs when walking, can talk and blink.",
+  "rig": "simple",
+  "height": 110,
+  "colors": {
+    "fur": "#d9a066",
+    "furDark": "#b9823f",
+    "collar": "#e63946",
+    "nose": "#2b2b2b"
+  },
+  "parts": {
+    "body": "<path d='M34 140 Q10 112 28 92' stroke='{fur}' stroke-width='12' stroke-linecap='round' fill='none'/><rect x='50' y='160' width='16' height='40' rx='7' fill='{furDark}'/><rect x='118' y='160' width='16' height='40' rx='7' fill='{furDark}'/><ellipse cx='94' cy='148' rx='64' ry='38' fill='{fur}'/><rect x='66' y='164' width='16' height='36' rx='7' fill='{fur}'/><rect x='134' y='164' width='16' height='36' rx='7' fill='{fur}'/><path d='M122 86 Q108 124 130 134 Q140 104 122 86 Z' fill='{furDark}'/><circle cx='150' cy='108' r='34' fill='{fur}'/><ellipse cx='172' cy='122' rx='18' ry='13' fill='{fur}'/><circle cx='184' cy='118' r='6' fill='{nose}'/><path d='M166 90 Q156 60 178 66 Q186 84 166 90 Z' fill='{furDark}'/><path d='M120 134 Q150 150 176 136' stroke='{collar}' stroke-width='8' fill='none' stroke-linecap='round'/>",
+    "eyes": {
+      "open": "<circle cx='148' cy='102' r='5' fill='#222'/><circle cx='150' cy='100' r='1.6' fill='#fff'/>",
+      "closed": "<path d='M143 103 Q148 107 153 103' stroke='#222' stroke-width='2.5' fill='none' stroke-linecap='round'/>",
+      "wide": "<circle cx='148' cy='102' r='7' fill='#fff'/><circle cx='149' cy='103' r='3.5' fill='#222'/>",
+      "happy": "<path d='M143 104 Q148 97 153 104' stroke='#222' stroke-width='2.5' fill='none' stroke-linecap='round'/>"
+    },
+    "mouth": {
+      "closed": "<path d='M168 131 Q174 135 180 131' stroke='#5a3a2a' stroke-width='2.5' fill='none' stroke-linecap='round'/>",
+      "smile": "<path d='M164 129 Q174 141 184 129' stroke='#5a3a2a' stroke-width='2.5' fill='none' stroke-linecap='round'/>",
+      "open": "<ellipse cx='174' cy='134' rx='7' ry='6' fill='#6e2a2a'/><ellipse cx='174' cy='137' rx='4' ry='2.5' fill='#e07a7a'/>",
+      "sad": "<path d='M166 135 Q174 128 182 135' stroke='#5a3a2a' stroke-width='2.5' fill='none' stroke-linecap='round'/>"
+    }
+  }
+}

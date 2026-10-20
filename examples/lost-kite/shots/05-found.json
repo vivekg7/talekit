@@ -1,0 +1,27 @@
+{
+  "id": "found",
+  "scene": "park",
+  "description": "Biscuit brings the kite back. The End.",
+  "duration": 13,
+  "fadeOut": 1.2,
+  "cast": {
+    "mia": { "at": "center", "facing": "right" },
+    "dad": { "at": { "x": 520, "y": 650 }, "facing": "right", "emotion": "happy" },
+    "biscuit": { "at": "offRight", "facing": "left" },
+    "kite": { "at": { "x": 1500, "y": 520 }, "scale": 0.8 }
+  },
+  "actions": [
+    { "t": 0.5, "actor": "biscuit", "do": "run", "to": { "x": 800, "y": 665 }, "duration": 3 },
+    { "t": 0.5, "actor": "kite", "do": "fly", "to": { "x": 860, "y": 540 }, "duration": 3 },
+    { "t": 2.5, "actor": "mia", "emotion": "surprised" },
+    { "t": 3.8, "actor": "mia", "emotion": "happy" },
+    { "t": 3.8, "actor": "mia", "do": "jump" },
+    { "t": 4.2, "actor": "mia", "say": "Biscuit, you found it!" },
+    { "t": 5, "actor": "biscuit", "do": "bounce", "duration": 1.5 },
+    { "t": 7, "actor": "dad", "do": "wave" },
+    { "t": 7.2, "actor": "dad", "say": "Good dog!" },
+    { "t": 8.5, "actor": "mia", "do": "walk", "to": { "x": 720, "y": 650 }, "duration": 1 },
+    { "t": 9.5, "actor": "mia", "do": "sit", "to": "bench-seat" },
+    { "t": 10.2, "caption": "The End", "captionStyle": "title", "duration": 2.8 }
+  ]
+}

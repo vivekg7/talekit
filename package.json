@@ -1,0 +1,38 @@
+{
+  "name": "talekit",
+  "version": "0.1.0",
+  "description": "Story video generation for AI agents: rigged 2D characters, scenes with anchors, a shot timeline, and an MCP server with visual previews.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Vivek Kumar Gupta <vivek@ivy.homes>",
+  "bin": {
+    "talekit": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "docs/authoring-guide.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/cli.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@resvg/resvg-js": "^2.6.2",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "prettier": "^3.9.10",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

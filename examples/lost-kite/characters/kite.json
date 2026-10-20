@@ -1,0 +1,11 @@
+{
+  "id": "kite",
+  "name": "Kite",
+  "description": "A red diamond kite with a bow tail (simple rig prop).",
+  "rig": "simple",
+  "height": 120,
+  "colors": { "paper": "#ff595e", "paperDark": "#d8444a", "frame": "#f8e9c8", "tail": "#1982c4" },
+  "parts": {
+    "body": "<path d='M100 70 Q120 110 150 160 Q110 180 100 200' stroke='{tail}' stroke-width='4' fill='none'/><path d='M118 118 l10 -8 l2 14 z' fill='{tail}'/><path d='M132 150 l10 -8 l2 14 z' fill='{tail}'/><path d='M100 10 L160 80 L100 150 L40 80 Z' fill='{paper}'/><path d='M100 10 L160 80 L100 80 Z' fill='{paperDark}'/><path d='M100 10 L100 150 M40 80 L160 80' stroke='{frame}' stroke-width='3'/>"
+  }
+}

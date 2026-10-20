@@ -1,0 +1,23 @@
+{
+  "id": "walk",
+  "scene": "street",
+  "description": "Walking to the park with Biscuit the dog.",
+  "duration": 10,
+  "cast": {
+    "mia": { "at": "offLeft", "facing": "right", "emotion": "happy" },
+    "dad": { "at": { "x": -300, "y": 605 }, "facing": "right", "emotion": "happy" },
+    "biscuit": { "at": { "x": -120, "y": 612 }, "facing": "right" },
+    "kite": { "at": { "x": -300, "y": 470 }, "scale": 0.7 }
+  },
+  "actions": [
+    { "t": 0, "caption": "Off they went, down the street…", "duration": 3.5 },
+    { "t": 0, "actor": "mia", "do": "walk", "to": "lamp", "duration": 5 },
+    { "t": 0, "actor": "dad", "do": "walk", "to": "house-door", "duration": 5.2 },
+    { "t": 0, "actor": "kite", "do": "move", "to": { "x": 330, "y": 470 }, "duration": 5.2 },
+    { "t": 0.4, "actor": "biscuit", "do": "run", "to": { "x": 560, "y": 612 }, "duration": 2.6 },
+    { "t": 3.2, "actor": "biscuit", "do": "bounce" },
+    { "t": 5.5, "actor": "mia", "say": "Come on, Biscuit!" },
+    { "t": 6, "actor": "biscuit", "do": "run", "to": "corner", "duration": 1.8 },
+    { "t": 8, "actor": "biscuit", "do": "bounce", "duration": 1.2 }
+  ]
+}

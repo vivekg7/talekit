@@ -1,0 +1,23 @@
+{
+  "id": "sad",
+  "scene": "park",
+  "description": "Mia is sad; Biscuit runs off to find the kite.",
+  "duration": 11,
+  "cast": {
+    "mia": { "at": "center", "facing": "right", "emotion": "sad" },
+    "dad": { "at": "tree", "facing": "right" },
+    "biscuit": { "at": { "x": 520, "y": 665 }, "facing": "right" }
+  },
+  "camera": { "zoom": 1.4, "x": 640, "y": 540 },
+  "actions": [
+    { "t": 0.5, "actor": "mia", "say": "It's gone forever…", "bubble": "thought" },
+    { "t": 1, "actor": "dad", "do": "walk", "to": { "x": 520, "y": 650 }, "duration": 2 },
+    { "t": 3.5, "actor": "dad", "say": "Don't worry. Biscuit will find it.", "emotion": "happy" },
+    { "t": 4, "actor": "biscuit", "do": "bounce" },
+    { "t": 5.5, "actor": "biscuit", "say": "Woof!", "duration": 1.5 },
+    { "t": 6.5, "actor": "biscuit", "do": "run", "to": "offRight", "duration": 2.5 },
+    { "t": 6.5, "camera": { "zoom": 1, "x": 640, "y": 360 }, "duration": 2 },
+    { "t": 8.5, "actor": "mia", "do": "nod" },
+    { "t": 9, "actor": "mia", "emotion": "neutral" }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "id": "park",
+  "name": "Park",
+  "description": "Sunny park with a path, a big tree (left) and a bench (right).",
+  "svg": "<defs><linearGradient id='park-sky' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#6ec3f4'/><stop offset='1' stop-color='#cfeeff'/></linearGradient><linearGradient id='park-grass' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#8fd16a'/><stop offset='1' stop-color='#5fae45'/></linearGradient></defs><rect width='1280' height='720' fill='url(#park-sky)'/><circle cx='1100' cy='120' r='60' fill='#ffe66d'/><circle cx='1100' cy='120' r='78' fill='#ffe66d' opacity='0.25'/><g fill='#fff' opacity='0.95'><ellipse cx='260' cy='140' rx='70' ry='28'/><ellipse cx='300' cy='120' rx='50' ry='30'/><ellipse cx='220' cy='125' rx='40' ry='24'/><ellipse cx='760' cy='90' rx='60' ry='24'/><ellipse cx='795' cy='75' rx='42' ry='26'/></g><path d='M0 470 Q200 380 420 450 T820 430 T1280 460 L1280 540 L0 540 Z' fill='#9ad17a'/><path d='M0 520 Q300 460 640 500 T1280 500 L1280 720 L0 720 Z' fill='url(#park-grass)'/><path d='M520 720 Q560 620 640 560 Q720 620 760 720 Z' fill='#e9d8a6'/><path d='M540 720 Q580 640 640 580 Q700 640 740 720 Z' fill='#f2e4b8'/><g><rect x='330' y='420' width='40' height='230' rx='10' fill='#7a4b2a'/><circle cx='350' cy='380' r='110' fill='#3f9b45'/><circle cx='270' cy='420' r='80' fill='#4caf50'/><circle cx='430' cy='410' r='85' fill='#4caf50'/><circle cx='350' cy='320' r='70' fill='#58bd5b'/></g><g><rect x='1180' y='540' width='28' height='120' rx='6' fill='#7a4b2a'/><circle cx='1194' cy='510' r='60' fill='#3f9b45'/><circle cx='1150' cy='540' r='40' fill='#4caf50'/></g><g><rect x='930' y='600' width='170' height='16' rx='4' fill='#8b5a2b'/><rect x='930' y='620' width='170' height='14' rx='4' fill='#8b5a2b'/><rect x='930' y='652' width='170' height='14' rx='4' fill='#8b5a2b'/><rect x='930' y='672' width='170' height='14' rx='4' fill='#8b5a2b'/><rect x='940' y='600' width='10' height='100' fill='#5a3a1a'/><rect x='1080' y='600' width='10' height='100' fill='#5a3a1a'/></g><g fill='#ff6b6b'><circle cx='120' cy='600' r='8'/><circle cx='150' cy='590' r='8'/><circle cx='180' cy='605' r='8'/><circle cx='880' cy='640' r='8'/><circle cx='860' cy='660' r='8'/></g><g fill='#ffd166'><circle cx='450' cy='630' r='7'/><circle cx='480' cy='650' r='7'/><circle cx='1230' cy='690' r='7'/></g>",
+  "ground": 650,
+  "anchors": {
+    "gate": {
+      "x": 150,
+      "y": 660,
+      "scale": 1
+    },
+    "tree": {
+      "x": 360,
+      "y": 640,
+      "scale": 1
+    },
+    "path-far": {
+      "x": 640,
+      "y": 560,
+      "scale": 0.72
+    },
+    "bench": {
+      "x": 1010,
+      "y": 655,
+      "scale": 1
+    },
+    "bench-seat": {
+      "x": 1010,
+      "y": 604,
+      "scale": 1
+    }
+  }
+}
