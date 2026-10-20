@@ -58,6 +58,16 @@ export function characterSheetSvg(character: Character): string {
     make('surprised', () => base('idle', 0), 'surprised'),
     make('angry', () => base('idle', 0), 'angry'),
   ];
+  // Variants of parts the emotions do not drive (a lantern's lit body, a tilted hat) are
+  // only ever selected by a `face` action, so show each one or the agent cannot check it.
+  for (const [name, part] of Object.entries(character.parts)) {
+    if (typeof part === 'string' || name === 'eyes' || name === 'mouth') continue;
+    for (const variant of Object.keys(part)) {
+      const cell = make(`${name}: ${variant}`, () => base('idle', 0));
+      cell.pose.face[name] = variant;
+      cells.push(cell);
+    }
+  }
 
   const cols = 6;
   const cellW = 230;

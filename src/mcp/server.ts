@@ -259,7 +259,7 @@ export function buildServer(): McpServer {
     {
       title: 'Write character',
       description:
-        'Validate and save a character (creates or replaces characters/<id>.json). Returns a pose sheet showing every pose and expression the engine can produce, so you can check proportions, pivots and variants. Fix and re-write until it looks right.',
+        'Validate and save a character (creates or replaces characters/<id>.json). Returns a pose sheet showing every pose and expression the engine can produce, plus one cell per variant of any other part (selected in shots with a `face` action), so you can check proportions, pivots and variants. Fix and re-write until it looks right.',
       inputSchema: { path: pathArg, character: CharacterSchema },
     },
     async ({ path: root, character }) => {
@@ -306,7 +306,7 @@ export function buildServer(): McpServer {
     {
       title: 'Write shot',
       description:
-        'Validate and save a shot (shots/<NN>-<id>.json; `order` sets NN and therefore playback order). Cross-checks cast, anchors and face variants. Returns a contact sheet of evenly spaced frames so you can check staging, timing and bubbles.',
+        'Validate and save a shot (shots/<NN>-<id>.json; `order` sets NN and therefore playback order). Cross-checks cast, anchors and face variants, and warns when two actors speak at once. Returns a contact sheet of evenly spaced frames so you can check staging, timing and bubbles.',
       inputSchema: {
         path: pathArg,
         shot: ShotSchema,

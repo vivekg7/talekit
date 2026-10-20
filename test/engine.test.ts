@@ -6,6 +6,7 @@ import { CharacterSchema, SceneSchema, ShotSchema, type Project } from '../src/e
 import { LIBRARY } from '../src/library/index.js';
 import { validateCharacter, validateShot } from '../src/project/validate.js';
 import { rasterize } from '../src/render/raster.js';
+import { characterSheetSvg } from '../src/render/sheets.js';
 import { poseFor } from '../src/engine/actor.js';
 
 function project(shotInput: unknown): Project {
@@ -135,6 +136,76 @@ describe('validation', () => {
     expect(messages).toMatch(/<image>/);
     expect(messages).toMatch(/external URL/);
   });
+  it('allows an empty variant inside a map but not an empty part', () => {
+    const bird = CharacterSchema.parse({
+      id: 'b',
+      name: 'b',
+      rig: 'simple',
+      parts: { body: "<circle r='9'/>", mouth: { closed: '', open: "<path d='M0 0h9'/>" } },
+    });
+    expect(validateCharacter(bird).filter((x) => x.level === 'error')).toEqual([]);
+    const allEmpty = CharacterSchema.parse({
+      ...bird,
+      parts: { body: "<circle r='9'/>", mouth: { closed: '', open: ' ' } },
+    });
+    expect(
+      validateCharacter(allEmpty)
+        .map((x) => x.message)
+        .join()
+    ).toMatch(/every variant/);
+    const emptyPart = CharacterSchema.parse({ ...bird, parts: { body: '' } });
+    expect(
+      validateCharacter(emptyPart)
+        .map((x) => x.message)
+        .join()
+    ).toMatch(/is empty/);
+    // and a face action may select the empty variant
+    const p = project({
+      id: 's',
+      scene: 'park',
+      duration: 2,
+      cast: { b: { at: 'gate' } },
+      actions: [{ t: 0, actor: 'b', face: { mouth: 'closed' } }],
+    });
+    p.characters.b = bird;
+    expect(validateShot(p.shots[0], p).filter((x) => x.level === 'error')).toEqual([]);
+  });
+  it('warns when two actors speak at once', () => {
+    const p = project({
+      id: 's',
+      scene: 'park',
+      duration: 10,
+      cast: { kid: { at: 'gate' }, dog: { at: 'bench' } },
+      actions: [
+        { t: 0.5, actor: 'kid', say: 'Where is it, Gus?' }, // 1 + 4 * 0.4 = 2.6s, until 3.1
+        { t: 3, actor: 'dog', say: 'There!' },
+        { t: 6, actor: 'kid', say: 'Found it!', duration: 1 },
+        { t: 7.5, actor: 'dog', say: 'Squawk!' },
+      ],
+    });
+    const warnings = validateShot(p.shots[0], p).filter((x) => x.level === 'warning');
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].message).toMatch(/'dog' starts speaking at 3s while 'kid'/);
+    // a short line nested inside a long one must not hide the long one
+    const nested = project({
+      id: 's',
+      scene: 'park',
+      duration: 10,
+      cast: { kid: { at: 'gate' }, dog: { at: 'bench' } },
+      actions: [
+        { t: 0.5, actor: 'kid', say: 'A long speech', duration: 8 },
+        { t: 1, actor: 'dog', say: 'Woof', duration: 0.5 },
+        { t: 3, actor: 'dog', say: 'Woof' },
+      ],
+    });
+    const messages = validateShot(nested.shots[0], nested)
+      .filter((x) => x.level === 'warning')
+      .map((x) => x.message);
+    expect(messages).toHaveLength(2);
+    expect(messages[1]).toMatch(
+      /'dog' starts speaking at 3s while 'kid' is still talking until 8.5s/
+    );
+  });
   it('allows camera-only actions but needs an actor once set is present', () => {
     const base = { id: 's', scene: 'park', duration: 1 };
     expect(() =>
@@ -152,6 +223,21 @@ describe('validation', () => {
       ShotSchema.parse({ id: 's', scene: 'park', duration: 1, actions: [{ t: 0, do: 'wave' }] })
     ).toThrow();
     expect(SceneSchema.safeParse({ id: 'Bad Id', name: 'x', svg: '' }).success).toBe(false);
+  });
+});
+
+describe('pose sheet', () => {
+  it('shows a cell for every variant of a non-face part', () => {
+    const lantern = CharacterSchema.parse({
+      id: 'l',
+      name: 'l',
+      rig: 'simple',
+      parts: { body: { dark: "<circle r='9'/>", lit: "<circle r='9' fill='gold'/>" } },
+    });
+    const svg = characterSheetSvg(lantern);
+    expect(svg).toContain('body: dark');
+    expect(svg).toContain('body: lit');
+    expect(svg).toContain("fill='gold'");
   });
 });
 

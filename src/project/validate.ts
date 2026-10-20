@@ -1,6 +1,6 @@
 import { missingColorTokens } from '../engine/svg.js';
 import { RIGS } from '../engine/rigs.js';
-import { STAGE_SHORTCUTS } from '../engine/timeline.js';
+import { sayDuration, STAGE_SHORTCUTS } from '../engine/timeline.js';
 import type { Character, Project, Scene, Shot } from '../engine/types.js';
 
 export interface Problem {
@@ -27,10 +27,20 @@ export function validateCharacter(c: Character): Problem[] {
     out.push({ level: 'error', where, message: `rig '${c.rig}' needs a '${rig.required}' part` });
   for (const [name, part] of Object.entries(c.parts)) {
     const fragments = typeof part === 'string' ? [part] : Object.values(part);
-    if (typeof part !== 'string' && fragments.length === 0)
-      out.push({ level: 'error', where, message: `part '${name}' has no variants` });
+    // A single-string part must draw something. In a variant map an empty string is a
+    // legitimate "draw nothing" variant (a beak's closed mouth, a hat that is off), as long
+    // as at least one variant draws.
+    if (typeof part === 'string' && !part.trim())
+      out.push({ level: 'error', where, message: `part '${name}' is empty` });
+    else if (typeof part !== 'string' && !fragments.some((f) => f.trim()))
+      out.push({
+        level: 'error',
+        where,
+        message: fragments.length
+          ? `part '${name}': every variant is empty`
+          : `part '${name}' has no variants`,
+      });
     for (const f of fragments) {
-      if (!f.trim()) out.push({ level: 'error', where, message: `part '${name}' is empty` });
       const bad = forbiddenMarkup(f);
       if (bad) out.push({ level: 'error', where, message: `part '${name}' ${bad}` });
       const missing = missingColorTokens(f, c.colors);
@@ -140,7 +150,7 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
       const parts = project.characters[a.actor].parts;
       for (const [part, variant] of Object.entries(a.face)) {
         const p = parts[part];
-        if (!p || typeof p === 'string' || !p[variant])
+        if (!p || typeof p === 'string' || !(variant in p))
           out.push({
             level: 'error',
             where: w,
@@ -149,6 +159,27 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
       }
     }
   });
+  // Two people talking at once is nearly always a pacing slip: the bubbles collide and the
+  // default `say` duration is longer than it looks. Warn, because it can be intended.
+  const bubbles = shot.actions
+    .filter((a) => a.say && a.actor)
+    .map((a) => ({ actor: a.actor!, from: a.t, to: a.t + (a.duration ?? sayDuration(a.say!)) }))
+    .sort((a, b) => a.from - b.from);
+  for (let i = 1; i < bubbles.length; i++) {
+    const cur = bubbles[i];
+    // Compare with every earlier line, not just the previous one: a short line nested inside
+    // a long one must not hide the long one.
+    const clash = bubbles
+      .slice(0, i)
+      .filter((b) => b.actor !== cur.actor && cur.from < b.to)
+      .sort((a, b) => b.to - a.to)[0];
+    if (clash)
+      out.push({
+        level: 'warning',
+        where,
+        message: `'${cur.actor}' starts speaking at ${cur.from}s while '${clash.actor}' is still talking until ${clash.to.toFixed(1)}s; the bubbles will overlap`,
+      });
+  }
   if (shot.actions.length === 0 && Object.keys(shot.cast).length === 0)
     out.push({ level: 'warning', where, message: 'empty shot: no cast and no actions' });
   return out;

@@ -78,8 +78,12 @@ picks the variant from the current emotion, talking state and blinking:
 | `eyes`  | `open`, `closed` (blink), `wide` (surprised/scared), `happy`, `sad`, `angry`         |
 
 Missing variants fall back gracefully, but `mouth.open` and `eyes.closed` are
-what make a character feel alive. Any other part may have variants too; select
-them with a `face` action, e.g. `{ "face": { "hat": "tilted" } }`.
+what make a character feel alive. A variant may be the empty string `""` to
+draw nothing (a beak's closed mouth when the beak is part of the body) as long
+as one variant of the part draws something. Any other part may have variants
+too (`body: { dark, lit }` on a lantern, `hat: { on, tilted }`); select them
+with a `face` action, e.g. `{ "face": { "hat": "tilted" } }`. The pose sheet
+shows one cell per such variant at the end, so check them there.
 
 ### Colours
 
@@ -98,6 +102,10 @@ anchor shrinks characters that stand further back (`0.7` for a distant path).
 
 Seating: `sit` puts the **hips** on the anchor, so a seat anchor goes on the
 seat surface (e.g. `"bench-seat": { "x": 1010, "y": 604 }`), not on the floor.
+
+Keep anchors that two people use at the same time at least a character's
+width apart (about 150 px, more if one stands further back at a smaller
+`scale`), or the nearer one hides the other and their bubbles collide.
 
 Optional `foreground` is drawn in front of the actors (a table edge, a fence).
 
@@ -154,16 +162,26 @@ Gradients and `<defs>` are fine; prefix ids with the scene id.
 | `bounce`, `spin`      | squashy hop / full rotation (best on the simple rig)                        | 1s / 0.8s        |
 | `appear`, `disappear` | fade in / out                                                               | 0.3s             |
 
-Walking speed is about 220 px/s, so crossing the frame takes 4–5 seconds.
-Set `duration` to override any default.
+Walking speed is about 220 px/s, so crossing the frame takes 4–5 seconds;
+`run` is about 420 px/s, `fly` 260, `move` 300. Set `duration` to override any
+default.
+
+On the `simple` rig `wave`, `point`, `nod` and `shake` only tilt or nudge the
+body; `bounce`, `jump` and `spin` read far better there.
+
+There is no way to attach a prop to a hand. To have someone carry something,
+make the prop a `simple` character and give it a `move` with the same `t`,
+`to` and `duration` as the carrier's `walk`, offset so it sits beside the
+hand; then `move` it to its resting anchor when they arrive.
 
 ### Dialogue
 
 `say` draws a bubble above the head and flaps the mouth. Duration defaults to
-about 0.4 s per word (min 1.8 s); set it explicitly for pacing. `bubble` can
-be `speech` (default), `thought` or `shout`. Keep lines short (≤ 12 words) and
-sequence speakers so bubbles do not overlap. Bubbles stay readable at any
-camera zoom.
+1 s plus 0.4 s per word (min 1.8 s), so a six-word line stays up for 3.4 s;
+set it explicitly for pacing. `bubble` can be `speech` (default), `thought` or
+`shout`. Keep lines short (≤ 12 words) and sequence speakers so bubbles do not
+overlap: `write_shot` warns when one actor starts speaking before another has
+finished. Bubbles stay readable at any camera zoom.
 
 ### Emotion, face, captions, camera, set
 
