@@ -14,8 +14,8 @@
     { "t": 1, "actor": "dad", "do": "walk", "to": { "x": 520, "y": 650 }, "duration": 2 },
     { "t": 3.5, "actor": "dad", "say": "Don't worry. Biscuit will find it.", "emotion": "happy" },
     { "t": 4, "actor": "biscuit", "do": "bounce" },
-    { "t": 5.5, "actor": "biscuit", "say": "Woof!", "duration": 1.5 },
-    { "t": 6.5, "actor": "biscuit", "do": "run", "to": "offRight", "duration": 2.5 },
+    { "t": 7, "actor": "biscuit", "say": "Woof!", "duration": 1.5 },
+    { "t": 8, "actor": "biscuit", "do": "run", "to": "offRight", "duration": 2.5 },
     { "t": 6.5, "camera": { "zoom": 1, "x": 640, "y": 360 }, "duration": 2 },
     { "t": 8.5, "actor": "mia", "do": "nod" },
     { "t": 9, "actor": "mia", "emotion": "neutral" }
