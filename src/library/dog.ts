@@ -1,26 +1,44 @@
 import type { CharacterInput } from '../engine/types.js';
 
-/** A small dog on the `simple` rig: 200×200 box, base on y=200, faces right. */
+/**
+ * A small dog on the `simple` rig: 200×200 box, base on y=200, faces right. One `body`
+ * part written in depth order (far legs, tail, body, neck, near legs, head, ear, muzzle),
+ * every piece sunk at least 12 units into what it hangs from, so it reads as one animal.
+ */
 export const DOG: CharacterInput = {
   id: 'dog',
   name: 'Dog',
   description: 'Small floppy-eared dog (simple rig); bobs when walking, can talk and blink.',
   rig: 'simple',
   height: 110,
-  colors: { fur: '#d9a066', furDark: '#b9823f', collar: '#e63946', nose: '#2b2b2b' },
+  colors: {
+    fur: '#d9a066',
+    furDark: '#b9823f',
+    furLight: '#f3d9b1',
+    collar: '#e63946',
+    tag: '#f4c430',
+    nose: '#2e2633',
+    mouth: '#7a2a32',
+    tongue: '#f08080',
+    line: '#2e2633',
+  },
   parts: {
-    body: `<path d='M34 140 Q10 112 28 92' stroke='{fur}' stroke-width='12' stroke-linecap='round' fill='none'/><rect x='50' y='160' width='16' height='40' rx='7' fill='{furDark}'/><rect x='118' y='160' width='16' height='40' rx='7' fill='{furDark}'/><ellipse cx='94' cy='148' rx='64' ry='38' fill='{fur}'/><rect x='66' y='164' width='16' height='36' rx='7' fill='{fur}'/><rect x='134' y='164' width='16' height='36' rx='7' fill='{fur}'/><path d='M122 86 Q108 124 130 134 Q140 104 122 86 Z' fill='{furDark}'/><circle cx='150' cy='108' r='34' fill='{fur}'/><ellipse cx='172' cy='122' rx='18' ry='13' fill='{fur}'/><circle cx='184' cy='118' r='6' fill='{nose}'/><path d='M166 90 Q156 60 178 66 Q186 84 166 90 Z' fill='{furDark}'/><path d='M120 134 Q150 150 176 136' stroke='{collar}' stroke-width='8' fill='none' stroke-linecap='round'/>`,
+    body: `<path d='M60 148 L60 191' stroke='{furDark}' stroke-width='16' stroke-linecap='round' fill='none'/><path d='M124 148 L126 191' stroke='{furDark}' stroke-width='16' stroke-linecap='round' fill='none'/><path d='M46 134 Q24 122 26 94' stroke='{fur}' stroke-width='13' stroke-linecap='round' fill='none'/><ellipse cx='90' cy='140' rx='58' ry='33' fill='{fur}'/><path d='M60 160 Q90 176 124 160 Q118 172 90 173 Q66 172 60 160 Z' fill='{furLight}'/><path d='M118 140 L140 108' stroke='{fur}' stroke-width='34' stroke-linecap='round' fill='none'/><path d='M74 150 L74 191' stroke='{fur}' stroke-width='16' stroke-linecap='round' fill='none'/><path d='M138 146 L140 191' stroke='{fur}' stroke-width='16' stroke-linecap='round' fill='none'/><circle cx='146' cy='96' r='32' fill='{fur}'/><ellipse cx='170' cy='112' rx='22' ry='15' fill='{furLight}'/><path d='M126 74 Q108 82 112 116 Q118 128 128 118 Q136 96 136 78 Z' fill='{furDark}'/><path d='M120 130 Q140 140 158 122' stroke='{collar}' stroke-width='8' fill='none' stroke-linecap='round'/><circle cx='142' cy='138' r='5' fill='{tag}'/><ellipse cx='186' cy='105' rx='7' ry='6' fill='{nose}'/>`,
     eyes: {
-      open: `<circle cx='148' cy='102' r='5' fill='#222'/><circle cx='150' cy='100' r='1.6' fill='#fff'/>`,
-      closed: `<path d='M143 103 Q148 107 153 103' stroke='#222' stroke-width='2.5' fill='none' stroke-linecap='round'/>`,
-      wide: `<circle cx='148' cy='102' r='7' fill='#fff'/><circle cx='149' cy='103' r='3.5' fill='#222'/>`,
-      happy: `<path d='M143 104 Q148 97 153 104' stroke='#222' stroke-width='2.5' fill='none' stroke-linecap='round'/>`,
+      open: `<ellipse cx='152' cy='88' rx='7' ry='8' fill='#fff'/><circle cx='154' cy='89' r='4.5' fill='{line}'/><circle cx='155.5' cy='86.5' r='1.6' fill='#fff'/>`,
+      closed: `<path d='M145 89 Q152 95 159 89' stroke='{line}' stroke-width='3' fill='none' stroke-linecap='round'/>`,
+      wide: `<ellipse cx='152' cy='87' rx='9' ry='10' fill='#fff'/><circle cx='153' cy='88' r='3.5' fill='{line}'/><circle cx='154.5' cy='85.5' r='1.3' fill='#fff'/>`,
+      happy: `<path d='M145 91 Q152 82 159 91' stroke='{line}' stroke-width='3' fill='none' stroke-linecap='round'/>`,
+      sad: `<ellipse cx='152' cy='89' rx='7' ry='7' fill='#fff'/><circle cx='153' cy='91' r='4.5' fill='{line}'/><path d='M143 80 L159 76' stroke='{line}' stroke-width='3' stroke-linecap='round'/>`,
+      angry: `<ellipse cx='152' cy='89' rx='7' ry='6.5' fill='#fff'/><circle cx='154' cy='90' r='4.5' fill='{line}'/><path d='M143 76 L160 83' stroke='{line}' stroke-width='3.5' stroke-linecap='round'/>`,
     },
     mouth: {
-      closed: `<path d='M168 131 Q174 135 180 131' stroke='#5a3a2a' stroke-width='2.5' fill='none' stroke-linecap='round'/>`,
-      smile: `<path d='M164 129 Q174 141 184 129' stroke='#5a3a2a' stroke-width='2.5' fill='none' stroke-linecap='round'/>`,
-      open: `<ellipse cx='174' cy='134' rx='7' ry='6' fill='#6e2a2a'/><ellipse cx='174' cy='137' rx='4' ry='2.5' fill='#e07a7a'/>`,
-      sad: `<path d='M166 135 Q174 128 182 135' stroke='#5a3a2a' stroke-width='2.5' fill='none' stroke-linecap='round'/>`,
+      closed: `<path d='M166 121 Q174 126 182 120' stroke='{line}' stroke-width='3' fill='none' stroke-linecap='round'/>`,
+      smile: `<path d='M162 118 Q174 134 186 117 Q174 123 162 118 Z' fill='{mouth}'/><path d='M168 125 Q174 122 180 125 Q174 129 168 125 Z' fill='{tongue}'/>`,
+      open: `<ellipse cx='175' cy='124' rx='8' ry='7' fill='{mouth}'/><ellipse cx='175' cy='128' rx='5' ry='3' fill='{tongue}'/>`,
+      sad: `<path d='M165 125 Q174 117 183 124' stroke='{line}' stroke-width='3' fill='none' stroke-linecap='round'/>`,
+      angry: `<path d='M164 124 Q174 119 184 123' stroke='{line}' stroke-width='3.5' fill='none' stroke-linecap='round'/>`,
+      scared: `<path d='M163 124 Q168 119 173 124 Q178 129 184 123' stroke='{line}' stroke-width='3' fill='none' stroke-linecap='round'/>`,
     },
   },
 };
