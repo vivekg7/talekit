@@ -1,15 +1,16 @@
 {
   "id": "deer",
   "name": "Deer",
-  "description": "Slim spotted deer with small antlers; faces right.",
-  "rig": "simple",
+  "description": "Slim spotted deer with small antlers (quadruped rig); faces right.",
+  "rig": "quadruped",
   "height": 190,
   "colors": {
     "fur": "#c98a4b",
     "furDark": "#a86d36",
     "furLight": "#f0d3a5",
-    "antler": "#7a5532",
     "hoof": "#4a3524",
+    "antler": "#e3cf9f",
+    "spot": "#f0d3a5",
     "nose": "#2e2633",
     "mouth": "#6e2a2a",
     "tongue": "#e07a7a",
@@ -17,22 +18,30 @@
   },
   "outline": true,
   "parts": {
-    "body": "<path d='M48 124 L46 193.5' stroke='{furDark}' stroke-width='13' stroke-linecap='round' fill='none'/><path d='M108 124 L112 193.5' stroke='{furDark}' stroke-width='13' stroke-linecap='round' fill='none'/><path d='M46 190 L46 193.5' stroke='{hoof}' stroke-width='13' stroke-linecap='round' fill='none'/><path d='M112 190 L112 193.5' stroke='{hoof}' stroke-width='13' stroke-linecap='round' fill='none'/><path d='M44 110 L28 94' stroke='{fur}' stroke-width='13' stroke-linecap='round' fill='none'/><path d='M38 106 L29 97' stroke='{furLight}' stroke-width='6' stroke-linecap='round' fill='none'/><ellipse cx='80' cy='118' rx='50' ry='28' fill='{fur}'/><path d='M44 130 Q80 150 118 130 Q110 144 80 145 Q52 144 44 130 Z' fill='{furLight}'/><circle cx='66' cy='110' r='5' fill='{furLight}'/><circle cx='86' cy='103' r='5' fill='{furLight}'/><circle cx='80' cy='122' r='5' fill='{furLight}'/><circle cx='102' cy='114' r='5' fill='{furLight}'/><path d='M62 128 L60 193.5' stroke='{fur}' stroke-width='13' stroke-linecap='round' fill='none'/><path d='M122 124 L126 193.5' stroke='{fur}' stroke-width='13' stroke-linecap='round' fill='none'/><path d='M60 190 L60 193.5' stroke='{hoof}' stroke-width='13' stroke-linecap='round' fill='none'/><path d='M126 190 L126 193.5' stroke='{hoof}' stroke-width='13' stroke-linecap='round' fill='none'/><path d='M110 108 L128 62' stroke='{fur}' stroke-width='24' stroke-linecap='round' fill='none'/><path d='M129 50 L119 16 M121 24 L110 17 M139 48 L147 14 M145 22 L156 17' stroke='{antler}' stroke-width='8' stroke-linecap='round' fill='none'/><path d='M122 50 Q100 38 98 48 Q104 60 124 60 Z' fill='{fur}'/><path d='M118 52 Q106 46 105 50 Q109 56 120 56 Z' fill='{furLight}'/><circle cx='134' cy='56' r='22' fill='{fur}'/><ellipse cx='153' cy='67' rx='15' ry='11' fill='{furLight}'/><circle cx='162' cy='63' r='5.5' fill='{nose}'/>",
+    "legBL": "<path d='M66 132 L66 190' stroke='{furDark}' stroke-width='12' stroke-linecap='round' fill='none'/><path d='M59 184 L73 184 L74 200 L58 200 Z' fill='{hoof}'/>",
+    "legFL": "<path d='M178 132 L178 190' stroke='{furDark}' stroke-width='12' stroke-linecap='round' fill='none'/><path d='M171 184 L185 184 L186 200 L170 200 Z' fill='{hoof}'/>",
+    "tail": "<path d='M68 104 Q40 90 36 110 Q38 126 68 122 Z' fill='{fur}'/><ellipse cx='43' cy='111' rx='6' ry='8' fill='{furLight}'/>",
+    "body": "<ellipse cx='80' cy='118' rx='30' ry='26' fill='{fur}'/><ellipse cx='178' cy='120' rx='32' ry='30' fill='{fur}'/><rect x='80' y='92' width='98' height='52' fill='{fur}'/><path d='M86 134 Q128 150 168 134 Q164 144 128 145 Q94 144 86 134 Z' fill='{furLight}'/><circle cx='104' cy='104' r='4' fill='{spot}' opacity='0.9'/><circle cx='122' cy='100' r='3.5' fill='{spot}' opacity='0.9'/><circle cx='140' cy='104' r='4' fill='{spot}' opacity='0.9'/><circle cx='114' cy='114' r='3' fill='{spot}' opacity='0.9'/><circle cx='132' cy='114' r='3.5' fill='{spot}' opacity='0.9'/>",
+    "legBR": "<path d='M82 132 L82 190' stroke='{fur}' stroke-width='12' stroke-linecap='round' fill='none'/><path d='M75 184 L89 184 L90 200 L74 200 Z' fill='{hoof}'/>",
+    "legFR": "<path d='M194 132 L194 190' stroke='{fur}' stroke-width='12' stroke-linecap='round' fill='none'/><path d='M187 184 L201 184 L202 200 L186 200 Z' fill='{hoof}'/>",
+    "earL": "<path d='M210 52 Q192 44 184 30 Q202 28 214 42 Z' fill='{furDark}'/>",
+    "head": "<path d='M208 12 L215 42' stroke='{antler}' stroke-width='7' stroke-linecap='round' fill='none'/><path d='M210 22 L198 12' stroke='{antler}' stroke-width='6' stroke-linecap='round' fill='none'/><path d='M224 10 L219 42' stroke='{antler}' stroke-width='7' stroke-linecap='round' fill='none'/><path d='M221 20 L232 11' stroke='{antler}' stroke-width='6' stroke-linecap='round' fill='none'/><path d='M182 122 L212 62' stroke='{fur}' stroke-width='26' stroke-linecap='round' fill='none'/><ellipse cx='218' cy='50' rx='22' ry='18' fill='{fur}'/><ellipse cx='240' cy='58' rx='15' ry='10' fill='{furLight}'/><ellipse cx='252' cy='55' rx='5' ry='4' fill='{nose}'/>",
+    "earR": "<path d='M224 52 Q202 46 192 28 Q214 26 228 42 Z' fill='{fur}'/><path d='M218 44 Q206 40 200 32 Q212 32 220 40 Z' fill='{furLight}'/>",
     "eyes": {
-      "open": "<ellipse cx='138' cy='51' rx='7' ry='8' fill='#fff'/><circle cx='140' cy='52' r='4.5' fill='{line}'/><circle cx='141.5' cy='49.5' r='1.6' fill='#fff'/>",
-      "closed": "<path d='M131 52 Q138 58 145 52' stroke='{line}' stroke-width='3' fill='none' stroke-linecap='round'/>",
-      "wide": "<ellipse cx='138' cy='50' rx='9' ry='10' fill='#fff'/><circle cx='139' cy='51' r='3.5' fill='{line}'/><circle cx='140.5' cy='48.5' r='1.3' fill='#fff'/>",
-      "happy": "<path d='M131 53 Q138 43 145 53' stroke='{line}' stroke-width='3' fill='none' stroke-linecap='round'/>",
-      "sad": "<ellipse cx='138' cy='52' rx='7' ry='7' fill='#fff'/><circle cx='139' cy='54' r='4.5' fill='{line}'/><path d='M129 41 L145 37' stroke='{line}' stroke-width='3.5' stroke-linecap='round'/>",
-      "angry": "<ellipse cx='138' cy='52' rx='7' ry='6.5' fill='#fff'/><circle cx='140' cy='53' r='4.5' fill='{line}'/><path d='M129 37 L146 44' stroke='{line}' stroke-width='4' stroke-linecap='round'/>"
+      "open": "<ellipse cx='226' cy='46' rx='6' ry='6.8' fill='#fff'/><circle cx='227.7' cy='46.9' r='3.8' fill='{line}'/><circle cx='229' cy='44.7' r='1.4' fill='#fff'/>",
+      "closed": "<path d='M220.1 46.9 Q226 52 231.9 46.9' stroke='{line}' stroke-width='3' fill='none' stroke-linecap='round'/>",
+      "wide": "<ellipse cx='226' cy='45.1' rx='7.6' ry='8.5' fill='#fff'/><circle cx='226.8' cy='46' r='3' fill='{line}'/><circle cx='228.1' cy='43.9' r='1.1' fill='#fff'/>",
+      "happy": "<path d='M220.1 48.5 Q226 40.9 231.9 48.5' stroke='{line}' stroke-width='3' fill='none' stroke-linecap='round'/>",
+      "sad": "<ellipse cx='226' cy='46.9' rx='6' ry='6' fill='#fff'/><circle cx='226.8' cy='48.5' r='3.8' fill='{line}'/><path d='M218.3 39.2 L231.9 35.8' stroke='{line}' stroke-width='3' fill='none' stroke-linecap='round'/>",
+      "angry": "<ellipse cx='226' cy='46.9' rx='6' ry='5.5' fill='#fff'/><circle cx='227.7' cy='47.7' r='3.8' fill='{line}'/><path d='M218.3 35.8 L232.8 41.8' stroke='{line}' stroke-width='3.5' fill='none' stroke-linecap='round'/>"
     },
     "mouth": {
-      "closed": "<path d='M150.4 75 Q156 78.5 161.6 74.3' stroke='{line}' stroke-width='3' fill='none' stroke-linecap='round'/>",
-      "smile": "<path d='M148.3 72.9 Q156 84.1 163.7 72.2 Q156 76.4 148.3 72.9 Z' fill='{mouth}'/>",
-      "open": "<ellipse cx='156' cy='77.1' rx='6.3' ry='5.6' fill='{mouth}'/><ellipse cx='156' cy='79.9' rx='3.5' ry='1.75' fill='{tongue}'/>",
-      "sad": "<path d='M150.4 77.8 Q156 72.2 161.6 77.1' stroke='{line}' stroke-width='3' fill='none' stroke-linecap='round'/>",
-      "angry": "<path d='M149.7 77.1 Q156 73.6 162.3 76.4' stroke='{line}' stroke-width='3.5' fill='none' stroke-linecap='round'/>",
-      "scared": "<path d='M149.7 76.4 Q152.85 72.9 156 76.4 Q159.15 79.9 162.3 75.7' stroke='{line}' stroke-width='3' fill='none' stroke-linecap='round'/>"
+      "closed": "<path d='M238.2 65.4 Q243 68.4 247.8 64.8' stroke='{line}' stroke-width='2.2' fill='none' stroke-linecap='round'/>",
+      "smile": "<path d='M235.8 63.6 Q243 73.2 250.2 63 Q243 66.6 235.8 63.6 Z' fill='{mouth}'/><path d='M239.4 67.8 Q243 66 246.6 67.8 Q243 70.2 239.4 67.8 Z' fill='{tongue}'/>",
+      "open": "<ellipse cx='243' cy='67.2' rx='4.8' ry='4.2' fill='{mouth}'/><ellipse cx='243' cy='69.6' rx='3' ry='1.8' fill='{tongue}'/>",
+      "sad": "<path d='M237.6 67.8 Q243 63 248.4 67.2' stroke='{line}' stroke-width='2.2' fill='none' stroke-linecap='round'/>",
+      "angry": "<path d='M237 67.2 Q243 64.2 249 66.6' stroke='{line}' stroke-width='2.6' fill='none' stroke-linecap='round'/>",
+      "scared": "<path d='M236.4 67.2 Q239.4 64.2 242.4 67.2 Q245.4 70.2 249 66.6' stroke='{line}' stroke-width='2.2' fill='none' stroke-linecap='round'/>"
     }
   }
 }

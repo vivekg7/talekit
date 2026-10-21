@@ -24,9 +24,10 @@ reasoning are in `docs/PLAN.md`. Read both before changing the data model.
   `examples/lighthouse/` — written through the MCP tools as the phase 6 run;
   it exercises from-scratch characters, custom variants and the carry trick.
   `examples/clever-rabbit/` — made by a subagent given only the story and
-  the tool; an all-animal cast on the simple rig, kept as the cold-run
-  fixture. Its well sequence was restaged by hand as the worked example of
-  a point-of-view insert (shots 07 to 09).
+  the tool; an all-animal cast, kept as the cold-run fixture. Its well
+  sequence was restaged by hand as the worked example of a point-of-view
+  insert (shots 07 to 09), and its lion, deer and rabbit were moved to the
+  quadruped rig; the monkey and the lion's reflection stay on the simple rig.
 
 ## Rules
 
