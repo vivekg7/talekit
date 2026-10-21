@@ -10,12 +10,14 @@ reasoning are in `docs/PLAN.md`. Read both before changing the data model.
   format), `rigs.ts` (canonical boxes and pivots), `motion.ts` (verb → pose),
   `timeline.ts` (actions → actor state at time t), `actor.ts` + `compose.ts`
   (state → SVG), `bubble.ts` (text wrap and bubble geometry).
-- `src/project/` — load/save/validate a project directory.
+- `src/project/` — load/save/validate a project directory; `notes.ts` is the
+  review-note store shared by the viewer and the MCP.
 - `src/render/` — resvg rasteriser, ffmpeg encoder, preview sheets.
 - `src/library/` — built-in characters and scenes (TypeScript modules holding
   SVG). They are the quality bar and the templates agents copy.
-- `src/mcp/server.ts`, `src/cli.ts`, `src/serve.ts` — thin interfaces over
-  the same code.
+- `src/mcp/server.ts`, `src/cli.ts`, `src/viewer/` — thin interfaces over
+  the same code. The viewer is one embedded page (`page.ts`, no framework, no
+  build) plus a small HTTP server (`server.ts`).
 - `examples/lost-kite/` — one-minute story used as the integration check.
   `examples/lighthouse/` — written through the MCP tools as the phase 6 run;
   it exercises from-scratch characters, custom variants and the carry trick.

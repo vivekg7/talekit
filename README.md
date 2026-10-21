@@ -30,7 +30,7 @@ npm run build
 
 # render the bundled one-minute example
 node dist/cli.js render examples/lost-kite          # → examples/lost-kite/out/movie.mp4
-node dist/cli.js serve  examples/lost-kite          # live scrubber at http://127.0.0.1:4848
+node dist/cli.js serve  examples/lost-kite          # review app at http://127.0.0.1:4848
 ```
 
 Register the MCP server with Claude Code (or any MCP client):
@@ -47,6 +47,16 @@ Then, in a Claude Code session:
 The agent's first call should be `get_guide`; it returns
 [docs/authoring-guide.md](docs/authoring-guide.md), which is the full contract
 for characters, scenes and shots.
+
+## Reviewing what the agent made
+
+`talekit serve <project>` opens the review app: the film with a scrubber and
+a strip of every shot (live frames, or the rendered mp4 once it exists), the
+characters as pose sheets, the scenes as anchor sheets. Pick a moment or an
+asset, type what is wrong, and it is saved as a note in `<project>/notes.json`.
+Then tell the agent "fix my notes": `list_notes` hands it each open note with a
+picture of exactly what you were looking at, and `resolve_note` closes it. The
+page follows the project directory, so the agent's edits appear as it works.
 
 ## What the agent writes
 
@@ -80,7 +90,7 @@ my-story/
 | -------------------------- | ----------------------------------------------------------------------- |
 | `get_guide`                | the authoring guide (read first)                                        |
 | `create_project`           | a new project directory                                                 |
-| `project_info`             | characters, scenes, shots and validation problems                       |
+| `project_info`             | characters, scenes, shots, validation problems, open review notes       |
 | `list_library`             | built-in characters (kid, grownup, dog) and scenes (park, home, street) |
 | `get_library_item`         | the JSON of a built-in, to learn a rig's layout before drawing          |
 | `copy_from_library`        | copies a built-in under a new id / name / colours, returns its sheet    |
@@ -91,6 +101,8 @@ my-story/
 | `preview_frame`            | one frame at a time `t`, optional debug markers                         |
 | `preview_shot`             | contact sheet of a shot                                                 |
 | `render`                   | mp4 of one shot or the whole film, plus a **film sheet** (frame/shot)   |
+| `list_notes`               | review notes left in the app, each with the frame or sheet it points at |
+| `resolve_note`             | marks a note done once the fix is in                                    |
 
 ## CLI
 
@@ -112,6 +124,8 @@ talekit serve <dir>                  talekit mcp
   `ffmpeg` (libx264, yuv420p). A minute of 720p renders in about half a
   minute on an M-series Mac.
 - `src/render/sheets.ts` builds the preview images the MCP returns.
+- `src/viewer` is the review app: one embedded page over the same engine,
+  polling the project directory so it never needs a watcher or a build step.
 - `src/library` holds the hand-drawn built-ins; they set the quality bar and
   are the templates the agent copies.
 

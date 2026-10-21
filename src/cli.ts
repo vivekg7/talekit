@@ -21,7 +21,7 @@ const USAGE = `talekit — story video generation for AI agents
   talekit frame <dir> <shotId> [-t 1.5] [-o file.png] [--svg] [--debug]
   talekit contact <dir> <shotId> [-n 6] [-o file.png]
   talekit render <dir> [shotId] [-o file.mp4]
-  talekit serve <dir> [--port 4848]            live preview in the browser
+  talekit serve <dir> [--port 4848]            review app: film, assets, notes
   talekit mcp                                  start the MCP server on stdio
 `;
 
@@ -167,7 +167,7 @@ async function main(argv: string[]): Promise<void> {
       return;
     }
     case 'serve': {
-      const { serve } = await import('./serve.js');
+      const { serve } = await import('./viewer/server.js');
       await serve(rest[0] ?? '.', num(values.port) ?? 4848);
       return;
     }

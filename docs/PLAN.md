@@ -56,7 +56,7 @@ render
    ▼
 interfaces
    cli.ts        init / check / library / copy / sheet / frame / contact / render / serve / mcp
-   serve.ts      local web viewer with a scrubber (live SVG frames)
+   viewer/       review app: film scrubber, asset sheets, notes for the agent
    mcp/server.ts tools over stdio for Claude Code and other agents
 ```
 
@@ -92,8 +92,19 @@ actions }`. Cast places characters at anchors. Actions are
 - [x] **Phase 4 — MCP server.** `get_guide`, `create_project`, `project_info`,
       `get_item`, `list_library`, `get_library_item`, `copy_from_library`, `write_character`,
       `write_scene`, `write_shot`, `delete_item`, `preview_frame`,
-      `preview_shot`, `render`. Every write validates and returns an image.
+      `preview_shot`, `render`, `list_notes`, `resolve_note`. Every write
+      validates and returns an image.
 - [x] **Phase 5 — Viewer.** `talekit serve` with a shot picker and scrubber.
+      Grown into a review app after the clever-rabbit run: the person could
+      not see the assets, could not point at a moment, and had no channel
+      back to the agent except prose. Now the page shows every character and
+      scene as its sheet, plays live frames or the rendered mp4 with a shot
+      strip, and saves notes against an asset or a shot time to
+      `notes.json`. The agent reads them with `list_notes` (each with the
+      picture the person saw) and closes them with `resolve_note`, the same
+      selection-plus-comments loop Paper uses. Notes are plain files so the
+      viewer and the MCP share nothing but the directory; the page polls
+      file mtimes rather than watching, to stay dependency-free.
 - [ ] **Phase 6 — Polish loop.** Run the MCP from Claude Code on a fresh
       story, watch where the agent struggles, and fix the guide or the engine.
       First pass done with `examples/lighthouse` (seagull and lantern drawn

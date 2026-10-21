@@ -41,6 +41,7 @@ import {
 } from '../render/sheets.js';
 import { faceFallbacks } from '../engine/motion.js';
 import { renderVideo } from '../render/video.js';
+import { describeNote, loadNotes, setNoteStatus, type Note } from '../project/notes.js';
 
 type Content =
   { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: 'image/png' };
@@ -74,7 +75,13 @@ function guidePath(): string {
   throw new Error('authoring-guide.md not found');
 }
 
-function describeProject(project: Project, problems: Problem[]): string {
+function describeProject(
+  root: string,
+  project: Project,
+  problems: Problem[],
+  notes: Note[]
+): string {
+  const open = notes.filter((n) => n.status === 'open');
   const lines = [
     `# ${project.meta.title}`,
     `${project.meta.width}x${project.meta.height} @ ${project.meta.fps}fps · ${project.shots.length} shots · ${movieDuration(project).toFixed(1)}s total`,
@@ -103,6 +110,12 @@ function describeProject(project: Project, problems: Problem[]): string {
     '',
     '## Validation',
     formatProblems(problems),
+    '',
+    '## Review notes',
+    open.length
+      ? `${open.length} open — call list_notes to see them with pictures, fix each, then resolve_note.`
+      : 'none open',
+    `Review app: \`talekit serve ${projectPaths(root).root}\` (the person leaves notes there)`,
   ];
   return lines.join('\n');
 }
@@ -159,13 +172,15 @@ export function buildServer(): McpServer {
     {
       title: 'Project info',
       description:
-        'Summary of a project: characters with their parts and variants, scenes with anchors, shots in playback order, and validation problems.',
+        'Summary of a project: characters with their parts and variants, scenes with anchors, shots in playback order, validation problems, and how many review notes are open.',
       inputSchema: { path: pathArg },
     },
     async ({ path: root }) => {
       try {
         const project = await loadProject(root);
-        return ok(text(describeProject(project, validateProject(project))));
+        return ok(
+          text(describeProject(root, project, validateProject(project), await loadNotes(root)))
+        );
       } catch (e) {
         return fail((e as Error).message);
       }
@@ -488,6 +503,75 @@ export function buildServer(): McpServer {
           ),
           image(filmSheetSvg(project, shots))
         );
+      } catch (e) {
+        return fail((e as Error).message);
+      }
+    }
+  );
+
+  server.registerTool(
+    'list_notes',
+    {
+      title: 'List review notes',
+      description:
+        'Notes a person left in the review app (`talekit serve <path>`) on a character, a scene, or one moment of a shot. Each open note comes with a picture of what they were looking at: the frame at that moment for a shot note, the pose or anchor sheet for an asset note. Fix what the note asks, check the result, then call resolve_note.',
+      inputSchema: {
+        path: pathArg,
+        all: z.boolean().optional().describe('Include resolved notes (default: open only)'),
+      },
+    },
+    async ({ path: root, all }) => {
+      try {
+        const notes = (await loadNotes(root)).filter((n) => all || n.status === 'open');
+        if (!notes.length) return ok(text(all ? 'no notes' : 'no open notes'));
+        const project = await loadProject(root);
+        const content: Content[] = [];
+        let pictures = 0;
+        for (const n of notes) {
+          content.push(text(describeNote(n)));
+          if (n.status !== 'open' || pictures >= 8) continue;
+          const { kind, id, t } = n.target;
+          const shot = kind === 'shot' ? project.shots.find((s) => s.id === id) : undefined;
+          const svg = shot
+            ? composeFrame(project, shot, t ?? shot.duration / 2)
+            : kind === 'character' && project.characters[id]
+              ? characterSheetSvg(project.characters[id])
+              : kind === 'scene' && project.scenes[id]
+                ? sceneSheetSvg(project, project.scenes[id])
+                : undefined;
+          if (!svg) content.push(text(`  (the ${kind} '${id}' no longer exists)`));
+          else {
+            content.push(image(svg));
+            pictures++;
+          }
+        }
+        if (pictures === 8 && notes.length > 8)
+          content.push(
+            text('(pictures shown for the first 8 notes; use preview_frame for the rest)')
+          );
+        return ok(...content);
+      } catch (e) {
+        return fail((e as Error).message);
+      }
+    }
+  );
+
+  server.registerTool(
+    'resolve_note',
+    {
+      title: 'Resolve a review note',
+      description:
+        'Mark a review note done (or reopen it with status "open"). Do this only after the fix is written and checked; the person sees the status change in the review app.',
+      inputSchema: {
+        path: pathArg,
+        id: z.string().describe('Note id, e.g. n3'),
+        status: z.enum(['done', 'open']).optional().describe('Default done'),
+      },
+    },
+    async ({ path: root, id, status }) => {
+      try {
+        const note = await setNoteStatus(root, id, status ?? 'done');
+        return ok(text(describeNote(note)));
       } catch (e) {
         return fail((e as Error).message);
       }

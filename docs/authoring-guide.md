@@ -29,6 +29,13 @@ colors)` (colour tokens: hair, skin, dress, shirt…). Draw from scratch with
    exact moment and `preview_shot(path, shotId, frames)` for more frames.
 6. **`render(path, shotId?)`** a single shot early to check motion, then the
    whole film. It returns a film sheet, one frame per shot, to confirm the cut.
+7. **Review notes.** The person watches the result in the review app
+   (`talekit serve <path>`) and leaves notes on a character, a scene, or one
+   moment of a shot. When `project_info` reports open notes, or you are asked
+   to "fix my notes", call `list_notes(path)`: each note comes with the frame
+   or sheet the person was looking at. Fix what it asks, check the new
+   picture, then `resolve_note(path, id)`. Do not resolve a note you did not
+   act on; say why instead.
 
 ## Coordinate boxes
 
