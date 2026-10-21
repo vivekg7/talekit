@@ -45,6 +45,7 @@ button:disabled{opacity:.4;cursor:default}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px;padding:14px}
 .card{background:var(--panel);border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
 .card img{width:100%;display:block;background:#e9eef3;cursor:zoom-in}
+.card img.construction{border-top:1px solid var(--line)}
 .card .body{padding:8px 10px;display:flex;flex-direction:column;gap:6px}
 .card .title{display:flex;align-items:baseline;gap:8px}
 .card .title b{font-size:15px}
@@ -164,11 +165,13 @@ function renderCards(kind) {
     var open = notesFor(k, c.id);
     var card = document.createElement('div'); card.className = 'card';
     var meta = kind === 'characters' ? c.rig + ' rig · ' + c.height + 'px' : 'anchors: ' + (c.anchors.join(', ') || 'none');
-    card.innerHTML = "<img src='/api/sheet?id=" + encodeURIComponent(c.id) + '&v=' + info.version + "'>" +
+    var sheet = '/api/sheet?id=' + encodeURIComponent(c.id) + '&v=' + info.version;
+    card.innerHTML = "<img src='" + sheet + "'>" +
+      (kind === 'characters' ? "<img class='construction' title='Construction: what the linter checked' src='" + sheet + "&kind=construction'>" : '') +
       "<div class='body'><div class='title'><b>" + esc(c.name) + '</b><span>' + esc(c.id) + ' · ' + esc(meta) + '</span></div>' +
       (open.length ? "<div class='notes'>" + open.map(function (n) { return esc(n.id + ': ' + n.text); }).join('<br>') + '</div>' : '') +
       "<textarea placeholder='What should change about this " + k + "?'></textarea><div class='row'><button class='act'>Add note</button></div></div>";
-    card.querySelector('img').onclick = function () { lightbox(this.src); };
+    card.querySelectorAll('img').forEach(function (img) { img.onclick = function () { lightbox(this.src); }; });
     var ta = card.querySelector('textarea');
     var add = function () { if (!ta.value.trim()) return; postNote({ kind: k, id: c.id }, ta.value).then(function () { ta.value = ''; }); };
     card.querySelector('button').onclick = add;

@@ -143,12 +143,15 @@ describe('validation', () => {
       id: 'b',
       name: 'b',
       rig: 'simple',
-      parts: { body: "<circle r='9'/>", mouth: { closed: '', open: "<path d='M0 0h9'/>" } },
+      parts: {
+        body: "<circle cx='100' cy='190' r='9'/>",
+        mouth: { closed: '', open: "<path d='M0 0h9'/>" },
+      },
     });
     expect(validateCharacter(bird).filter((x) => x.level === 'error')).toEqual([]);
     const allEmpty = CharacterSchema.parse({
       ...bird,
-      parts: { body: "<circle r='9'/>", mouth: { closed: '', open: ' ' } },
+      parts: { body: "<circle cx='100' cy='190' r='9'/>", mouth: { closed: '', open: ' ' } },
     });
     expect(
       validateCharacter(allEmpty)

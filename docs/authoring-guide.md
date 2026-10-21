@@ -17,9 +17,12 @@ colors)` (colour tokens: hair, skin, dress, shirt…). Draw from scratch with
    `write_character(path, character)` only for something the library lacks
    (an animal other than a dog, a dragon, a robot, a prop like a kite); read
    `get_library_item(libraryId)` first to see how a character on that rig is
-   laid out. Look at the returned pose sheet: proportions, pivots,
-   expressions, and the fallback list in the text. Rewrite until it looks
-   right.
+   laid out, and follow [Drawing style](#drawing-style) and
+   [Construction](#construction). Two pictures come back: the pose sheet
+   (proportions, expressions, the fallback list in the text) and the
+   construction sheet (part boxes, pivots, silhouette, joints in a swing,
+   numbered red boxes for each numbered warning). Rewrite until it looks
+   right and the construction warnings are gone.
 4. **Scenes.** `copy_from_library` or `write_scene(path, scene)`. Look at the
    anchor sheet: every place a character will stand or sit needs an anchor on
    the floor.
@@ -71,7 +74,9 @@ Rules that make the rig work:
 stroke-width='18' stroke-linecap='round' fill='none'/>` plus a hand circle
   and a shoe shape at the end.
 - `eyes` and `mouth` rotate with the head. Give them variants (below).
-- `torso` is required. Put the neck in the torso.
+- `torso` is required. Put the neck in the torso, reaching at least 12
+  units up into the head, and end the torso at least 12 units below the hips
+  so the legs start under it.
 - Inner elements only (`<path>`, `<circle>`, `<rect>`, `<g>`…). Never an
   `<svg>` element, never `<image>`, no external references. Prefix any `id`
   you define with the character id to avoid clashes.
@@ -126,6 +131,56 @@ shows one cell per such variant at the end, so check them there.
 `colors` is a map of token → colour. Inside part SVG write `{skin}`, `{hair}`
 and so on. Copying a library character and changing `colors` is the fastest
 way to make a new cast member. Undefined tokens are a validation error.
+`line` is the outline colour (below); define it to use `{line}` for line work.
+
+## Drawing style
+
+One style for every character, so a cast looks like it came from one show:
+an **outlined cartoon**. Flat colour shapes, bold and round, with a dark line
+around them. The library characters are the bar; read one before drawing.
+
+- **Do not draw outlines.** The engine draws the line around every part,
+  the same width on screen for the whole cast, thinner on `eyes` and `mouth`.
+  Shapes inside one part merge into one silhouette; a part in front of
+  another (the near arm over the torso) gets its own line where they cross.
+  It uses `colors.line` (default `#2e2633`, near-black plum). Set `"outline":
+false` only for something that should not look drawn: a glow, a ghost.
+- **Flat fills.** One base colour per area plus one darker shade of it for
+  inner detail: a muzzle, a belly, an inner ear, a hem. No gradients on
+  characters. Faint shapes (`opacity` below 0.95, e.g. blush at `0.5`) and
+  thin strokes (under 8 wide) get no outline, so they read as detail.
+- **Line work inside the silhouette** (a closed mouth, eyebrows, a nose, a
+  crease) is a stroke in `{line}`, 3–4 units, round caps.
+- **Eyes** are a white, a dark iris and a small white highlight up and to the
+  side. The iris sits toward where the character looks; a blink is a curved
+  `{line}` stroke. Small animals may use a dark dot with a highlight.
+- **Simple shapes**: a head is a circle or a rounded blob, a body a bean,
+  limbs are tubes with round ends. On screen the box shrinks to about half
+  size, so nothing readable is smaller than 6 units.
+- Do not draw a ground shadow; the floor belongs to the scene.
+
+## Construction
+
+The rules a rig needs to move without coming apart. `write_character` checks
+them on the drawing itself and returns the construction sheet; each numbered
+warning has a matching red box on it.
+
+- **Nothing outside the box.** This one is an error: the engine scales and
+  places the box, and bubbles hang from its top.
+- **Feet on the line**: shoes touch y=400 on the humanoid; the lowest point
+  touches y=200 on the simple rig, unless the thing flies.
+- **Limbs are strokes from their pivot**, e.g. `<path d='M124 170 L130 280'
+stroke='{skin}' stroke-width='18' stroke-linecap='round' fill='none'/>`. The
+  round cap at the pivot looks the same at every angle, so the joint never
+  shows a corner when the limb swings.
+- **Sink, do not touch.** A limb overlaps the torso by at least 12 units and
+  the neck reaches 12 units into the head. Inside a part every piece (a leg,
+  a tail, an ear, a pigtail) sinks at least 12 units (three quarters of its
+  own width if it is thinner) into the shape it hangs from. Two shapes that
+  only touch read as separate stickers, and a gap opens as soon as they move.
+- **Draw order is depth.** Inside a part, write the far side first, then the
+  body, then the near side: far legs, tail, body, near legs, head, ears.
+- **Keep the head near the top of the box**, where bubbles hang.
 
 ## Scenes
 
@@ -152,7 +207,10 @@ the middle third uncluttered where faces and bubbles go; a 220px character is
 about a third of the frame height. The anchor sheet shows a ghost for scale:
 the project's tallest character once one exists (so write characters before
 scenes), otherwise a 220px humanoid.
-Gradients and `<defs>` are fine; prefix ids with the scene id.
+Gradients and `<defs>` are fine; prefix ids with the scene id. Keep
+backgrounds soft and low in contrast so the outlined characters pop; props
+and foreground objects a character touches (a bench, a well, a door) get a
+`#2e2633` outline of about 3 px, like the characters.
 
 ## Shots
 
@@ -272,7 +330,8 @@ frame is not; check the text, not the edges.
 
 ## Checklist before `render`
 
-- `project_info` shows no validation errors or warnings you did not intend.
+- `project_info` shows no validation errors or warnings you did not intend,
+  construction warnings included.
 - Every shot's contact sheet looks staged: nobody floating, nobody clipped,
   right people facing each other, the right actor in front.
 - Total duration matches what was asked for: a short fable is 60–120 s, a

@@ -12,6 +12,7 @@ import { RIGS } from '../engine/rigs.js';
 import { escapeXml, n } from '../engine/svg.js';
 import { STAGE_SHORTCUTS, resolvePosition } from '../engine/timeline.js';
 import type { Character, Emotion, Project, Scene, Shot } from '../engine/types.js';
+import { lintCharacter, partBox } from '../project/construction.js';
 
 const LABEL_FONT = 'Helvetica, Arial, sans-serif';
 
@@ -194,4 +195,94 @@ export function filmSheetSvg(project: Project, shots: Shot[]): string {
     svg: composeFrame(project, shot, shot.duration / 2),
   }));
   return tileFrames(project, frames, shots.length > 4 ? 3 : 2, shots.length > 4 ? 420 : 630);
+}
+
+const PART_COLORS = ['#e76f51', '#2a9d8f', '#e9c46a', '#8338ec', '#3a86ff', '#ff006e', '#06d6a0'];
+
+/**
+ * What the construction linter sees, so the agent can match each numbered warning to a
+ * place: part boxes and pivots over the drawing, the silhouette (does it read as one thing
+ * in solid black?), and for the humanoid two swing poses that open any gap at a joint.
+ */
+export function constructionSheetSvg(character: Character): string {
+  const rig = RIGS[character.rig];
+  const { problems, marks } = lintCharacter(character);
+  const scale = rig.name === 'humanoid' ? 1 : 2;
+  const pw = rig.width * scale + 60;
+  const ph = rig.height * scale + 60;
+  const restFace = resolveFace(character.parts, {
+    emotion: 'neutral',
+    overrides: {},
+    talking: false,
+    t: 0.06,
+    phase: 0.2,
+  });
+  const rest = basePose(rig, 'move', 0, 0);
+  rest.face = restFace;
+  const drawn = (pose: Pose) => characterBody(character, pose);
+  const swing = (sign: number): Pose => {
+    const p = basePose(rig, 'move', 0, 0);
+    p.face = restFace;
+    p.rot = {
+      armR: -100 * sign,
+      armL: 60 * sign,
+      legL: 32 * sign,
+      legR: -32 * sign,
+      head: 10 * sign,
+    };
+    return p;
+  };
+  const panel = (i: number, label: string, inner: string) => {
+    const x = 10 + i * (pw + 10);
+    return (
+      `<g transform='translate(${x} 40)'><rect width='${pw}' height='${ph + 30}' rx='10' fill='#fff' stroke='#cfd6dd'/>` +
+      `<g transform='translate(30 30) scale(${scale})'>` +
+      `<rect width='${rig.width}' height='${rig.height}' fill='none' stroke='#9aa5b1' stroke-dasharray='4 4' stroke-width='${1 / scale}'/>` +
+      `<line x1='-20' y1='${rig.height}' x2='${rig.width + 20}' y2='${rig.height}' stroke='#e63946' stroke-width='${1.5 / scale}'/>` +
+      `${inner}</g>` +
+      `<text x='${pw / 2}' y='${ph + 20}' text-anchor='middle' font-family='${LABEL_FONT}' font-size='15' fill='#555'>${escapeXml(label)}</text></g>`
+    );
+  };
+
+  let parts = `<g opacity='0.45'>${drawn(rest)}</g>`;
+  let pivots = '';
+  const names = Object.keys(character.parts);
+  names.forEach((name, i) => {
+    const color = PART_COLORS[i % PART_COLORS.length];
+    const box = partBox(character, name);
+    if (box)
+      parts += `<rect x='${box.x}' y='${box.y}' width='${box.w}' height='${box.h}' fill='none' stroke='${color}' stroke-width='${1.5 / scale}'/><text x='${box.x + 2}' y='${box.y - 3}' font-family='${LABEL_FONT}' font-size='${11 / scale}' fill='${color}'>${escapeXml(name)}</text>`;
+    const rp = rig.parts[name];
+    if (rp && !['eyes', 'mouth'].includes(name))
+      pivots += `<circle cx='${rp.pivot[0]}' cy='${rp.pivot[1]}' r='${4 / scale}' fill='#fff' stroke='#111' stroke-width='${1.5 / scale}'/><circle cx='${rp.pivot[0]}' cy='${rp.pivot[1]}' r='${1.2 / scale}' fill='#111'/>`;
+  });
+  for (const m of marks)
+    parts += `<rect x='${m.x - 2}' y='${m.y - 2}' width='${m.w + 4}' height='${m.h + 4}' fill='#e63946' fill-opacity='0.12' stroke='#e63946' stroke-width='${2.5 / scale}'/><circle cx='${m.x + m.w}' cy='${m.y}' r='${9 / scale}' fill='#e63946'/><text x='${m.x + m.w}' y='${m.y + 4 / scale}' text-anchor='middle' font-family='${LABEL_FONT}' font-size='${11 / scale}' font-weight='bold' fill='#fff'>${m.n}</text>`;
+  parts += pivots;
+
+  const silhouette = `<defs><filter id='tk-sil'><feFlood flood-color='#1d1b22'/><feComposite in2='SourceAlpha' operator='in'/></filter></defs><g filter='url(#tk-sil)'>${drawn(rest)}</g>`;
+  const panels = [
+    panel(0, 'parts, pivots, warnings', parts),
+    panel(1, 'silhouette', silhouette),
+    ...(rig.name === 'humanoid'
+      ? [
+          panel(2, 'swing: joints stay closed?', drawn(swing(1))),
+          panel(3, 'swing, other way', drawn(swing(-1))),
+        ]
+      : []),
+  ];
+  const lines = problems.length
+    ? problems.map((p) => `${p.level === 'error' ? 'ERROR ' : ''}${p.message}`)
+    : ['construction OK: inside the box, standing on the line, joints closed, nothing detached'];
+  const W = Math.max(panels.length * (pw + 10) + 10, 900);
+  const textTop = 40 + ph + 30 + 28;
+  const H = textTop + lines.length * 20 + 10;
+  let out = `<svg xmlns='http://www.w3.org/2000/svg' width='${W}' height='${H}' viewBox='0 0 ${W} ${H}'><rect width='${W}' height='${H}' fill='#e9eef3'/>`;
+  out += `<text x='12' y='26' font-family='${LABEL_FONT}' font-size='18' fill='#333'>${escapeXml(character.name)} (${character.id}) · construction · rig ${rig.name} ${rig.width}×${rig.height}</text>`;
+  out += panels.join('');
+  lines.forEach((l, i) => {
+    const text = l.length > 150 ? `${l.slice(0, 147)}…` : l;
+    out += `<text x='12' y='${textTop + i * 20}' font-family='${LABEL_FONT}' font-size='13' fill='${l.startsWith('ERROR') ? '#c1121f' : '#333'}'>${escapeXml(text)}</text>`;
+  });
+  return out + '</svg>';
 }

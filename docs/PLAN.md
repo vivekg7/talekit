@@ -183,6 +183,22 @@ also make the linter possible.
 - Scenes: props and foreground objects follow the same outline rule;
   backgrounds stay soft so characters pop.
 
+**Done 2026-10-21, with two changes from the plan above.** The outline is
+drawn by the engine (`src/engine/outline.ts`), not by the artist with
+`paint-order`: before each part it draws a copy of the part in the line
+colour with every filled shape and every limb stroke widened, so only a rim
+shows. Agents forget strokes and mix widths; the engine owning the line is
+the same argument as the engine owning motion. The width is fixed on screen
+(3.4 px at scale 1) rather than per rig, so a 90 px mouse and a 300 px adult
+look drawn with one pen. That made the planned "filled shape without
+outline" and "inconsistent stroke width" checks unnecessary. The linter
+(`src/project/construction.ts`) rasterises each part and each top-level
+shape at one pixel per unit with resvg instead of parsing paths, so caps,
+arcs and transforms count exactly as drawn; overlap is measured as the
+thickness of the intersection at the joint, against both sides as they are
+there. The library scenes were not redrawn: the guide asks for outlined
+props, and the scenes come up again in 7.5 with layers.
+
 ### 7.2 Quadruped rig and library species
 
 Why: most children's stories are animal stories, and the simple rig cannot

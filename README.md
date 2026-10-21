@@ -94,7 +94,7 @@ my-story/
 | `list_library`             | built-in characters (kid, grownup, dog) and scenes (park, home, street) |
 | `get_library_item`         | the JSON of a built-in, to learn a rig's layout before drawing          |
 | `copy_from_library`        | copies a built-in under a new id / name / colours, returns its sheet    |
-| `write_character`          | validates, saves, returns a **pose sheet** (every pose and expression)  |
+| `write_character`          | validates, saves, returns a **pose sheet** and a **construction sheet** |
 | `write_scene`              | validates, saves, returns the scene with **anchors marked**             |
 | `write_shot`               | validates cross references, saves, returns a **contact sheet**          |
 | `get_item` / `delete_item` | read back or remove one file                                            |
@@ -124,6 +124,9 @@ talekit serve <dir>                  talekit mcp
   `ffmpeg` (libx264, yuv420p). A minute of 720p renders in about half a
   minute on an M-series Mac.
 - `src/render/sheets.ts` builds the preview images the MCP returns.
+- `src/engine/outline.ts` draws the house outline under every part;
+  `src/project/construction.ts` is the construction linter behind
+  `write_character` and `check`.
 - `src/viewer` is the review app: one embedded page over the same engine,
   polling the project directory so it never needs a watcher or a build step.
 - `src/library` holds the hand-drawn built-ins; they set the quality bar and

@@ -7,7 +7,7 @@ import { movieDuration } from '../engine/timeline.js';
 import { addNote, deleteNote, loadNotes, NOTES_FILE, setNoteStatus } from '../project/notes.js';
 import { loadProject, projectPaths } from '../project/store.js';
 import { formatProblems, validateProject } from '../project/validate.js';
-import { characterSheetSvg, sceneSheetSvg } from '../render/sheets.js';
+import { characterSheetSvg, constructionSheetSvg, sceneSheetSvg } from '../render/sheets.js';
 import { PAGE } from './page.js';
 
 /**
@@ -181,7 +181,9 @@ export async function serve(root: string, port: number): Promise<void> {
       if (url.pathname === '/api/sheet') {
         const id = url.searchParams.get('id') ?? '';
         const svg = project.characters[id]
-          ? characterSheetSvg(project.characters[id])
+          ? url.searchParams.get('kind') === 'construction'
+            ? constructionSheetSvg(project.characters[id])
+            : characterSheetSvg(project.characters[id])
           : project.scenes[id]
             ? sceneSheetSvg(project, project.scenes[id])
             : undefined;

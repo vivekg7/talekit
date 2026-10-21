@@ -35,6 +35,7 @@ import {
 import { rasterize } from '../render/raster.js';
 import {
   characterSheetSvg,
+  constructionSheetSvg,
   contactSheetSvg,
   filmSheetSvg,
   sceneSheetSvg,
@@ -262,7 +263,7 @@ export function buildServer(): McpServer {
     {
       title: 'Copy from library',
       description:
-        'Copy a built-in character or scene into the project under a new id, optionally overriding colour tokens and the display name. Returns the pose sheet or anchor sheet.',
+        'Copy a built-in character or scene into the project under a new id, optionally overriding colour tokens and the display name. Returns the pose and construction sheets, or the anchor sheet.',
       inputSchema: {
         path: pathArg,
         libraryId: z.string(),
@@ -292,7 +293,8 @@ export function buildServer(): McpServer {
           const file = await saveCharacter(root, character);
           return ok(
             text(`wrote ${file}\n${characterReport(character, validateCharacter(character))}`),
-            image(characterSheetSvg(character))
+            image(characterSheetSvg(character)),
+            image(constructionSheetSvg(character))
           );
         }
         const s = LIBRARY.scenes[libraryId];
@@ -314,7 +316,7 @@ export function buildServer(): McpServer {
     {
       title: 'Write character',
       description:
-        'Validate and save a character (creates or replaces characters/<id>.json). Returns a pose sheet showing every pose and expression the engine can produce, plus one cell per variant of any other part (selected in shots with a `face` action), so you can check proportions, pivots and variants. The text lists emotions that fall back to a substitute variant (e.g. angry eyes → open) because the preferred one is missing. Fix and re-write until it looks right.',
+        'Validate and save a character (creates or replaces characters/<id>.json). Returns two pictures. The pose sheet shows every pose and expression the engine can produce, plus one cell per variant of any other part (selected in shots with a `face` action). The construction sheet shows what the construction linter checked: part boxes and pivots, the silhouette, swing poses that open any gap at a joint, and numbered red boxes matching the numbered warnings in the text (a limb not reaching into the torso, a leg that only touches the body, feet off the line). Drawing outside the canonical box is an error. The engine adds the outline itself; do not draw one. Fix and re-write until both sheets look right and the warnings are gone.',
       inputSchema: { path: pathArg, character: CharacterSchema },
     },
     async ({ path: root, character }) => {
@@ -324,7 +326,8 @@ export function buildServer(): McpServer {
         const file = await saveCharacter(root, character);
         return ok(
           text(`wrote ${file}\n${characterReport(character, problems)}`),
-          image(characterSheetSvg(character))
+          image(characterSheetSvg(character)),
+          image(constructionSheetSvg(character))
         );
       } catch (e) {
         return fail((e as Error).message);

@@ -1,5 +1,6 @@
 import { applyVerb, basePose, resolveFace, type Pose } from './motion.js';
 import { rigPart, RIGS, type Rig } from './rigs.js';
+import { DEFAULT_LINE_COLOR, OUTLINE_PX, outlineFor } from './outline.js';
 import { applyColors, n } from './svg.js';
 import type { ActorState } from './timeline.js';
 import type { Character } from './types.js';
@@ -18,6 +19,17 @@ export function poseFor(actor: ActorState, t: number): Pose {
     phase: actor.phase,
   });
   return pose;
+}
+
+const FACE_PARTS = new Set(['eyes', 'mouth']);
+
+/**
+ * Outline width in canonical units: the same line on screen for every character at scale 1,
+ * so a 90px mouse and a 300px giant look drawn with the same pen. Perspective scale thins it.
+ */
+export function outlineWidth(character: Character): number {
+  const rig = RIGS[character.rig];
+  return OUTLINE_PX / (character.height / rig.height);
 }
 
 function transformChain(rig: Rig, pose: Pose, name: string): string {
@@ -44,13 +56,20 @@ function transformChain(rig: Rig, pose: Pose, name: string): string {
 export function characterBody(character: Character, pose: Pose): string {
   const rig = RIGS[character.rig];
   const names = Object.keys(character.parts).sort((a, b) => rigPart(rig, a).z - rigPart(rig, b).z);
+  const line = character.colors.line ?? DEFAULT_LINE_COLOR;
+  const width = outlineWidth(character);
   let out = '';
   for (const name of names) {
     const part = character.parts[name];
     const svg = typeof part === 'string' ? part : part[pose.face[name] ?? Object.keys(part)[0]];
     if (!svg) continue;
     const tf = transformChain(rig, pose, name);
-    out += `<g class='part-${name}'${tf ? ` transform='${tf}'` : ''}>${applyColors(svg, character.colors)}</g>`;
+    const drawn = applyColors(svg, character.colors);
+    // Eyes and mouth are detail on top of the head: a lighter line, or they look stamped on.
+    const under = character.outline
+      ? outlineFor(drawn, line, FACE_PARTS.has(name) ? width / 2 : width)
+      : '';
+    out += `<g class='part-${name}'${tf ? ` transform='${tf}'` : ''}>${under}${drawn}</g>`;
   }
   let body = out;
   if (pose.spin) {

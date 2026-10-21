@@ -21,6 +21,14 @@ export const CharacterSchema = z.object({
   height: z.number().positive().default(220),
   /** Named colour tokens; `{token}` inside part SVG is replaced with the value. */
   colors: z.record(z.string(), z.string()).default({}),
+  /**
+   * The engine draws the house outline around every part, in `colors.line` if set. Turn it
+   * off only for things that should not look drawn: a glow, a ghost, a reflection's ripple.
+   */
+  outline: z
+    .boolean()
+    .default(true)
+    .describe('Engine-drawn outline around every part (default true); false for glows and ghosts'),
   parts: z.record(z.string(), PartSchema),
 });
 export type Character = z.infer<typeof CharacterSchema>;

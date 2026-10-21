@@ -1,4 +1,5 @@
 import { missingColorTokens } from '../engine/svg.js';
+import { lintCharacter } from './construction.js';
 import { RIGS } from '../engine/rigs.js';
 import { sayDuration, STAGE_SHORTCUTS } from '../engine/timeline.js';
 import type { Character, Project, Scene, Shot } from '../engine/types.js';
@@ -75,6 +76,8 @@ export function validateCharacter(c: Character): Problem[] {
         message: `eyes have no 'closed' variant, so there is no blinking`,
       });
   }
+  // Construction is checked on the drawing, so only once the parts are drawable at all.
+  if (!out.some((p) => p.level === 'error')) out.push(...lintCharacter(c).problems);
   return out;
 }
 

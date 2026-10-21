@@ -8,7 +8,12 @@ import { LIBRARY, copyFromLibrary } from './library/index.js';
 import { createProject, loadProject, projectPaths } from './project/store.js';
 import { formatProblems, hasErrors, validateProject } from './project/validate.js';
 import { rasterize } from './render/raster.js';
-import { characterSheetSvg, contactSheetSvg, sceneSheetSvg } from './render/sheets.js';
+import {
+  characterSheetSvg,
+  constructionSheetSvg,
+  contactSheetSvg,
+  sceneSheetSvg,
+} from './render/sheets.js';
 import { renderVideo } from './render/video.js';
 
 const USAGE = `talekit — story video generation for AI agents
@@ -17,7 +22,7 @@ const USAGE = `talekit — story video generation for AI agents
   talekit check <dir>                          validate every file and cross reference
   talekit library                              list built-in characters and scenes
   talekit copy <dir> <libraryId> [--as <id>]   copy a built-in into the project
-  talekit sheet <dir> <id> [-o file.png]       pose sheet (character) or anchor sheet (scene)
+  talekit sheet <dir> <id> [-o file.png]       pose + construction sheet (character) or anchor sheet (scene)
   talekit frame <dir> <shotId> [-t 1.5] [-o file.png] [--svg] [--debug]
   talekit contact <dir> <shotId> [-n 6] [-o file.png]
   talekit render <dir> [shotId] [-o file.mp4]
@@ -100,9 +105,11 @@ async function main(argv: string[]): Promise<void> {
       const project = await loadProject(dir);
       const p = projectPaths(dir);
       if (project.characters[id]) {
+        const file = values.out ?? path.join(p.out, `sheet-${id}.png`);
+        await savePng(file, characterSheetSvg(project.characters[id]));
         await savePng(
-          values.out ?? path.join(p.out, `sheet-${id}.png`),
-          characterSheetSvg(project.characters[id])
+          path.join(path.dirname(file), `construction-${path.basename(file)}`),
+          constructionSheetSvg(project.characters[id])
         );
       } else if (project.scenes[id]) {
         await savePng(
