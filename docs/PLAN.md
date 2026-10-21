@@ -131,11 +131,133 @@ actions }`. Cast places characters at anchors. Actions are
       Next: a run with a non-Claude agent, and a story that needs humanoid
       interaction.
 
+## Phase 7 — Video quality
+
+Reviewing the three films (2026-10-21) settled where the ceiling is. The tool
+loop works; what comes out of the engine does not look like a cartoon yet.
+Specifically: agent-drawn characters look generated (generic shapes, no
+construction, a deer leg overlapping its body by six units so it reads as
+detached), animals move by bobbing a sticker, nothing has weight, nobody
+looks at anyone, and scenes are one flat layer. Audio is a known gap and is
+deliberately last: it would mask the visual problems, so those come first.
+
+Decisions taken with Vivek before planning: one drawing style for everything
+(**outlined cartoon**, Bluey-like); animals come from a **library of rigged
+species** that agents recolour and adapt, drawing from scratch stays the
+exception; movement is **procedural with springs**, not a physics engine (a
+rigid-body simulation gives ragdolls, not cartoon motion, and would break
+determinism and preview speed).
+
+Each pass ends the same way: re-render all three examples, put before and
+after side by side in the review app, and leave notes. A pass is done when
+the notes stop being about that pass.
+
+### 7.1 Art direction and character construction
+
+Why first: every later pass draws on top of the characters, and the rules
+also make the linter possible.
+
+- **Style sheet** in the guide, short and absolute: a single dark outline
+  colour, outline width per rig (humanoid 6, simple and quadruped 5 canonical
+  units) with round joins and caps, `paint-order='stroke'` so outlines sit
+  under fills of the same shape, flat fills with one darker shade for inner
+  detail (muzzle, belly, inner ear), no gradients on characters, eyes built
+  as white + iris + highlight, a soft ground shadow drawn by the engine, not
+  the artist.
+- **Construction rules** per rig, the part the guide is missing today: every
+  limb is a stroke from its pivot; a limb must overlap the body silhouette by
+  at least 12 units; the neck sits inside the head; nothing outside the box;
+  feet on the baseline; smallest readable feature 6 units; parts listed in
+  draw order with the near side in front.
+- **Character linter** in `validate.ts`, run by `write_character` and
+  `check`: bounding boxes per SVG primitive (paths via a small path parser),
+  reporting shapes outside the box, feet off the baseline, a limb that does
+  not meet the body, filled shapes without the outline, inconsistent stroke
+  widths. Warnings with the location, not errors, except outside-the-box.
+  `write_character` adds a **construction sheet** next to the pose sheet:
+  silhouette, part boxes and pivots overlaid, so the agent sees what the
+  linter saw.
+- **Redraw the library** (kid, grownup, dog) in the style as the bar, then
+  the example casts (lost-kite by recopying, lighthouse and clever-rabbit by
+  hand), so every example is a worked example of the rules.
+- Scenes: props and foreground objects follow the same outline rule;
+  backgrounds stay soft so characters pop.
+
+### 7.2 Quadruped rig and library species
+
+Why: most children's stories are animal stories, and the simple rig cannot
+walk.
+
+- **`quadruped` rig**, 260 wide by 200 tall, baseline y=200, facing right:
+  `body` (required), `head` (neck pivot), `legFL`/`legFR` (shoulder pivots),
+  `legBL`/`legBR` (hip pivots), `tail` (rump pivot), `earL`/`earR` (on the
+  head), `eyes`/`mouth` on the head. Draw order: far legs, tail, body, near
+  legs, head, ears, face. Pivot table and ASCII box in the guide like the
+  humanoid one.
+- **Gaits**: walk and trot as diagonal pairs (FL with BR, FR with BL), run as
+  a gallop with a gathered and a stretched pose, head bob in counter-phase,
+  tail sway. `sit` folds the hind legs and tilts the body back; `point` and
+  `wave` lift a front paw; `jump` gathers then stretches.
+- **Library species** in the 7.1 style: dog, cat, rabbit, deer, lion, bear,
+  fox, mouse. Birds and fish stay on the simple rig (`fly` is already
+  right for them); the monkey stays humanoid with a `tail` part.
+- The simple rig stays for props, vehicles and anything that bobs.
+
+### 7.3 Motion with weight
+
+Why: smoothness is not interpolation, it is contact, anticipation and
+follow-through. All of it is engine code; the agent vocabulary does not grow.
+
+- **Feet that plant.** Stride length derives from character height, cycle
+  frequency from speed over stride, legs split into stance and swing, the
+  body dips on each contact. No sliding feet on either rig.
+- **Anticipation and overshoot** on every verb: a jump crouches before it
+  launches and squashes on landing, walks ease in and out, a facing flip is
+  a short squash-turn instead of an instant mirror, `appear` pops with
+  overshoot.
+- **Springs**: a deterministic spring-damper per follow-through part (tail,
+  ears, hair, antlers, anything the character names in a `springs` list),
+  driven by the parent's velocity and integrated at a fixed step from the
+  start of the shot, so the same frame always renders the same. This is the
+  "physics" the films need: secondary motion, not rigid bodies.
+- Bubbles pop in with overshoot and shrink out; captions slide; idle gets
+  breathing and the occasional double blink.
+
+### 7.4 Acting
+
+Why: characters placed in a frame are a diorama; characters that look at
+each other are a scene.
+
+- Actors in a conversation turn head and eyes toward the speaker without
+  being told; `point` and `walk` set the look target; an `emotion` change
+  gets a short take (head pop, blink).
+- One new optional field, `say.to`, names the listener when the engine's
+  guess would be wrong. Nothing else is added to the agent's vocabulary.
+- `attach`: parent a simple-rig character to a hand or a mouth so carrying
+  a prop is one action instead of the current walk-plus-move workaround.
+
+### 7.5 Depth and camera
+
+- Optional scene `layers` (back, mid, front) with parallax factors; the
+  existing `svg` and `foreground` map onto mid and front so no scene breaks.
+- Camera moves shift layers at different rates; zooms above 1.3 get a soft
+  vignette; every actor gets a ground shadow sized by its box.
+- Cuts stay cuts; `fadeIn`/`fadeOut` stay; a cross-fade becomes possible
+  once layers exist.
+
+### 7.6 Audio (last, on purpose)
+
+- Narration and dialogue through TTS, with `say` duration taken from the
+  audio and mouth flaps driven by amplitude instead of a sine wave.
+- A music bed per project, a handful of effects tied to verbs (jump, splash,
+  appear).
+- Only after 7.1 to 7.5, because sound makes a silent film feel finished and
+  would hide what still looks wrong.
+
 ## Later (deliberately not now)
 
-- Audio: narration via TTS, music bed, lip-sync from phonemes.
-- Quadruped rig, more emotions, eyebrows, hands with props (an `attach` that
-  parents a simple-rig character to a hand, so carrying is one action).
-- Image-model generated backgrounds as a scene layer.
+- A run with a non-Claude agent, and more MCP ergonomics: cheap, and best
+  done once phase 7 has changed what the tools return.
+- More emotions and eyebrows; image-model generated backgrounds as a layer.
 - Parallel rasterisation across worker threads for long films.
 - Bundled font for identical output across machines (currently system fonts).
