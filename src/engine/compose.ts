@@ -1,4 +1,5 @@
 import { actorHeadTop, poseFor, renderActor } from './actor.js';
+import { applySprings } from './springs.js';
 import { bubbleSvg, wrapText, textWidth } from './bubble.js';
 import { escapeXml, n } from './svg.js';
 import { resolveFrame, type FrameState } from './timeline.js';
@@ -18,6 +19,7 @@ function captionSvg(
   text: string,
   style: 'title' | 'narration',
   opacity: number,
+  slide: number,
   W: number,
   H: number,
   font: string,
@@ -44,7 +46,10 @@ function captionSvg(
         `<text x='${W / 2}' y='${n(cy - blockH / 2 + lineHeight * (i + 0.8))}' text-anchor='middle' font-family="${escapeXml(font)}" font-size='${fontSize}' font-weight='bold' fill='${fill}'${stroke}>${escapeXml(l)}</text>`
     )
     .join('');
-  return `<g opacity='${n(opacity)}'>${bg}${texts}</g>`;
+  // Narration rises into place from just below; a title drifts up less.
+  const dy = slide * (style === 'title' ? 10 : 18) * k;
+  const tf = dy ? ` transform='translate(0 ${n(dy)})'` : '';
+  return `<g opacity='${n(opacity)}'${tf}>${bg}${texts}</g>`;
 }
 
 /** Compose one frame of a shot as a complete SVG document. */
@@ -71,9 +76,10 @@ export function composeFrameState(
   let world = `<g class='scene'>${frame.scene.svg}</g>`;
   const bubbles: string[] = [];
   for (const actor of frame.actors) {
-    world += renderActor(actor, frame.t);
+    const pose = poseFor(actor, frame.t);
+    applySprings(project, frame.shot, actor, pose, frame.t);
+    world += renderActor(actor, frame.t, pose);
     if (actor.bubble && actor.visible) {
-      const pose = poseFor(actor, frame.t);
       const head = actorHeadTop(actor, pose);
       const s = worldToScreen(frame, W, H, head.x, head.y);
       bubbles.push(
@@ -86,6 +92,8 @@ export function composeFrameState(
           frameH: H,
           font,
           uiScale: k,
+          age: actor.bubble.age,
+          left: actor.bubble.left,
         })
       );
     }
@@ -101,7 +109,7 @@ export function composeFrameState(
   }
 
   const captions = frame.captions
-    .map((cp) => captionSvg(cp.text, cp.style, cp.opacity, W, H, font, k))
+    .map((cp) => captionSvg(cp.text, cp.style, cp.opacity, cp.slide, W, H, font, k))
     .join('');
   const fade =
     frame.fade > 0

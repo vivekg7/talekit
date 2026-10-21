@@ -1,4 +1,5 @@
 import { characterBody, placeCharacter } from '../engine/actor.js';
+import { springParts } from '../engine/springs.js';
 import { composeFrame } from '../engine/compose.js';
 import {
   applyVerb,
@@ -76,13 +77,13 @@ export function characterSheetSvg(character: Character): string {
       : [make('run', () => base('run', 0.1))]),
     make('wave', withVerb('wave', 0.3)),
     make('point', withVerb('point', 0.5)),
-    ...(quad ? [make('jump: gather', withVerb('jump', 0.09))] : []),
+    make('jump: crouch', withVerb('jump', 0.1)),
     make('jump', withVerb('jump', 0.5)),
     make('tremble', withVerb('tremble', 0.3)),
     ...(rig.name === 'humanoid'
-      ? [{ ...make('sit', withVerb('sit', 0)), lift: 70 }]
+      ? [{ ...make('sit', withVerb('sit', 1)), lift: 70 }]
       : quad
-        ? [make('sit', withVerb('sit', 0))]
+        ? [make('sit', withVerb('sit', 1))]
         : [make('bounce', withVerb('bounce', 0.25))]),
     make('talking', () => base('idle', 0), 'neutral', true),
     emotionCell('happy'),
@@ -270,11 +271,14 @@ export function constructionSheetSvg(character: Character): string {
   let parts = `<g opacity='0.45'>${drawn(rest)}</g>`;
   let pivots = '';
   const names = Object.keys(character.parts);
+  // Spring parts are labelled with a ~: they swing behind the motion on their own.
+  const springs = springParts(character);
   names.forEach((name, i) => {
     const color = PART_COLORS[i % PART_COLORS.length];
     const box = partBox(character, name);
+    const label = springs.includes(name) ? `${name} ~` : name;
     if (box)
-      parts += `<rect x='${box.x}' y='${box.y}' width='${box.w}' height='${box.h}' fill='none' stroke='${color}' stroke-width='${1.5 / scale}'/><text x='${box.x + 2}' y='${box.y - 3}' font-family='${LABEL_FONT}' font-size='${11 / scale}' fill='${color}'>${escapeXml(name)}</text>`;
+      parts += `<rect x='${box.x}' y='${box.y}' width='${box.w}' height='${box.h}' fill='none' stroke='${color}' stroke-width='${1.5 / scale}'/><text x='${box.x + 2}' y='${box.y - 3}' font-family='${LABEL_FONT}' font-size='${11 / scale}' fill='${color}'>${escapeXml(label)}</text>`;
     const rp = rig.parts[name];
     if (rp && !['eyes', 'mouth'].includes(name))
       pivots += `<circle cx='${rp.pivot[0]}' cy='${rp.pivot[1]}' r='${4 / scale}' fill='#fff' stroke='#111' stroke-width='${1.5 / scale}'/><circle cx='${rp.pivot[0]}' cy='${rp.pivot[1]}' r='${1.2 / scale}' fill='#111'/>`;
@@ -301,7 +305,7 @@ export function constructionSheetSvg(character: Character): string {
   const textTop = 40 + ph + 30 + 28;
   const H = textTop + lines.length * 20 + 10;
   let out = `<svg xmlns='http://www.w3.org/2000/svg' width='${W}' height='${H}' viewBox='0 0 ${W} ${H}'><rect width='${W}' height='${H}' fill='#e9eef3'/>`;
-  out += `<text x='12' y='26' font-family='${LABEL_FONT}' font-size='18' fill='#333'>${escapeXml(character.name)} (${character.id}) · construction · rig ${rig.name} ${rig.width}×${rig.height}</text>`;
+  out += `<text x='12' y='26' font-family='${LABEL_FONT}' font-size='18' fill='#333'>${escapeXml(character.name)} (${character.id}) · construction · rig ${rig.name} ${rig.width}×${rig.height}${springs.length ? ` · springs ~ ${springs.join(', ')}` : ''}</text>`;
   out += panels.join('');
   lines.forEach((l, i) => {
     const text = l.length > 150 ? `${l.slice(0, 147)}…` : l;

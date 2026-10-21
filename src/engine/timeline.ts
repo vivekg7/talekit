@@ -1,5 +1,6 @@
-import { clamp01, easeInOut, hash01, lerp } from './easing.js';
-import { isMoveVerb, SPEED, VERB_DURATION, type Locomotion } from './motion.js';
+import { clamp01, easeInOut, easeOut, hash01, lerp, ramp } from './easing.js';
+import type { Travel } from './gait.js';
+import { isMoveVerb, JUMP, SPEED, VERB_DURATION, type Locomotion } from './motion.js';
 import { RIGS } from './rigs.js';
 import type {
   Action,
@@ -29,6 +30,9 @@ export interface ActiveVerb {
 export interface Bubble {
   text: string;
   style: 'speech' | 'thought' | 'shout';
+  /** Seconds since it appeared and until it goes, for the pop in and out. */
+  age: number;
+  left: number;
 }
 
 export interface ActorState {
@@ -42,9 +46,14 @@ export interface ActorState {
   visible: boolean;
   opacity: number;
   locomotion: Locomotion;
-  /** Seconds since the current locomotion began (drives the cycle). */
+  /** Seconds since the current locomotion began (drives idle and the sheets' cycles). */
   locoT: number;
-  sitting: boolean;
+  /** How far the current walk or run has got, which drives the legs. */
+  travel?: Travel;
+  /** Mid-turn after a facing change: the old facing and progress 0..1. */
+  turn?: { from: Facing; u: number };
+  /** 0 standing, 1 sat; in between while sitting down or getting up. */
+  sit: number;
   emotion: Emotion;
   face: Record<string, string>;
   verbs: ActiveVerb[];
@@ -57,6 +66,8 @@ export interface CaptionState {
   text: string;
   style: 'title' | 'narration';
   opacity: number;
+  /** 0 in place; positive while it slides up into place or drifts down on the way out. */
+  slide: number;
 }
 
 export interface FrameState {
@@ -125,9 +136,39 @@ interface Move {
   t1: number;
 }
 
+/** Seconds a walk or run takes to get up to speed, and to stop. */
+const RAMP = 0.3;
+/** Seconds for a facing flip, and for sitting down or getting up. */
+const TURN_TIME = 0.2;
+const SIT_TIME = 0.4;
+
+/**
+ * Progress along a move: walks and runs speed up and slow down at either end, a jump
+ * crosses the ground only while it is in the air, anything else eases in and out.
+ */
+function moveProgress(m: Move, t: number): number {
+  const d = Math.max(1e-6, m.t1 - m.t0);
+  const u = clamp01((t - m.t0) / d);
+  if (m.verb === 'walk' || m.verb === 'run') return ramp(u, Math.min(0.3, RAMP / d));
+  if (m.verb === 'jump') return clamp01((u - JUMP.launch) / (JUMP.land - JUMP.launch));
+  return easeInOut(u);
+}
+
+/**
+ * Distance along a move up to progress `e`, in canonical units of the actor's rig: scene
+ * pixels divided by the drawing scale, which changes along the move when the two ends
+ * have different perspective scales. This is what a planted foot has to slide past.
+ */
+function canonicalDistance(m: Move, e: number, k: number): number {
+  const len = Math.hypot(m.to.x - m.from.x, m.to.y - m.from.y);
+  const s0 = m.from.scale;
+  const ds = m.to.scale - m.from.scale;
+  const f = Math.abs(ds) < 1e-6 ? e / s0 : Math.log((s0 + ds * e) / s0) / ds;
+  return (len * f) / k;
+}
+
 function movePoint(m: Move, t: number): Point {
-  const u = clamp01((t - m.t0) / Math.max(1e-6, m.t1 - m.t0));
-  const e = m.verb === 'walk' || m.verb === 'run' ? u : easeInOut(u);
+  const e = moveProgress(m, t);
   return {
     x: lerp(m.from.x, m.to.x, e),
     y: lerp(m.from.y, m.to.y, e),
@@ -135,7 +176,7 @@ function movePoint(m: Move, t: number): Point {
   };
 }
 
-function resolveActor(
+export function resolveActor(
   project: Project,
   scene: Scene,
   shot: Shot,
@@ -154,12 +195,30 @@ function resolveActor(
   let emotion: Emotion = cast.emotion;
   let face: Record<string, string> = {};
   let sitting = false;
+  let sitAt = -Infinity;
+  let sitFrom = 0;
+  let turnAt = -Infinity;
+  let turnFrom: Facing = facing;
   let move: Move | undefined;
   let locoStart = 0;
   let locomotion: Locomotion = 'idle';
   const verbs: ActiveVerb[] = [];
   let bubble: Bubble | undefined;
   let talking = false;
+  const sitAmount = (time: number) =>
+    lerp(sitFrom, sitting ? 1 : 0, clamp01((time - sitAt) / SIT_TIME));
+  const turnTo = (to: Facing, at: number) => {
+    if (to === facing) return;
+    turnFrom = facing;
+    turnAt = at;
+    facing = to;
+  };
+  const sitTo = (down: boolean, at: number) => {
+    if (down === sitting) return;
+    sitFrom = sitAmount(at);
+    sitAt = at;
+    sitting = down;
+  };
 
   for (const a of actions) {
     if (a.t > t) break;
@@ -171,7 +230,7 @@ function resolveActor(
         point = resolvePosition(project, scene, a.set.at);
         move = undefined;
       }
-      if (a.set.facing) facing = a.set.facing;
+      if (a.set.facing) turnTo(a.set.facing, a.t);
       if (a.set.scale) scale = a.set.scale;
       if (a.set.visible !== undefined) visible = a.set.visible;
     }
@@ -181,7 +240,7 @@ function resolveActor(
     if (a.say) {
       const d = actionDuration(a);
       if (t < a.t + d) {
-        bubble = { text: a.say, style: a.bubble ?? 'speech' };
+        bubble = { text: a.say, style: a.bubble ?? 'speech', age: t - a.t, left: a.t + d - t };
         talking = true;
       }
     }
@@ -193,23 +252,25 @@ function resolveActor(
         const d = actionDuration(a, point, to);
         move = { verb, from: point, to, t0: a.t, t1: a.t + d };
         locoStart = a.t;
-        if (Math.abs(to.x - point.x) > 1) facing = to.x > point.x ? 'right' : 'left';
+        if (Math.abs(to.x - point.x) > 1) turnTo(to.x > point.x ? 'right' : 'left', a.t);
         if (verb === 'jump' && t < a.t + d) verbs.push({ verb, u: (t - a.t) / d });
-        sitting = false;
+        sitTo(false, a.t);
       } else if (verb === 'sit') {
         if (a.to) {
           point = resolvePosition(project, scene, a.to);
           move = undefined;
         }
-        sitting = true;
+        sitTo(true, a.t);
       } else if (verb === 'stand') {
-        sitting = false;
+        sitTo(false, a.t);
       } else if (verb === 'appear' || verb === 'disappear') {
         const d = actionDuration(a);
         const u = clamp01((t - a.t) / d);
         visible = true;
-        opacity = verb === 'appear' ? u : 1 - u;
-        if (verb === 'disappear' && u >= 1) visible = false;
+        // The pop itself is a verb (scale with overshoot); the fade is quicker than it.
+        opacity = verb === 'appear' ? clamp01(u * 3) : 1 - clamp01((u - 0.35) / 0.65);
+        if (u < 1) verbs.push({ verb, u });
+        else if (verb === 'disappear') visible = false;
       } else {
         const d = actionDuration(a);
         if (t < a.t + d) verbs.push({ verb, u: (t - a.t) / d });
@@ -217,9 +278,19 @@ function resolveActor(
     }
   }
 
+  let travel: Travel | undefined;
   if (move) {
     point = movePoint(move, t);
     if (t < move.t1) {
+      if (move.verb === 'walk' || move.verb === 'run') {
+        const k = (character.height / RIGS[character.rig].height) * scale;
+        const m = move;
+        travel = {
+          dist: canonicalDistance(m, moveProgress(m, t), k),
+          total: canonicalDistance(m, 1, k),
+          time: m.t1 - m.t0,
+        };
+      }
       locomotion =
         move.verb === 'walk' || move.verb === 'run' || move.verb === 'fly'
           ? move.verb
@@ -242,7 +313,9 @@ function resolveActor(
     opacity,
     locomotion,
     locoT: t - locoStart,
-    sitting,
+    travel,
+    turn: t - turnAt < TURN_TIME ? { from: turnFrom, u: (t - turnAt) / TURN_TIME } : undefined,
+    sit: sitAmount(t),
     emotion,
     face,
     verbs,
@@ -299,8 +372,11 @@ function resolveCaptions(shot: Shot, t: number): CaptionState[] {
     const d = actionDuration(a);
     if (t < a.t || t >= a.t + d) continue;
     const fadeLen = Math.min(0.3, d / 3);
-    const opacity = Math.min(1, (t - a.t) / fadeLen, (a.t + d - t) / fadeLen);
-    out.push({ text: a.caption, style: a.captionStyle ?? 'narration', opacity });
+    const inU = clamp01((t - a.t) / (fadeLen * 1.5));
+    const outU = clamp01((a.t + d - t) / fadeLen);
+    const opacity = Math.min(1, (t - a.t) / fadeLen, outU);
+    const slide = 1 - easeOut(inU) + 0.5 * (1 - outU);
+    out.push({ text: a.caption, style: a.captionStyle ?? 'narration', opacity, slide });
   }
   return out;
 }

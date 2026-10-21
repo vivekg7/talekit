@@ -258,6 +258,33 @@ follow-through. All of it is engine code; the agent vocabulary does not grow.
 - Bubbles pop in with overshoot and shrink out; captions slide; idle gets
   breathing and the occasional double blink.
 
+**Done 2026-10-22.** The leg cycle is driven by distance, not the clock: each
+gait (humanoid walk and run, quadruped walk and gallop) is a duty factor and
+a landing offset per leg, and while a foot is down its leg angle is chosen so
+sin(angle) falls linearly with travel, which holds the foot exactly still.
+The swing comes from the speed (within the gait's range) and the cycle is
+then shortened to fit a whole number of half cycles into the move, so every
+walk starts and ends with the legs together, where idle has them; that is
+what makes "any duration works" true without a speed limit. A rigid leg can
+only reach the line with the body lower, so the body takes part of that
+drop and the legs give the rest by sliding into the body (the knee); swing
+feet are lifted the same way. A body that rocks (the gallop) also nudges its
+shoulders sideways, which planted legs cancel. Moves ramp their speed over
+0.3 s at each end instead of the easing curve walks used before, so the
+legs slow with the body. Jumps are three beats (crouch, flight, landing) and
+the actor crosses the ground only in flight. Breathing became a stretch
+about the feet, because the old idle bob lifted the feet off the line.
+
+Springs are angular for parts the rig places (pushed by the pivot's
+acceleration across a lever aimed at the part's rough centre, read from its
+SVG coordinates, plus the parent's own spin) and a small sway for parts it
+does not, so `hair` on a humanoid works without a pivot. They integrate at
+120 Hz from the start of the shot and are cached per shot object, so a frame
+renders the same whether the shots are rendered in order or one frame is
+asked for alone; a teleport or a facing flip is a cut, not a push. Not done:
+the turn is a horizontal squash, not a drawn three-quarter view; a walk in
+depth (mostly y) still slides its feet, since the legs only stride sideways.
+
 ### 7.4 Acting
 
 Why: characters placed in a frame are a diorama; characters that look at

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { actorHeadTop } from '../src/engine/actor.js';
+import { footPoint } from '../src/engine/gait.js';
 import { applyVerb, basePose, emptyPose, type Pose } from '../src/engine/motion.js';
 import { QUADRUPED } from '../src/engine/rigs.js';
 import { CharacterSchema } from '../src/engine/types.js';
@@ -10,25 +11,7 @@ import { validateCharacter } from '../src/project/validate.js';
 
 const LEGS = ['legFL', 'legFR', 'legBL', 'legBR'] as const;
 
-type Pt = [number, number];
-const rotate = ([x, y]: Pt, deg: number, [cx, cy]: Pt): Pt => {
-  const a = (deg * Math.PI) / 180;
-  const dx = x - cx;
-  const dy = y - cy;
-  return [cx + dx * Math.cos(a) - dy * Math.sin(a), cy + dx * Math.sin(a) + dy * Math.cos(a)];
-};
-
-/** Where the bottom of a straight leg ends up, following the same chain as the renderer. */
-function foot(pose: Pose, leg: string): Pt {
-  const pivot = QUADRUPED.parts[leg].pivot;
-  const legOff = pose.off[leg] ?? [0, 0];
-  let p: Pt = rotate([pivot[0], 200], pose.rot[leg] ?? 0, pivot);
-  p = [p[0] + legOff[0], p[1] + legOff[1]];
-  const body = QUADRUPED.parts.body.pivot;
-  const bodyOff = pose.off.body ?? [0, 0];
-  p = rotate(p, pose.rot.body ?? 0, body);
-  return [p[0] + bodyOff[0] + pose.dx, p[1] + bodyOff[1] + pose.dy];
-}
+const foot = (pose: Pose, leg: string) => footPoint(QUADRUPED, pose, leg);
 
 describe('quadruped motion', () => {
   it('walks in diagonal pairs with the feet on the ground staying on the line', () => {
@@ -43,12 +26,16 @@ describe('quadruped motion', () => {
     }
   });
 
-  it('sits back on its haunches with the front paws planted', () => {
+  it('sits back on its haunches with the front paws planted all the way down', () => {
+    for (const k of [0.25, 0.5, 0.75, 1]) {
+      const pose = emptyPose();
+      applyVerb(QUADRUPED, pose, 'sit', k);
+      for (const leg of ['legFL', 'legFR'])
+        expect(Math.abs(foot(pose, leg)[1] - 200)).toBeLessThan(k === 1 ? 4 : 0.01);
+    }
+    // Sat, the hind legs fold forward along the floor instead of standing.
     const pose = emptyPose();
-    applyVerb(QUADRUPED, pose, 'sit', 0);
-    for (const leg of ['legFL', 'legFR'])
-      expect(Math.abs(foot(pose, leg)[1] - 200)).toBeLessThan(4);
-    // The hind legs fold forward along the floor instead of standing.
+    applyVerb(QUADRUPED, pose, 'sit', 1);
     for (const leg of ['legBL', 'legBR']) {
       const [x, y] = foot(pose, leg);
       expect(x).toBeGreaterThan(QUADRUPED.parts[leg].pivot[0] + 40);
@@ -65,13 +52,13 @@ describe('quadruped motion', () => {
     }
   });
 
-  it('gathers before the leap and is off the ground in the middle of it', () => {
+  it('gathers on planted feet before the leap and is off the ground in the middle of it', () => {
     const gather = emptyPose();
-    applyVerb(QUADRUPED, gather, 'jump', 0.09);
-    expect(gather.rot.legFR).toBeGreaterThan(0); // front feet tucked back under
-    expect(gather.rot.legBR).toBeLessThan(0); // hind feet forward under
+    applyVerb(QUADRUPED, gather, 'jump', 0.1);
+    expect(gather.dy).toBeGreaterThan(8); // the body comes down onto the legs
+    for (const leg of LEGS) expect(foot(gather, leg)[1]).toBeCloseTo(200, 3);
     const leap = emptyPose();
-    applyVerb(QUADRUPED, leap, 'jump', 0.55);
+    applyVerb(QUADRUPED, leap, 'jump', 0.51);
     for (const leg of LEGS) expect(foot(leap, leg)[1]).toBeLessThan(150);
   });
 

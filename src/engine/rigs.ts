@@ -29,6 +29,8 @@ export interface Rig {
   joints: { part: string; into: string; pivot: boolean }[];
   /** Where a speech bubble points, in canonical coordinates: just above the head. */
   speaker: [number, number];
+  /** Follow-through parts that swing on a spring unless the character lists its own. */
+  springs: string[];
 }
 
 /**
@@ -62,6 +64,7 @@ export const HUMANOID: Rig = {
     { part: 'head', into: 'torso', pivot: false },
   ],
   speaker: [100, 8],
+  springs: [],
 };
 
 /**
@@ -83,6 +86,7 @@ export const SIMPLE: Rig = {
   feet: [],
   joints: [],
   speaker: [100, 8],
+  springs: [],
 };
 
 /**
@@ -125,6 +129,7 @@ export const QUADRUPED: Rig = {
     { part: 'earR', into: 'head', pivot: true },
   ],
   speaker: [214, 8],
+  springs: ['tail', 'earL', 'earR'],
 };
 
 export const RIGS: Record<RigName, Rig> = {

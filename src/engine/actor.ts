@@ -3,14 +3,21 @@ import { rigPart, RIGS, type Rig } from './rigs.js';
 import { DEFAULT_LINE_COLOR, OUTLINE_PX, outlineFor } from './outline.js';
 import { applyColors, n } from './svg.js';
 import type { ActorState } from './timeline.js';
-import type { Character } from './types.js';
+import type { Character, Facing } from './types.js';
 
-/** Full pose for an actor at this instant. */
+/**
+ * Full pose for an actor at this instant, without its springs (those need the whole shot;
+ * see springs.ts).
+ */
 export function poseFor(actor: ActorState, t: number): Pose {
   const rig = RIGS[actor.character.rig];
-  const pose = basePose(rig, actor.sitting ? 'idle' : actor.locomotion, actor.locoT, actor.phase);
-  if (actor.sitting) applyVerb(rig, pose, 'sit', 0);
+  const sat = actor.sit > 0;
+  const loco = sat ? 'idle' : actor.locomotion;
+  const pose = basePose(rig, loco, actor.locoT, actor.phase, actor.travel);
+  if (sat) applyVerb(rig, pose, 'sit', actor.sit);
   for (const v of actor.verbs) applyVerb(rig, pose, v.verb, v.u);
+  // Turning round: the body narrows through the mirror and stretches a touch as it does.
+  if (actor.turn) pose.sy *= 1 + 0.04 * Math.sin(Math.PI * actor.turn.u);
   pose.face = resolveFace(actor.character.parts, {
     emotion: actor.emotion,
     overrides: actor.face,
@@ -84,6 +91,17 @@ export function characterBody(character: Character, pose: Pose): string {
   return root.length ? `<g transform='${root.join(' ')}'>${body}</g>` : body;
 }
 
+/**
+ * The mirror as a signed horizontal scale: 1 facing right, -1 facing left, and through a
+ * turn a squash from one to the other (never quite flat, so the actor does not vanish).
+ */
+export function sideOf(actor: Pick<ActorState, 'facing' | 'turn'>): number {
+  const to = actor.facing === 'left' ? -1 : 1;
+  if (!actor.turn || actor.turn.from === actor.facing) return to;
+  const u = actor.turn.u;
+  return (u < 0.5 ? -to : to) * Math.max(0.12, Math.abs(Math.cos(Math.PI * u)));
+}
+
 /** Place a posed character in the world at feet point (x, y). */
 export function placeCharacter(
   character: Character,
@@ -91,21 +109,21 @@ export function placeCharacter(
   x: number,
   y: number,
   scale: number,
-  facing: 'left' | 'right',
+  facing: Facing | number,
   opacity = 1
 ): string {
   const rig = RIGS[character.rig];
   const s = (character.height / rig.height) * scale;
-  const flip = facing === 'left' ? ` scale(-1 1)` : '';
+  const side = typeof facing === 'number' ? facing : facing === 'left' ? -1 : 1;
+  const flip = side !== 1 ? ` scale(${n(side)} 1)` : '';
   // translate so the feet point lands on (x, y); flip about the box centre line.
   const tf = `translate(${n(x)} ${n(y)}) scale(${n(s)})${flip} translate(${-rig.width / 2} ${-rig.height})`;
   const op = opacity < 1 ? ` opacity='${n(opacity)}'` : '';
   return `<g class='actor actor-${character.id}' transform='${tf}'${op}>${body}</g>`;
 }
 
-export function renderActor(actor: ActorState, t: number): string {
+export function renderActor(actor: ActorState, t: number, pose = poseFor(actor, t)): string {
   if (!actor.visible || actor.opacity <= 0) return '';
-  const pose = poseFor(actor, t);
   const body = characterBody(actor.character, pose);
   return placeCharacter(
     actor.character,
@@ -113,7 +131,7 @@ export function renderActor(actor: ActorState, t: number): string {
     actor.x,
     actor.y,
     actor.scale,
-    actor.facing,
+    sideOf(actor),
     actor.opacity
   );
 }
@@ -123,7 +141,7 @@ export function actorHeadTop(actor: ActorState, pose: Pose): { x: number; y: num
   const rig = RIGS[actor.character.rig];
   const s = (actor.character.height / rig.height) * actor.scale;
   const [sx, sy] = rig.speaker;
-  const side = actor.facing === 'left' ? -1 : 1;
+  const side = sideOf(actor);
   return {
     x: actor.x + (pose.dx + (sx - rig.width / 2)) * s * side,
     y: actor.y - rig.height * s + (pose.dy + sy) * s,

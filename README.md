@@ -7,8 +7,8 @@ produces an mp4 of simple 2D animation with comic-style speech bubbles.
 
 The idea is "Paper for video": the agent writes a language it is already
 fluent in (SVG fragments + JSON), the engine owns everything that is hard to
-get right by hand (rigging, walk cycles, blinking, mouth flaps, bubble layout,
-camera moves, encoding), and every write returns a picture so the agent can
+get right by hand (rigging, walk cycles with planted feet, follow-through,
+blinking, mouth flaps, bubble layout, camera moves, encoding), and every write returns a picture so the agent can
 see and fix its output.
 
 ```
@@ -120,7 +120,9 @@ talekit serve <dir>                  talekit mcp
 
 - `src/engine` is pure: `composeFrame(project, shot, t)` returns an SVG
   string. Timeline resolution (`timeline.ts`) turns actions into per-actor
-  state; `motion.ts` turns state into part rotations and face variants;
+  state; `motion.ts` turns state into part rotations and face variants,
+  with `gait.ts` fitting the leg cycle to the distance covered so feet do
+  not slide and `springs.ts` swinging tails and ears behind the motion;
   `actor.ts` and `compose.ts` emit SVG; `bubble.ts` wraps and places text.
 - `src/render` rasterises with `@resvg/resvg-js` and streams PNGs into
   `ffmpeg` (libx264, yuv420p). A minute of 720p renders in about half a

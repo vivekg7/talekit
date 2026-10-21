@@ -31,6 +31,16 @@ export const CharacterSchema = z.object({
     .boolean()
     .default(true)
     .describe('Engine-drawn outline around every part (default true); false for glows and ghosts'),
+  /**
+   * Follow-through: parts that swing behind the motion on a spring, so a tail trails a
+   * start and flicks on a stop. Absent means the rig's own list; `[]` turns them off.
+   */
+  springs: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Parts that swing behind the motion on a spring (a tail, ears, a scarf). Default: the rig's (quadruped: tail, earL, earR; humanoid and simple: none); [] for none. A part the rig does not place sways instead of turning"
+    ),
   parts: z.record(z.string(), PartSchema),
 });
 export type Character = z.infer<typeof CharacterSchema>;

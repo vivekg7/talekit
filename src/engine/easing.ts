@@ -14,3 +14,16 @@ export function hash01(s: string): number {
   }
   return ((h >>> 0) % 10000) / 10000;
 }
+
+/**
+ * Progress through a move that speeds up over the first `r` of it, holds its speed and
+ * slows down over the last `r`: velocity is a trapezoid, so nothing starts or stops dead.
+ */
+export function ramp(u: number, r: number): number {
+  u = clamp01(u);
+  if (r <= 0) return u;
+  const top = 1 / (1 - r);
+  if (u < r) return (top * u * u) / (2 * r);
+  if (u > 1 - r) return 1 - (top * (1 - u) * (1 - u)) / (2 * r);
+  return top * (u - r / 2);
+}

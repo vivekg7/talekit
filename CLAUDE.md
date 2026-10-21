@@ -8,7 +8,8 @@ reasoning are in `docs/PLAN.md`. Read both before changing the data model.
 
 - `src/engine/` — pure functions, no I/O. `types.ts` (zod schemas = the file
   format), `rigs.ts` (canonical boxes and pivots), `motion.ts` (verb → pose),
-  `timeline.ts` (actions → actor state at time t), `actor.ts` + `compose.ts`
+  `gait.ts` (planted-foot walk and run), `springs.ts` (follow-through,
+  integrated per shot), `timeline.ts` (actions → actor state at time t), `actor.ts` + `compose.ts`
   (state → SVG), `outline.ts` (the engine-drawn outline under every part),
   `bubble.ts` (text wrap and bubble geometry).
 - `src/project/` — load/save/validate a project directory; `construction.ts`

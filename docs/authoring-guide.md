@@ -126,10 +126,12 @@ stroke-linecap='round' fill='none'/>`) with a paw or hoof shape at the
   the muzzle, with the same variants as every other rig.
 
 The engine walks it in diagonal pairs (near front with far hind), with the
-head bobbing against the step and the tail swinging; `run` is a gallop
-between a gathered pose and a stretched one; `sit` tips the body back about
-the hips, folds the hind legs and plants the front paws; `wave` and `point`
-lift the near front paw; `jump` crouches, then leaps stretched out. `height`
+feet planted while they are down, the head bobbing against the step and the
+tail swinging; `run` is a gallop between a gathered pose and a stretched
+one; `sit` tips the body back about the hips, folds the hind legs and keeps
+the front paws planted on the way down; `wave` and `point` lift the near
+front paw; `jump` gathers on bent legs, then leaps stretched out. The tail
+and ears are springs by default (see below). `height`
 is the box height on screen: about 55 for a mouse, 90–110 for a cat or dog,
 170–190 for a lion, bear or deer.
 
@@ -180,6 +182,18 @@ as one variant of the part draws something. Any other part may have variants
 too (`body: { dark, lit }` on a lantern, `hat: { on, tilted }`); select them
 with a `face` action, e.g. `{ "face": { "hat": "tilted" } }`. The pose sheet
 shows one cell per such variant at the end, so check them there.
+
+### Springs
+
+`springs` lists parts that swing behind the motion on their own: a tail
+trails when a walk starts and flicks past on the stop, ears bounce on a
+landing. On the quadruped the default is `["tail", "earL", "earR"]`; other
+rigs have none. Write your own list to change it (`["tail", "scarf"]`), or
+`[]` to keep every part rigid. A part the rig places turns about its pivot,
+so draw it hanging from there; a part the rig does not know (`hair`,
+`scarf` on a humanoid) sways in place by a few units instead. The
+construction sheet marks spring parts with `~`. Nothing in a shot drives a
+spring: it follows the motion the engine makes.
 
 ### Colours
 
@@ -315,20 +329,25 @@ and foreground objects a character touches (a bench, a well, a door) get a
 
 | verb                  | what happens                                                               | duration default |
 | --------------------- | -------------------------------------------------------------------------- | ---------------- |
-| `walk` / `run`        | leg/arm cycle to `to`; faces the direction of travel (four legs: gallop)   | distance ÷ speed |
+| `walk` / `run`        | planted-foot cycle to `to`, easing in and out (four legs: gallop)          | distance ÷ speed |
 | `move`                | glide to `to` without a cycle (sliding, floating objects)                  | distance ÷ 300   |
 | `fly`                 | move with a gentle wobble (birds, kites, balloons); `to` may be in the sky | distance ÷ 260   |
-| `jump`                | hop in place, or to `to` if given (four legs: crouch, then leap)           | 0.8s             |
+| `jump`                | crouch, leap (in place, or to `to`), land with a give                      | 0.8s             |
 | `wave`, `point`       | near arm (or front paw) up and waving / pointing (simple rig: lean toward) | 1.5s             |
 | `nod`, `shake`        | head yes / no                                                              | 0.8s             |
 | `tremble`             | frightened shiver (head and shoulders, or the whole simple body)           | 1.2s             |
-| `sit` / `stand`       | persistent: hips on `to` (a seat anchor), or four legs sit on the floor    | instant          |
+| `sit` / `stand`       | persistent: hips on `to` (a seat anchor), or four legs sit on the floor    | 0.4s ease        |
 | `bounce`, `spin`      | squashy hop / full rotation (best on the simple rig)                       | 1s / 0.8s        |
-| `appear`, `disappear` | fade in / out                                                              | 0.3s             |
+| `appear`, `disappear` | pop in past full size and settle / swell a touch and shrink away           | 0.4s             |
 
 Walking speed is about 220 px/s, so crossing the frame takes 4–5 seconds;
 `run` is about 420 px/s, `fly` 260, `move` 300. Set `duration` to override any
-default.
+default. Any duration works with feet planted: the engine fits the stride
+and its rate to the speed and the character's size, so a small dog keeping
+up with a walking child patters and a lion strolls. A walk starts and ends
+with the feet together, and a jump crosses the ground only while it is in
+the air (the crouch and the landing stay put). Every change of facing, by
+`set` or by walking the other way, is a quick turn (0.2 s), not a flip.
 
 On the `simple` rig `wave`, `nod` and `shake` only tilt or nudge the body;
 `point` leans the body toward what it faces, `tremble` shivers it, and
@@ -347,7 +366,7 @@ hand; then `move` it to its resting anchor when they arrive.
 set it explicitly for pacing. `bubble` can be `speech` (default), `thought` or
 `shout`. Keep lines short (≤ 12 words) and sequence speakers so bubbles do not
 overlap: `write_shot` warns when one actor starts speaking before another has
-finished. Bubbles are always laid out inside the frame and keep the same size
+finished. A bubble pops out of the speaker's head and shrinks back into it. Bubbles are always laid out inside the frame and keep the same size
 at any camera zoom, so a bubble that looks clipped on a small contact-sheet
 frame is not; check the text, not the edges.
 
@@ -357,7 +376,8 @@ frame is not; check the text, not the edges.
   until changed. `face: { "mouth": "grin" }` forces specific variants.
 - `caption`: narrator text at the bottom (`captionStyle: "narration"`, the
   default) or a big centred card (`"title"`). Default 3 s. Captions are a
-  layer above everything and never move: a narration strip can run under a
+  layer above everything and do not follow the camera (narration rises into
+  place as it fades in): a narration strip can run under a
   speech bubble without touching it, but a title card sits in the middle of
   the frame where faces and bubbles are, so do not talk over one.
 - `camera: { zoom, x, y }` tweens from the current camera over `duration`
@@ -366,7 +386,7 @@ frame is not; check the text, not the edges.
   below 1 is raised to 1 (the scene has nothing outside its edges), and the
   view is clamped to the scene, so a zoom near an edge shifts toward the middle.
 - `set: { facing, scale, visible, at }` changes state instantly (teleport,
-  turn to face someone, grow).
+  grow); a new `facing` turns round over 0.2 s.
 
 ## Pacing a children's story
 

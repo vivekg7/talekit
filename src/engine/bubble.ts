@@ -1,4 +1,4 @@
-import { escapeXml } from './svg.js';
+import { escapeXml, n } from './svg.js';
 
 /** Rough advance widths as a fraction of font size, tuned for rounded comic fonts. */
 function charWidth(ch: string): number {
@@ -61,10 +61,44 @@ export interface BubbleSpec {
   font: string;
   /** Multiplier for font size and padding, for different frame sizes. */
   uiScale: number;
+  /** Seconds since the bubble appeared and until it goes; it pops in and shrinks out. */
+  age?: number;
+  left?: number;
+}
+
+const POP_IN = 0.28;
+const POP_OUT = 0.16;
+
+/**
+ * Scale and opacity of a bubble by its age: in from small past full size and back, out by
+ * shrinking toward the speaker. Stays 1 when no timing is given (sheets, tests).
+ */
+export function bubblePop(age = Infinity, left = Infinity): { scale: number; opacity: number } {
+  if (age < POP_IN) {
+    const x = age / POP_IN;
+    const y = x - 1;
+    const s = 2.4;
+    return { scale: 0.3 + 0.7 * (1 + y * y * ((s + 1) * y + s)), opacity: Math.min(1, x * 3) };
+  }
+  if (left < POP_OUT) {
+    const x = Math.max(0, left / POP_OUT);
+    return { scale: 0.6 + 0.4 * x, opacity: x };
+  }
+  return { scale: 1, opacity: 1 };
 }
 
 /** Speech bubble in screen space: readable at any zoom, clamped inside the frame. */
 export function bubbleSvg(spec: BubbleSpec): string {
+  const { scale, opacity } = bubblePop(spec.age, spec.left);
+  const inner = bubbleShape(spec);
+  if (scale === 1 && opacity === 1) return inner;
+  // Grow from the tail's tip, so it comes out of the speaker's head.
+  const x = spec.headX;
+  const y = spec.headTop;
+  return `<g opacity='${n(opacity)}' transform='translate(${n(x)} ${n(y)}) scale(${n(scale)}) translate(${n(-x)} ${n(-y)})'>${inner}</g>`;
+}
+
+function bubbleShape(spec: BubbleSpec): string {
   const k = spec.uiScale;
   const fontSize = 26 * k;
   const lineHeight = 32 * k;
