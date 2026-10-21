@@ -118,9 +118,14 @@ export function renderActor(actor: ActorState, t: number): string {
   );
 }
 
-/** Top of the head in world space (for bubbles). */
+/** Top of the head in world space (for bubbles): the rig's speaker point, mirrored. */
 export function actorHeadTop(actor: ActorState, pose: Pose): { x: number; y: number } {
   const rig = RIGS[actor.character.rig];
   const s = (actor.character.height / rig.height) * actor.scale;
-  return { x: actor.x + pose.dx * s, y: actor.y - rig.height * s + (pose.dy + 8) * s };
+  const [sx, sy] = rig.speaker;
+  const side = actor.facing === 'left' ? -1 : 1;
+  return {
+    x: actor.x + (pose.dx + (sx - rig.width / 2)) * s * side,
+    y: actor.y - rig.height * s + (pose.dy + sy) * s,
+  };
 }

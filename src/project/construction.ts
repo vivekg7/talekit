@@ -237,8 +237,8 @@ export function lintCharacter(c: Character): Construction {
   const body = [...parts.entries()].filter(([name]) => !FACE.has(name));
 
   // 2. Standing on the line.
-  if (rig.name === 'humanoid') {
-    for (const leg of ['legL', 'legR']) {
+  if (rig.feet.length) {
+    for (const leg of rig.feet) {
       const m = parts.get(leg);
       const b = m && bounds(m);
       if (b && rig.height - b.y1 > 4)
@@ -260,27 +260,33 @@ export function lintCharacter(c: Character): Construction {
       );
   }
 
-  // 3. Joints: a limb hangs from its pivot and sinks into the torso, the neck into the head.
-  if (rig.name === 'humanoid') {
-    const torso = parts.get('torso');
-    for (const limb of ['armL', 'armR', 'legL', 'legR', 'head']) {
-      const m = parts.get(limb);
-      if (!m || !torso) continue;
-      const [px, py] = rig.parts[limb].pivot;
-      if (limb !== 'head' && !covers(m, px, py, 4))
-        warn(
-          `'${limb}' does not start at its pivot (${px},${py}); the engine rotates it around that point, so draw it hanging from there`,
-          bounds(m)
-        );
-      const t = thickness(and(m, torso));
-      if (t < MIN_OVERLAP)
-        warn(
-          limb === 'head'
-            ? `the neck reaches only ${Math.round(t)} units into the head; overlap at least ${MIN_OVERLAP} so the head does not look stuck on when it turns`
-            : `'${limb}' overlaps the torso by only ${Math.round(t)} units; sink it at least ${MIN_OVERLAP} in so no gap opens when it swings`,
-          bounds(m)
-        );
-    }
+  // 3. Joints: a limb hangs from its pivot and sinks into what it hangs from, the neck into
+  // the head. A thin limb (a mouse leg, a tail) sinks three quarters of its own width.
+  for (const { part: limb, into, pivot } of rig.joints) {
+    const m = parts.get(limb);
+    const parent = parts.get(into);
+    if (!m || !parent) continue;
+    const [px, py] = rig.parts[limb].pivot;
+    if (pivot && !covers(m, px, py, 4))
+      warn(
+        `'${limb}' does not start at its pivot (${px},${py}); the engine rotates it around that point, so draw it hanging from there`,
+        bounds(m)
+      );
+    const joint = and(m, parent);
+    const t = thickness(joint);
+    // Judged by the limb's width where it joins: a lion's tail is thin at the rump even
+    // though its tuft is fat.
+    const at = t > 0 ? and(m, near(joint, 6)) : m;
+    const need = Math.min(MIN_OVERLAP, Math.floor(thickness(at) * 0.75));
+    if (t < need)
+      warn(
+        limb === 'head' && into === 'torso'
+          ? `the neck reaches only ${Math.round(t)} units into the head; overlap at least ${need} so the head does not look stuck on when it turns`
+          : limb === 'head'
+            ? `the head overlaps the ${into} by only ${Math.round(t)} units; draw the neck in the head part and sink it at least ${need} into the ${into}`
+            : `'${limb}' overlaps the ${into} by only ${Math.round(t)} units; sink it at least ${need} in so no gap opens when it swings`,
+        bounds(m)
+      );
   }
 
   // 4. Pieces that only touch the rest: the leg that reads as a separate stick.

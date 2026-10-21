@@ -219,6 +219,25 @@ walk.
   right for them); the monkey stays humanoid with a `tail` part.
 - The simple rig stays for props, vehicles and anything that bobs.
 
+**Done 2026-10-21.** The rig is as planned except the ears: both sit behind
+the head, not in front of it. An ear in front carries its own outline across
+the forehead and reads as a sticker; behind, the head's outline closes its
+base, which is how pointed ears are drawn anyway (a floppy ear hangs past the
+back of the head). Every leg, the tail and the head hang from the body, and
+the body turns about the hips, so `sit` is one rotation plus a drop and the
+front paws land back on the line. The walk is one diagonal-pair gait (no
+separate trot verb); the body drops by exactly what the angled legs lose, so
+the feet carrying it stay on the line, and the swinging pair lifts. Feet
+still slide along the ground; planting them is 7.3. The rig data now carries
+what used to be `if humanoid` branches (expected parts, feet, joints, the
+bubble point), so the linter checks a quadruped's legs, tail, neck and ears
+the same way; a thin limb sinks three quarters of its width measured at the
+joint, not at its fattest point. The library dog moved to the quadruped, so a
+small bird was added as the simple rig's worked example. In the examples,
+Biscuit and the clever-rabbit lion, deer and rabbit were recopied from the
+library with their colours, and the lion's reflection was rebuilt from the
+new lion's head; the monkey only bounces, so it stays on the simple rig.
+
 ### 7.3 Motion with weight
 
 Why: smoothness is not interpolation, it is contact, anticipation and

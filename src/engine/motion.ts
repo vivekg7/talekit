@@ -61,9 +61,82 @@ export const EMOTION_FACE: Record<Emotion, Record<string, string[]>> = {
   scared: { mouth: ['scared', 'open', 'closed'], eyes: ['wide', 'open'] },
 };
 
+/** Quadruped leg length: shoulder and hip pivots at y=132, feet on y=200. */
+const QUAD_LEG = 68;
+const RAD = Math.PI / 180;
+/** How far the body must drop for a leg swung `deg` off vertical to still reach the line. */
+const legDrop = (deg: number): number => QUAD_LEG * (1 - Math.cos(deg * RAD));
+
+/**
+ * Quadruped cycles. Walk moves the legs in diagonal pairs (near front with far hind), the
+ * pair swinging forward lifts its feet, and the body drops by exactly what the angled legs
+ * lose so the feet on the ground stay on the line. Run is a gallop: a gathered pose (feet
+ * bunched under the body) and a stretched one (reaching out, off the ground).
+ */
+function quadrupedBase(p: Pose, loco: Locomotion, t: number, phase: number): void {
+  switch (loco) {
+    case 'idle':
+      p.dy = 1.2 * Math.sin((TAU * (t + phase * 3)) / 3);
+      p.rot.tail = 7 * Math.sin((TAU * (t + phase * 2.6)) / 2.6);
+      p.rot.head = 2 * Math.sin((TAU * (t + phase * 5)) / 5);
+      break;
+    case 'walk': {
+      const phi = (TAU * t) / 0.7;
+      const s = Math.sin(phi);
+      const c = Math.cos(phi);
+      const a = 22 * s;
+      p.rot.legFR = a;
+      p.rot.legBL = a;
+      p.rot.legFL = -a;
+      p.rot.legBR = -a;
+      // A positive angle swings the foot back, so a pair moves forward while its angle falls.
+      const liftA = 7 * Math.max(0, -c);
+      const liftB = 7 * Math.max(0, c);
+      p.off.legFR = [0, -liftA];
+      p.off.legBL = [0, -liftA];
+      p.off.legFL = [0, -liftB];
+      p.off.legBR = [0, -liftB];
+      p.dy = legDrop(a);
+      // The head rises as the body dips, twice a cycle; the tail swings once.
+      p.rot.head = 2.5 * Math.cos(2 * phi);
+      p.rot.tail = 9 * s;
+      p.rot.earL = p.rot.earR = 3 * Math.cos(2 * phi);
+      break;
+    }
+    case 'run': {
+      const phi = (TAU * t) / 0.48;
+      const g = Math.sin(phi); // 1 stretched, -1 gathered
+      p.rot.legFR = -34 * g;
+      p.rot.legFL = -34 * Math.sin(phi - 0.5);
+      p.rot.legBR = 34 * Math.sin(phi - 0.3);
+      p.rot.legBL = 34 * Math.sin(phi - 0.8);
+      p.rot.body = -4 * Math.sin(phi + 0.8);
+      p.dy = g > 0 ? -14 * g : legDrop(34 * g);
+      p.rot.head = -5 * g;
+      p.rot.tail = -18 + 8 * g;
+      p.rot.earL = p.rot.earR = -14 + 4 * g;
+      break;
+    }
+    case 'move':
+      break;
+    case 'fly':
+      p.dy = 6 * Math.sin(TAU * t * 1.2);
+      p.rot.body = 3 * Math.sin(TAU * t * 0.8);
+      p.rot.legFL = p.rot.legFR = -32;
+      p.rot.legBL = p.rot.legBR = 32;
+      p.rot.tail = -20;
+      p.rot.earL = p.rot.earR = -16;
+      break;
+  }
+}
+
 /** Base locomotion cycle. `t` is seconds since the actor started this locomotion. */
 export function basePose(rig: Rig, loco: Locomotion, t: number, phase: number): Pose {
   const p = emptyPose();
+  if (rig.name === 'quadruped') {
+    quadrupedBase(p, loco, t, phase);
+    return p;
+  }
   const humanoid = rig.name === 'humanoid';
   switch (loco) {
     case 'idle': {
@@ -112,10 +185,91 @@ export function basePose(rig: Rig, loco: Locomotion, t: number, phase: number): 
   return p;
 }
 
+/** Ease in and out of a held pose over the first and last `1/k` of the action. */
+const hold = (u: number, k = 4): number => Math.min(1, u * k, (1 - u) * k);
+
+/** Quadruped verbs: the near front paw does what the humanoid's near arm does. */
+function quadrupedVerb(pose: Pose, verb: Verb, u: number): boolean {
+  const add = (part: string, deg: number) => (pose.rot[part] = (pose.rot[part] ?? 0) + deg);
+  switch (verb) {
+    case 'wave':
+      pose.rot.legFR = hold(u, 6) * (-78 + 16 * Math.sin(u * TAU * 2.5));
+      add('head', -4 * hold(u, 6));
+      return true;
+    case 'point': {
+      const k = hold(u);
+      pose.rot.legFR = -58 * k;
+      add('head', -5 * k);
+      add('tail', -10 * k);
+      return true;
+    }
+    case 'tremble': {
+      const j = Math.sin(u * TAU * 11) * 4 * Math.sin(u * Math.PI);
+      pose.off.body = [j, 0];
+      pose.off.head = [j * 0.5, 0];
+      add('tail', 6 * Math.sin(u * TAU * 9));
+      return true;
+    }
+    case 'nod': {
+      const n = Math.sin(u * TAU * 2);
+      add('head', 8 * n);
+      return true;
+    }
+    case 'shake': {
+      const n = Math.sin(u * TAU * 3);
+      add('head', 9 * n);
+      pose.off.head = [3 * n, 0];
+      add('earL', -8 * n);
+      add('earR', -8 * n);
+      return true;
+    }
+    case 'jump': {
+      // Gather (a crouch with the feet bunched under), then a stretched leap and a squash.
+      const launch = 0.18;
+      if (u < launch) {
+        const k = Math.sin((u / launch) * Math.PI);
+        pose.dy += 10 * k;
+        pose.rot.legFL = pose.rot.legFR = 16 * k;
+        pose.rot.legBL = pose.rot.legBR = -16 * k;
+        add('tail', 10 * k);
+      } else {
+        const v = (u - launch) / (1 - launch);
+        pose.dy += -90 * 4 * v * (1 - v);
+        const k = Math.sin(v * Math.PI);
+        pose.rot.legFL = pose.rot.legFR = -38 * k;
+        pose.rot.legBL = pose.rot.legBR = 38 * k;
+        pose.rot.body = -7 * Math.cos(v * Math.PI) * hold(v, 5);
+        add('tail', -22 * k);
+        add('earL', -16 * k);
+        add('earR', -16 * k);
+        if (v > 0.85) {
+          const q = Math.sin(((v - 0.85) / 0.15) * Math.PI);
+          pose.sy *= 1 - 0.1 * q;
+          pose.sx *= 1 + 0.08 * q;
+        }
+      }
+      return true;
+    }
+    case 'sit':
+      // The body tips back about the hips and drops until the rump meets the floor; the
+      // hind legs fold forward along it, the front legs stay straight and plant again.
+      pose.off.body = [0, 46];
+      pose.rot.body = -24;
+      pose.rot.legBL = pose.rot.legBR = -58;
+      pose.rot.legFL = pose.rot.legFR = 24;
+      add('head', 18);
+      add('tail', -40);
+      return true;
+    default:
+      return false;
+  }
+}
+
 /** Layer a timed verb over the base pose. `u` is progress 0..1 through the action. */
 export function applyVerb(rig: Rig, pose: Pose, verb: Verb, u: number): void {
   const humanoid = rig.name === 'humanoid';
   u = clamp01(u);
+  if (rig.name === 'quadruped' && quadrupedVerb(pose, verb, u)) return;
   switch (verb) {
     case 'wave':
       if (humanoid) pose.rot.armR = -135 + 22 * Math.sin(u * TAU * 2.5);

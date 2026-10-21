@@ -53,13 +53,13 @@ export function validateCharacter(c: Character): Problem[] {
         });
     }
   }
-  if (c.rig === 'humanoid') {
-    for (const p of ['head', 'legL', 'legR', 'armL', 'armR'])
+  if (rig.expected.length) {
+    for (const p of rig.expected)
       if (!c.parts[p])
         out.push({
           level: 'warning',
           where,
-          message: `humanoid without '${p}' will not animate it`,
+          message: `${c.rig} without '${p}' will not animate it`,
         });
     const mouth = c.parts.mouth;
     if (mouth && typeof mouth !== 'string' && !mouth.open)

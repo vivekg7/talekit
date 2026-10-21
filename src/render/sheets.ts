@@ -64,17 +64,26 @@ export function characterSheetSvg(character: Character): string {
   };
   const emotionCell = (emotion: Emotion) =>
     make(emotionLabel(emotion), () => base('idle', 0), emotion);
+  const quad = rig.name === 'quadruped';
   const cells: Cell[] = [
     make('idle', () => base('idle', 0)),
-    make('walk', () => base('walk', 0.16)),
-    make('run', () => base('run', 0.1)),
+    make('walk', () => base('walk', quad ? 0.175 : 0.16)),
+    ...(quad
+      ? [
+          make('run: stretched', () => base('run', 0.12)),
+          make('run: gathered', () => base('run', 0.36)),
+        ]
+      : [make('run', () => base('run', 0.1))]),
     make('wave', withVerb('wave', 0.3)),
     make('point', withVerb('point', 0.5)),
+    ...(quad ? [make('jump: gather', withVerb('jump', 0.09))] : []),
     make('jump', withVerb('jump', 0.5)),
     make('tremble', withVerb('tremble', 0.3)),
     ...(rig.name === 'humanoid'
       ? [{ ...make('sit', withVerb('sit', 0)), lift: 70 }]
-      : [make('bounce', withVerb('bounce', 0.25))]),
+      : quad
+        ? [make('sit', withVerb('sit', 0))]
+        : [make('bounce', withVerb('bounce', 0.25))]),
     make('talking', () => base('idle', 0), 'neutral', true),
     emotionCell('happy'),
     emotionCell('sad'),
@@ -93,8 +102,8 @@ export function characterSheetSvg(character: Character): string {
     }
   }
 
-  const cols = 7;
-  const cellW = 230;
+  const cols = rig.width > 200 ? 6 : 7;
+  const cellW = Math.max(230, rig.width + 30);
   const cellH = rig.height + 170;
   const rows = Math.ceil(cells.length / cols);
   const W = cols * cellW;
@@ -200,14 +209,32 @@ export function filmSheetSvg(project: Project, shots: Shot[]): string {
 const PART_COLORS = ['#e76f51', '#2a9d8f', '#e9c46a', '#8338ec', '#3a86ff', '#ff006e', '#06d6a0'];
 
 /**
+ * Joint stress test per rig: the limbs swung well past a walk, so any joint that is not
+ * sunk deep enough opens up on the sheet. Multiplied by +1 and -1 for the two panels.
+ */
+const SWING: Partial<Record<Character['rig'], Record<string, number>>> = {
+  humanoid: { armR: -100, armL: 60, legL: 32, legR: -32, head: 10 },
+  quadruped: {
+    legFR: 32,
+    legBL: 32,
+    legFL: -32,
+    legBR: -32,
+    head: 12,
+    tail: -30,
+    earL: -18,
+    earR: -18,
+  },
+};
+
+/**
  * What the construction linter sees, so the agent can match each numbered warning to a
  * place: part boxes and pivots over the drawing, the silhouette (does it read as one thing
- * in solid black?), and for the humanoid two swing poses that open any gap at a joint.
+ * in solid black?), and for the rigs with limbs two swing poses that open any gap at a joint.
  */
 export function constructionSheetSvg(character: Character): string {
   const rig = RIGS[character.rig];
   const { problems, marks } = lintCharacter(character);
-  const scale = rig.name === 'humanoid' ? 1 : 2;
+  const scale = rig.name === 'humanoid' ? 1 : rig.name === 'quadruped' ? 1.2 : 2;
   const pw = rig.width * scale + 60;
   const ph = rig.height * scale + 60;
   const restFace = resolveFace(character.parts, {
@@ -223,13 +250,9 @@ export function constructionSheetSvg(character: Character): string {
   const swing = (sign: number): Pose => {
     const p = basePose(rig, 'move', 0, 0);
     p.face = restFace;
-    p.rot = {
-      armR: -100 * sign,
-      armL: 60 * sign,
-      legL: 32 * sign,
-      legR: -32 * sign,
-      head: 10 * sign,
-    };
+    p.rot = Object.fromEntries(
+      Object.entries(SWING[rig.name] ?? {}).map(([part, deg]) => [part, deg * sign])
+    );
     return p;
   };
   const panel = (i: number, label: string, inner: string) => {
@@ -264,7 +287,7 @@ export function constructionSheetSvg(character: Character): string {
   const panels = [
     panel(0, 'parts, pivots, warnings', parts),
     panel(1, 'silhouette', silhouette),
-    ...(rig.name === 'humanoid'
+    ...(SWING[rig.name]
       ? [
           panel(2, 'swing: joints stay closed?', drawn(swing(1))),
           panel(3, 'swing, other way', drawn(swing(-1))),

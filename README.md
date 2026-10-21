@@ -63,7 +63,9 @@ page follows the project directory, so the agent's edits appear as it works.
 - **Character** — a rigged puppet: SVG fragments per part (`head`, `torso`,
   `armL`…) drawn into a fixed 200×400 box with known pivots, plus variant maps
   for `mouth` and `eyes`. Colour tokens (`{skin}`) make recolouring trivial.
-  Rigs: `humanoid` and `simple` (animals, props).
+  Rigs: `humanoid` (people), `quadruped` (four-legged animals: walks in
+  diagonal pairs, gallops, sits) and `simple` (birds, props, anything that
+  bobs).
 - **Scene** — a background SVG with named floor **anchors** (`door`, `bench`),
   an optional foreground layer, and a ground line for the built-in stage
   shortcuts `left/center/right/offLeft/offRight`.
@@ -91,7 +93,7 @@ my-story/
 | `get_guide`                | the authoring guide (read first)                                        |
 | `create_project`           | a new project directory                                                 |
 | `project_info`             | characters, scenes, shots, validation problems, open review notes       |
-| `list_library`             | built-in characters (kid, grownup, dog) and scenes (park, home, street) |
+| `list_library`             | built-in characters (kid, grownup, eight animals, a bird) and scenes    |
 | `get_library_item`         | the JSON of a built-in, to learn a rig's layout before drawing          |
 | `copy_from_library`        | copies a built-in under a new id / name / colours, returns its sheet    |
 | `write_character`          | validates, saves, returns a **pose sheet** and a **construction sheet** |

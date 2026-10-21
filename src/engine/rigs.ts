@@ -18,6 +18,17 @@ export interface Rig {
   unknown: RigPart;
   /** The part that must exist for the character to be drawable. */
   required: string;
+  /** Parts that animate when present; missing ones are worth a warning. */
+  expected: string[];
+  /** Parts that must reach the base line: the feet. Empty means "the lowest point". */
+  feet: string[];
+  /**
+   * Joints the construction linter checks: `part` must sink into `into`, and when `pivot`
+   * is set, must also cover its own pivot (it hangs from there).
+   */
+  joints: { part: string; into: string; pivot: boolean }[];
+  /** Where a speech bubble points, in canonical coordinates: just above the head. */
+  speaker: [number, number];
 }
 
 /**
@@ -41,6 +52,16 @@ export const HUMANOID: Rig = {
     armR: { parent: 'torso', pivot: [124, 170], z: 8 }, // near arm, drawn in front
   },
   unknown: { parent: 'torso', pivot: [100, 272], z: 4 },
+  expected: ['head', 'legL', 'legR', 'armL', 'armR'],
+  feet: ['legL', 'legR'],
+  joints: [
+    { part: 'armL', into: 'torso', pivot: true },
+    { part: 'armR', into: 'torso', pivot: true },
+    { part: 'legL', into: 'torso', pivot: true },
+    { part: 'legR', into: 'torso', pivot: true },
+    { part: 'head', into: 'torso', pivot: false },
+  ],
+  speaker: [100, 8],
 };
 
 /**
@@ -58,9 +79,59 @@ export const SIMPLE: Rig = {
     mouth: { parent: 'body', pivot: [100, 100], z: 3 },
   },
   unknown: { parent: 'body', pivot: [100, 100], z: 4 },
+  expected: [],
+  feet: [],
+  joints: [],
+  speaker: [100, 8],
 };
 
-export const RIGS: Record<RigName, Rig> = { humanoid: HUMANOID, simple: SIMPLE };
+/**
+ * Quadruped: 260×200 box, feet on y=200, facing right. Every leg, the tail and the head
+ * hang from the body, so tilting the body (sit, the gallop's rock) carries them; the ears
+ * and face hang from the head. The body turns about the hips, which is how an animal sits.
+ * L is the far side, R the near side, as on the humanoid: far legs behind the body.
+ */
+export const QUADRUPED: Rig = {
+  name: 'quadruped',
+  width: 260,
+  height: 200,
+  required: 'body',
+  parts: {
+    legBL: { parent: 'body', pivot: [66, 132], z: 0 }, // far hind leg
+    legFL: { parent: 'body', pivot: [178, 132], z: 1 }, // far front leg
+    tail: { parent: 'body', pivot: [44, 110], z: 2 },
+    body: { pivot: [72, 132], z: 3 },
+    legBR: { parent: 'body', pivot: [82, 132], z: 5 }, // near hind leg
+    legFR: { parent: 'body', pivot: [194, 132], z: 6 }, // near front leg: points, waves
+    // Both ears sit behind the head, so the head's outline closes their base: an ear in
+    // front would carry its own line across the forehead and look stuck on.
+    earL: { parent: 'head', pivot: [204, 46], z: 7 }, // far ear
+    earR: { parent: 'head', pivot: [220, 46], z: 7.5 },
+    head: { parent: 'body', pivot: [196, 108], z: 8 },
+    eyes: { parent: 'head', pivot: [196, 108], z: 10 },
+    mouth: { parent: 'head', pivot: [196, 108], z: 11 },
+  },
+  unknown: { parent: 'body', pivot: [124, 120], z: 4 },
+  expected: ['head', 'legFL', 'legFR', 'legBL', 'legBR'],
+  feet: ['legFL', 'legFR', 'legBL', 'legBR'],
+  joints: [
+    { part: 'legBL', into: 'body', pivot: true },
+    { part: 'legFL', into: 'body', pivot: true },
+    { part: 'legBR', into: 'body', pivot: true },
+    { part: 'legFR', into: 'body', pivot: true },
+    { part: 'tail', into: 'body', pivot: true },
+    { part: 'head', into: 'body', pivot: false },
+    { part: 'earL', into: 'head', pivot: true },
+    { part: 'earR', into: 'head', pivot: true },
+  ],
+  speaker: [214, 8],
+};
+
+export const RIGS: Record<RigName, Rig> = {
+  humanoid: HUMANOID,
+  simple: SIMPLE,
+  quadruped: QUADRUPED,
+};
 
 export function rigPart(rig: Rig, name: string): RigPart {
   return rig.parts[name] ?? rig.unknown;

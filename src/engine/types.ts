@@ -9,14 +9,16 @@ export const IdSchema = z
 export const PartSchema = z.union([z.string(), z.record(z.string(), z.string())]);
 export type Part = z.infer<typeof PartSchema>;
 
-export const RigNameSchema = z.enum(['humanoid', 'simple']);
+export const RigNameSchema = z.enum(['humanoid', 'simple', 'quadruped']);
 export type RigName = z.infer<typeof RigNameSchema>;
 
 export const CharacterSchema = z.object({
   id: IdSchema,
   name: z.string().min(1),
   description: z.string().optional(),
-  rig: RigNameSchema.default('humanoid'),
+  rig: RigNameSchema.default('humanoid').describe(
+    'humanoid: people, 200×400 box; quadruped: four-legged animals, 260×200; simple: birds, props, anything that bobs, 200×200'
+  ),
   /** On-screen height in pixels at scale 1 (feet to top of the canonical box). */
   height: z.number().positive().default(220),
   /** Named colour tokens; `{token}` inside part SVG is replaced with the value. */

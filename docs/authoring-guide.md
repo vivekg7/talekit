@@ -15,7 +15,7 @@ write. Fix what looks wrong before moving on.
 3. **Characters.** Prefer `copy_from_library(path, libraryId, asId, name,
 colors)` (colour tokens: hair, skin, dress, shirt…). Draw from scratch with
    `write_character(path, character)` only for something the library lacks
-   (an animal other than a dog, a dragon, a robot, a prop like a kite); read
+   (an animal it does not have, a dragon, a robot, a prop like a kite); read
    `get_library_item(libraryId)` first to see how a character on that rig is
    laid out, and follow [Drawing style](#drawing-style) and
    [Construction](#construction). Two pictures come back: the pose sheet
@@ -81,12 +81,66 @@ stroke-width='18' stroke-linecap='round' fill='none'/>` plus a hand circle
   `<svg>` element, never `<image>`, no external references. Prefix any `id`
   you define with the character id to avoid clashes.
 
+### `quadruped` rig — 260 wide × 200 tall, feet on y=200
+
+Four-legged animals. The library has a dog, cat, rabbit, deer, lion, bear,
+fox and mouse: copy and recolour one when you can, and read
+`get_library_item("dog")` before drawing a new one (a horse, a pig, a sheep).
+
+```
+ y   0 ─┬─ top of box (ear tips, antlers)
+ y  46 ─┼─ EARS: earL pivot (204,46), earR pivot (220,46), both behind the head
+        │   head: circle around (210,70) r≈32, muzzle out to x≈255
+ y 108 ─┼─ NECK pivot (196,108): the head part, neck included, turns here
+ y 110 ─┼─ TAIL pivot (44,110), at the rump
+        │   body: rump x≈42 … chest x≈212, y≈90 … 152; turns about the hips (72,132)
+ y 132 ─┼─ HIPS: legBL (66,132), legBR (82,132)
+        │  SHOULDERS: legFL (178,132), legFR (194,132)
+        │   legs hang straight down
+ y 200 ─┴─ FEET LINE (anchor point is (130,200))
+```
+
+Parts and draw order (back → front): `legBL`, `legFL` (the far legs),
+`tail`, `body`, (any extra parts), `legBR`, `legFR` (the near legs), `earL`,
+`earR`, `head`, `eyes`, `mouth`. `body` is required. The animal faces
+**right**; L is the far side and R the near side, as on the humanoid. Every
+leg, the tail and the head hang from the body, so when the body tips back
+for `sit` or rocks in the gallop they go with it; the ears and face hang
+from the head.
+
+- **Legs** are round-capped strokes straight down from their pivot to the
+  line (`<path d='M194 132 L194 189' stroke='{fur}' stroke-width='18'
+stroke-linecap='round' fill='none'/>`) with a paw or hoof shape at the
+  bottom reaching y=200. The body must cover every pivot by at least 12
+  units, so give it a deep chest and rump; a leg can be short and mostly
+  hidden (a rabbit, a mouse), but it starts at its pivot. Far legs a shade
+  darker than near ones.
+- **Head** includes the neck: a thick stroke from inside the chest up to the
+  head, so a nod lowers the whole neck. Keep the muzzle inside x ≤ 260.
+- **Ears** sit behind the head, so the head's outline closes their base:
+  draw each from below the head's edge (sunk at least 12 units) up to its
+  tip, covering its pivot. A floppy ear hangs past the back of the head.
+- **Tail** starts inside the rump and covers (44,110); a long tail can
+  curve anywhere in the box.
+- **Face**: one eye in profile (white, iris, highlight) and a mouth under
+  the muzzle, with the same variants as every other rig.
+
+The engine walks it in diagonal pairs (near front with far hind), with the
+head bobbing against the step and the tail swinging; `run` is a gallop
+between a gathered pose and a stretched one; `sit` tips the body back about
+the hips, folds the hind legs and plants the front paws; `wave` and `point`
+lift the near front paw; `jump` crouches, then leaps stretched out. `height`
+is the box height on screen: about 55 for a mouse, 90–110 for a cat or dog,
+170–190 for a lion, bear or deer.
+
 ### `simple` rig — 200 × 200, base on y=200
 
 One required `body` part plus optional `eyes` and `mouth`. The engine bobs and
 tilts the whole body for walk/run, hops it for `bounce`, wobbles it for `fly`,
 rotates it for `spin`, leans it forward for `point`, shivers it for `tremble`.
-Use it for animals, vehicles, kites, balls, monsters, props.
+Use it for birds, fish, vehicles, kites, balls, blobby monsters and props:
+anything that bobs, hops or flies rather than walks. A four-legged animal
+belongs on the quadruped rig.
 
 ```
  x   0 ──────────── 200
@@ -98,12 +152,13 @@ Use it for animals, vehicles, kites, balls, monsters, props.
  y200└────┴┴────────┘   base line y=200: feet, wheels or base touch it.
 ```
 
-A minimal animal: `body` is one `<path>`/`<ellipse>` group with legs, tail
-and head drawn in; `eyes` has `open`, `closed`, `wide`, `happy`; `mouth` has
-`closed`, `open`, `smile`, `sad`. Bubbles hang from the top of the box, so
-keep the head near the top. `get_library_item("dog")` is a complete worked
-example to copy the layout from; `height` on screen is typically 80–140 for
-small animals and 200–260 for large ones.
+A minimal creature: `body` is one `<path>`/`<ellipse>` group with wings,
+tail and head drawn in; `eyes` has `open`, `closed`, `wide`, `happy`; `mouth`
+has `closed`, `open`, `smile`, `sad` (a bird's beak is its mouth). Bubbles
+hang from the top of the box, so keep the head near the top.
+`get_library_item("bird")` is a complete worked example to copy the layout
+from; `height` on screen is typically 50–80 for a bird and 80–140 for a
+prop or a small creature.
 
 ### Variants
 
@@ -167,14 +222,17 @@ warning has a matching red box on it.
 
 - **Nothing outside the box.** This one is an error: the engine scales and
   places the box, and bubbles hang from its top.
-- **Feet on the line**: shoes touch y=400 on the humanoid; the lowest point
-  touches y=200 on the simple rig, unless the thing flies.
+- **Feet on the line**: shoes touch y=400 on the humanoid, all four paws or
+  hooves touch y=200 on the quadruped; the lowest point touches y=200 on the
+  simple rig, unless the thing flies.
 - **Limbs are strokes from their pivot**, e.g. `<path d='M124 170 L130 280'
 stroke='{skin}' stroke-width='18' stroke-linecap='round' fill='none'/>`. The
   round cap at the pivot looks the same at every angle, so the joint never
   shows a corner when the limb swings.
-- **Sink, do not touch.** A limb overlaps the torso by at least 12 units and
-  the neck reaches 12 units into the head. Inside a part every piece (a leg,
+- **Sink, do not touch.** A limb overlaps the torso (or the quadruped's
+  body) by at least 12 units, the neck reaches 12 units into the head, an
+  ear sinks 12 into the head; a thin limb (a mouse's leg, a lion's tail)
+  sinks three quarters of its width. Inside a part every piece (a leg,
   a tail, an ear, a pigtail) sinks at least 12 units (three quarters of its
   own width if it is thinner) into the shape it hangs from. Two shapes that
   only touch read as separate stickers, and a gap opens as soon as they move.
@@ -255,18 +313,18 @@ and foreground objects a character touches (a bench, a well, a door) get a
 
 ### Verbs (`do`)
 
-| verb                  | what happens                                                                | duration default |
-| --------------------- | --------------------------------------------------------------------------- | ---------------- |
-| `walk` / `run`        | leg/arm cycle to `to`; faces the direction of travel                        | distance ÷ speed |
-| `move`                | glide to `to` without a cycle (sliding, floating objects)                   | distance ÷ 300   |
-| `fly`                 | move with a gentle wobble (birds, kites, balloons); `to` may be in the sky  | distance ÷ 260   |
-| `jump`                | hop in place, or to `to` if given                                           | 0.8s             |
-| `wave`, `point`       | near arm up and waving / pointing forward (simple rig: lean toward it)      | 1.5s             |
-| `nod`, `shake`        | head yes / no                                                               | 0.8s             |
-| `tremble`             | frightened shiver (head and shoulders, or the whole simple body)            | 1.2s             |
-| `sit` / `stand`       | persistent: hips on `to` (a seat anchor) or the current spot, until `stand` | instant          |
-| `bounce`, `spin`      | squashy hop / full rotation (best on the simple rig)                        | 1s / 0.8s        |
-| `appear`, `disappear` | fade in / out                                                               | 0.3s             |
+| verb                  | what happens                                                               | duration default |
+| --------------------- | -------------------------------------------------------------------------- | ---------------- |
+| `walk` / `run`        | leg/arm cycle to `to`; faces the direction of travel (four legs: gallop)   | distance ÷ speed |
+| `move`                | glide to `to` without a cycle (sliding, floating objects)                  | distance ÷ 300   |
+| `fly`                 | move with a gentle wobble (birds, kites, balloons); `to` may be in the sky | distance ÷ 260   |
+| `jump`                | hop in place, or to `to` if given (four legs: crouch, then leap)           | 0.8s             |
+| `wave`, `point`       | near arm (or front paw) up and waving / pointing (simple rig: lean toward) | 1.5s             |
+| `nod`, `shake`        | head yes / no                                                              | 0.8s             |
+| `tremble`             | frightened shiver (head and shoulders, or the whole simple body)           | 1.2s             |
+| `sit` / `stand`       | persistent: hips on `to` (a seat anchor), or four legs sit on the floor    | instant          |
+| `bounce`, `spin`      | squashy hop / full rotation (best on the simple rig)                       | 1s / 0.8s        |
+| `appear`, `disappear` | fade in / out                                                              | 0.3s             |
 
 Walking speed is about 220 px/s, so crossing the frame takes 4–5 seconds;
 `run` is about 420 px/s, `fly` 260, `move` 300. Set `duration` to override any
