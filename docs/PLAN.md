@@ -120,8 +120,16 @@ actions }`. Cast places characters at anchors. Actions are
       documented, face fallbacks listed and labelled on the pose sheet,
       larger contact-sheet frames, a film sheet from `render`, a leaning
       `point` and a `tremble` verb for the simple rig, the scene ghost sized
-      to the tallest character, and the scale tween documented. Next: a run
-      with a non-Claude agent, and a story that needs humanoid interaction.
+      to the tallest character, and the scale tween documented. Vivek's
+      review of that film found the story's key beat missing: the lion
+      never saw anything in the well, because the subagent staged a 70 px
+      "reflection" at the rim of a side-on well. The fix was staging, not
+      engine: a point-of-view scene looking down the shaft, the reflection
+      drawn large in the water, the lion leaning over the rim before the cut
+      (shots 07 to 09, now 111 s). The guide gained the rule behind it:
+      when the plot turns on what a character sees, cut to what they see.
+      Next: a run with a non-Claude agent, and a story that needs humanoid
+      interaction.
 
 ## Later (deliberately not now)
 

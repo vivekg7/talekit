@@ -19,19 +19,12 @@
       "scale": 1,
       "visible": true,
       "emotion": "angry"
-    },
-    "reflection": {
-      "at": "well-mouth",
-      "facing": "right",
-      "scale": 1,
-      "visible": true,
-      "emotion": "angry"
     }
   },
   "camera": {
-    "zoom": 1.6,
-    "x": 780,
-    "y": 520
+    "zoom": 1.25,
+    "x": 760,
+    "y": 480
   },
   "fadeIn": 0,
   "fadeOut": 0,
@@ -60,14 +53,9 @@
       "do": "move",
       "to": {
         "x": 840,
-        "y": 730,
+        "y": 700,
         "scale": 0.3
       }
-    },
-    {
-      "t": 3.2,
-      "actor": "reflection",
-      "do": "disappear"
     },
     {
       "t": 3.8,

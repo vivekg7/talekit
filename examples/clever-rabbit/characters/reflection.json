@@ -1,9 +1,9 @@
 {
   "id": "reflection",
   "name": "The lion's reflection",
-  "description": "Lion head seen in the well water; appears when the lion looks in.",
+  "description": "The lion's own face in the well water, seen from above; cast only in the well-water scene.",
   "rig": "simple",
-  "height": 70,
+  "height": 260,
   "colors": {
     "fur": "#6f8fa8",
     "furDark": "#4f6f88",
@@ -12,7 +12,7 @@
     "nose": "#223344"
   },
   "parts": {
-    "body": "<g opacity='0.85'><polygon points='146.0,32.0 159.0,47.9 178.4,41.5 180.8,61.9 200.6,67.1 191.5,85.5 205.4,100.5 187.8,111.1 191.3,131.3 170.9,130.7 162.9,149.6 146.0,138.0 129.1,149.6 121.1,130.7 100.7,131.3 104.2,111.1 86.6,100.5 100.5,85.5 91.4,67.1 111.2,61.9 113.6,41.5 133.0,47.9' fill='{mane}'/><circle cx='126' cy='64' r='11' fill='{fur}'/><circle cx='126' cy='64' r='5' fill='{furDark}'/><circle cx='170' cy='62' r='11' fill='{fur}'/><circle cx='170' cy='62' r='5' fill='{furDark}'/><circle cx='150' cy='96' r='36' fill='{fur}'/><ellipse cx='168' cy='112' rx='20' ry='14' fill='{muzzle}'/><circle cx='180' cy='104' r='7' fill='{nose}'/></g><g stroke='#cfe6f5' stroke-width='3' fill='none' opacity='0.7'><path d='M70 170 Q100 160 130 170'/><path d='M60 186 Q110 176 160 186'/></g>",
+    "body": "<g opacity='0.85'><polygon points='146.0,32.0 159.0,47.9 178.4,41.5 180.8,61.9 200.6,67.1 191.5,85.5 205.4,100.5 187.8,111.1 191.3,131.3 170.9,130.7 162.9,149.6 146.0,138.0 129.1,149.6 121.1,130.7 100.7,131.3 104.2,111.1 86.6,100.5 100.5,85.5 91.4,67.1 111.2,61.9 113.6,41.5 133.0,47.9' fill='{mane}'/><circle cx='126' cy='64' r='11' fill='{fur}'/><circle cx='126' cy='64' r='5' fill='{furDark}'/><circle cx='170' cy='62' r='11' fill='{fur}'/><circle cx='170' cy='62' r='5' fill='{furDark}'/><circle cx='150' cy='96' r='36' fill='{fur}'/><ellipse cx='168' cy='112' rx='20' ry='14' fill='{muzzle}'/><circle cx='180' cy='104' r='7' fill='{nose}'/></g>",
     "eyes": {
       "open": "<circle cx='142' cy='88' r='5.5' fill='#222'/><circle cx='144' cy='86' r='1.8' fill='#fff'/><circle cx='164' cy='86' r='5.5' fill='#222'/><circle cx='166' cy='84' r='1.8' fill='#fff'/>",
       "closed": "<path d='M137 89 Q142 93 147 89' stroke='#222' stroke-width='2.5' fill='none' stroke-linecap='round'/><path d='M159 87 Q164 91 169 87' stroke='#222' stroke-width='2.5' fill='none' stroke-linecap='round'/>",

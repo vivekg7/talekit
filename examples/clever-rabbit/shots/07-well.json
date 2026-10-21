@@ -1,7 +1,7 @@
 {
   "id": "well",
   "scene": "well",
-  "duration": 15,
+  "duration": 15.5,
   "cast": {
     "rabbit": {
       "at": "arrive",
@@ -15,13 +15,6 @@
       "facing": "right",
       "scale": 1,
       "visible": true,
-      "emotion": "angry"
-    },
-    "reflection": {
-      "at": "well-mouth",
-      "facing": "right",
-      "scale": 1,
-      "visible": false,
       "emotion": "angry"
     }
   },
@@ -67,37 +60,41 @@
       }
     },
     {
-      "t": 7.8,
+      "t": 7.6,
       "duration": 1.5,
       "camera": {
-        "zoom": 1.6,
-        "x": 780,
-        "y": 520
+        "zoom": 1.25,
+        "x": 760,
+        "y": 480
       }
     },
     {
       "t": 8.3,
-      "actor": "reflection",
-      "do": "appear"
+      "duration": 4.5,
+      "actor": "lion",
+      "do": "point"
     },
     {
-      "t": 8.4,
+      "t": 8.8,
       "actor": "lion",
       "emotion": "surprised"
     },
     {
-      "t": 9.2,
-      "duration": 2.8,
+      "t": 9.3,
+      "duration": 2.2,
       "actor": "lion",
-      "say": "A lion! YOU call yourself king?",
-      "bubble": "shout",
+      "say": "Another lion!?"
+    },
+    {
+      "t": 11.8,
+      "actor": "lion",
       "emotion": "angry"
     },
     {
-      "t": 12.2,
-      "duration": 2.4,
-      "actor": "reflection",
-      "say": "...yourself king? ...KING?",
+      "t": 12.1,
+      "duration": 3,
+      "actor": "lion",
+      "say": "YOU call yourself king?",
       "bubble": "shout"
     }
   ]

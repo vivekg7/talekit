@@ -1,0 +1,62 @@
+{
+  "id": "well-water",
+  "scene": "well-water",
+  "duration": 10,
+  "cast": {
+    "reflection": {
+      "at": "water",
+      "facing": "right",
+      "scale": 2,
+      "visible": false,
+      "emotion": "surprised"
+    }
+  },
+  "camera": {
+    "zoom": 1
+  },
+  "fadeIn": 0,
+  "fadeOut": 0,
+  "actions": [
+    {
+      "t": 0,
+      "duration": 3.2,
+      "caption": "Down in the water, a lion stared back at him."
+    },
+    {
+      "t": 0.4,
+      "actor": "reflection",
+      "do": "appear"
+    },
+    {
+      "t": 1.6,
+      "duration": 1,
+      "actor": "reflection",
+      "do": "nod"
+    },
+    {
+      "t": 3.6,
+      "actor": "reflection",
+      "emotion": "angry"
+    },
+    {
+      "t": 3.8,
+      "duration": 2.6,
+      "actor": "reflection",
+      "say": "...call yourself KING?",
+      "bubble": "shout"
+    },
+    {
+      "t": 6.8,
+      "duration": 0.8,
+      "actor": "reflection",
+      "do": "shake"
+    },
+    {
+      "t": 7.2,
+      "duration": 2.2,
+      "actor": "reflection",
+      "say": "GRRRR!",
+      "bubble": "shout"
+    }
+  ]
+}

@@ -260,6 +260,14 @@ frame is not; check the text, not the edges.
 - Let a line land: leave ~0.5 s after a bubble before the next one.
 - Alternate wide shots (walks, arrivals) with closer camera zooms (feelings).
 - Use `emotion` generously: a story reads through faces.
+- **When the plot turns on what a character sees, cut to what they see.** A
+  reflection in a well, a letter, a monster behind the door: the wide shot
+  cannot show it, so write a scene from that character's viewpoint (looking
+  down the well: rim, shaft, water) and a short shot in it where the thing
+  seen is the only cast member, drawn large. In the wide shot before the cut,
+  make the character look: `point` on the simple rig leans the body toward
+  the thing, `emotion: surprised` sells it. See `examples/clever-rabbit`
+  shots 07 to 09.
 - Every `walk` needs enough `duration` or the character will sprint.
 
 ## Checklist before `render`
