@@ -10,6 +10,7 @@
     "flame": "#ffb703"
   },
   "grip": [100, 22],
+  "shadow": true,
   "parts": {
     "body": {
       "dark": "<g><path d='M70 40 Q100 0 130 40' stroke='{brassDark}' stroke-width='8' fill='none'/><rect x='60' y='40' width='80' height='18' rx='4' fill='{brass}'/><rect x='68' y='58' width='64' height='110' fill='{glass}' stroke='{brassDark}' stroke-width='6'/><rect x='56' y='168' width='88' height='22' rx='4' fill='{brass}'/><rect x='64' y='190' width='72' height='10' fill='{brassDark}'/><path d='M100 150 Q88 130 100 112 Q112 130 100 150 Z' fill='#9aa5ad'/></g>",
