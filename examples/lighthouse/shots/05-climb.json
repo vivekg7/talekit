@@ -36,6 +36,11 @@
   "actions": [
     {
       "t": 0,
+      "actor": "lantern",
+      "attach": "pip"
+    },
+    {
+      "t": 0,
       "duration": 3.5,
       "caption": "Up the winding stairs they went, round and round…"
     },
@@ -45,16 +50,6 @@
       "actor": "pip",
       "do": "walk",
       "to": "beside-pedestal"
-    },
-    {
-      "t": 1,
-      "duration": 3,
-      "actor": "lantern",
-      "do": "move",
-      "to": {
-        "x": 525,
-        "y": 610
-      }
     },
     {
       "t": 4.5,
@@ -78,7 +73,8 @@
       "duration": 1.5,
       "actor": "lantern",
       "do": "move",
-      "to": "pedestal-top"
+      "to": "pedestal-top",
+      "attach": false
     }
   ]
 }

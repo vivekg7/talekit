@@ -23,7 +23,8 @@ reasoning are in `docs/PLAN.md`. Read both before changing the data model.
   build) plus a small HTTP server (`server.ts`).
 - `examples/lost-kite/` — one-minute story used as the integration check.
   `examples/lighthouse/` — written through the MCP tools as the phase 6 run;
-  it exercises from-scratch characters, custom variants and the carry trick.
+  it exercises from-scratch characters, custom variants and carrying a prop
+  with `attach`.
   `examples/clever-rabbit/` — made by a subagent given only the story and
   the tool; an all-animal cast, kept as the cold-run fixture. Its well
   sequence was restaged by hand as the worked example of a point-of-view
