@@ -402,6 +402,34 @@ export function applyVerb(rig: Rig, pose: Pose, verb: Verb, u: number): void {
   }
 }
 
+/**
+ * The head's reaction to a change of emotion, as (tilt degrees, rise, stretch): surprise
+ * and fear throw the head back and up, joy lifts it, sadness drops it, anger juts it down
+ * and forward. Down and forward are positive tilts, as for a look.
+ */
+const TAKES: Record<Emotion, [number, number, number]> = {
+  neutral: [3, 0, 0],
+  happy: [-6, 5, 0.03],
+  sad: [9, -3, -0.025],
+  surprised: [-10, 8, 0.045],
+  angry: [6, 2, 0.02],
+  scared: [-8, 6, 0.04],
+};
+
+/** A take: a quick move into the reaction with a little overshoot, then easing back. */
+export function applyTake(rig: Rig, pose: Pose, emotion: Emotion, u: number): void {
+  const k = u < 0.25 ? backOut(u / 0.25, 1.6) : 1 - easeInOut((u - 0.25) / 0.75);
+  const [tilt, rise, stretch] = TAKES[emotion];
+  const head = rig.name === 'simple' ? 'body' : 'head';
+  pose.rot[head] = (pose.rot[head] ?? 0) + tilt * k * (head === 'body' ? 0.5 : 1);
+  if (head === 'head') {
+    const [ox, oy] = pose.off.head ?? [0, 0];
+    pose.off.head = [ox, oy - rise * k];
+  }
+  pose.sy *= 1 + stretch * k;
+  pose.sx *= 1 - stretch * 0.5 * k;
+}
+
 /** Choose a variant for a multi-variant part, with graceful fallback. */
 export function pickVariant(
   variants: Record<string, string>,
@@ -442,6 +470,8 @@ export interface FaceContext {
   /** Absolute shot time, for blink and mouth-flap timing. */
   t: number;
   phase: number;
+  /** Close the eyes now, whatever the blink cycle says (a take). */
+  blink?: boolean;
 }
 
 /** Decide the variant of every multi-variant part. */
@@ -467,7 +497,7 @@ export function resolveFace(
       const inCycle = at % cycle;
       // Now and then (a fixed choice per cycle, so frames agree) a second quick blink.
       const twice = hash01(`${ctx.phase}:${Math.floor(at / cycle)}`) < 0.3;
-      if (inCycle < 0.13 || (twice && inCycle > 0.3 && inCycle < 0.41))
+      if (ctx.blink || inCycle < 0.13 || (twice && inCycle > 0.3 && inCycle < 0.41))
         wanted = ['closed', ...wanted];
     }
     out[name] = pickVariant(part, name, wanted);

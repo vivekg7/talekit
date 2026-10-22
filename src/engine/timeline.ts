@@ -1,4 +1,5 @@
 import { clamp01, easeInOut, easeOut, hash01, lerp, ramp } from './easing.js';
+import { holdPoint, poseFor } from './actor.js';
 import type { Travel } from './gait.js';
 import { isMoveVerb, JUMP, SPEED, VERB_DURATION, type Locomotion } from './motion.js';
 import { RIGS } from './rigs.js';
@@ -54,6 +55,15 @@ export interface ActorState {
   turn?: { from: Facing; u: number };
   /** 0 standing, 1 sat; in between while sitting down or getting up. */
   sit: number;
+  /** The anchor's perspective scale under the actor (already folded into `scale`). */
+  perspective: number;
+  /** Carried by this actor (`attach`), and whether this actor is carrying something. */
+  heldBy?: string;
+  holding: boolean;
+  /** Head tilt toward whoever the actor is attending to, degrees (down is positive). */
+  look: number;
+  /** A short take after an emotion change: progress 0..1 and the new emotion. */
+  take?: { u: number; emotion: Emotion };
   emotion: Emotion;
   face: Record<string, string>;
   verbs: ActiveVerb[];
@@ -176,12 +186,58 @@ function movePoint(m: Move, t: number): Point {
   };
 }
 
+/** Seconds an emotion take lasts, and a look takes to settle on a new target. */
+const TAKE_TIME = 0.6;
+const LOOK_TIME = 0.35;
+/** How deep holders and look targets are resolved: a prop's carrier, a listener's speaker. */
+const MAX_DEPTH = 2;
+
+/** Who is carrying `prop` at time t, if anyone. */
+function holderAt(shot: Shot, prop: string, t: number): string | undefined {
+  let holder: string | undefined;
+  for (const a of shot.actions)
+    if (a.actor === prop && a.attach !== undefined && a.t <= t) holder = a.attach || undefined;
+  return holder;
+}
+
+/**
+ * Where a prop's feet point goes so that its grip sits in its holder's hand (or mouth) at
+ * time t, facing the way the holder faces.
+ */
+function heldPoint(
+  project: Project,
+  scene: Scene,
+  shot: Shot,
+  prop: Character,
+  propScale: number,
+  holderId: string,
+  t: number,
+  depth: number
+): { point: Point; facing: Facing; turn?: ActorState['turn'] } {
+  const holder = resolveActor(project, scene, shot, holderId, t, depth + 1);
+  const hand = holdPoint(holder, poseFor(holder, t));
+  const rig = RIGS[prop.rig];
+  const [gx, gy] = prop.grip ?? [rig.width / 2, rig.height / 2];
+  const k = (prop.height / rig.height) * propScale * holder.perspective;
+  const side = holder.facing === 'left' ? -1 : 1;
+  return {
+    point: {
+      x: hand.x - k * side * (gx - rig.width / 2),
+      y: hand.y + k * (rig.height - gy),
+      scale: holder.perspective,
+    },
+    facing: holder.facing,
+    turn: holder.turn,
+  };
+}
+
 export function resolveActor(
   project: Project,
   scene: Scene,
   shot: Shot,
   id: string,
-  t: number
+  t: number,
+  depth = 0
 ): ActorState {
   const character = project.characters[id];
   const cast = shot.cast[id];
@@ -199,6 +255,8 @@ export function resolveActor(
   let sitFrom = 0;
   let turnAt = -Infinity;
   let turnFrom: Facing = facing;
+  let holder: string | undefined;
+  let takeAt = -Infinity;
   let move: Move | undefined;
   let locoStart = 0;
   let locomotion: Locomotion = 'idle';
@@ -234,8 +292,21 @@ export function resolveActor(
       if (a.set.scale) scale = a.set.scale;
       if (a.set.visible !== undefined) visible = a.set.visible;
     }
-    if (a.emotion) emotion = a.emotion;
+    if (a.emotion) {
+      if (a.emotion !== emotion) takeAt = a.t;
+      emotion = a.emotion;
+    }
     if (a.face) face = { ...face, ...a.face };
+    if (a.attach !== undefined) {
+      if (a.attach) holder = a.attach;
+      else if (holder && depth < MAX_DEPTH) {
+        // Let go: it stays where the hand was just before (the arm relaxes after).
+        const before = Math.max(0, a.t - 1e-6);
+        point = heldPoint(project, scene, shot, character, scale, holder, before, depth).point;
+        holder = undefined;
+      } else holder = undefined;
+      move = undefined;
+    }
 
     if (a.say) {
       const d = actionDuration(a);
@@ -302,7 +373,17 @@ export function resolveActor(
     }
   }
 
-  return {
+  let turn = t - turnAt < TURN_TIME ? { from: turnFrom, u: (t - turnAt) / TURN_TIME } : undefined;
+  const heldBy = holder && depth < MAX_DEPTH ? holder : undefined;
+  if (heldBy) {
+    const held = heldPoint(project, scene, shot, character, scale, heldBy, t, depth);
+    point = held.point;
+    facing = held.facing;
+    turn = held.turn;
+    locomotion = 'idle';
+  }
+  const holding = Object.keys(shot.cast).some((other) => holderAt(shot, other, t) === id);
+  const state: ActorState = {
     id,
     character,
     x: point.x,
@@ -314,8 +395,13 @@ export function resolveActor(
     locomotion,
     locoT: t - locoStart,
     travel,
-    turn: t - turnAt < TURN_TIME ? { from: turnFrom, u: (t - turnAt) / TURN_TIME } : undefined,
+    turn,
     sit: sitAmount(t),
+    perspective: point.scale,
+    heldBy,
+    holding,
+    look: 0,
+    take: t - takeAt < TAKE_TIME ? { u: (t - takeAt) / TAKE_TIME, emotion } : undefined,
     emotion,
     face,
     verbs,
@@ -323,7 +409,110 @@ export function resolveActor(
     talking,
     phase: hash01(id),
   };
+  // Looks are worked out for the actors on screen, not for the ones resolved to find them.
+  if (depth === 0 && !heldBy) state.look = lookPitch(project, scene, shot, state, t, depth);
+  return state;
 }
+
+/** Between the eyes, in the scene, ignoring the pose: what others look toward. */
+function eyePoint(a: ActorState): { x: number; y: number } {
+  const rig = RIGS[a.character.rig];
+  const k = (a.character.height / rig.height) * a.scale;
+  const side = a.facing === 'left' ? -1 : 1;
+  return {
+    x: a.x + k * side * (rig.eye[0] - rig.width / 2),
+    y: a.y + k * (rig.eye[1] - rig.height),
+  };
+}
+
+const ATTENTION_VERBS: ReadonlySet<Verb> = new Set(['walk', 'run', 'move', 'fly', 'jump', 'point']);
+
+/**
+ * Who an actor is attending to at time t: whoever spoke last (a listener watches the
+ * speaker), or, while speaking, the one spoken to (`to`, else whoever spoke before, else
+ * the nearest actor in front). Walking, jumping and pointing look straight ahead.
+ * Returns the last two targets and when the latest began, so the head can ease over.
+ */
+function attention(shot: Shot, a: ActorState, t: number) {
+  type Target = string | undefined; // undefined: straight ahead
+  const events: { at: number; target: Target }[] = [];
+  let lastOther: string | undefined;
+  for (const act of [...shot.actions].sort((x, y) => x.t - y.t)) {
+    if (act.t > t || !act.actor) continue;
+    if (act.actor === a.id) {
+      if (act.do && ATTENTION_VERBS.has(act.do)) events.push({ at: act.t, target: undefined });
+      else if (act.say) {
+        const named = typeof act.to === 'string' && shot.cast[act.to] ? act.to : undefined;
+        events.push({ at: act.t, target: named ?? lastOther ?? '' });
+      }
+    } else if (act.say && shot.cast[act.actor]) {
+      events.push({ at: act.t, target: act.actor });
+      lastOther = act.actor;
+    }
+  }
+  const cur = events.at(-1);
+  const prev = events.at(-2);
+  return { cur: cur?.target, prev: prev?.target, since: cur ? t - cur.at : Infinity };
+}
+
+/**
+ * The head tilt (degrees, down positive) toward the actor's current target, eased from
+ * the previous one. Only targets in front count: the engine never turns a body round to
+ * look, so a target behind leaves the head level.
+ */
+function lookPitch(
+  project: Project,
+  scene: Scene,
+  shot: Shot,
+  a: ActorState,
+  t: number,
+  depth: number
+): number {
+  // Something without eyes (a kite, a lantern) attends to nobody.
+  if (a.locomotion !== 'idle' || !a.visible || !a.character.parts.eyes) return 0;
+  const { cur, prev, since } = attention(shot, a, t);
+  const others = new Map<string, ActorState>();
+  const other = (id: string) => {
+    if (!others.has(id)) others.set(id, resolveActor(project, scene, shot, id, t, depth + 1));
+    return others.get(id)!;
+  };
+  const me = eyePoint(a);
+  const side = a.facing === 'left' ? -1 : 1;
+  const inFront = (o: ActorState) => o.visible && (o.x - a.x) * side > 4;
+  const pitchTo = (target: string | undefined): number => {
+    if (target === undefined) return 0;
+    let o: ActorState | undefined;
+    if (target) o = other(target);
+    else {
+      // Speaking with no one named or heard yet: the nearest actor in front.
+      let best = Infinity;
+      for (const id of Object.keys(shot.cast)) {
+        if (id === a.id) continue;
+        const c = other(id);
+        if (inFront(c) && Math.abs(c.x - a.x) < best) {
+          best = Math.abs(c.x - a.x);
+          o = c;
+        }
+      }
+    }
+    if (!o || !inFront(o)) return 0;
+    const them = eyePoint(o);
+    // The head goes half way; eyes would do the rest, and a full turn reads as a glare.
+    const deg = (0.5 * Math.atan2(them.y - me.y, Math.abs(them.x - me.x)) * 180) / Math.PI;
+    const limit = LOOK_LIMIT[a.character.rig];
+    return Math.max(-limit, Math.min(limit, deg));
+  };
+  const now = pitchTo(cur);
+  if (since >= LOOK_TIME) return now;
+  return lerp(pitchTo(prev), now, easeInOut(since / LOOK_TIME));
+}
+
+/** How far a head tilts to look (the simple rig tips its whole body, so less). */
+export const LOOK_LIMIT: Record<Character['rig'], number> = {
+  humanoid: 10,
+  quadruped: 8,
+  simple: 5,
+};
 
 function resolveCamera(project: Project, shot: Shot, t: number): Required<Camera> {
   const { width, height } = project.meta;
@@ -390,8 +579,12 @@ export function resolveFrame(project: Project, shot: Shot, t: number): FrameStat
       throw new Error(`shot '${shot.id}' casts unknown character '${id}'`);
     return resolveActor(project, scene, shot, id, t);
   });
-  // Lower on screen = closer to camera = drawn later.
-  actors.sort((a, b) => a.y - b.y);
+  // Lower on screen = closer to camera = drawn later; a carried prop just after its carrier.
+  const depthY = (a: ActorState) => {
+    const h = a.heldBy && actors.find((o) => o.id === a.heldBy);
+    return h ? h.y + 0.01 : a.y;
+  };
+  actors.sort((a, b) => depthY(a) - depthY(b));
 
   let fade = 0;
   if (shot.fadeIn > 0 && t < shot.fadeIn) fade = 1 - t / shot.fadeIn;

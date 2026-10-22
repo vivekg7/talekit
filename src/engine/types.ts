@@ -41,6 +41,16 @@ export const CharacterSchema = z.object({
     .describe(
       "Parts that swing behind the motion on a spring (a tail, ears, a scarf). Default: the rig's (quadruped: tail, earL, earR; humanoid and simple: none); [] for none. A part the rig does not place sways instead of turning"
     ),
+  /**
+   * Where something carrying this character holds it (see the `attach` action), in its own
+   * canonical coordinates: a lantern's handle, a balloon's string end. Default: box centre.
+   */
+  grip: z
+    .tuple([z.number(), z.number()])
+    .optional()
+    .describe(
+      "Where a carrier holds this prop when it is attached, [x, y] in the character's own box (a lantern's handle, the end of a balloon string). Default: the box centre"
+    ),
   parts: z.record(z.string(), PartSchema),
 });
 export type Character = z.infer<typeof CharacterSchema>;
@@ -118,8 +128,13 @@ export const ActionSchema = z
     duration: z.number().positive().optional(),
     actor: IdSchema.optional(),
     do: VerbSchema.optional(),
-    /** Target for walk/run/move/fly: an anchor name, a stage shortcut, or {x, y}. */
-    to: PositionSchema.optional(),
+    /**
+     * Target for walk/run/move/fly: an anchor name, a stage shortcut, or {x, y}. On a `say`
+     * with no `do`, the id of the actor being spoken to.
+     */
+    to: PositionSchema.optional().describe(
+      'walk/run/move/fly/jump/sit: where to (anchor, stage shortcut or {x, y}). On a say without do: the id of the actor spoken to, when the engine would guess wrong'
+    ),
     /** Dialogue shown in a bubble above the actor's head; also animates the mouth. */
     say: z.string().optional(),
     bubble: z.enum(['speech', 'thought', 'shout']).optional(),
@@ -132,6 +147,16 @@ export const ActionSchema = z
     captionStyle: z.enum(['title', 'narration']).optional(),
     /** Camera target, tweened over `duration` (default 1s; 0 for a cut). */
     camera: CameraSchema.partial().optional(),
+    /**
+     * Carry: this actor (a prop) is held by another's hand, or a four-legged one's mouth,
+     * and goes where they go until `false` lets go of it where it is.
+     */
+    attach: z
+      .union([IdSchema, z.literal(false)])
+      .optional()
+      .describe(
+        "Carry this actor (a prop): the id of the carrier, whose near hand (or a four-legged animal's mouth) holds it at the prop's grip; false lets go, leaving it where it is"
+      ),
     /** Instant state changes. */
     set: z
       .object({
@@ -143,12 +168,20 @@ export const ActionSchema = z
       .optional(),
   })
   .refine(
-    (a) => a.do || a.say || a.emotion || a.face || a.caption || a.camera || a.set,
-    'an action needs at least one of: do, say, emotion, face, caption, camera, set'
+    (a) =>
+      a.do ||
+      a.say ||
+      a.emotion ||
+      a.face ||
+      a.caption ||
+      a.camera ||
+      a.set ||
+      a.attach !== undefined,
+    'an action needs at least one of: do, say, emotion, face, caption, camera, set, attach'
   )
   .refine(
-    (a) => !(a.do || a.say || a.emotion || a.face || a.set) || a.actor,
-    'actor is required for do/say/emotion/face/set'
+    (a) => !(a.do || a.say || a.emotion || a.face || a.set || a.attach !== undefined) || a.actor,
+    'actor is required for do/say/emotion/face/set/attach'
   );
 export type Action = z.infer<typeof ActionSchema>;
 

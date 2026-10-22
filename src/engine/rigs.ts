@@ -31,6 +31,10 @@ export interface Rig {
   speaker: [number, number];
   /** Follow-through parts that swing on a spring unless the character lists its own. */
   springs: string[];
+  /** Between the eyes: where a look starts and where others look to. */
+  eye: [number, number];
+  /** Where a carried prop is held (`attach`): a point drawn in `part`, so it moves with it. */
+  hold: { part: string; point: [number, number] };
 }
 
 /**
@@ -65,6 +69,9 @@ export const HUMANOID: Rig = {
   ],
   speaker: [100, 8],
   springs: [],
+  eye: [100, 96],
+  // The near hand, at the end of a hanging arm.
+  hold: { part: 'armR', point: [129, 284] },
 };
 
 /**
@@ -87,6 +94,8 @@ export const SIMPLE: Rig = {
   joints: [],
   speaker: [100, 8],
   springs: [],
+  eye: [130, 80],
+  hold: { part: 'body', point: [150, 110] },
 };
 
 /**
@@ -130,6 +139,9 @@ export const QUADRUPED: Rig = {
   ],
   speaker: [214, 8],
   springs: ['tail', 'earL', 'earR'],
+  eye: [226, 62],
+  // In the mouth, under the muzzle.
+  hold: { part: 'head', point: [240, 100] },
 };
 
 export const RIGS: Record<RigName, Rig> = {

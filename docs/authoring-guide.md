@@ -354,10 +354,20 @@ On the `simple` rig `wave`, `nod` and `shake` only tilt or nudge the body;
 `bounce`, `jump` and `spin` read best there. Face the actor toward the thing
 first (`set: { "facing": … }`) and `point` will lean that way.
 
-There is no way to attach a prop to a hand. To have someone carry something,
-make the prop a `simple` character and give it a `move` with the same `t`,
-`to` and `duration` as the carrier's `walk`, offset so it sits beside the
-hand; then `move` it to its resting anchor when they arrive.
+### Carrying (`attach`)
+
+To have someone carry something, make the prop a character (usually `simple`)
+and attach it: `{ "t": 0, "actor": "lantern", "attach": "pip" }`. From then
+on it hangs from the carrier's near hand (a four-legged animal carries it in
+its mouth), follows every walk, swing and jump, faces the way the carrier
+faces and is drawn just in front of them; its own moves are ignored. To put
+it down, `{ "t": 7.5, "actor": "lantern", "attach": false, "do": "move", "to":
+"pedestal-top" }`: it is let go where the hand is, and the `move` in the same
+action carries on from there. Give the prop a `grip`, the point in its own box
+the hand holds (`[100, 22]` for a lantern's handle, the end of a balloon's
+string); without one it is held at its middle. The construction sheet marks a
+character's `hold` point and a prop's `grip`. Carry one thing at a time, and
+do not carry a carrier.
 
 ### Dialogue
 
@@ -366,14 +376,25 @@ hand; then `move` it to its resting anchor when they arrive.
 set it explicitly for pacing. `bubble` can be `speech` (default), `thought` or
 `shout`. Keep lines short (≤ 12 words) and sequence speakers so bubbles do not
 overlap: `write_shot` warns when one actor starts speaking before another has
-finished. A bubble pops out of the speaker's head and shrinks back into it. Bubbles are always laid out inside the frame and keep the same size
-at any camera zoom, so a bubble that looks clipped on a small contact-sheet
-frame is not; check the text, not the edges.
+finished. A bubble pops out of the speaker's head and shrinks back into it.
+Bubbles are always laid out inside the frame and keep the same size at any
+camera zoom, so a bubble that looks clipped on a small contact-sheet frame is
+not; check the text, not the edges.
+
+Everyone listens without being told: while someone speaks, the others with
+eyes tip their heads toward the speaker (up to a grown-up, down to a dog), and
+the speaker looks at the one spoken to. That is whoever spoke to them last,
+or the nearest actor in front; when it would be someone else, name them with
+`to`: `{ "t": 4, "actor": "mia", "say": "Can we go?", "to": "dad" }`. Walking,
+jumping and pointing look straight ahead. The engine never turns anyone round
+to look, so set `facing` so that people who talk face each other.
 
 ### Emotion, face, captions, camera, set
 
 - `emotion`: `neutral | happy | sad | surprised | angry | scared` — persistent
-  until changed. `face: { "mouth": "grin" }` forces specific variants.
+  until changed. Each change gets a short take: a blink and a quick head move
+  (thrown back for surprise, dropped for sadness). `face: { "mouth": "grin" }`
+  forces specific variants.
 - `caption`: narrator text at the bottom (`captionStyle: "narration"`, the
   default) or a big centred card (`"title"`). Default 3 s. Captions are a
   layer above everything and do not follow the camera (narration rises into

@@ -136,10 +136,42 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
     const w = `${where} action[${i}] (t=${a.t})`;
     if (a.actor && !shot.cast[a.actor])
       out.push({ level: 'error', where: w, message: `actor '${a.actor}' is not in the cast` });
-    if (a.to) {
+    // On a line with no move, `to` names who is spoken to.
+    const listener = a.say && !a.do && typeof a.to === 'string';
+    if (listener && !shot.cast[a.to as string])
+      out.push({
+        level: 'error',
+        where: w,
+        message: `'to' on a line names who is spoken to, and '${a.to}' is not in the cast`,
+      });
+    else if (listener && a.to === a.actor)
+      out.push({ level: 'warning', where: w, message: `'${a.actor}' is speaking to itself` });
+    else if (a.to) {
       const err = positionOk(a.to);
       if (err) out.push({ level: 'error', where: w, message: err });
     }
+    if (a.attach) {
+      if (!shot.cast[a.attach])
+        out.push({
+          level: 'error',
+          where: w,
+          message: `attach: '${a.attach}' is not in the cast`,
+        });
+      else if (a.attach === a.actor)
+        out.push({ level: 'error', where: w, message: `attach: '${a.actor}' cannot carry itself` });
+      else if (shot.actions.some((b) => b.actor === a.attach && b.attach))
+        out.push({
+          level: 'warning',
+          where: w,
+          message: `attach: '${a.attach}' is itself carried in this shot; carry one thing at a time`,
+        });
+    }
+    if (a.attach && a.do && a.do !== 'appear' && a.do !== 'disappear')
+      out.push({
+        level: 'warning',
+        where: w,
+        message: `'${a.do}' in the same action as attach is ignored while it is carried`,
+      });
     if (a.set?.at) {
       const err = positionOk(a.set.at);
       if (err) out.push({ level: 'error', where: w, message: err });

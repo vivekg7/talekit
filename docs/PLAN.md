@@ -298,6 +298,27 @@ each other are a scene.
 - `attach`: parent a simple-rig character to a hand or a mouth so carrying
   a prop is one action instead of the current walk-plus-move workaround.
 
+**Done 2026-10-22.** Looking is a head tilt toward the target's eyes, half
+the true angle and capped (10° for people, 8° for animals, 5° of body for the
+simple rig): the full angle read as a glare. Attention is worked out from the
+shot's lines alone, latest event wins: another actor's line makes the
+listener watch them, one's own line looks at `to`, else whoever spoke last,
+else the nearest actor in front; walking, jumping and pointing look ahead.
+Only targets in front count and nothing turns a body round to look, because
+an automatic about-face would fight the author's `facing`. Only characters
+with eyes look, so props stay still. `say.to` is the existing `to` field on a
+line with no `do`, rather than a new field: a line has no other use for it.
+A take is a blink plus a per-emotion head move and stretch over 0.6 s.
+
+`attach` is an action field (`"attach": "pip"`, `false` to let go) rather
+than a verb, so a drop and a move can share one action. Each rig names a hold
+point drawn in a part (the near hand, the quadruped's mouth), so the prop
+follows the arm swing; the prop names its `grip`. Letting go reads the hand
+just before, since the carrier's arm relaxes the moment it stops holding.
+The lighthouse climb now carries its lantern this way. Not done: the prop
+stays upright instead of turning with the hand, and a carrier cannot itself
+be carried.
+
 ### 7.5 Depth and camera
 
 - Optional scene `layers` (back, mid, front) with parallax factors; the

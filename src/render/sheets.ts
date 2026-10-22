@@ -1,5 +1,6 @@
 import { characterBody, placeCharacter } from '../engine/actor.js';
 import { springParts } from '../engine/springs.js';
+import { LOOK_LIMIT } from '../engine/timeline.js';
 import { composeFrame } from '../engine/compose.js';
 import {
   applyVerb,
@@ -86,6 +87,16 @@ export function characterSheetSvg(character: Character): string {
         ? [make('sit', withVerb('sit', 1))]
         : [make('bounce', withVerb('bounce', 0.25))]),
     make('talking', () => base('idle', 0), 'neutral', true),
+    ...(character.parts.eyes
+      ? [
+          make('looking up', () => {
+            const p = base('idle', 0);
+            const head = rig.name === 'simple' ? 'body' : 'head';
+            p.rot[head] = (p.rot[head] ?? 0) - LOOK_LIMIT[rig.name];
+            return p;
+          }),
+        ]
+      : []),
     emotionCell('happy'),
     emotionCell('sad'),
     emotionCell('surprised'),
@@ -283,6 +294,12 @@ export function constructionSheetSvg(character: Character): string {
     if (rp && !['eyes', 'mouth'].includes(name))
       pivots += `<circle cx='${rp.pivot[0]}' cy='${rp.pivot[1]}' r='${4 / scale}' fill='#fff' stroke='#111' stroke-width='${1.5 / scale}'/><circle cx='${rp.pivot[0]}' cy='${rp.pivot[1]}' r='${1.2 / scale}' fill='#111'/>`;
   });
+  // Where a carried prop is held, and where this character is held when it is the prop.
+  const marker = (x: number, y: number, label: string) =>
+    `<path d='M${x - 6 / scale} ${y} L${x + 6 / scale} ${y} M${x} ${y - 6 / scale} L${x} ${y + 6 / scale}' stroke='#0a7' stroke-width='${2 / scale}'/><text x='${x + 7 / scale}' y='${y + 4 / scale}' font-family='${LABEL_FONT}' font-size='${11 / scale}' fill='#0a7'>${label}</text>`;
+  if (character.parts[rig.hold.part] && character.parts.eyes)
+    parts += marker(...rig.hold.point, 'hold');
+  if (character.grip) parts += marker(...character.grip, 'grip');
   for (const m of marks)
     parts += `<rect x='${m.x - 2}' y='${m.y - 2}' width='${m.w + 4}' height='${m.h + 4}' fill='#e63946' fill-opacity='0.12' stroke='#e63946' stroke-width='${2.5 / scale}'/><circle cx='${m.x + m.w}' cy='${m.y}' r='${9 / scale}' fill='#e63946'/><text x='${m.x + m.w}' y='${m.y + 4 / scale}' text-anchor='middle' font-family='${LABEL_FONT}' font-size='${11 / scale}' font-weight='bold' fill='#fff'>${m.n}</text>`;
   parts += pivots;

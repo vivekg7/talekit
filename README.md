@@ -72,7 +72,8 @@ page follows the project directory, so the agent's edits appear as it works.
 - **Shot** — one scene, a cast with starting positions, and a list of timed
   actions: `walk`, `run`, `fly`, `jump`, `wave`, `point`, `nod`, `shake`,
   `sit`, `bounce`, `spin`, `appear`, `disappear`, `say` (speech / thought /
-  shout bubble, drives the mouth), `emotion`, `caption` (narration or title
+  shout bubble, drives the mouth; listeners look at the speaker on their
+  own), `emotion`, `attach` (carry a prop), `caption` (narration or title
   card), `camera` (zoom and pan), `set`.
 
 A project is a plain directory:

@@ -1,4 +1,5 @@
-import { applyVerb, basePose, resolveFace, type Pose } from './motion.js';
+import { toRoot } from './gait.js';
+import { applyTake, applyVerb, basePose, resolveFace, type Pose } from './motion.js';
 import { rigPart, RIGS, type Rig } from './rigs.js';
 import { DEFAULT_LINE_COLOR, OUTLINE_PX, outlineFor } from './outline.js';
 import { applyColors, n } from './svg.js';
@@ -15,6 +16,11 @@ export function poseFor(actor: ActorState, t: number): Pose {
   const loco = sat ? 'idle' : actor.locomotion;
   const pose = basePose(rig, loco, actor.locoT, actor.phase, actor.travel);
   if (sat) applyVerb(rig, pose, 'sit', actor.sit);
+  // Carrying: the near arm hangs a little forward and swings less, under the weight.
+  if (actor.holding && rig.name === 'humanoid') pose.rot.armR = 0.35 * (pose.rot.armR ?? 0) - 12;
+  const head = rig.name === 'simple' ? 'body' : 'head';
+  if (actor.look) pose.rot[head] = (pose.rot[head] ?? 0) + actor.look;
+  if (actor.take) applyTake(rig, pose, actor.take.emotion, actor.take.u);
   for (const v of actor.verbs) applyVerb(rig, pose, v.verb, v.u);
   // Turning round: the body narrows through the mirror and stretches a touch as it does.
   if (actor.turn) pose.sy *= 1 + 0.04 * Math.sin(Math.PI * actor.turn.u);
@@ -24,6 +30,8 @@ export function poseFor(actor: ActorState, t: number): Pose {
     talking: actor.talking,
     t,
     phase: actor.phase,
+    // A take starts with a blink.
+    blink: !!actor.take && actor.take.u > 0.04 && actor.take.u < 0.22,
   });
   return pose;
 }
@@ -134,6 +142,20 @@ export function renderActor(actor: ActorState, t: number, pose = poseFor(actor, 
     sideOf(actor),
     actor.opacity
   );
+}
+
+/** Where a carried prop is held (the rig's hold point, through the pose), in the scene. */
+export function holdPoint(actor: ActorState, pose: Pose): { x: number; y: number } {
+  const rig = RIGS[actor.character.rig];
+  const s = (actor.character.height / rig.height) * actor.scale;
+  const [hx, hy] = toRoot(rig, pose, rig.hold.part, rig.hold.point);
+  // The root transforms the composer applies: scale about the feet, then the body offset.
+  const x = rig.width / 2 + pose.sx * (hx - rig.width / 2) + pose.dx;
+  const y = rig.height + pose.sy * (hy - rig.height) + pose.dy;
+  return {
+    x: actor.x + s * sideOf(actor) * (x - rig.width / 2),
+    y: actor.y + s * (y - rig.height),
+  };
 }
 
 /** Top of the head in world space (for bubbles): the rig's speaker point, mirrored. */
