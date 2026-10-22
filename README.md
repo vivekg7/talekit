@@ -67,14 +67,16 @@ page follows the project directory, so the agent's edits appear as it works.
   diagonal pairs, gallops, sits) and `simple` (birds, props, anything that
   bobs).
 - **Scene** — a background SVG with named floor **anchors** (`door`, `bench`),
-  an optional foreground layer, and a ground line for the built-in stage
-  shortcuts `left/center/right/offLeft/offRight`.
+  an optional foreground layer, optional `far` and `near` layers that move at
+  their own rates when the camera does, and a ground line for the built-in
+  stage shortcuts `left/center/right/offLeft/offRight`.
 - **Shot** — one scene, a cast with starting positions, and a list of timed
   actions: `walk`, `run`, `fly`, `jump`, `wave`, `point`, `nod`, `shake`,
   `sit`, `bounce`, `spin`, `appear`, `disappear`, `say` (speech / thought /
   shout bubble, drives the mouth; listeners look at the speaker on their
   own), `emotion`, `attach` (carry a prop), `caption` (narration or title
-  card), `camera` (zoom and pan), `set`.
+  card), `camera` (zoom and pan), `set`. A shot can `crossfade` in from the
+  one before instead of cutting.
 
 A project is a plain directory:
 

@@ -84,16 +84,36 @@ export function validateCharacter(c: Character): Problem[] {
   return out;
 }
 
+/** Whether a fragment has a rect at the origin at least the size of the frame. */
+function coversFrame(svg: string, width: number, height: number): boolean {
+  for (const [, attrs] of svg.matchAll(/<rect\b([^>]*)>/g)) {
+    const num = (k: string) => parseFloat(attrs.match(new RegExp(`\\b${k}='([^']*)'`))?.[1] ?? '0');
+    if (num('x') <= 0 && num('y') <= 0 && num('width') >= width && num('height') >= height)
+      return true;
+  }
+  return false;
+}
+
 export function validateScene(s: Scene, width: number, height: number): Problem[] {
   const out: Problem[] = [];
   const where = `scene '${s.id}'`;
   for (const [field, svg] of [
     ['svg', s.svg],
     ['foreground', s.foreground],
+    ['far', s.far],
+    ['near', s.near],
   ] as const) {
     const bad = svg && forbiddenMarkup(svg);
     if (bad) out.push({ level: 'error', where, message: `${field} ${bad}` });
   }
+  // The usual mistake when splitting a scene into layers: the sky left in svg hides `far`.
+  if (s.far && coversFrame(s.svg, width, height))
+    out.push({
+      level: 'warning',
+      where,
+      message:
+        'svg paints a rect over the whole frame, which hides far; move the sky into far and leave svg transparent above the ground',
+    });
   for (const [name, a] of Object.entries(s.anchors)) {
     if ((STAGE_SHORTCUTS as readonly string[]).includes(name))
       out.push({ level: 'warning', where, message: `anchor '${name}' shadows a stage shortcut` });
@@ -131,6 +151,28 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
       out.push({ level: 'error', where, message: `cast member '${id}' is not a character` });
     const err = positionOk(member.at);
     if (err) out.push({ level: 'error', where, message: `cast '${id}': ${err}` });
+  }
+  if (shot.crossfade > 0) {
+    const i = project.shots.findIndex((s) => s.id === shot.id);
+    const prev = i > 0 ? project.shots[i - 1] : undefined;
+    if (i === 0)
+      out.push({
+        level: 'warning',
+        where,
+        message: 'crossfade on the first shot has nothing to dissolve from; it starts as a cut',
+      });
+    else if (prev && prev.fadeOut > 0)
+      out.push({
+        level: 'warning',
+        where,
+        message: `crossfade after '${prev.id}', which fades out, dissolves from black; drop its fadeOut`,
+      });
+    if (shot.crossfade > shot.duration)
+      out.push({
+        level: 'warning',
+        where,
+        message: `crossfade (${shot.crossfade}s) is longer than the shot (${shot.duration}s)`,
+      });
   }
   shot.actions.forEach((a, i) => {
     const w = `${where} action[${i}] (t=${a.t})`;

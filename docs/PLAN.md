@@ -328,6 +328,38 @@ be carried.
 - Cuts stay cuts; `fadeIn`/`fadeOut` stay; a cross-fade becomes possible
   once layers exist.
 
+**Done 2026-10-22.** The layers are named `far` and `near` rather than back,
+mid and front: `foreground` already means "in front of the actors at their
+depth" (a fence they stand behind), and a front layer beside it would have
+been two words for different things. So a scene is four planes: `far`
+(parallax 0.5), `svg` and `foreground` (the stage, 1, where anchors live)
+and `near` (1.4). A layer at factor p sees the camera's offset times p and
+its zoom raised to p; zoom as a power rather than a blend is what guarantees
+a far layer that fills the frame still fills it behind any view of the
+stage the camera clamp allows (the tests check the corners). The rule this
+puts on authors is the far layer must reach the bottom edge: a zoom shows
+far scenery below the stage's horizon, and a far hill that stopped at y=540
+left a black band. The library park and street, the example copies of
+them and the lighthouse beach are layered; the home interior is not, since a
+room has no far. The anchor sheet of a layered scene shows each layer and
+two zoomed views, which is where a gap would show.
+
+Shadows are a radial-gradient ellipse as wide as the rig's stance, drawn for
+every actor before any actor so a shadow never lies across someone behind.
+Lift shrinks and fades it, which is most of what sells a jump. The simple
+rig casts none by default (`shadow` overrides it), because it is mostly
+birds and kites in mid-air and the engine cannot tell sky from floor;
+flying and being carried hide it too. The vignette is a frame-sized radial
+gradient whose opacity ramps from zoom 1.3 to 1.9, under bubbles and
+captions so text is never darkened.
+
+`crossfade` on a shot dissolves it in over its first seconds while the
+previous shot keeps running past its end underneath, so the film's length
+and every shot's timing stay as written. It works for any two shots, layers
+or not; the lighthouse uses it from the lit tower to the boat coming in. Not
+done: a depth walk still slides its feet, and the camera has no shake or
+handheld drift.
+
 ### 7.6 Audio (last, on purpose)
 
 - Narration and dialogue through TTS, with `say` duration taken from the

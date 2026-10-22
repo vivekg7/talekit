@@ -1,13 +1,38 @@
-import { actorHeadTop, poseFor, renderActor } from './actor.js';
+import { actorHeadTop, poseFor, renderActor, renderShadow, SHADOW_DEFS } from './actor.js';
 import { applySprings } from './springs.js';
 import { bubbleSvg, wrapText, textWidth } from './bubble.js';
+import { clamp01, easeInOut } from './easing.js';
 import { escapeXml, n } from './svg.js';
 import { resolveFrame, type FrameState } from './timeline.js';
-import type { Project, Shot } from './types.js';
+import type { Camera, Project, Shot } from './types.js';
 
 export interface ComposeOptions {
   /** Draw anchor markers and actor feet points. */
   debug?: boolean;
+}
+
+/** How fast the far and near layers move with the camera, the stage being 1. */
+export const PARALLAX = { far: 0.5, near: 1.4 };
+/** Past this zoom the frame's edges darken, more as it closes in, to hold the eye. */
+const VIGNETTE_FROM = 1.3;
+const VIGNETTE_FULL = 1.9;
+
+const FRAME_DEFS =
+  SHADOW_DEFS +
+  "<radialGradient id='tk-vignette' cx='0.5' cy='0.5' r='0.72'>" +
+  "<stop offset='0.55' stop-color='#000' stop-opacity='0'/>" +
+  "<stop offset='1' stop-color='#000' stop-opacity='0.5'/></radialGradient>";
+
+/**
+ * The camera as seen from a layer at depth factor `p`: the stage is 1 and moves with the
+ * camera exactly, 0 does not move at all. Zoom scales geometrically (zoom^p), so a far
+ * layer behind a clamped stage view always covers the frame too.
+ */
+export function layerTransform(c: Required<Camera>, W: number, H: number, p: number): string {
+  const zoom = Math.pow(c.zoom, p);
+  const x = W / 2 + p * (c.x - W / 2);
+  const y = H / 2 + p * (c.y - H / 2);
+  return `translate(${W / 2} ${H / 2}) scale(${n(zoom)}) translate(${n(-x)} ${n(-y)})`;
 }
 
 function worldToScreen(frame: FrameState, W: number, H: number, x: number, y: number) {
@@ -60,7 +85,21 @@ export function composeFrame(
   opts: ComposeOptions = {}
 ): string {
   const frame = resolveFrame(project, shot, t);
-  return composeFrameState(project, frame, opts);
+  const dissolve = Math.min(shot.crossfade, shot.duration);
+  const prev = t < dissolve ? previousShot(project, shot) : undefined;
+  if (!prev) return composeFrameState(project, frame, opts);
+  // A dissolve: the previous shot carries on past its end underneath while this one fades up.
+  const under = frameBody(project, resolveFrame(project, prev, prev.duration + t), opts);
+  const u = easeInOut(t / dissolve);
+  return frameDocument(
+    project,
+    under + `<g opacity='${n(u)}'>${frameBody(project, frame, opts)}</g>`
+  );
+}
+
+function previousShot(project: Project, shot: Shot): Shot | undefined {
+  const i = project.shots.findIndex((s) => s.id === shot.id);
+  return i > 0 ? project.shots[i - 1] : undefined;
 }
 
 export function composeFrameState(
@@ -68,16 +107,38 @@ export function composeFrameState(
   frame: FrameState,
   opts: ComposeOptions = {}
 ): string {
+  return frameDocument(project, frameBody(project, frame, opts));
+}
+
+function frameDocument(project: Project, body: string): string {
+  const { width: W, height: H } = project.meta;
+  return (
+    `<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' width='${W}' height='${H}' viewBox='0 0 ${W} ${H}'>` +
+    `<defs>${FRAME_DEFS}</defs>` +
+    body +
+    `</svg>`
+  );
+}
+
+/** Everything in one frame, back to front, without the document around it. */
+function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): string {
   const { width: W, height: H, font } = project.meta;
   const k = H / 720; // UI scale so text is the same relative size at any resolution
   const c = frame.camera;
-  const camTf = `translate(${W / 2} ${H / 2}) scale(${n(c.zoom)}) translate(${n(-c.x)} ${n(-c.y)})`;
+  const scene = frame.scene;
+  const layer = (cls: string, svg: string, p: number) =>
+    `<g class='${cls}' transform='${layerTransform(c, W, H, p)}'>${svg}</g>`;
 
-  let world = `<g class='scene'>${frame.scene.svg}</g>`;
-  const bubbles: string[] = [];
-  for (const actor of frame.actors) {
+  // Poses first: the shadows all go down before any actor, so one never lies across another.
+  const posed = frame.actors.map((actor) => {
     const pose = poseFor(actor, frame.t);
     applySprings(project, frame.shot, actor, pose, frame.t);
+    return { actor, pose };
+  });
+  let world = `<g class='scene'>${scene.svg}</g>`;
+  world += posed.map(({ actor, pose }) => renderShadow(actor, pose)).join('');
+  const bubbles: string[] = [];
+  for (const { actor, pose } of posed) {
     world += renderActor(actor, frame.t, pose);
     if (actor.bubble && actor.visible) {
       const head = actorHeadTop(actor, pose);
@@ -101,13 +162,14 @@ export function composeFrameState(
       world += `<circle cx='${n(actor.x)}' cy='${n(actor.y)}' r='5' fill='#f0f'/>`;
     }
   }
-  if (frame.scene.foreground) world += `<g class='foreground'>${frame.scene.foreground}</g>`;
+  if (scene.foreground) world += `<g class='foreground'>${scene.foreground}</g>`;
   if (opts.debug) {
-    for (const [name, a] of Object.entries(frame.scene.anchors)) {
+    for (const [name, a] of Object.entries(scene.anchors)) {
       world += `<g><circle cx='${a.x}' cy='${a.y}' r='6' fill='#0af' stroke='#fff' stroke-width='2'/><text x='${a.x + 10}' y='${a.y - 8}' font-size='18' fill='#0af' font-family='sans-serif' stroke='#000' stroke-width='3' paint-order='stroke'>${escapeXml(name)}</text></g>`;
     }
   }
 
+  const vignette = clamp01((c.zoom - VIGNETTE_FROM) / (VIGNETTE_FULL - VIGNETTE_FROM));
   const captions = frame.captions
     .map((cp) => captionSvg(cp.text, cp.style, cp.opacity, cp.slide, W, H, font, k))
     .join('');
@@ -117,12 +179,15 @@ export function composeFrameState(
       : '';
 
   return (
-    `<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' width='${W}' height='${H}' viewBox='0 0 ${W} ${H}'>` +
     `<rect width='${W}' height='${H}' fill='#000'/>` +
-    `<g class='camera' transform='${camTf}'>${world}</g>` +
+    (scene.far ? layer('far', scene.far, scene.parallax?.far ?? PARALLAX.far) : '') +
+    layer('camera', world, 1) +
+    (scene.near ? layer('near', scene.near, scene.parallax?.near ?? PARALLAX.near) : '') +
+    (vignette > 0
+      ? `<rect width='${W}' height='${H}' fill='url(#tk-vignette)' opacity='${n(vignette)}'/>`
+      : '') +
     bubbles.join('') +
     captions +
-    fade +
-    `</svg>`
+    fade
   );
 }

@@ -144,6 +144,56 @@ export function renderActor(actor: ActorState, t: number, pose = poseFor(actor, 
   );
 }
 
+/** Whether a character casts a ground shadow (see `Character.shadow`). */
+export function castsShadow(character: Character): boolean {
+  return character.shadow ?? character.rig !== 'simple';
+}
+
+/** The soft fill every ground shadow uses; a frame defines it once. */
+export const SHADOW_DEFS =
+  "<radialGradient id='tk-shadow'><stop offset='0' stop-color='#000' stop-opacity='0.45'/>" +
+  "<stop offset='0.6' stop-color='#000' stop-opacity='0.32'/>" +
+  "<stop offset='1' stop-color='#000' stop-opacity='0'/></radialGradient>";
+
+/**
+ * A shadow on the ground under the feet point, as wide as the rig's stance. The higher the
+ * pose lifts the body off the ground (a jump, a bounce), the smaller and fainter it gets,
+ * which is what sells the height.
+ */
+export function shadowSvg(
+  character: Character,
+  pose: Pose,
+  x: number,
+  y: number,
+  scale: number,
+  side: number,
+  opacity = 1
+): string {
+  const rig = RIGS[character.rig];
+  const s = (character.height / rig.height) * scale;
+  const k = 1 / (1 + Math.max(0, -pose.dy) / 120);
+  const rx = (rig.shadow / 2) * s * Math.abs(pose.sx) * k;
+  const o = opacity * k * k;
+  if (rx <= 0 || o <= 0.01) return '';
+  const op = o < 1 ? ` opacity='${n(o)}'` : '';
+  return `<ellipse cx='${n(x + s * side * pose.dx)}' cy='${n(y)}' rx='${n(rx)}' ry='${n(rx * 0.2)}' fill='url(#tk-shadow)'${op}/>`;
+}
+
+/** An actor's ground shadow: none while it flies, is carried, or is hidden. */
+export function renderShadow(actor: ActorState, pose: Pose): string {
+  if (!actor.visible || actor.opacity <= 0 || !castsShadow(actor.character)) return '';
+  if (actor.heldBy || actor.locomotion === 'fly') return '';
+  return shadowSvg(
+    actor.character,
+    pose,
+    actor.x,
+    actor.y,
+    actor.scale,
+    sideOf(actor),
+    actor.opacity
+  );
+}
+
 /** Where a carried prop is held (the rig's hold point, through the pose), in the scene. */
 export function holdPoint(actor: ActorState, pose: Pose): { x: number; y: number } {
   const rig = RIGS[actor.character.rig];

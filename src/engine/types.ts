@@ -51,6 +51,16 @@ export const CharacterSchema = z.object({
     .describe(
       "Where a carrier holds this prop when it is attached, [x, y] in the character's own box (a lantern's handle, the end of a balloon string). Default: the box centre"
     ),
+  /**
+   * A soft ground shadow under the feet. Default: on for people and animals, off for the
+   * simple rig (birds, kites, things that hang in the air); set true for a prop that sits.
+   */
+  shadow: z
+    .boolean()
+    .optional()
+    .describe(
+      'Soft ground shadow under the feet. Default: on for humanoid and quadruped, off for the simple rig (birds and kites hang in the air); true for a prop that sits on the ground'
+    ),
   parts: z.record(z.string(), PartSchema),
 });
 export type Character = z.infer<typeof CharacterSchema>;
@@ -73,6 +83,32 @@ export const SceneSchema = z.object({
   svg: z.string(),
   /** Optional SVG fragment drawn in front of the actors (a fence, a table edge). */
   foreground: z.string().optional(),
+  /**
+   * Depth layers. `far` is drawn behind `svg` and moves less than the stage when the camera
+   * pans or zooms; `near` is drawn over everything and moves more. `svg` and `foreground`
+   * stay at the stage's own depth, where the actors are.
+   */
+  far: z
+    .string()
+    .optional()
+    .describe(
+      'Distant scenery behind svg (sky, sun, far hills, a skyline) that moves less than the stage when the camera moves. It must fill the whole frame on its own, down to the bottom edge, and svg must leave the sky out so it shows through'
+    ),
+  near: z
+    .string()
+    .optional()
+    .describe(
+      'Things very close to the camera, drawn over the actors and the foreground (a branch across a top corner, grass at the bottom edge); moves more than the stage. Keep it to the edges of the frame'
+    ),
+  parallax: z
+    .object({
+      far: z.number().min(0).max(1).optional(),
+      near: z.number().min(1).max(3).optional(),
+    })
+    .optional()
+    .describe(
+      'How fast each layer moves with the camera, the stage being 1: far 0..1 (default 0.5, 0 is fixed like the sky), near 1..3 (default 1.4)'
+    ),
   /** Default floor y for the stage shortcuts left/center/right. Defaults to 0.9 * height. */
   ground: z.number().optional(),
   anchors: z.record(z.string(), AnchorSchema).default({}),
@@ -205,6 +241,17 @@ export const ShotSchema = z.object({
   /** Seconds of fade from black at the start / to black at the end. */
   fadeIn: z.number().min(0).default(0),
   fadeOut: z.number().min(0).default(0),
+  /**
+   * Seconds over which this shot dissolves in from the previous one, which carries on
+   * underneath. 0 is a cut.
+   */
+  crossfade: z
+    .number()
+    .min(0)
+    .default(0)
+    .describe(
+      "Seconds this shot dissolves in from the previous one at its start (default 0, a cut). The previous shot's last moment carries on underneath, so it needs no fadeOut"
+    ),
   actions: z.array(ActionSchema).default([]),
 });
 export type Shot = z.infer<typeof ShotSchema>;

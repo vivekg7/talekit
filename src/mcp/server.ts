@@ -316,7 +316,7 @@ export function buildServer(): McpServer {
     {
       title: 'Write character',
       description:
-        'Validate and save a character (creates or replaces characters/<id>.json). Returns two pictures. The pose sheet shows every pose and expression the engine can produce, plus one cell per variant of any other part (selected in shots with a `face` action). The construction sheet shows what the construction linter checked: part boxes and pivots, the silhouette, swing poses that open any gap at a joint, and numbered red boxes matching the numbered warnings in the text (a limb not reaching into the torso or body, an ear not sunk into the head, a leg that only touches the body, feet off the line); parts listed in `springs` (follow-through: a tail, ears) are labelled with ~. Drawing outside the canonical box is an error. The engine adds the outline itself; do not draw one. Fix and re-write until both sheets look right and the warnings are gone.',
+        'Validate and save a character (creates or replaces characters/<id>.json). Returns two pictures. The pose sheet shows every pose and expression the engine can produce, plus one cell per variant of any other part (selected in shots with a `face` action), each standing in its ground shadow when it casts one. The construction sheet shows what the construction linter checked: part boxes and pivots, the silhouette, swing poses that open any gap at a joint, and numbered red boxes matching the numbered warnings in the text (a limb not reaching into the torso or body, an ear not sunk into the head, a leg that only touches the body, feet off the line); parts listed in `springs` (follow-through: a tail, ears) are labelled with ~. Drawing outside the canonical box is an error. The engine adds the outline itself; do not draw one. Fix and re-write until both sheets look right and the warnings are gone.',
       inputSchema: { path: pathArg, character: CharacterSchema },
     },
     async ({ path: root, character }) => {
@@ -340,7 +340,7 @@ export function buildServer(): McpServer {
     {
       title: 'Write scene',
       description:
-        'Validate and save a scene (scenes/<id>.json). Returns the scene with anchors and stage shortcuts marked, plus a ghost showing how tall a 220px character is, so you can check scale and placement.',
+        'Validate and save a scene (scenes/<id>.json). Returns the scene with anchors and stage shortcuts marked, plus a ghost showing how tall a 220px character is, so you can check scale and placement. A layered scene (`far` behind the stage, `near` in front of it) gets a strip underneath: each layer alone, then the camera zoomed into either side, where the far layer must still fill the frame and should sit differently behind the stage.',
       inputSchema: { path: pathArg, scene: SceneSchema },
     },
     async ({ path: root, scene }) => {
@@ -364,7 +364,7 @@ export function buildServer(): McpServer {
     {
       title: 'Write shot',
       description:
-        'Validate and save a shot (shots/<NN>-<id>.json; `order` sets NN and therefore playback order). Cross-checks cast, anchors, face variants, who a line is spoken `to` and who carries what (`attach`), and warns when two actors speak at once. Listeners look at the speaker on their own; do not stage looks. Returns a contact sheet of evenly spaced frames so you can check staging, timing and bubbles.',
+        'Validate and save a shot (shots/<NN>-<id>.json; `order` sets NN and therefore playback order). Cross-checks cast, anchors, face variants, who a line is spoken `to`, who carries what (`attach`) and whether a `crossfade` has a shot to dissolve from, and warns when two actors speak at once. Listeners look at the speaker on their own; do not stage looks. Returns a contact sheet of evenly spaced frames so you can check staging, timing and bubbles.',
       inputSchema: {
         path: pathArg,
         shot: ShotSchema,

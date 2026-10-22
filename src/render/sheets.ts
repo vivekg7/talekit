@@ -1,7 +1,13 @@
-import { characterBody, placeCharacter } from '../engine/actor.js';
+import {
+  castsShadow,
+  characterBody,
+  placeCharacter,
+  SHADOW_DEFS,
+  shadowSvg,
+} from '../engine/actor.js';
 import { springParts } from '../engine/springs.js';
 import { LOOK_LIMIT } from '../engine/timeline.js';
-import { composeFrame } from '../engine/compose.js';
+import { composeFrame, layerTransform, PARALLAX } from '../engine/compose.js';
 import {
   applyVerb,
   basePose,
@@ -120,8 +126,9 @@ export function characterSheetSvg(character: Character): string {
   const rows = Math.ceil(cells.length / cols);
   const W = cols * cellW;
   const H = rows * cellH + 40;
-  let out = `<svg xmlns='http://www.w3.org/2000/svg' width='${W}' height='${H}' viewBox='0 0 ${W} ${H}'><rect width='${W}' height='${H}' fill='#e9eef3'/>`;
-  out += `<text x='12' y='26' font-family='${LABEL_FONT}' font-size='18' fill='#333'>${escapeXml(character.name)} (${character.id}) · rig ${rig.name} · height ${character.height}px</text>`;
+  let out = `<svg xmlns='http://www.w3.org/2000/svg' width='${W}' height='${H}' viewBox='0 0 ${W} ${H}'><defs>${SHADOW_DEFS}</defs><rect width='${W}' height='${H}' fill='#e9eef3'/>`;
+  const shadow = castsShadow(character);
+  out += `<text x='12' y='26' font-family='${LABEL_FONT}' font-size='18' fill='#333'>${escapeXml(character.name)} (${character.id}) · rig ${rig.name} · height ${character.height}px${shadow ? '' : ' · no ground shadow'}</text>`;
   cells.forEach((cell, i) => {
     const cx = (i % cols) * cellW;
     const cy = 40 + Math.floor(i / cols) * cellH;
@@ -129,6 +136,15 @@ export function characterSheetSvg(character: Character): string {
     out += `<rect x='${cx + 8}' y='${cy + 8}' width='${cellW - 16}' height='${cellH - 16}' rx='10' fill='#fff' stroke='#cfd6dd'/>`;
     out += `<line x1='${cx + 20}' y1='${feetY}' x2='${cx + cellW - 20}' y2='${feetY}' stroke='#bbb' stroke-dasharray='4 4'/>`;
     const body = characterBody(character, cell.pose);
+    if (shadow)
+      out += shadowSvg(
+        character,
+        cell.pose,
+        cx + cellW / 2,
+        feetY,
+        rig.height / character.height,
+        1
+      );
     out += placeCharacter(
       character,
       body,
@@ -164,13 +180,62 @@ export function sceneSheetSvg(project: Project, scene: Scene): string {
   const ghostW = tallest ? (ghostH * RIGS[tallest.rig].width) / RIGS[tallest.rig].height : 110;
   const ghostLabel = tallest ? `${tallest.id} (${ghostH}px, tallest)` : '220px character';
   const ghost = `<g opacity='0.35'><rect x='${n(ground.x - ghostW / 2)}' y='${n(ground.y - ghostH)}' width='${n(ghostW)}' height='${n(ghostH)}' rx='${n(Math.min(40, ghostW / 2))}' fill='#333'/><text x='${n(ground.x)}' y='${n(ground.y - ghostH - 8)}' text-anchor='middle' font-family='${LABEL_FONT}' font-size='16' fill='#333'>${escapeXml(ghostLabel)}</text></g>`;
+  const strip = scene.far || scene.near ? layerStrip(project, scene) : undefined;
+  const SH = H + (strip?.height ?? 0);
   return (
-    `<svg xmlns='http://www.w3.org/2000/svg' width='${W}' height='${H}' viewBox='0 0 ${W} ${H}'>` +
-    `<rect width='${W}' height='${H}' fill='#000'/><g>${scene.svg}</g>${ghost}` +
+    `<svg xmlns='http://www.w3.org/2000/svg' width='${W}' height='${SH}' viewBox='0 0 ${W} ${SH}'>` +
+    `<rect width='${W}' height='${SH}' fill='#000'/>` +
+    (scene.far ? `<g>${scene.far}</g>` : '') +
+    `<g>${scene.svg}</g>${ghost}` +
     (scene.foreground ? `<g>${scene.foreground}</g>` : '') +
+    (scene.near ? `<g>${scene.near}</g>` : '') +
     marks +
-    `<text x='12' y='28' font-family='${LABEL_FONT}' font-size='20' fill='#fff' stroke='#000' stroke-width='4' paint-order='stroke'>${escapeXml(scene.name)} (${scene.id}) · green = anchors · yellow = stage shortcuts</text></svg>`
+    `<text x='12' y='28' font-family='${LABEL_FONT}' font-size='20' fill='#fff' stroke='#000' stroke-width='4' paint-order='stroke'>${escapeXml(scene.name)} (${scene.id}) · green = anchors · yellow = stage shortcuts</text>` +
+    (strip?.svg ?? '') +
+    `</svg>`
   );
+}
+
+/**
+ * Under a layered scene: each layer on its own (the far layer must fill the frame, the
+ * near one should keep to the edges), and the camera zoomed into either side so the
+ * parallax shows as the far layer sitting differently behind the stage.
+ */
+function layerStrip(project: Project, scene: Scene): { svg: string; height: number } {
+  const { width: W, height: H } = project.meta;
+  const zoom = 1.6;
+  const view = (
+    cam: { zoom: number; x: number; y: number },
+    parts: ('far' | 'stage' | 'near')[]
+  ) => {
+    const at = (p: number) => layerTransform(cam, W, H, p);
+    let out = `<rect width='${W}' height='${H}' fill='#000'/>`;
+    if (parts.includes('far') && scene.far)
+      out += `<g transform='${at(scene.parallax?.far ?? PARALLAX.far)}'>${scene.far}</g>`;
+    if (parts.includes('stage'))
+      out += `<g transform='${at(1)}'>${scene.svg}${scene.foreground ?? ''}</g>`;
+    if (parts.includes('near') && scene.near)
+      out += `<g transform='${at(scene.parallax?.near ?? PARALLAX.near)}'>${scene.near}</g>`;
+    return out;
+  };
+  const still = { zoom: 1, x: W / 2, y: H / 2 };
+  const y = H - H / (2 * zoom);
+  const cells: [string, string][] = [
+    ...(scene.far ? [['far layer alone', view(still, ['far'])] as [string, string]] : []),
+    ...(scene.near ? [['near layer alone', view(still, ['near'])] as [string, string]] : []),
+    [`camera ${zoom}× left`, view({ zoom, x: W / (2 * zoom), y }, ['far', 'stage', 'near'])],
+    [`camera ${zoom}× right`, view({ zoom, x: W - W / (2 * zoom), y }, ['far', 'stage', 'near'])],
+  ];
+  const gap = 10;
+  const cw = (W - gap * (cells.length + 1)) / cells.length;
+  const ch = (cw * H) / W;
+  let svg = `<rect y='${H}' width='${W}' height='${ch + 2 * gap + 24}' fill='#222'/>`;
+  cells.forEach(([label, inner], i) => {
+    const x = gap + i * (cw + gap);
+    svg += `<svg x='${n(x)}' y='${H + gap}' width='${n(cw)}' height='${n(ch)}' viewBox='0 0 ${W} ${H}'>${inner}</svg>`;
+    svg += `<text x='${n(x + 4)}' y='${n(H + gap + ch + 18)}' font-family='${LABEL_FONT}' font-size='15' fill='#ddd'>${escapeXml(label)}</text>`;
+  });
+  return { svg, height: ch + 2 * gap + 24 };
 }
 
 /**

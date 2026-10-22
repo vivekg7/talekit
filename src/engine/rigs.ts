@@ -35,6 +35,8 @@ export interface Rig {
   eye: [number, number];
   /** Where a carried prop is held (`attach`): a point drawn in `part`, so it moves with it. */
   hold: { part: string; point: [number, number] };
+  /** Width of the ground shadow, canonical units: about the span of the feet. */
+  shadow: number;
 }
 
 /**
@@ -72,6 +74,7 @@ export const HUMANOID: Rig = {
   eye: [100, 96],
   // The near hand, at the end of a hanging arm.
   hold: { part: 'armR', point: [129, 284] },
+  shadow: 130,
 };
 
 /**
@@ -96,6 +99,7 @@ export const SIMPLE: Rig = {
   springs: [],
   eye: [130, 80],
   hold: { part: 'body', point: [150, 110] },
+  shadow: 120,
 };
 
 /**
@@ -142,6 +146,7 @@ export const QUADRUPED: Rig = {
   eye: [226, 62],
   // In the mouth, under the muzzle.
   hold: { part: 'head', point: [240, 100] },
+  shadow: 200,
 };
 
 export const RIGS: Record<RigName, Rig> = {

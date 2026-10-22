@@ -195,6 +195,16 @@ so draw it hanging from there; a part the rig does not know (`hair`,
 construction sheet marks spring parts with `~`. Nothing in a shot drives a
 spring: it follows the motion the engine makes.
 
+### Shadow
+
+Every person and animal stands in a soft ground shadow the engine draws
+under its feet, as wide as the rig's stance; it shrinks and fades as a jump
+or a bounce lifts the body, and goes while the character flies or is
+carried. The simple rig has none by default, since birds and kites hang in
+the air: set `"shadow": true` on a prop that sits on the ground (a lantern,
+a basket), or `false` on anything that should not touch the floor (a ghost,
+a reflection). The pose sheet draws it.
+
 ### Colours
 
 `colors` is a map of token → colour. Inside part SVG write `{skin}`, `{hair}`
@@ -274,6 +284,31 @@ width apart (about 150 px, more if one stands further back at a smaller
 
 Optional `foreground` is drawn in front of the actors (a table edge, a fence).
 
+### Layers and depth
+
+When the camera pans or zooms, a flat scene slides past as one picture.
+Split it into depths and it opens up:
+
+- `far`: the sky, sun, clouds, far hills, the sea, a skyline. Drawn behind
+  `svg`, it moves at half the stage's rate (`parallax.far`, 0 to 1; 0 holds
+  it still like a sky). **It must fill the whole frame on its own**, down to
+  the bottom edge (run the far hill or the sea to y=720), because a zoom
+  shows more of it than you expect; and `svg` must leave the sky out, or it
+  hides `far` (the validator warns about a full-frame rect in `svg`).
+- `svg` and `foreground`: the stage, where the actors and every anchor are.
+  They move with the camera exactly. Keep anchors on the stage: an actor
+  standing on something in `far` slides off it when the camera moves.
+- `near`: things right in front of the lens, drawn over everything (leaves
+  hanging into a top corner, grass along the bottom edge, a window frame).
+  It moves faster than the stage (`parallax.near`, 1 to 3, default 1.4).
+  Keep it to the edges of the frame, where it cannot cover a face.
+
+With the camera still, the layers line up as drawn. Interiors usually need
+no `far`. The library `park` and `street` are layered; read them for the
+split. The anchor sheet of a layered scene adds a strip underneath: each
+layer on its own, then the camera zoomed into either side, where the far
+layer should sit differently behind the stage with no gap anywhere.
+
 Design tips: the floor band should be the bottom 15–25% of the frame; keep
 the middle third uncluttered where faces and bubbles go; a 220px character is
 about a third of the frame height. The anchor sheet shows a ghost for scale:
@@ -324,6 +359,12 @@ and foreground objects a character touches (a bench, a well, a door) get a
 - `t` is seconds from the start of the shot. Actions on the same actor can
   overlap (walk and say at once). Actions never carry across shots.
 - Shots play in file order; pass `order` to `write_shot` to set it.
+- A shot is a cut from the one before. `crossfade: 1` dissolves it in from
+  the previous shot over its first second instead, while the previous shot's
+  last moment carries on underneath: use it for time passing or a change of
+  place that should feel soft. The previous shot then needs no `fadeOut`
+  (it would dissolve from black). `fadeIn`/`fadeOut` still fade from and to
+  black, for the start and end of the film.
 
 ### Verbs (`do`)
 
@@ -406,6 +447,8 @@ to look, so set `facing` so that people who talk face each other.
   on a face for reactions, pull back for arrivals. Keep zoom between 1 and 2:
   below 1 is raised to 1 (the scene has nothing outside its edges), and the
   view is clamped to the scene, so a zoom near an edge shifts toward the middle.
+  A layered scene's `far` and `near` move at their own rates (see Scenes),
+  and above zoom 1.3 the frame's edges darken a little, more the closer in.
 - `set: { facing, scale, visible, at }` changes state instantly (teleport,
   grow); a new `facing` turns round over 0.2 s.
 
