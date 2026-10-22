@@ -37,6 +37,12 @@ export interface Rig {
   hold: { part: string; point: [number, number] };
   /** Width of the ground shadow, canonical units: about the span of the feet. */
   shadow: number;
+  /**
+   * Parts whose outline is drawn with another part's, under its fill: where the two
+   * overlap there is no line between them, so a neck grows out of the shoulders instead
+   * of being stuck on in front of them. Keyed by the part, valued by the one it joins.
+   */
+  fuse: Record<string, string>;
 }
 
 /**
@@ -75,6 +81,8 @@ export const HUMANOID: Rig = {
   // The near hand, at the end of a hanging arm.
   hold: { part: 'armR', point: [129, 284] },
   shadow: 130,
+  // The chin keeps its line against the chest: a person's head sits in front of the body.
+  fuse: {},
 };
 
 /**
@@ -100,6 +108,7 @@ export const SIMPLE: Rig = {
   eye: [130, 80],
   hold: { part: 'body', point: [150, 110] },
   shadow: 120,
+  fuse: {},
 };
 
 /**
@@ -147,6 +156,8 @@ export const QUADRUPED: Rig = {
   // In the mouth, under the muzzle.
   hold: { part: 'head', point: [240, 100] },
   shadow: 200,
+  // The head is drawn with its neck, which sinks into the shoulders.
+  fuse: { head: 'body' },
 };
 
 export const RIGS: Record<RigName, Rig> = {

@@ -375,6 +375,10 @@ before audio, and they turned up these fixes:
   translucent cloud) beside a layer wholly off the frame, which is a
   dissolve into a close-up with a `near` layer. So the dissolve fades with
   an alpha filter over the frame instead; the pixels match.
+- A quadruped's head looked stuck on: its neck carried its own line across
+  the chest. Now the head's outline goes down with the body's (`Rig.fuse`),
+  so the neck grows out of the shoulders. A person's chin keeps its line
+  against the chest.
 
 ### 7.6 Audio (last, on purpose)
 

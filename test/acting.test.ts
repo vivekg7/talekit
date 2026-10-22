@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { holdPoint, poseFor } from '../src/engine/actor.js';
+import { characterBody, holdPoint, poseFor } from '../src/engine/actor.js';
 import { RIGS } from '../src/engine/rigs.js';
 import { resolveFrame, type ActorState } from '../src/engine/timeline.js';
 import { CharacterSchema, ShotSchema, type Project } from '../src/engine/types.js';
@@ -176,5 +176,22 @@ describe('four-film fixes', () => {
     ]);
     const l = at(p, 'lantern', 1.5);
     expect([l.x, l.y, l.heldBy]).toEqual([500, 600, undefined]);
+  });
+
+  it("draws a four-legged animal's head line under its body, a person's over the torso", () => {
+    const order = (id: 'dog' | 'kid') => {
+      const svg = characterBody(
+        LIBRARY.characters[id],
+        poseFor(at(project({ ...cast, dog: { at: { x: 450, y: 640 } } }, []), id, 0), 0)
+      );
+      return ['part-head-line', "part-body'", "part-torso'", "part-head'"].map((k) =>
+        svg.indexOf(k)
+      );
+    };
+    const [line, body, , head] = order('dog');
+    expect(line).toBeGreaterThan(-1);
+    expect(line).toBeLessThan(body);
+    expect(head).toBeGreaterThan(body);
+    expect(order('kid')[0]).toBe(-1);
   });
 });

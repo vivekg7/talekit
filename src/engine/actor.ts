@@ -73,18 +73,29 @@ export function characterBody(character: Character, pose: Pose): string {
   const names = Object.keys(character.parts).sort((a, b) => rigPart(rig, a).z - rigPart(rig, b).z);
   const line = character.colors.line ?? DEFAULT_LINE_COLOR;
   const width = outlineWidth(character);
-  let out = '';
+  const drawn: { name: string; tf: string; svg: string; under: string }[] = [];
   for (const name of names) {
     const part = character.parts[name];
     const svg = typeof part === 'string' ? part : part[pose.face[name] ?? Object.keys(part)[0]];
     if (!svg) continue;
-    const tf = transformChain(rig, pose, name);
-    const drawn = applyColors(svg, character.colors);
+    const coloured = applyColors(svg, character.colors);
     // Eyes and mouth are detail on top of the head: a lighter line, or they look stamped on.
     const under = character.outline
-      ? outlineFor(drawn, line, FACE_PARTS.has(name) ? width / 2 : width)
+      ? outlineFor(coloured, line, FACE_PARTS.has(name) ? width / 2 : width)
       : '';
-    out += `<g class='part-${name}'${tf ? ` transform='${tf}'` : ''}>${under}${drawn}</g>`;
+    drawn.push({ name, tf: transformChain(rig, pose, name), svg: coloured, under });
+  }
+  const group = (name: string, tf: string, inner: string) =>
+    `<g class='part-${name}'${tf ? ` transform='${tf}'` : ''}>${inner}</g>`;
+  // A fused part's outline goes down just before the part it joins, so that part's fill
+  // covers the line where they overlap; the fused part's own fill still draws in its turn.
+  const joined = new Set(drawn.map((d) => d.name));
+  let out = '';
+  for (const d of drawn) {
+    for (const f of drawn)
+      if (f.under && rig.fuse[f.name] === d.name) out += group(`${f.name}-line`, f.tf, f.under);
+    const fused = rig.fuse[d.name] && joined.has(rig.fuse[d.name]);
+    out += group(d.name, d.tf, (fused ? '' : d.under) + d.svg);
   }
   let body = out;
   if (pose.spin) {

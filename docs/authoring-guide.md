@@ -116,7 +116,9 @@ stroke-linecap='round' fill='none'/>`) with a paw or hoof shape at the
   hidden (a rabbit, a mouse), but it starts at its pivot. Far legs a shade
   darker than near ones.
 - **Head** includes the neck: a thick stroke from inside the chest up to the
-  head, so a nod lowers the whole neck. Keep the muzzle inside x ≤ 260.
+  head, so a nod lowers the whole neck. The head's outline is drawn with the
+  body's, so no line crosses where the neck sinks into the chest and the head
+  grows out of the shoulders. Keep the muzzle inside x ≤ 260.
 - **Ears** sit behind the head, so the head's outline closes their base:
   draw each from below the head's edge (sunk at least 12 units) up to its
   tip, covering its pivot. A floppy ear hangs past the back of the head.
@@ -222,6 +224,8 @@ around them. The library characters are the bar; read one before drawing.
   the same width on screen for the whole cast, thinner on `eyes` and `mouth`.
   Shapes inside one part merge into one silhouette; a part in front of
   another (the near arm over the torso) gets its own line where they cross.
+  The exception is a four-legged animal's head, which joins its body
+  without a line.
   It uses `colors.line` (default `#2e2633`, near-black plum). Set `"outline":
 false` only for something that should not look drawn: a glow, a ghost.
 - **Flat fills.** One base colour per area plus one darker shade of it for

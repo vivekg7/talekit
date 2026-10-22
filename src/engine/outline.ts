@@ -8,7 +8,8 @@
  * shape (and every thick stroke, which is how limbs are drawn) widened by the line width.
  * The copy sits under the part, so only the rim shows. Because the copy is per part, a near
  * arm gets a line where it crosses the torso, while shapes inside one part merge into one
- * silhouette.
+ * silhouette. A rig can fuse a part into another (`Rig.fuse`: a quadruped's head and neck
+ * into its body), and then its copy goes down under that part instead, with no line between.
  */
 
 /** Line width on screen in pixels at scale 1, whatever the character's height. */
