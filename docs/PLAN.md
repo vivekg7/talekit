@@ -360,6 +360,22 @@ or not; the lighthouse uses it from the lit tower to the boat coming in. Not
 done: a depth walk still slides its feet, and the camera has no shake or
 handheld drift.
 
+Four more one-minute films, each written by an agent from the guide alone
+(fox and crow, bear and honey, a red umbrella, a hill race), were the check
+before audio, and they turned up these fixes:
+
+- A line's `to` was rejected unless the listener's id was also an anchor.
+- A sitting animal floated while it trembled, because shiver, nod and shake
+  replaced the sit's offsets instead of adding to them.
+- A `face` override could not be cleared; `""` now hands the part back to
+  the emotion.
+- A thought moved the mouth and turned heads like speech.
+- `set.at` was lost beside `attach: false`, because the let-go ran after it.
+- resvg 2.6 panics on a group with `opacity` that holds another one (a
+  translucent cloud) beside a layer wholly off the frame, which is a
+  dissolve into a close-up with a `near` layer. So the dissolve fades with
+  an alpha filter over the frame instead; the pixels match.
+
 ### 7.6 Audio (last, on purpose)
 
 - Narration and dialogue through TTS, with `say` duration taken from the

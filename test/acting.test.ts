@@ -136,5 +136,45 @@ describe('carrying', () => {
     expect(messages.join('\n')).toMatch(/'nobody' is not in the cast/);
     expect(messages.join('\n')).toMatch(/cannot carry itself/);
     expect(messages.join('\n')).toMatch(/attach: 'ghost' is not in the cast/);
+    // A listener in the cast is not a position, so it is not checked against the anchors.
+    const ok = project(cast, [{ t: 1, actor: 'kid', say: 'Hi', to: 'lantern' }]);
+    expect(validateShot(ok.shots[0], ok)).toEqual([]);
+  });
+});
+
+describe('four-film fixes', () => {
+  const cast = {
+    kid: { at: { x: 300, y: 640 }, facing: 'right' },
+    grownup: { at: { x: 650, y: 640 }, facing: 'left' },
+    lantern: { at: { x: 900, y: 640 } },
+  };
+
+  it('hands a forced face part back with an empty variant', () => {
+    const p = project(cast, [
+      { t: 1, actor: 'kid', face: { mouth: 'open', eyes: 'closed' } },
+      { t: 2, actor: 'kid', face: { mouth: '' } },
+    ]);
+    expect(at(p, 'kid', 1.5).face).toEqual({ mouth: 'open', eyes: 'closed' });
+    expect(at(p, 'kid', 2.5).face).toEqual({ eyes: 'closed' });
+    expect(validateShot(p.shots[0], p)).toEqual([]);
+  });
+
+  it('keeps the mouth still on a thought, and nobody turns to the thinker', () => {
+    const p = project(cast, [
+      { t: 1, actor: 'grownup', say: 'Hmm, where is it?', bubble: 'thought' },
+    ]);
+    const grownup = at(p, 'grownup', 2);
+    expect(grownup.bubble?.style).toBe('thought');
+    expect(grownup.talking).toBe(false);
+    expect(at(p, 'kid', 2).look).toBe(0);
+  });
+
+  it('puts a let-go prop where a set in the same action says', () => {
+    const p = project(cast, [
+      { t: 0, actor: 'lantern', attach: 'kid' },
+      { t: 1, actor: 'lantern', attach: false, set: { at: { x: 500, y: 600 } } },
+    ]);
+    const l = at(p, 'lantern', 1.5);
+    expect([l.x, l.y, l.heldBy]).toEqual([500, 600, undefined]);
   });
 });

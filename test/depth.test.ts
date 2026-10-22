@@ -159,12 +159,12 @@ describe('cross-fade', () => {
     const p = project(shots);
     const early = composeFrame(p, p.shots[1], 0.5);
     expect(early).toContain(LIBRARY.scenes.home.svg.slice(0, 80));
-    expect(early).toMatch(/<g opacity='0\.5'>/);
+    expect(early).toContain("slope='0.5'");
     const late = composeFrame(p, p.shots[1], 1.5);
     expect(late).not.toContain(LIBRARY.scenes.home.svg.slice(0, 80));
     // The first shot has nothing to dissolve from.
     const first = project([{ ...shots[1], id: 'c' }]);
-    expect(composeFrame(first, first.shots[0], 0.5)).not.toContain("<g opacity='0.5'>");
+    expect(composeFrame(first, first.shots[0], 0.5)).not.toContain('tk-dissolve');
   });
 
   it('warns about a dissolve from black or from nothing', () => {

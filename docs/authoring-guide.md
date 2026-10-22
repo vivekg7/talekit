@@ -404,7 +404,8 @@ its mouth), follows every walk, swing and jump, faces the way the carrier
 faces and is drawn just in front of them; its own moves are ignored. To put
 it down, `{ "t": 7.5, "actor": "lantern", "attach": false, "do": "move", "to":
 "pedestal-top" }`: it is let go where the hand is, and the `move` in the same
-action carries on from there. Give the prop a `grip`, the point in its own box
+action carries on from there; a `set: { "at": … }` in the same action puts it
+down there at once instead. Give the prop a `grip`, the point in its own box
 the hand holds (`[100, 22]` for a lantern's handle, the end of a balloon's
 string); without one it is held at its middle. The construction sheet marks a
 character's `hold` point and a prop's `grip`. Carry one thing at a time, and
@@ -415,9 +416,9 @@ do not carry a carrier.
 `say` draws a bubble above the head and flaps the mouth. Duration defaults to
 1 s plus 0.4 s per word (min 1.8 s), so a six-word line stays up for 3.4 s;
 set it explicitly for pacing. `bubble` can be `speech` (default), `thought` or
-`shout`. Keep lines short (≤ 12 words) and sequence speakers so bubbles do not
-overlap: `write_shot` warns when one actor starts speaking before another has
-finished. A bubble pops out of the speaker's head and shrinks back into it.
+`shout`; a thought keeps the mouth still and nobody turns to look. Keep lines
+short (≤ 12 words) and sequence speakers so bubbles do not overlap:
+`write_shot` warns when one actor starts speaking before another has finished. A bubble pops out of the speaker's head and shrinks back into it.
 Bubbles are always laid out inside the frame and keep the same size at any
 camera zoom, so a bubble that looks clipped on a small contact-sheet frame is
 not; check the text, not the edges.
@@ -435,7 +436,8 @@ to look, so set `facing` so that people who talk face each other.
 - `emotion`: `neutral | happy | sad | surprised | angry | scared` — persistent
   until changed. Each change gets a short take: a blink and a quick head move
   (thrown back for surprise, dropped for sadness). `face: { "mouth": "grin" }`
-  forces specific variants.
+  forces specific variants for the rest of the shot, which also stops that
+  part blinking or talking; `face: { "mouth": "" }` hands it back.
 - `caption`: narrator text at the bottom (`captionStyle: "narration"`, the
   default) or a big centred card (`"title"`). Default 3 s. Captions are a
   layer above everything and do not follow the camera (narration rises into

@@ -90,10 +90,17 @@ export function composeFrame(
   if (!prev) return composeFrameState(project, frame, opts);
   // A dissolve: the previous shot carries on past its end underneath while this one fades up.
   const under = frameBody(project, resolveFrame(project, prev, prev.duration + t), opts);
-  const u = easeInOut(t / dissolve);
+  const { width: W, height: H } = project.meta;
+  // Faded with a filter over the frame, not group opacity: resvg 2.6 panics on an opacity
+  // group that holds another one (a translucent cloud) beside a layer pushed wholly off
+  // the frame (the near layer of a close-up).
+  const fade =
+    `<filter id='tk-dissolve' filterUnits='userSpaceOnUse' x='0' y='0' width='${W}' height='${H}' color-interpolation-filters='sRGB'>` +
+    `<feComponentTransfer><feFuncA type='linear' slope='${n(easeInOut(t / dissolve))}'/></feComponentTransfer></filter>`;
   return frameDocument(
     project,
-    under + `<g opacity='${n(u)}'>${frameBody(project, frame, opts)}</g>`
+    under +
+      `<defs>${fade}</defs><g filter='url(#tk-dissolve)'>${frameBody(project, frame, opts)}</g>`
   );
 }
 

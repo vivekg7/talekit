@@ -188,7 +188,7 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
       });
     else if (listener && a.to === a.actor)
       out.push({ level: 'warning', where: w, message: `'${a.actor}' is speaking to itself` });
-    else if (a.to) {
+    else if (a.to && !listener) {
       const err = positionOk(a.to);
       if (err) out.push({ level: 'error', where: w, message: err });
     }
@@ -230,7 +230,8 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
       const parts = project.characters[a.actor].parts;
       for (const [part, variant] of Object.entries(a.face)) {
         const p = parts[part];
-        if (!p || typeof p === 'string' || !(variant in p))
+        // '' clears an earlier override, so it needs the part but no such variant.
+        if (!p || typeof p === 'string' || (variant !== '' && !(variant in p)))
           out.push({
             level: 'error',
             where: w,

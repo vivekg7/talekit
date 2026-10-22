@@ -173,11 +173,19 @@ export const ActionSchema = z
     ),
     /** Dialogue shown in a bubble above the actor's head; also animates the mouth. */
     say: z.string().optional(),
-    bubble: z.enum(['speech', 'thought', 'shout']).optional(),
+    bubble: z
+      .enum(['speech', 'thought', 'shout'])
+      .optional()
+      .describe('speech (default), thought (the mouth stays still, nobody looks) or shout'),
     /** Persistent facial expression until the next emotion action. */
     emotion: EmotionSchema.optional(),
     /** Explicit part variants, e.g. { mouth: 'grin' }; persists like emotion. */
-    face: z.record(z.string(), z.string()).optional(),
+    face: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe(
+        "Force part variants, e.g. { mouth: 'grin' }, until the shot ends (a forced part does not blink or talk); '' hands a part back to the emotion"
+      ),
     /** On-screen text that belongs to no actor: a title card or a narrator line. */
     caption: z.string().optional(),
     captionStyle: z.enum(['title', 'narration']).optional(),

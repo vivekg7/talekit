@@ -43,6 +43,15 @@ describe('quadruped motion', () => {
     }
   });
 
+  it('stays sat through a shiver, a nod or a head shake', () => {
+    for (const verb of ['tremble', 'nod', 'shake'] as const) {
+      const pose = emptyPose();
+      applyVerb(QUADRUPED, pose, 'sit', 1);
+      applyVerb(QUADRUPED, pose, verb, 0.3);
+      expect(pose.off.body[1]).toBeCloseTo(46);
+    }
+  });
+
   it('lifts the near front paw to wave and point, and leaves the far one down', () => {
     for (const verb of ['wave', 'point'] as const) {
       const pose = basePose(QUADRUPED, 'idle', 0, 0);

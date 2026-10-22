@@ -26,6 +26,12 @@ export function emptyPose(): Pose {
   return { rot: {}, off: {}, dx: 0, dy: 0, sx: 1, sy: 1, spin: 0, face: {} };
 }
 
+/** Add to a part's offset: a verb layered on a held one (a shiver while sat) keeps it. */
+function nudge(pose: Pose, part: string, x: number, y: number): void {
+  const [ox, oy] = pose.off[part] ?? [0, 0];
+  pose.off[part] = [ox + x, oy + y];
+}
+
 const MOVE_VERBS: ReadonlySet<Verb> = new Set(['walk', 'run', 'move', 'fly', 'jump']);
 export const isMoveVerb = (v: Verb): boolean => MOVE_VERBS.has(v);
 
@@ -233,8 +239,8 @@ function quadrupedVerb(pose: Pose, verb: Verb, u: number): boolean {
     }
     case 'tremble': {
       const j = Math.sin(u * TAU * 11) * 4 * Math.sin(u * Math.PI);
-      pose.off.body = [j, 0];
-      pose.off.head = [j * 0.5, 0];
+      nudge(pose, 'body', j, 0);
+      nudge(pose, 'head', j * 0.5, 0);
       add('tail', 6 * Math.sin(u * TAU * 9));
       return true;
     }
@@ -246,7 +252,7 @@ function quadrupedVerb(pose: Pose, verb: Verb, u: number): boolean {
     case 'shake': {
       const n = Math.sin(u * TAU * 3);
       add('head', 9 * n);
-      pose.off.head = [3 * n, 0];
+      nudge(pose, 'head', 3 * n, 0);
       add('earL', -8 * n);
       add('earR', -8 * n);
       return true;
@@ -329,21 +335,21 @@ export function applyVerb(rig: Rig, pose: Pose, verb: Verb, u: number): void {
       const env = Math.sin(u * Math.PI);
       const j = Math.sin(u * TAU * 11) * 5 * env;
       if (humanoid) {
-        pose.off.head = [j, 0];
-        pose.off.torso = [j * 0.6, 0];
+        nudge(pose, 'head', j, 0);
+        nudge(pose, 'torso', j * 0.6, 0);
       } else pose.dx += j;
       break;
     }
     case 'nod': {
       const n = Math.sin(u * TAU * 2);
       pose.rot.head = (pose.rot.head ?? 0) + 6 * n;
-      pose.off.head = [0, 5 * Math.max(0, n)];
-      if (!humanoid) pose.off.body = [0, 6 * Math.max(0, n)];
+      nudge(pose, 'head', 0, 5 * Math.max(0, n));
+      if (!humanoid) nudge(pose, 'body', 0, 6 * Math.max(0, n));
       break;
     }
     case 'shake': {
       const n = Math.sin(u * TAU * 3);
-      pose.off.head = [9 * n, 0];
+      nudge(pose, 'head', 9 * n, 0);
       if (!humanoid) pose.rot.body = 10 * n;
       break;
     }

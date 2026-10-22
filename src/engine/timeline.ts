@@ -283,6 +283,17 @@ export function resolveActor(
     // Where is the actor when this action starts?
     if (move) point = movePoint(move, a.t);
 
+    // Let go before `set`, so a `set.at` in the same action puts the prop down there.
+    if (a.attach !== undefined) {
+      if (a.attach) holder = a.attach;
+      else if (holder && depth < MAX_DEPTH) {
+        // Let go: it stays where the hand was just before (the arm relaxes after).
+        const before = Math.max(0, a.t - 1e-6);
+        point = heldPoint(project, scene, shot, character, scale, holder, before, depth).point;
+        holder = undefined;
+      } else holder = undefined;
+      move = undefined;
+    }
     if (a.set) {
       if (a.set.at) {
         point = resolvePosition(project, scene, a.set.at);
@@ -296,23 +307,18 @@ export function resolveActor(
       if (a.emotion !== emotion) takeAt = a.t;
       emotion = a.emotion;
     }
-    if (a.face) face = { ...face, ...a.face };
-    if (a.attach !== undefined) {
-      if (a.attach) holder = a.attach;
-      else if (holder && depth < MAX_DEPTH) {
-        // Let go: it stays where the hand was just before (the arm relaxes after).
-        const before = Math.max(0, a.t - 1e-6);
-        point = heldPoint(project, scene, shot, character, scale, holder, before, depth).point;
-        holder = undefined;
-      } else holder = undefined;
-      move = undefined;
+    if (a.face) {
+      face = { ...face, ...a.face };
+      // An empty variant hands the part back to the emotion, blinking and talking.
+      for (const [part, variant] of Object.entries(a.face)) if (!variant) delete face[part];
     }
 
     if (a.say) {
       const d = actionDuration(a);
       if (t < a.t + d) {
         bubble = { text: a.say, style: a.bubble ?? 'speech', age: t - a.t, left: a.t + d - t };
-        talking = true;
+        // A thought is not said out loud: the mouth stays still.
+        talking = a.bubble !== 'thought';
       }
     }
 
@@ -445,7 +451,8 @@ function attention(shot: Shot, a: ActorState, t: number) {
         const named = typeof act.to === 'string' && shot.cast[act.to] ? act.to : undefined;
         events.push({ at: act.t, target: named ?? lastOther ?? '' });
       }
-    } else if (act.say && shot.cast[act.actor]) {
+    } else if (act.say && act.bubble !== 'thought' && shot.cast[act.actor]) {
+      // Nobody hears a thought, so nobody turns to the thinker.
       events.push({ at: act.t, target: act.actor });
       lastOther = act.actor;
     }
