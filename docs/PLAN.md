@@ -576,6 +576,18 @@ one style with real shapes, using downloaded art as reference only.
   it eases out of a start and settles after a stop. Each sample is clamped
   into the scene before the mean, or the camera would run into the scene's
   edge and stop dead. Setting a point, or `follow: ""`, lets go.
+- The library was redrawn in one pass, the cat first as the pattern and
+  the other ten by agents working from it, each checked on its pose and
+  construction sheets. Bodies became shaped beans with a dipped back and a
+  deep chest, near hind legs got a haunch, tails and stripes taper (filled
+  paths along a curve), and faces got muzzles, noses, eyebrows in every eye
+  variant, hair with real shape, collars, sleeves, hands and shoes. Part
+  names, variants and colour tokens are unchanged, so projects that copied
+  a character keep working and only new copies change. Two rules came out
+  of it, now in the guide: a leg below the knee runs down the knee's x, and
+  a haunch ends above the knee, or the bend shows a notch. A small dark
+  tick still shows outside a sharply bent knee or elbow on any character:
+  it comes from the bend itself, not the drawings.
 
 ### 7.8 Audio (last, on purpose)
 

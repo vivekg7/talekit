@@ -122,11 +122,15 @@ describe('construction linter', () => {
     expect(turning[0]).toMatch(/move it into the 'face' part/);
   });
 
-  it('passes the library characters and draws their construction sheets', () => {
-    for (const c of Object.values(LIBRARY.characters)) {
+  // One test per character: each rasterises its whole construction sheet, and a failure
+  // names the character.
+  it.each(Object.keys(LIBRARY.characters))(
+    'passes library character %s and draws its construction sheet',
+    (id) => {
+      const c = LIBRARY.characters[id];
       expect(lintCharacter(c).problems.map((p) => p.message)).toEqual([]);
       const png = rasterize(constructionSheetSvg(c), 600);
       expect(png.subarray(1, 4).toString()).toBe('PNG');
     }
-  });
+  );
 });

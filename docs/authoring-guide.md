@@ -154,6 +154,9 @@ stroke-linecap='round' fill='none'/>`) with a paw or hoof shape at the
   hidden (a rabbit, a mouse), but it starts at its pivot. Far legs a shade
   darker than near ones. A sitting animal's hind legs bend at the knee
   (y=166), so keep each leg one straight stroke and the paw below the knee.
+  Below the knee the leg must run down the knee's own x (the pivot's), or
+  the bend shows a notch; a haunch drawn on a hind leg ends a few units
+  above the knee.
 - **Head** includes the neck: a thick stroke from inside the chest up to the
   head, so a nod lowers the whole neck. The head's outline is drawn with the
   body's, so no line crosses where the neck sinks into the chest and the head
@@ -287,9 +290,13 @@ false` only for something that should not look drawn: a glow, a ghost.
 - **Eyes** are a white, a dark iris and a small white highlight up and to the
   side. The iris sits toward where the character looks; a blink is a curved
   `{line}` stroke. Small animals may use a dark dot with a highlight.
-- **Simple shapes**: a head is a circle or a rounded blob, a body a bean,
-  limbs are tubes with round ends. On screen the box shrinks to about half
-  size, so nothing readable is smaller than 6 units.
+- **Simple, shaped forms**: a head is a circle or a rounded blob, a body a
+  bean with a dip in the back and a deep chest (not a box between two
+  ellipses), limbs are tubes with round ends. Give a shape its taper: a tail
+  that thins to its tip, a haunch over a hind leg, a stripe that narrows, as
+  filled paths rather than one even stroke. On screen the box shrinks to
+  about half size, so nothing readable is smaller than 6 units. The library
+  characters are drawn this way; copy from them.
 - Do not draw a ground shadow; the floor belongs to the scene.
 
 ## Construction
