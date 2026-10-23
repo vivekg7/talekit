@@ -263,7 +263,7 @@ export function buildServer(): McpServer {
     {
       title: 'Copy from library',
       description:
-        'Copy a built-in character or scene into the project under a new id, optionally overriding colour tokens and the display name. Returns the pose and construction sheets, or the anchor sheet.',
+        'Copy a built-in character or scene into the project under a new id, optionally overriding colour tokens and the display name. Returns the pose sheet (a library drawing already passes construction, so no construction sheet), or the anchor sheet.',
       inputSchema: {
         path: pathArg,
         libraryId: z.string(),
@@ -298,8 +298,7 @@ export function buildServer(): McpServer {
           const file = await saveCharacter(root, character);
           return ok(
             text(`wrote ${file}\n${characterReport(character, validateCharacter(character))}`),
-            image(characterSheetSvg(character)),
-            image(constructionSheetSvg(character))
+            image(characterSheetSvg(character))
           );
         }
         const s = LIBRARY.scenes[libraryId];

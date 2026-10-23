@@ -23,7 +23,9 @@ colors)` (colour tokens: hair, skin, dress, shirt…); without `name` the
    (proportions, expressions, the fallback list in the text) and the
    construction sheet (part boxes, pivots, silhouette, joints in a swing,
    numbered red boxes for each numbered warning). Rewrite until it looks
-   right and the construction warnings are gone.
+   right and the construction warnings are gone. A library copy returns only
+   the pose sheet: its construction is already right, and if you redraw it,
+   `write_character` shows the construction sheet as for any new drawing.
 4. **Scenes.** `copy_from_library` or `write_scene(path, scene)`. Look at the
    anchor sheet: every place a character will stand or sit needs an anchor on
    the floor.
