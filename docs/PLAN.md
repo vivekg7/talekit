@@ -586,8 +586,15 @@ one style with real shapes, using downloaded art as reference only.
   a character keep working and only new copies change. Two rules came out
   of it, now in the guide: a leg below the knee runs down the knee's x, and
   a haunch ends above the knee, or the bend shows a notch. A small dark
-  tick still shows outside a sharply bent knee or elbow on any character:
-  it comes from the bend itself, not the drawings.
+  spike still showed beside a sharply bent knee or elbow on every
+  character. It came from the bend: each half of a bent limb keeps a disc
+  round the joint so the turn opens no gap, and the upper half's disc
+  reached down into the top of the paw's outline, which it drew unturned.
+  Now a piece wholly below the joint stays out of the upper half and one
+  wholly above it out of the lower (measured from its coordinates; a piece
+  that cannot be measured, a group or a relative path, stays in both, as
+  before). Each half is also shaded as it lies, the lower one turned by the
+  bend, where before it carried the upper half's shading round with it.
 
 ### 7.8 Audio (last, on purpose)
 

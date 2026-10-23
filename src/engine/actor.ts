@@ -3,7 +3,7 @@ import { applyTake, applyVerb, basePose, emptyPose, resolveFace, type Pose } fro
 import { rigPart, RIGS, type Rig } from './rigs.js';
 import { DEFAULT_LINE_COLOR, limbWidth, OUTLINE_PX, outlineFor } from './outline.js';
 import { DAYLIGHT, shadePart, silhouette, type Light } from './shade.js';
-import { applyColors, n } from './svg.js';
+import { applyColors, n, topLevelPieces, verticalExtent } from './svg.js';
 import type { ActorState } from './timeline.js';
 import type { Character, Facing } from './types.js';
 
@@ -143,7 +143,8 @@ function bentLimb(
   bend: number,
   svg: string,
   under: string,
-  line: number
+  line: number,
+  shade: (frag: string, extra?: number) => string
 ): string {
   const [kx, ky] = joint;
   // A limb drawn as a filled shape has no stroke to measure: assume a typical one.
@@ -152,11 +153,24 @@ function bentLimb(
     `<clipPath id='${id}-${key}'><rect x='-1000' y='${lower ? ky : -1000}' width='3000' height='${lower ? 2000 : ky + 1000}'/><circle cx='${kx}' cy='${ky}' r='${n(radius)}'/></clipPath>`;
   const half = (key: string, inner: string) => `<g clip-path='url(#${id}-${key})'>${inner}</g>`;
   const turned = (inner: string) => `<g transform='rotate(${n(bend)} ${kx} ${ky})'>${inner}</g>`;
+  // A shape wholly below the joint (a paw, a shoe) stays out of the upper half, and one
+  // wholly above it out of the lower: the disc round the joint would otherwise catch its
+  // edge and draw that sliver unturned, a spike beside the knee.
+  const side = (frag: string, lower: boolean) =>
+    topLevelPieces(frag)
+      .filter((p) => {
+        const e = verticalExtent(p);
+        return !e || (lower ? e[1] > ky : e[0] < ky);
+      })
+      .join('');
+  // Each half is shaded as it lies: the lower one turned by the bend as well.
+  const upper = side(svg, false);
+  const lower = side(svg, true);
   return (
     `<defs>${clip('ul', false, r + line)}${clip('ll', true, r + line)}${clip('uf', false, r)}${clip('lf', true, r)}</defs>` +
-    (under ? half('ul', under) + turned(half('ll', under)) : '') +
-    half('uf', svg) +
-    turned(half('lf', svg))
+    (under ? half('ul', side(under, false)) + turned(half('ll', side(under, true))) : '') +
+    half('uf', upper + shade(upper)) +
+    turned(half('lf', lower + shade(lower, bend)))
   );
 }
 
@@ -174,7 +188,14 @@ export function characterBody(
   const names = Object.keys(character.parts).sort((a, b) => rigPart(rig, a).z - rigPart(rig, b).z);
   const line = character.colors.line ?? DEFAULT_LINE_COLOR;
   const width = outlineWidth(character);
-  const drawn: { name: string; tf: string; svg: string; under: string }[] = [];
+  const drawn: {
+    name: string;
+    tf: string;
+    svg: string;
+    under: string;
+    /** The shading of (a piece of) this part, turned `extra` degrees further. */
+    shade: (frag: string, extra?: number) => string;
+  }[] = [];
   for (const name of names) {
     const part = character.parts[name];
     const svg = typeof part === 'string' ? part : part[pose.face[name] ?? Object.keys(part)[0]];
@@ -196,11 +217,12 @@ export function characterBody(
       typeof parent === 'string' && rigPart(rig, name).parent === into
         ? `<g transform='${unLink(rig, pose, name)}'>${silhouette(applyColors(parent, character.colors), line)}</g>`
         : '';
-    const shade =
+    const rot = turnOf(rig, pose, name);
+    const shade = (frag: string, extra = 0) =>
       light && character.shade && !FACE_PARTS.has(name)
-        ? shadePart(coloured, turnOf(rig, pose, name), side, light, rig, line, joined)
+        ? shadePart(frag, rot + extra, side, light, rig, line, joined)
         : '';
-    drawn.push({ name, tf, svg: coloured + shade, under });
+    drawn.push({ name, tf, svg: coloured, under, shade });
   }
   const group = (name: string, tf: string, inner: string) =>
     `<g class='part-${name}'${tf ? ` transform='${tf}'` : ''}>${inner}</g>`;
@@ -216,8 +238,8 @@ export function characterBody(
     const bend = pose.bend[d.name];
     const inner =
       joint && bend
-        ? bentLimb(`tk-bend-${character.id}-${d.name}`, joint, bend, d.svg, d.under, width)
-        : (fused ? '' : d.under) + d.svg;
+        ? bentLimb(`tk-bend-${character.id}-${d.name}`, joint, bend, d.svg, d.under, width, d.shade)
+        : (fused ? '' : d.under) + d.svg + d.shade(d.svg);
     out += group(d.name, d.tf, inner);
   }
   let body = out;

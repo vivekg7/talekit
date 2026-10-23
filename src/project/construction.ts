@@ -1,6 +1,8 @@
 import { Resvg } from '@resvg/resvg-js';
 import { RIGS, type Rig } from '../engine/rigs.js';
-import { applyColors } from '../engine/svg.js';
+import { applyColors, topLevelPieces } from '../engine/svg.js';
+
+export { topLevelPieces };
 import type { Character } from '../engine/types.js';
 import type { Problem } from './validate.js';
 
@@ -138,30 +140,6 @@ function covers(m: Mask, x: number, y: number, r: number): boolean {
       if (px >= 0 && py >= 0 && px < m.w && py < m.h && m.data[py * m.w + px]) return true;
     }
   return false;
-}
-
-/** Top-level elements of a fragment: each shape or group the artist wrote at depth 0. */
-export function topLevelPieces(svg: string): string[] {
-  const out: string[] = [];
-  let depth = 0;
-  let start = -1;
-  for (const m of svg.matchAll(/<(\/?)([a-zA-Z]+)[^>]*?(\/?)>/g)) {
-    const [tag, closing, , selfClosing] = m;
-    const i = m.index!;
-    if (closing) {
-      depth--;
-      if (depth === 0 && start >= 0) {
-        out.push(svg.slice(start, i + tag.length));
-        start = -1;
-      }
-    } else if (selfClosing) {
-      if (depth === 0) out.push(tag);
-    } else {
-      if (depth === 0) start = i;
-      depth++;
-    }
-  }
-  return out;
 }
 
 const firstVariant = (part: Character['parts'][string]): string =>

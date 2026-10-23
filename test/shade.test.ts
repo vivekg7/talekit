@@ -59,3 +59,44 @@ describe('shading', () => {
     expect(mask).toContain("<g transform='rotate(");
   });
 });
+
+describe('bent limbs', () => {
+  const cat = LIBRARY.characters.cat;
+  const bent = (deg: number) => {
+    const pose = emptyPose();
+    pose.bend.legFR = deg;
+    return characterBody(cat, pose).split("class='part-legFR'")[1].split("class='part-")[0];
+  };
+  /** The content of one clipped half, by its clip id suffix. */
+  const half = (svg: string, key: string) =>
+    svg.split(`clip-path='url(#tk-bend-cat-legFR-${key})'>`)[1].split('</g>')[0];
+
+  it('keeps the paw out of the upper half, so no sliver of it shows by the knee', () => {
+    const svg = bent(50);
+    expect(half(svg, 'uf')).not.toContain('<ellipse');
+    expect(half(svg, 'lf')).toContain('<ellipse');
+    // Nor the paw's outline in the upper outline half.
+    expect(half(svg, 'ul')).not.toContain('<ellipse');
+  });
+
+  it('shades the lower half as it lies, turned by the bend', () => {
+    // One shade mask per half; the lower half's light is turned 60° round from the upper's.
+    const [[ux, uy], [lx, ly]] = nudges(bent(60));
+    const angle = (x: number, y: number) => (Math.atan2(y, x) * 180) / Math.PI;
+    expect(Math.abs(angle(ux, uy) - angle(lx, ly) - 60)).toBeLessThan(0.5);
+  });
+});
+
+describe('verticalExtent', () => {
+  it('measures shapes with their stroke, and gives up on what it cannot read', async () => {
+    const { verticalExtent } = await import('../src/engine/svg.js');
+    expect(verticalExtent(`<ellipse cx='5' cy='190' rx='10' ry='8' fill='#000'/>`)).toEqual([
+      182, 198,
+    ]);
+    expect(
+      verticalExtent(`<path d='M10 130 L11 189' stroke='#000' stroke-width='14' fill='none'/>`)
+    ).toEqual([123, 196]);
+    expect(verticalExtent(`<path d='M10 130 l1 59' fill='#000'/>`)).toBeUndefined();
+    expect(verticalExtent(`<g><circle cx='1' cy='1' r='1'/></g>`)).toBeUndefined();
+  });
+});
