@@ -26,6 +26,15 @@ export const LIBRARY: { characters: Record<string, Character>; scenes: Record<st
   scenes: Object.fromEntries([PARK, HOME, STREET].map((s) => [s.id, SceneSchema.parse(s)])),
 };
 
+/**
+ * The display name a copy gets from its new id ('old-man' → 'Old man'): a kid copied as
+ * 'ramu' is Ramu in the story, not 'Kid', and not the bare lowercase id either.
+ */
+export function nameFromId(id: string): string {
+  const words = id.replace(/[-_]+/g, ' ').trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 /** Copy a built-in into a project, optionally under a new id. Returns the file written. */
 export async function copyFromLibrary(
   root: string,
@@ -33,7 +42,8 @@ export async function copyFromLibrary(
   asId?: string
 ): Promise<string> {
   const c = LIBRARY.characters[libraryId];
-  if (c) return saveCharacter(root, { ...c, id: asId ?? c.id, name: asId ? asId : c.name });
+  if (c)
+    return saveCharacter(root, { ...c, id: asId ?? c.id, name: asId ? nameFromId(asId) : c.name });
   const s = LIBRARY.scenes[libraryId];
   if (s) return saveScene(root, { ...s, id: asId ?? s.id });
   throw new Error(

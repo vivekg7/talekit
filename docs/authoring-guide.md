@@ -13,7 +13,8 @@ write. Fix what looks wrong before moving on.
    directory and every later tool takes the same `path`. Then
    **`list_library()`**.
 3. **Characters.** Prefer `copy_from_library(path, libraryId, asId, name,
-colors)` (colour tokens: hair, skin, dress, shirt…). Draw from scratch with
+colors)` (colour tokens: hair, skin, dress, shirt…); without `name` the
+   copy is named from `asId` (`old-man` is "Old man"). Draw from scratch with
    `write_character(path, character)` only for something the library lacks
    (an animal it does not have, a dragon, a robot, a prop like a kite); read
    `get_library_item(libraryId)` first to see how a character on that rig is

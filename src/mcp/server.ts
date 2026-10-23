@@ -14,7 +14,7 @@ import {
   type Character,
   type Project,
 } from '../engine/types.js';
-import { LIBRARY } from '../library/index.js';
+import { LIBRARY, nameFromId } from '../library/index.js';
 import {
   createProject,
   loadProject,
@@ -271,7 +271,12 @@ export function buildServer(): McpServer {
           .string()
           .optional()
           .describe('New id in the project (default: same as the library id)'),
-        name: z.string().optional().describe('Display name, e.g. the character name in the story'),
+        name: z
+          .string()
+          .optional()
+          .describe(
+            "Display name, e.g. the character name in the story (default: from asId, 'old-man' → 'Old man', else the library name)"
+          ),
         colors: z
           .record(z.string(), z.string())
           .optional()
@@ -286,7 +291,7 @@ export function buildServer(): McpServer {
           const character = CharacterSchema.parse({
             ...c,
             id: asId ?? c.id,
-            name: name ?? c.name,
+            name: name ?? (asId ? nameFromId(asId) : c.name),
             colors: { ...c.colors, ...(colors ?? {}) },
             ...(height ? { height } : {}),
           });

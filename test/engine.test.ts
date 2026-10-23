@@ -3,7 +3,7 @@ import { wrapText } from '../src/engine/bubble.js';
 import { composeFrame } from '../src/engine/compose.js';
 import { resolveFrame } from '../src/engine/timeline.js';
 import { CharacterSchema, SceneSchema, ShotSchema, type Project } from '../src/engine/types.js';
-import { LIBRARY } from '../src/library/index.js';
+import { LIBRARY, nameFromId } from '../src/library/index.js';
 import { validateCharacter, validateShot } from '../src/project/validate.js';
 import { rasterize } from '../src/render/raster.js';
 import { characterSheetSvg, filmSheetSvg } from '../src/render/sheets.js';
@@ -119,6 +119,14 @@ describe('timeline', () => {
     const f = resolveFrame(p, shot, 0);
     expect(f.actors.map((a) => a.id)).toEqual(['dog', 'kid']); // bench y=655 is behind gate y=660
     expect(f.actors[0].y).toBeLessThanOrEqual(f.actors[1].y);
+  });
+});
+
+describe('library copies', () => {
+  it('take their display name from the new id', () => {
+    expect(nameFromId('ramu')).toBe('Ramu');
+    expect(nameFromId('old-man')).toBe('Old man');
+    expect(nameFromId('big_bear')).toBe('Big bear');
   });
 });
 
