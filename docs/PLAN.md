@@ -502,8 +502,14 @@ Then the three gaps left after the first pass:
   splash lands below it; drops gather on both ends and fall to the floor.
   Spans rather than shapes, because a drop only needs to know where it is
   stopped, and a span is something an agent can read off its own drawing.
-  A falling drip keeps up with a moving umbrella rather than being left
-  behind, since a frame knows only where the umbrella is now.
+  A frame knows only where an umbrella is now, so at first a falling drip
+  kept up with a walking umbrella, sliding sideways in the air. Each shelter
+  now has a key (scene shelters by index, a character's by actor and span),
+  and a falling drop asks where its shelter's edge was at the moment it let
+  go, by resolving the shot at that earlier time; a shelter that was not
+  there then (an umbrella just opened) has no drop falling yet. Only carried
+  shelters are looked up, two per span per frame, which costs nothing
+  measurable in a render.
 - Weather could not change within a shot. A `weather` action turns the
   weather in force into another over its duration, blending every amount
   (absent rain is rain at 0), so rain thins out drop by drop. Clouds had to

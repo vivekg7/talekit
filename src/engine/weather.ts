@@ -88,7 +88,12 @@ export interface Span {
   x0: number;
   x1: number;
   y: number;
+  /** Names the shelter from frame to frame, so a drop can find where it let go of it. */
+  key?: string;
 }
+
+/** The shelters as they stood at an earlier time of the shot, in the scene. */
+export type SheltersAt = (t: number) => Span[];
 
 /** Seconds a `weather` action takes to turn the weather when it gives no duration. */
 export const WEATHER_TURN = 2;
@@ -152,7 +157,8 @@ export function weatherView(
   H: number,
   t: number,
   ground: number,
-  shelters: Span[] = []
+  shelters: Span[] = [],
+  sheltersAt?: SheltersAt
 ): WeatherView {
   const wind = w.wind ?? 0;
   const toScreen = (s: Span): Span => ({
@@ -183,7 +189,7 @@ export function weatherView(
     back += rain('back', w.rain.amount, ctx, top);
     front += rain('front', w.rain.amount, ctx, top);
     stage += splashes(w.rain.amount, ctx, ground, shelters);
-    stage += drips(w.rain.amount, ctx, shelters, ground);
+    stage += drips(w.rain.amount, ctx, shelters, ground, sheltersAt);
   }
   if (w.snow) {
     const top = shelter(w.snow.top);
@@ -257,32 +263,49 @@ function stopAt(cover: Span[], x: number, y: number, len: number, slant: number)
 
 /**
  * Water running off the ends of each shelter: a drop gathers at the edge, lets go and falls,
- * speeding up, until it reaches the floor; then the next one gathers.
+ * speeding up, until it reaches the floor; then the next one gathers. A falling drop is free
+ * of its shelter: it falls from where the edge was when it let go, so one off a moving
+ * umbrella stays behind rather than keeping up with it.
  */
-function drips(amount: number, ctx: Ctx, shelters: Span[], ground: number): string {
+function drips(
+  amount: number,
+  ctx: Ctx,
+  shelters: Span[],
+  ground: number,
+  sheltersAt?: SheltersAt
+): string {
   const { t, k, H } = ctx;
   const floor = Math.min(ground + 0.04 * H, H);
+  const then = new Map<number, Span[]>();
+  const heldAt = (key: string, tr: number) => {
+    if (!then.has(tr)) then.set(tr, sheltersAt!(tr));
+    return then.get(tr)!.find((s) => s.key === key);
+  };
   let out = '';
   let edge = '';
   shelters.forEach((s, i) => {
-    for (const [end, x] of [
-      ['l', s.x0],
-      ['r', s.x1],
-    ] as const) {
-      const h = (key: string) => hash01(`drip:${i}:${end}:${key}`);
+    const id = s.key ?? String(i);
+    for (const end of ['l', 'r'] as const) {
+      const h = (key: string) => hash01(`drip:${id}:${end}:${key}`);
       const period = (0.9 - 0.4 * amount) * (0.8 + 0.4 * h('T'));
       const age = ((t / period + h('p')) % 1) * period;
       const gather = period * 0.45;
       if (age < gather) {
         // Swelling on the edge.
+        const x = end === 'l' ? s.x0 : s.x1;
         const r = (1.5 + 2.5 * (age / gather)) * k;
         out += `<circle cx='${n(x)}' cy='${n(s.y + r)}' r='${n(r)}' stroke='none' fill-opacity='0.9'/>`;
         edge += `<circle cx='${n(x)}' cy='${n(s.y + r)}' r='${n(r + 0.8 * k)}'/>`;
         continue;
       }
       const a = age - gather;
+      // Where it let go. A shelter that was not there then (an umbrella just opened) has
+      // no drop falling from it yet.
+      const from = s.key && sheltersAt ? heldAt(s.key, t - a) : s;
+      if (!from) continue;
+      const x = end === 'l' ? from.x0 : from.x1;
       const fall = 0.5 * 2600 * k * a * a;
-      const y = s.y + 4 * k + fall;
+      const y = from.y + 4 * k + fall;
       if (y > floor) continue;
       const len = Math.min(24 * k, 5 * k + fall * 0.3);
       const dx = ctx.wind * fall * 0.3;

@@ -134,6 +134,25 @@ describe('shelter', () => {
     }
   });
 
+  it('lets a drip fall free of an umbrella walking on', () => {
+    const p = project(
+      { weather: { rain: { amount: 1 } } },
+      {
+        cast: { brolly: { at: { x: 300, y: 580 } } },
+        actions: [{ t: 0, actor: 'brolly', do: 'walk', to: { x: 1000, y: 580 }, duration: 4 }],
+      }
+    );
+    // Over one frame the umbrella moves on some 7px; a drop already falling stays where it
+    // let go, so the same x turns up in both frames.
+    const xs = (t: number) => lines(composeFrame(p, p.shots[0], t), 'rain-drips').map((l) => l[2]);
+    let kept = 0;
+    for (const t of [1, 1.5, 2, 2.5, 3]) {
+      const next = xs(t + 1 / 24);
+      kept += xs(t).filter((x) => next.some((y) => Math.abs(x - y) < 0.01)).length;
+    }
+    expect(kept).toBeGreaterThan(0);
+  });
+
   it('shelters only in the variant it names', () => {
     const p = project(
       { weather: { rain: { amount: 1 } } },

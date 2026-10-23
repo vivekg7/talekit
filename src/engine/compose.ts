@@ -118,16 +118,18 @@ function actorShelter(actor: ActorState, pose: Pose): Span[] {
   const side = sideOf(actor);
   const at = (bx: number) => actor.x + s * side * (pose.sx * (bx - rig.width / 2) + pose.dx);
   const variants = Object.values(pose.face);
-  return (Array.isArray(spans) ? spans : [spans])
-    .filter((sh) => !sh.when || variants.includes(sh.when))
-    .map((sh) => {
-      const [a, b] = [at(sh.x), at(sh.x + sh.width)];
-      return {
+  return (Array.isArray(spans) ? spans : [spans]).flatMap((sh, i) => {
+    if (sh.when && !variants.includes(sh.when)) return [];
+    const [a, b] = [at(sh.x), at(sh.x + sh.width)];
+    return [
+      {
         x0: Math.min(a, b),
         x1: Math.max(a, b),
         y: actor.y + s * (pose.sy * (sh.y - rig.height) + pose.dy),
-      };
-    });
+        key: `${actor.id}:${i}`,
+      },
+    ];
+  });
 }
 
 /** The warm colour a fire throws, per channel, and its glow. */
@@ -231,8 +233,25 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
     ...scene.shelters.map((s) => ({ x0: s.x, x1: s.x + s.width, y: s.y })),
     ...posed.flatMap(({ actor, pose }) => actorShelter(actor, pose)),
   ];
+  // Where the carried shelters were earlier in the shot, for the drops already falling.
+  const sheltersAt = (t: number) => {
+    const at = Math.max(0, t);
+    return resolveFrame(project, frame.shot, at).actors.flatMap((a) =>
+      actorShelter(a, poseFor(a, at))
+    );
+  };
   // Always asked, even in fair weather: a `lightning` action strikes in any sky.
-  const sky = weatherView(w, frame.shot, c, W, H, frame.t, scene.ground ?? H * 0.9, shelters);
+  const sky = weatherView(
+    w,
+    frame.shot,
+    c,
+    W,
+    H,
+    frame.t,
+    scene.ground ?? H * 0.9,
+    shelters,
+    sheltersAt
+  );
   const fx = (plane: EffectLayer) => effectsSvg(scene.effects, plane, frame.t, w.wind ?? 0, W, H);
   const fires = fireLights(scene.effects, frame.t, H);
   let world = `<g class='scene'>${scene.svg}</g>` + fx('stage') + sky.stage;
