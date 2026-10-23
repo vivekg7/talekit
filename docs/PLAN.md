@@ -614,6 +614,20 @@ one style with real shapes, using downloaded art as reference only.
   project's font, so existing films render exactly as before. Bundling one
   font for everything was the alternative; it would change every film's
   look for a problem only Hindi has.
+- Picking up and putting down. The sticks film had the brothers' bundles
+  arrive in their hands from nowhere, then vanish at the next cut. Both
+  were the directing agent's staging mistakes, but for the first it had no
+  better choice: `attach` could only snap a prop to a hand. `pickup` and
+  `putdown`, given on the prop with `attach`, make the carrier stoop
+  (knees bent, back over, near arm down to the floor in front; a
+  four-legged animal puts its head down) and take or leave the prop at the
+  bottom; the prop eases from where it lay into the hand, so nothing jumps.
+  Any attach during a shot now eases the same way, which makes a hand-to-
+  hand pass travel instead of teleport; one from further off than the
+  carrier's height still snaps, as that reads as a cut. The validator now
+  says where to stand when the hand would come down too far from the prop,
+  and warns when someone ends a shot carrying something and starts the next
+  without it, which is the mistake that made the sticks vanish.
 
 ### 7.8 Audio (last, on purpose)
 

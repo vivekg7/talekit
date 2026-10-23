@@ -72,7 +72,8 @@ page follows the project directory, so the agent's edits appear as it works.
   stage shortcuts `left/center/right/offLeft/offRight`.
 - **Shot** — one scene, a cast with starting positions, and a list of timed
   actions: `walk`, `run`, `fly`, `jump`, `wave`, `point`, `nod`, `shake`,
-  `sit`, `bounce`, `spin`, `appear`, `disappear`, `say` (speech / thought /
+  `sit`, `bounce`, `spin`, `appear`, `disappear`, `pickup` / `putdown`
+  (stoop to take or leave a prop on the floor), `say` (speech / thought /
   shout bubble, drives the mouth; listeners look at the speaker on their
   own), `emotion`, `attach` (carry a prop), `caption` (narration or title
   card), `camera` (zoom and pan), `set`. A shot can `crossfade` in from the

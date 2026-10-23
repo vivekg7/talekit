@@ -364,7 +364,7 @@ export function buildServer(): McpServer {
     {
       title: 'Write shot',
       description:
-        'Validate and save a shot (shots/<NN>-<id>.json; `order` sets NN and therefore playback order). Cross-checks cast, anchors, face variants, who a line is spoken `to`, who carries what (`attach`) and whether a `crossfade` has a shot to dissolve from, and warns when two actors speak at once. Listeners look at the speaker on their own; do not stage looks. Returns a contact sheet of evenly spaced frames so you can check staging, timing and bubbles.',
+        'Validate and save a shot (shots/<NN>-<id>.json; `order` sets NN and therefore playback order). Cross-checks cast, anchors, face variants, who a line is spoken `to`, who carries what (`attach`; a `pickup` the carrier cannot reach says where to stand) and whether a `crossfade` has a shot to dissolve from, and warns when two actors speak at once. The project check also warns when someone ends a shot carrying a prop and starts the next empty-handed. Listeners look at the speaker on their own; do not stage looks. Returns a contact sheet of evenly spaced frames so you can check staging, timing and bubbles.',
       inputSchema: {
         path: pathArg,
         shot: ShotSchema,

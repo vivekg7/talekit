@@ -1,7 +1,7 @@
 import { clamp01, easeInOut, easeOut, hash01, lerp, ramp } from './easing.js';
 import { holdPoint, poseFor } from './actor.js';
 import type { Travel } from './gait.js';
-import { isMoveVerb, JUMP, SPEED, VERB_DURATION, type Locomotion } from './motion.js';
+import { isMoveVerb, JUMP, SPEED, STOOP, VERB_DURATION, type Locomotion } from './motion.js';
 import { RIGS } from './rigs.js';
 import type {
   Action,
@@ -234,12 +234,34 @@ const LOOK_TIME = 0.35;
 /** How deep holders and look targets are resolved: a prop's carrier, a listener's speaker. */
 const MAX_DEPTH = 2;
 
+/** A prop taken from the floor or set down on it: the carrier stoops to do it. */
+const isStoop = (a: Action): boolean => a.do === 'pickup' || a.do === 'putdown';
+
+/**
+ * When an `attach` takes effect: at once, or for a pickup or putdown when the stooping
+ * hand reaches the floor.
+ */
+export const attachTime = (a: Action): number =>
+  isStoop(a) ? a.t + STOOP.grab * actionDuration(a) : a.t;
+
+/** Seconds a prop taken up (from the floor, or from another hand) takes to reach the hand. */
+const LIFT_TIME = 0.35;
+/** Seconds a prop let go at the bottom of a putdown takes to settle where it goes. */
+const SETTLE_TIME = 0.25;
+
 /** Who is carrying `prop` at time t, if anyone. */
-function holderAt(shot: Shot, prop: string, t: number): string | undefined {
+export function holderAt(shot: Shot, prop: string, t: number): string | undefined {
   let holder: string | undefined;
   for (const a of shot.actions)
-    if (a.actor === prop && a.attach !== undefined && a.t <= t) holder = a.attach || undefined;
+    if (a.actor === prop && a.attach !== undefined && attachTime(a) <= t)
+      holder = a.attach || undefined;
   return holder;
+}
+
+/** Who stoops for a pickup or putdown: the one taking the prop, or the one holding it. */
+export function stooper(shot: Shot, a: Action): string | undefined {
+  if (!a.actor || !isStoop(a)) return undefined;
+  return a.do === 'pickup' ? a.attach || undefined : holderAt(shot, a.actor, a.t);
 }
 
 /**
@@ -302,6 +324,8 @@ export function resolveActor(
   let turnAt = -Infinity;
   let turnFrom: Facing = facing;
   let holder: string | undefined;
+  /** Taken up mid-shot: how far it was from the hand that took it, when it did. */
+  let lift: { at: number; dx: number; dy: number } | undefined;
   let takeAt = -Infinity;
   let move: Move | undefined;
   let locoStart = 0;
@@ -345,15 +369,40 @@ export function resolveActor(
     if (move) point = movePoint(move, a.t);
 
     // Let go before `set`, so a `set.at` in the same action puts the prop down there.
-    if (a.attach !== undefined) {
-      if (a.attach) holder = a.attach;
-      else if (holder && depth < MAX_DEPTH) {
+    // A pickup takes hold, and a putdown lets go, only once the stooping hand is down.
+    const at = attachTime(a);
+    if (a.attach !== undefined && at <= t) {
+      if (a.attach) {
+        // Taken mid-shot, it travels from where it was (on the floor, in another hand) into
+        // the hand, rather than jumping to it.
+        if (at > 0 && depth < MAX_DEPTH) {
+          const from = holder
+            ? heldPoint(project, scene, shot, character, scale, holder, at - 1e-6, depth).point
+            : point;
+          const held = heldPoint(project, scene, shot, character, scale, a.attach, at, depth);
+          const dx = from.x - held.point.x;
+          const dy = from.y - held.point.y;
+          // From across the stage it would fly: that is a cut in all but name, so it jumps.
+          const far = Math.hypot(dx, dy) > project.characters[a.attach].height;
+          lift = a.do === 'pickup' || !far ? { at, dx, dy } : undefined;
+        } else lift = undefined;
+        holder = a.attach;
+      } else if (holder && depth < MAX_DEPTH) {
         // Let go: it stays where the hand was just before (the arm relaxes after).
-        const before = Math.max(0, a.t - 1e-6);
+        const before = Math.max(0, at - 1e-6);
         point = heldPoint(project, scene, shot, character, scale, holder, before, depth).point;
+        if (a.do === 'putdown') {
+          // Set down from the low hand: onto `to`, or the floor the carrier stands on.
+          const carrier = resolveActor(project, scene, shot, holder, at, depth + 1);
+          const to = a.to
+            ? resolvePosition(project, scene, a.to)
+            : { x: point.x, y: carrier.y, scale: carrier.perspective };
+          move = { verb: 'move', from: point, to, t0: at, t1: at + SETTLE_TIME, rest: at };
+        }
         holder = undefined;
+        lift = undefined;
       } else holder = undefined;
-      move = undefined;
+      if (a.do !== 'putdown') move = undefined;
     }
     if (a.set) {
       if (a.set.at) {
@@ -383,7 +432,8 @@ export function resolveActor(
       }
     }
 
-    if (a.do) {
+    // A pickup or putdown is the carrier's stoop, not something the prop does.
+    if (a.do && !isStoop(a)) {
       const verb = a.do;
       if (isMoveVerb(verb)) {
         const to = a.to ? resolvePosition(project, scene, a.to) : point;
@@ -439,6 +489,13 @@ export function resolveActor(
     }
   }
 
+  // Stooping for a prop someone else's action names: taking it up or setting it down.
+  for (const a of shot.actions) {
+    if (a.t > t || stooper(shot, a) !== id) continue;
+    const d = actionDuration(a);
+    if (t < a.t + d) verbs.push({ verb: a.do!, u: (t - a.t) / d });
+  }
+
   let travel: Travel | undefined;
   if (move) {
     point = movePoint(move, t);
@@ -470,6 +527,10 @@ export function resolveActor(
   if (heldBy) {
     const held = heldPoint(project, scene, shot, character, scale, heldBy, t, depth);
     point = held.point;
+    if (lift && t < lift.at + LIFT_TIME) {
+      const k = 1 - easeInOut((t - lift.at) / LIFT_TIME);
+      point = { ...point, x: point.x + lift.dx * k, y: point.y + lift.dy * k };
+    }
     facing = held.facing;
     turn = held.turn;
     locomotion = 'idle';

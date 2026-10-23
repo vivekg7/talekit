@@ -4,7 +4,7 @@ import { RIGS } from '../src/engine/rigs.js';
 import { resolveFrame, type ActorState } from '../src/engine/timeline.js';
 import { CharacterSchema, ShotSchema, type Project } from '../src/engine/types.js';
 import { LIBRARY } from '../src/library/index.js';
-import { validateShot } from '../src/project/validate.js';
+import { validateProject, validateShot } from '../src/project/validate.js';
 
 const LANTERN = CharacterSchema.parse({
   id: 'lantern',
@@ -141,6 +141,93 @@ describe('carrying', () => {
     // A listener in the cast is not a position, so it is not checked against the anchors.
     const ok = project(cast, [{ t: 1, actor: 'kid', say: 'Hi', to: 'lantern' }]);
     expect(validateShot(ok.shots[0], ok)).toEqual([]);
+  });
+});
+
+describe('picking up and putting down', () => {
+  const cast = {
+    kid: { at: { x: 300, y: 640 }, facing: 'right' },
+    grownup: { at: { x: 470, y: 640 }, facing: 'left' },
+    lantern: { at: { x: 360, y: 640 } },
+  };
+  const hand = (p: Project, id: string, t: number) => {
+    const a = at(p, id, t);
+    return holdPoint(a, poseFor(a, t));
+  };
+
+  it('stoops, takes the prop from where it lies and rises with it', () => {
+    const p = project(cast, [{ t: 1, actor: 'lantern', attach: 'kid', do: 'pickup' }]);
+    // Lying there until the hand is down, halfway through the stoop.
+    expect([at(p, 'lantern', 1.5).x, at(p, 'lantern', 1.5).y]).toEqual([360, 640]);
+    expect(at(p, 'lantern', 1.5).heldBy).toBeUndefined();
+    expect(at(p, 'kid', 1.3).verbs.map((v) => v.verb)).toEqual(['pickup']);
+    expect(hand(p, 'kid', 1.6).y).toBeGreaterThan(hand(p, 'kid', 0.5).y + 30);
+    // Taken where it lay: no jump at the grab.
+    const before = at(p, 'lantern', 1.599);
+    const after = at(p, 'lantern', 1.601);
+    expect(Math.hypot(after.x - before.x, after.y - before.y)).toBeLessThan(2);
+    expect(after.heldBy).toBe('kid');
+    // Settled in the hand once the stoop is over.
+    const p0 = at(p, 'lantern', 3);
+    const h = hand(p, 'kid', 3);
+    expect(p0.y).toBeLessThan(640);
+    expect(Math.abs(p0.x - h.x)).toBeLessThan(15);
+    expect(validateShot(p.shots[0], p)).toEqual([]);
+  });
+
+  it('sets the prop down where `to` says, from the low hand', () => {
+    const p = project(cast, [
+      { t: 0, actor: 'lantern', attach: 'kid' },
+      { t: 1, actor: 'lantern', attach: false, do: 'putdown', to: { x: 380, y: 650 } },
+    ]);
+    expect(at(p, 'lantern', 1.5).heldBy).toBe('kid');
+    const l = at(p, 'lantern', 2.5);
+    expect([l.x, l.y, l.heldBy]).toEqual([380, 650, undefined]);
+    expect(at(p, 'kid', 2.5).holding).toBe(false);
+  });
+
+  it('passes a prop from hand to hand without a jump', () => {
+    const p = project(cast, [
+      { t: 0, actor: 'lantern', attach: 'kid' },
+      { t: 2, actor: 'lantern', attach: 'grownup' },
+    ]);
+    const a = at(p, 'lantern', 1.999);
+    const b = at(p, 'lantern', 2.001);
+    expect(Math.hypot(b.x - a.x, b.y - a.y)).toBeLessThan(3);
+    const h = hand(p, 'grownup', 3);
+    expect(Math.abs(at(p, 'lantern', 3).x - h.x)).toBeLessThan(15);
+  });
+
+  it('checks a pickup has a carrier, and says where to stand when it is out of reach', () => {
+    const p = project({ ...cast, lantern: { at: { x: 900, y: 640 } } }, [
+      { t: 1, actor: 'lantern', do: 'pickup' },
+      { t: 2, actor: 'lantern', attach: 'kid', do: 'pickup' },
+      { t: 5, actor: 'lantern', attach: 'kid', do: 'putdown' },
+    ]);
+    const messages = validateShot(p.shots[0], p)
+      .map((m) => m.message)
+      .join('\n');
+    expect(messages).toMatch(/pickup needs attach/);
+    expect(messages).toMatch(/putdown needs attach: false/);
+    expect(messages).toMatch(
+      /'kid' reaches down \d+px from where 'lantern' lies; stand them at x ≈ 8\d\d/
+    );
+  });
+
+  it('warns when a carried prop vanishes at a cut', () => {
+    const p = project(cast, [{ t: 0, actor: 'lantern', attach: 'kid' }]);
+    const next = ShotSchema.parse({ id: 't', scene: 'park', duration: 5, cast: { kid: cast.kid } });
+    const messages = validateProject({ ...p, shots: [p.shots[0], next] }).map((m) => m.message);
+    expect(messages.join('\n')).toMatch(
+      /'kid' ends 's' carrying 'lantern' but starts 't' empty-handed/
+    );
+    const carried = ShotSchema.parse({
+      ...next,
+      cast: cast,
+      actions: [{ t: 0, actor: 'lantern', attach: 'kid' }],
+    });
+    const ok = validateProject({ ...p, shots: [p.shots[0], carried] }).map((m) => m.message);
+    expect(ok.join('\n')).not.toMatch(/empty-handed/);
   });
 });
 

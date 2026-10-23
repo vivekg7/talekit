@@ -92,7 +92,23 @@ export const VERB_DURATION: Partial<Record<Verb, number>> = {
   spin: 0.8,
   appear: 0.4,
   disappear: 0.4,
+  pickup: 1.2,
+  putdown: 1.2,
 };
+
+/**
+ * A stoop to the floor (`pickup`, `putdown`): down over the first part, a beat at the
+ * bottom, back up. `grab` is the share of the action at which the hand is down: where a
+ * pickup takes hold of the prop and a putdown lets go of it.
+ */
+export const STOOP = { down: 0.42, grab: 0.5, up: 0.58 };
+
+/** How far down a stoop is at progress u: 0 standing, 1 with the hand at the floor. */
+export function stoopDepth(u: number): number {
+  if (u < STOOP.down) return easeInOut(u / STOOP.down);
+  if (u < STOOP.up) return 1;
+  return 1 - easeInOut((u - STOOP.up) / (1 - STOOP.up));
+}
 
 /** Resting face for an emotion, in order of preference per part. */
 export const EMOTION_FACE: Record<Emotion, Record<string, string[]>> = {
@@ -399,6 +415,16 @@ function quadrupedVerb(pose: Pose, verb: Verb, u: number): boolean {
       add('tail', 30 * l);
       return true;
     }
+    case 'pickup':
+    case 'putdown': {
+      // The head goes down to the floor in front, where the mouth takes or leaves it.
+      const k = stoopDepth(u);
+      add('body', 6 * k);
+      add('head', 44 * k);
+      nudge(pose, 'head', 6 * k, 14 * k);
+      add('tail', -10 * k);
+      return true;
+    }
     default:
       return false;
   }
@@ -502,6 +528,28 @@ export function applyVerb(rig: Rig, pose: Pose, verb: Verb, u: number, seat = 0)
       const land = 1 - k;
       pose.sy *= 1 - 0.1 * land * land;
       pose.sx *= 1 + 0.08 * land * land;
+      break;
+    }
+    case 'pickup':
+    case 'putdown': {
+      // A stoop: the knees bend with the feet planted, the back leans over from the hips and
+      // the near arm hangs down from the shoulder to the floor in front, where the hand
+      // takes the prop or leaves it; the head keeps half an eye on it.
+      const k = stoopDepth(u);
+      if (humanoid) {
+        pose.dy += 58 * k;
+        pose.rot.torso = (pose.rot.torso ?? 0) + 44 * k;
+        pose.rot.head = (pose.rot.head ?? 0) - 16 * k;
+        pose.rot.armR = mix(pose.rot.armR ?? 0, -54, k);
+        pose.bend.armR = mix(pose.bend.armR ?? 0, -6, k);
+        pose.rot.armL = mix(pose.rot.armL ?? 0, -34, k);
+        pose.bend.armL = mix(pose.bend.armL ?? 0, -30, k);
+        plantFeet(rig, pose, ['legL', 'legR']);
+      } else {
+        pose.rot.body = (pose.rot.body ?? 0) + 22 * k;
+        pose.dx += 8 * k;
+        pose.sy *= 1 - 0.08 * k;
+      }
       break;
     }
     case 'spin':

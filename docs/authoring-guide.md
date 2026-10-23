@@ -554,6 +554,7 @@ and foreground objects a character touches (a bench, a well, a door) get a
 | `lie`                 | persistent: sits, then lies back on the floor (four legs: on the belly)    | 1.3s ease        |
 | `bounce`, `spin`      | squashy hop / full rotation (best on the simple rig)                       | 1s / 0.8s        |
 | `appear`, `disappear` | pop in past full size and settle / swell a touch and shrink away           | 0.4s             |
+| `pickup`, `putdown`   | on a prop, with `attach`: its carrier stoops to the floor for it (below)   | 1.2s             |
 
 Walking speed is about 220 px/s, so crossing the frame takes 4–5 seconds;
 `run` is about 420 px/s, `fly` 260, `move` 300. Set `duration` to override any
@@ -595,7 +596,26 @@ faces and is drawn just in front of them; its own moves are ignored. To put
 it down, `{ "t": 7.5, "actor": "lantern", "attach": false, "do": "move", "to":
 "pedestal-top" }`: it is let go where the hand is, and the `move` in the same
 action carries on from there; a `set: { "at": … }` in the same action puts it
-down there at once instead. Give the prop a `grip`, the point in its own box
+down there at once instead. A prop that lies on the floor is taken up with a stoop: `{ "t": 5, "actor":
+"basket", "attach": "pip", "do": "pickup" }` bends the carrier's knees and
+back and brings the near hand (an animal's mouth) down to the floor in front;
+the hand closes on the prop halfway through and it rises with the hand.
+Stand the carrier facing the prop with it about a third of their height in
+front of their feet (a 240 px person: 75 px); the validator says where to
+stand when the hand would come down too far from it. `{ "t": 9, "actor":
+"basket", "attach": false, "do": "putdown", "to": "table-end" }` is the
+reverse: the carrier stoops and lets go at the bottom, and the prop settles
+on `to` (without one, on the floor under the hand). Attaching a prop that is
+already in someone else's hand passes it over: it travels from one hand to
+the other. A prop never jumps to a hand within reach; one attached from far
+across the stage (more than the carrier's height away) is taken at once.
+
+Carrying holds across cuts only if you stage it: whoever ends a shot
+carrying something should start the next one with it, cast and attached at
+`t: 0`, or put it down before the cut (the validator warns). Something that
+appears in a hand from nowhere (`attach` with `appear`) is magic; when it
+came from somewhere, lay it on the floor and pick it up. Give the prop a
+`grip`, the point in its own box
 the hand holds (`[100, 22]` for a lantern's handle, the end of a balloon's
 string); without one it is held at its middle. The construction sheet marks a
 character's `hold` point and a prop's `grip`. Carry one thing at a time, and
@@ -686,6 +706,9 @@ to look, so set `facing` so that people who talk face each other.
   construction warnings included.
 - Every shot's contact sheet looks staged: nobody floating, nobody clipped,
   right people facing each other, the right actor in front.
+- Props are continuous: what is carried at the end of a shot is in hand at
+  the start of the next, nothing is taken that was not lying there, and a
+  prop put down stays down in the shots that follow in the same place.
 - Total duration matches what was asked for: a short fable is 60–120 s, a
   full picture-book story 5–10 minutes.
 - The film sheet returned by `render` shows every shot the way you intended.

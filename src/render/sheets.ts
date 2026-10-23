@@ -101,6 +101,7 @@ export function characterSheetSvg(character: Character): string {
     make('jump: crouch', withVerb('jump', 0.1)),
     make('jump', withVerb('jump', 0.5)),
     make('tremble', withVerb('tremble', 0.3)),
+    { ...make('pickup', withVerb('pickup', 0.5)), zoom: 0.8, shift: 30 },
     ...(rig.name === 'humanoid'
       ? [
           // On a seat as high as a shin, the dashed line, with the floor below it.

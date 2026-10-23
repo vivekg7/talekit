@@ -2,7 +2,14 @@ import { missingColorTokens } from '../engine/svg.js';
 import { lintCharacter } from './construction.js';
 import { effectLayer } from '../engine/effects.js';
 import { RIGS } from '../engine/rigs.js';
-import { sayDuration, STAGE_SHORTCUTS } from '../engine/timeline.js';
+import { holdPoint, poseFor } from '../engine/actor.js';
+import {
+  attachTime,
+  holderAt,
+  resolveActor,
+  sayDuration,
+  STAGE_SHORTCUTS,
+} from '../engine/timeline.js';
 import type { Character, Effect, Project, Scene, Shot, Weather } from '../engine/types.js';
 
 export interface Problem {
@@ -246,7 +253,26 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
           message: `attach: '${a.attach}' is itself carried in this shot; carry one thing at a time`,
         });
     }
-    if (a.attach && a.do && a.do !== 'appear' && a.do !== 'disappear')
+    if (a.do === 'pickup' && !a.attach)
+      out.push({
+        level: 'error',
+        where: w,
+        message: `pickup needs attach: the id of who picks '${a.actor}' up`,
+      });
+    if (a.do === 'putdown' && a.attach !== false)
+      out.push({
+        level: 'error',
+        where: w,
+        message: `putdown needs attach: false (the carrier sets '${a.actor}' down)`,
+      });
+    if (
+      a.attach &&
+      a.do &&
+      a.do !== 'appear' &&
+      a.do !== 'disappear' &&
+      a.do !== 'pickup' &&
+      a.do !== 'putdown'
+    )
       out.push({
         level: 'warning',
         where: w,
@@ -262,7 +288,11 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
         where: w,
         message: `starts at or after the shot ends (${shot.duration}s)`,
       });
-    if (a.to && a.do && !['walk', 'run', 'move', 'fly', 'jump', 'sit', 'lie'].includes(a.do))
+    if (
+      a.to &&
+      a.do &&
+      !['walk', 'run', 'move', 'fly', 'jump', 'sit', 'lie', 'putdown'].includes(a.do)
+    )
       out.push({ level: 'warning', where: w, message: `'to' is ignored for '${a.do}'` });
     if (a.face && a.actor && shot.cast[a.actor] && project.characters[a.actor]) {
       const parts = project.characters[a.actor].parts;
@@ -299,8 +329,69 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
         message: `'${cur.actor}' starts speaking at ${cur.from}s while '${clash.actor}' is still talking until ${clash.to.toFixed(1)}s; the bubbles will overlap`,
       });
   }
+  out.push(...pickupReach(shot, project));
   if (shot.actions.length === 0 && Object.keys(shot.cast).length === 0)
     out.push({ level: 'warning', where, message: 'empty shot: no cast and no actions' });
+  return out;
+}
+
+/**
+ * A pickup the hand cannot reach: where the stooping carrier's hand comes down, against
+ * where the prop's grip lies. The engine eases the prop into the hand whatever the gap,
+ * but a wide one shows as the prop sliding across the floor to it.
+ */
+function pickupReach(shot: Shot, project: Project): Problem[] {
+  const out: Problem[] = [];
+  const scene = project.scenes[shot.scene];
+  shot.actions.forEach((a, i) => {
+    if (a.do !== 'pickup' || !a.attach || !a.actor) return;
+    if (!shot.cast[a.attach] || !shot.cast[a.actor]) return;
+    if (!project.characters[a.attach] || !project.characters[a.actor]) return;
+    const at = attachTime(a);
+    const carrier = resolveActor(project, scene, shot, a.attach, at);
+    const prop = resolveActor(project, scene, shot, a.actor, at - 1e-3);
+    const hand = holdPoint(carrier, poseFor(carrier, at));
+    const rig = RIGS[prop.character.rig];
+    const k = (prop.character.height / rig.height) * prop.scale;
+    const [gx, gy] = prop.character.grip ?? [rig.width / 2, rig.height / 2];
+    const side = prop.facing === 'left' ? -1 : 1;
+    const grip = { x: prop.x + k * side * (gx - rig.width / 2), y: prop.y + k * (gy - rig.height) };
+    const gap = Math.hypot(grip.x - hand.x, grip.y - hand.y);
+    if (gap > 0.25 * carrier.character.height * carrier.scale) {
+      const x = Math.round(carrier.x + grip.x - hand.x);
+      out.push({
+        level: 'warning',
+        where: `shot '${shot.id}' action[${i}] (t=${a.t})`,
+        message: `'${a.attach}' reaches down ${Math.round(gap)}px from where '${a.actor}' lies; stand them at x ≈ ${x}, facing it, before the pickup`,
+      });
+    }
+  });
+  return out;
+}
+
+/**
+ * Continuity between shots: whoever ends a shot carrying something should start the next
+ * one with it in hand, or the audience sees it vanish at the cut.
+ */
+function carriedAcrossCuts(project: Project): Problem[] {
+  const out: Problem[] = [];
+  for (let i = 1; i < project.shots.length; i++) {
+    const [prev, next] = [project.shots[i - 1], project.shots[i]];
+    for (const prop of Object.keys(prev.cast)) {
+      const carrier = holderAt(prev, prop, prev.duration);
+      if (!carrier || !next.cast[carrier]) continue;
+      const scene = project.scenes[prev.scene];
+      if (!scene || !project.characters[prop] || !project.characters[carrier]) continue;
+      if (!resolveActor(project, scene, prev, prop, prev.duration).visible) continue;
+      const held = Object.keys(next.cast).some((p) => holderAt(next, p, 0) === carrier);
+      if (!held)
+        out.push({
+          level: 'warning',
+          where: `shot '${next.id}'`,
+          message: `'${carrier}' ends '${prev.id}' carrying '${prop}' but starts '${next.id}' empty-handed; cast it and attach it at t 0, or put it down in '${prev.id}'`,
+        });
+    }
+  }
   return out;
 }
 
@@ -310,6 +401,7 @@ export function validateProject(project: Project): Problem[] {
   for (const s of Object.values(project.scenes))
     out.push(...validateScene(s, project.meta.width, project.meta.height));
   for (const shot of project.shots) out.push(...validateShot(shot, project));
+  if (!hasErrors(out)) out.push(...carriedAcrossCuts(project));
   if (project.shots.length === 0)
     out.push({ level: 'warning', where: 'project', message: 'no shots yet' });
   return out;

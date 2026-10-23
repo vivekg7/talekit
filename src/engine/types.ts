@@ -361,6 +361,8 @@ export const VerbSchema = z.enum([
   'spin',
   'appear',
   'disappear',
+  'pickup',
+  'putdown',
 ]);
 export type Verb = z.infer<typeof VerbSchema>;
 
@@ -400,7 +402,7 @@ export const ActionSchema = z
      * with no `do`, the id of the actor being spoken to.
      */
     to: PositionSchema.optional().describe(
-      'walk/run/move/fly/jump/sit/lie: where to (anchor, stage shortcut or {x, y}). On a say without do: the id of the actor spoken to, when the engine would guess wrong'
+      'walk/run/move/fly/jump/sit/lie/putdown: where to (anchor, stage shortcut or {x, y}). On a say without do: the id of the actor spoken to, when the engine would guess wrong'
     ),
     /** Dialogue shown in a bubble above the actor's head; also animates the mouth. */
     say: z.string().optional(),
@@ -430,7 +432,7 @@ export const ActionSchema = z
       .union([IdSchema, z.literal(false)])
       .optional()
       .describe(
-        "Carry this actor (a prop): the id of the carrier, whose near hand (or a four-legged animal's mouth) holds it at the prop's grip; false lets go, leaving it where it is"
+        "Carry this actor (a prop): the id of the carrier, whose near hand (or a four-legged animal's mouth) holds it at the prop's grip; false lets go, leaving it where it is. With do: 'pickup' the carrier stoops and takes it from where it lies; with attach false and do: 'putdown' the carrier stoops and sets it down (at `to`, else on the floor under the hand)"
       ),
     /** The weather changes, over `duration`, to this. */
     weather: WeatherSchema.optional().describe(
