@@ -626,7 +626,7 @@ export function buildServer(): McpServer {
     {
       title: 'Render video',
       description:
-        'Render the whole movie (or one shot) to an H.264 mp4 in <project>/out/. Validation errors block rendering. A minute of 720p takes about half a minute. Returns a film sheet: one frame from the middle of each rendered shot, so you can confirm the cut without opening the file.',
+        'Render the whole movie (or one shot) to an H.264 mp4 in <project>/out/. Validation errors block rendering. A minute of 720p takes about ten seconds. Returns a film sheet: one frame from the middle of each rendered shot, so you can confirm the cut without opening the file.',
       inputSchema: { path: pathArg, shotId: z.string().optional() },
     },
     async ({ path: root, shotId }) => {
