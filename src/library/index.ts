@@ -15,6 +15,9 @@ import { BIRD } from './bird.js';
 import { PARK } from './park.js';
 import { HOME } from './home.js';
 import { STREET } from './street.js';
+import { JUNGLE } from './jungle.js';
+import { CAVE } from './cave.js';
+import { HUT } from './hut.js';
 
 export const LIBRARY: { characters: Record<string, Character>; scenes: Record<string, Scene> } = {
   characters: Object.fromEntries(
@@ -23,7 +26,9 @@ export const LIBRARY: { characters: Record<string, Character>; scenes: Record<st
       CharacterSchema.parse(c),
     ])
   ),
-  scenes: Object.fromEntries([PARK, HOME, STREET].map((s) => [s.id, SceneSchema.parse(s)])),
+  scenes: Object.fromEntries(
+    [PARK, HOME, STREET, JUNGLE, CAVE, HUT].map((s) => [s.id, SceneSchema.parse(s)])
+  ),
 };
 
 /**

@@ -8,11 +8,13 @@ import { z } from 'zod';
 import { composeFrame } from '../engine/compose.js';
 import { movieDuration, STAGE_SHORTCUTS } from '../engine/timeline.js';
 import {
+  AnchorSchema,
   CharacterSchema,
   SceneSchema,
   ShotSchema,
   type Character,
   type Project,
+  type Scene,
   type Shot,
 } from '../engine/types.js';
 import { LIBRARY, nameFromId } from '../library/index.js';
@@ -68,6 +70,23 @@ const characterReport = (c: Character, problems: Problem[]): string => {
   );
 };
 const fail = (message: string) => ({ content: [text(message)], isError: true as const });
+
+/** A layer longer than this was painted by a generator, not written: tens of thousands of
+ * tokens of path data that teach nothing a hand-drawn scene does not. */
+const LONG_ART = 8000;
+
+/** A library item as get_library_item shows it: painted scene layers left out. */
+function libraryItemForReading(item: Character | Scene): object {
+  if ('rig' in item) return item;
+  const out: Record<string, unknown> = { ...item };
+  for (const k of ['far', 'svg', 'foreground', 'near'] as const) {
+    const v = item[k];
+    if (v && v.length > LONG_ART)
+      out[k] =
+        `(${v.length} characters of painted SVG, left out; copy_from_library uses it as it is)`;
+  }
+  return out;
+}
 
 function guidePath(): string {
   const here = path.dirname(fileURLToPath(import.meta.url));
@@ -252,7 +271,7 @@ export function buildServer(): McpServer {
     {
       title: 'Get library item JSON',
       description:
-        'The full JSON of a built-in character or scene without copying it into the project. Read a character on the rig you are about to draw (`kid` for the humanoid, `dog` for the quadruped, `bird` for the simple rig) to see how its parts and variants are laid out, then write your own with write_character.',
+        'The full JSON of a built-in character or scene without copying it into the project. Read a character on the rig you are about to draw (`kid` for the humanoid, `dog` for the quadruped, `bird` for the simple rig) to see how its parts and variants are laid out, then write your own with write_character. A painted scene (jungle, cave, hut) comes back without its long SVG layers: copy it instead, and its anchor sheet shows the picture.',
       inputSchema: { libraryId: z.string() },
     },
     async ({ libraryId }) => {
@@ -261,7 +280,7 @@ export function buildServer(): McpServer {
         return fail(
           `no library item '${libraryId}'; available: ${[...Object.keys(LIBRARY.characters), ...Object.keys(LIBRARY.scenes)].join(', ')}`
         );
-      return ok(text(JSON.stringify(item, null, 2)));
+      return ok(text(JSON.stringify(libraryItemForReading(item), null, 2)));
     }
   );
 
@@ -270,7 +289,7 @@ export function buildServer(): McpServer {
     {
       title: 'Copy from library',
       description:
-        'Copy a built-in character or scene into the project under a new id, optionally overriding colour tokens and the display name. Returns the pose sheet (a library drawing already passes construction, so no construction sheet), or the anchor sheet.',
+        'Copy a built-in character or scene into the project under a new id, optionally overriding colour tokens and the display name, or adding anchors to a scene. Returns the pose sheet (a library drawing already passes construction, so no construction sheet), or the anchor sheet.',
       inputSchema: {
         path: pathArg,
         libraryId: z.string(),
@@ -289,9 +308,15 @@ export function buildServer(): McpServer {
           .optional()
           .describe('Colour token overrides, e.g. { "hair": "#f4d35e" }'),
         height: z.number().positive().optional().describe('On-screen height override in pixels'),
+        anchors: z
+          .record(z.string(), AnchorSchema)
+          .optional()
+          .describe(
+            'Scene only: anchors added to the copy, or replacing one of the same name, e.g. { "well": { "x": 400, "y": 652 } }; the rest of the scene is copied as it is'
+          ),
       },
     },
-    async ({ path: root, libraryId, asId, name, colors, height }) => {
+    async ({ path: root, libraryId, asId, name, colors, height, anchors }) => {
       try {
         const c = LIBRARY.characters[libraryId];
         if (c) {
@@ -310,10 +335,20 @@ export function buildServer(): McpServer {
         }
         const s = LIBRARY.scenes[libraryId];
         if (s) {
-          const scene = SceneSchema.parse({ ...s, id: asId ?? s.id, name: name ?? s.name });
-          const file = await saveScene(root, scene);
+          const scene = SceneSchema.parse({
+            ...s,
+            id: asId ?? s.id,
+            name: name ?? s.name,
+            anchors: { ...s.anchors, ...(anchors ?? {}) },
+          });
           const project = await loadProject(root);
-          return ok(text(`wrote ${file}`), image(sceneSheetSvg(project, scene)));
+          const problems = validateScene(scene, project.meta.width, project.meta.height);
+          if (hasErrors(problems)) return fail(formatProblems(problems));
+          const file = await saveScene(root, scene);
+          return ok(
+            text(`wrote ${file}\n${formatProblems(problems)}`),
+            image(sceneSheetSvg(project, scene))
+          );
         }
         return fail(`no library item '${libraryId}'`);
       } catch (e) {

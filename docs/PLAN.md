@@ -88,7 +88,14 @@ actions }`. Cast places characters at anchors. Actions are
 - [x] **Phase 3 — Library + example.** Built-in characters (kid, grown-up,
       dog) and scenes (park, home, street) drawn by hand as quality bar and as
       copy-and-recolour starting points. A one-minute example story that
-      doubles as the integration test.
+      doubles as the integration test. Jungle, cave and village hut came
+      later (2026-10-23), taken from the painted scenes of the Hindi films:
+      the lion-and-mouse agent spent about a tenth of a $6.6 run reading
+      older films' scene generators because the library had no forest, and
+      painting its own. They are seeded-generator output, 90 to 180 KB of
+      SVG each, so `get_library_item` leaves their long layers out (copying
+      is the way to use them) and `copy_from_library` takes `anchors`, so a
+      story's own places are added without writing the scene out again.
 - [x] **Phase 4 — MCP server.** `get_guide`, `create_project`, `project_info`,
       `get_item`, `list_library`, `get_library_item`, `copy_from_library`, `write_character`,
       `write_scene`, `write_shot`, `patch_shot`, `delete_item`,

@@ -98,9 +98,9 @@ my-story/
 | `get_guide`                | the authoring guide (read first)                                        |
 | `create_project`           | a new project directory                                                 |
 | `project_info`             | characters, scenes, shots, validation problems, open review notes       |
-| `list_library`             | built-in characters (kid, grownup, eight animals, a bird) and scenes    |
+| `list_library`             | built-in characters and scenes (park, home, street, jungle, cave, hut)  |
 | `get_library_item`         | the JSON of a built-in, to learn a rig's layout before drawing          |
-| `copy_from_library`        | copies a built-in under a new id / name / colours, returns its sheet    |
+| `copy_from_library`        | copies a built-in with a new id, name, colours or anchors; its sheet    |
 | `write_character`          | validates, saves, returns a **pose sheet** and a **construction sheet** |
 | `write_scene`              | validates, saves, returns the scene with **anchors marked**             |
 | `write_shot`               | validates cross references, saves, returns a **contact sheet**          |

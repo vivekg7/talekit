@@ -103,6 +103,10 @@ describe('layers', () => {
     expect(validateScene(tinted, W, H)).toEqual([]);
     expect(validateScene(SceneSchema.parse(LIBRARY.scenes.park), W, H)).toEqual([]);
   });
+
+  it.each(Object.keys(LIBRARY.scenes))('passes library scene %s without a warning', (id) => {
+    expect(validateScene(LIBRARY.scenes[id], W, H)).toEqual([]);
+  });
 });
 
 describe('ground shadows', () => {

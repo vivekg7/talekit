@@ -28,7 +28,11 @@ colors)` (colour tokens: hair, skin, dress, shirt…); without `name` the
    `write_character` shows the construction sheet as for any new drawing.
 4. **Scenes.** `copy_from_library` or `write_scene(path, scene)`. Look at the
    anchor sheet: every place a character will stand or sit needs an anchor on
-   the floor.
+   the floor. The library's jungle, cave and village hut are painted in
+   detail; when the story happens in one, copy it and add the places the
+   story needs with `anchors` (`{ "well": { "x": 420, "y": 660 } }`, which
+   also moves an anchor of the same name) instead of painting a new scene or
+   writing it out again.
 5. **Shots.** `write_shot(path, shot, order)` one at a time, in order. Study
    the contact sheet: are people where you expect, facing each other, bubbles
    readable, timing sensible? Use `preview_frame(path, shotId, t)` for an
