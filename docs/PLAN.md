@@ -49,8 +49,8 @@ engine (pure TypeScript, no I/O)
    │
    ▼
 render
-   raster.ts     SVG -> PNG via @resvg/resvg-js (no browser needed)
-   video.ts      PNG stream -> mp4 via system ffmpeg
+   raster.ts     SVG -> pixels via @resvg/resvg-js (no browser needed)
+   video.ts      frames drawn on worker threads (frame-worker.ts), raw RGBA -> mp4 via system ffmpeg
    sheets.ts     character pose sheet, scene anchor sheet, shot contact sheet
    │
    ▼
@@ -657,11 +657,46 @@ one style with real shapes, using downloaded art as reference only.
 - Only after 7.1 to 7.6, because sound makes a silent film feel finished and
   would hide what still looks wrong.
 
+## Render speed
+
+Measured 2026-10-23 on a 12-core M-series Mac, on the race film (273 s, scenery
+painted by an agent at 100 to 200 KB of SVG) and lost-kite (61 s, English
+bubbles):
+
+- Most of a frame went on fonts, not drawing. resvg reads every system font
+  whenever it is handed SVG with fonts on, about 75 ms a frame against 15 to
+  35 ms of drawing, and it was on for every frame. Now each `<text>` element
+  is laid out once by resvg itself (`Resvg.toString()` gives back the paths
+  it would draw) and frames carry those paths and render with no fonts.
+  Films with no Latin text come out byte-identical; on a Latin text frame
+  a few edge pixels move by a step or two of 255 (coordinate rounding),
+  which nobody can see. Text that takes its look from around it, or sits
+  under a `<style>`, is left as text and still loads the fonts.
+- Frames were composed one at a time on the main thread and rasterised four
+  at a time on libuv's pool. Now a pool of worker threads (all cores but two,
+  up to 8; the encoder needs the rest) each composes and rasterises whole
+  frames, and the main thread only puts them in order for ffmpeg.
+- Frames go to ffmpeg as raw RGBA rather than PNG: no packing on our side,
+  no unpacking on ffmpeg's. Every frame is opaque, so the encoder sees the
+  same pixels either way.
+- resvg's frames live outside the JS heap behind small wrappers, so V8 saw
+  little memory in use, seldom collected, and a worker kept every frame it
+  drew (6 GB in a few minutes of film). Each worker now draws one frame per
+  turn and runs a young-generation collection after it, which holds a
+  render to under 1 GB.
+
+Result: the race film went from 262 s to 39 s wall (byte-identical mp4), and
+lost-kite from 41 s to 10 s with half the CPU time. What is left is drawing
+itself: on the race film about 27 of 38 ms a frame is the scenery, which does
+not change in most shots, so drawing it once per shot and laying the actors
+over it is the next step if long films need to be faster. On lost-kite the
+scenery is 5 of 16 ms, so there the actors dominate and caching would gain
+little.
+
 ## Later (deliberately not now)
 
 - A run with a non-Claude agent, and more MCP ergonomics: cheap, and best
   done once phase 7 has changed what the tools return.
 - More emotions and eyebrows; image-model generated backgrounds as a layer.
-- Parallel rasterisation across worker threads for long films.
 - Bundled font for identical output across machines (currently system fonts
   for Latin text; Devanagari is bundled, see 7.7).

@@ -19,7 +19,8 @@ reasoning are in `docs/PLAN.md`. Read both before changing the data model.
 - `src/project/` — load/save/validate a project directory; `construction.ts`
   is the character linter (rasterises parts, checks box, feet, joints);
   `notes.ts` is the review-note store shared by the viewer and the MCP.
-- `src/render/` — resvg rasteriser, ffmpeg encoder, preview sheets.
+- `src/render/` — resvg rasteriser, ffmpeg encoder (frames drawn on worker
+  threads, `frame-worker.ts`), preview sheets.
 - `src/library/` — built-in characters and scenes (TypeScript modules holding
   SVG). They are the quality bar and the templates agents copy.
 - `src/mcp/server.ts`, `src/cli.ts`, `src/viewer/` — thin interfaces over

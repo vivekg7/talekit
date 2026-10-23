@@ -5,7 +5,7 @@ import { resolveFrame } from '../src/engine/timeline.js';
 import { CharacterSchema, SceneSchema, ShotSchema, type Project } from '../src/engine/types.js';
 import { LIBRARY, nameFromId } from '../src/library/index.js';
 import { validateCharacter, validateShot } from '../src/project/validate.js';
-import { rasterize } from '../src/render/raster.js';
+import { outlineText, rasterize } from '../src/render/raster.js';
 import { characterSheetSvg, filmSheetSvg } from '../src/render/sheets.js';
 import { poseFor } from '../src/engine/actor.js';
 import { applyVerb, basePose, faceFallbacks } from '../src/engine/motion.js';
@@ -342,5 +342,27 @@ describe('compose + raster', () => {
     expect(svg).toContain("class='bubble'");
     const png = rasterize(svg);
     expect(png.subarray(0, 4)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+  });
+});
+
+describe('text set as outlines', () => {
+  const frame = (body: string) =>
+    `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='60'>${body}</svg>`;
+  const line = `<text x='100' y='40' text-anchor='middle' font-family='sans-serif' font-size='24' fill='#1a1a1a'>Hi there</text>`;
+
+  it('replaces self-styled text with the paths resvg draws for it', () => {
+    const out = outlineText(frame(line));
+    expect(out).not.toContain('<text');
+    expect(out).toContain('<path');
+    // The same line twice is the same outline twice.
+    const body = out.slice(frame('').length - '</svg>'.length, -'</svg>'.length);
+    expect(outlineText(frame(line + line))).toBe(frame(body + body));
+  });
+
+  it('leaves text that inherits its look, or sits under a stylesheet', () => {
+    const bare = `<g fill='red'><text x='10' y='40' font-size='24'>Hi</text></g>`;
+    expect(outlineText(frame(bare))).toContain('<text');
+    const styled = `<style>text { fill: red }</style>${line}`;
+    expect(outlineText(frame(styled))).toContain('<text');
   });
 });

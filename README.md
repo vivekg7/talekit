@@ -129,9 +129,9 @@ talekit serve <dir>                  talekit mcp
   with `gait.ts` fitting the leg cycle to the distance covered so feet do
   not slide and `springs.ts` swinging tails and ears behind the motion;
   `actor.ts` and `compose.ts` emit SVG; `bubble.ts` wraps and places text.
-- `src/render` rasterises with `@resvg/resvg-js` and streams PNGs into
-  `ffmpeg` (libx264, yuv420p). A minute of 720p renders in about half a
-  minute on an M-series Mac.
+- `src/render` rasterises with `@resvg/resvg-js` on a pool of worker
+  threads and streams raw frames into `ffmpeg` (libx264, yuv420p). A minute
+  of 720p renders in about ten seconds on an M-series Mac.
 - `src/render/sheets.ts` builds the preview images the MCP returns.
 - `src/engine/outline.ts` draws the house outline under every part;
   `src/project/construction.ts` is the construction linter behind
