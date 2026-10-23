@@ -58,6 +58,19 @@ const image = (svg: string, width?: number): Content => ({
   data: rasterize(svg, width).toString('base64'),
   mimeType: 'image/png',
 });
+/**
+ * The picture a write returns, drawn smaller than the sheet itself: a picture costs tokens in
+ * proportion to its area, and comes back on every write. These widths were checked by eye
+ * to keep faces, poses and Devanagari bubbles readable; preview_shot and preview_frame stay
+ * at full size for a closer look.
+ */
+const SHOT_SHEET = 1000;
+const POSE_SHEET = 1200;
+const SCENE_SHEET = 1000;
+const reduced = (svg: string, width: number): Content => {
+  const own = Number(svg.match(/^<svg[^>]*\swidth='([\d.]+)'/)?.[1]);
+  return image(svg, own > width ? width : undefined);
+};
 const ok = (...content: Content[]) => ({ content });
 /** Validation text plus which emotions will not get the face variant they prefer. */
 const characterReport = (c: Character, problems: Problem[]): string => {
@@ -330,7 +343,7 @@ export function buildServer(): McpServer {
           const file = await saveCharacter(root, character);
           return ok(
             text(`wrote ${file}\n${characterReport(character, validateCharacter(character))}`),
-            image(characterSheetSvg(character))
+            reduced(characterSheetSvg(character), POSE_SHEET)
           );
         }
         const s = LIBRARY.scenes[libraryId];
@@ -347,7 +360,7 @@ export function buildServer(): McpServer {
           const file = await saveScene(root, scene);
           return ok(
             text(`wrote ${file}\n${formatProblems(problems)}`),
-            image(sceneSheetSvg(project, scene))
+            reduced(sceneSheetSvg(project, scene), SCENE_SHEET)
           );
         }
         return fail(`no library item '${libraryId}'`);
@@ -372,7 +385,7 @@ export function buildServer(): McpServer {
         const file = await saveCharacter(root, character);
         return ok(
           text(`wrote ${file}\n${characterReport(character, problems)}`),
-          image(characterSheetSvg(character)),
+          reduced(characterSheetSvg(character), POSE_SHEET),
           image(constructionSheetSvg(character))
         );
       } catch (e) {
@@ -397,7 +410,7 @@ export function buildServer(): McpServer {
         const file = await saveScene(root, scene);
         return ok(
           text(`wrote ${file}\n${formatProblems(problems)}`),
-          image(sceneSheetSvg(project, scene))
+          reduced(sceneSheetSvg(project, scene), SCENE_SHEET)
         );
       } catch (e) {
         return fail((e as Error).message);
@@ -410,7 +423,7 @@ export function buildServer(): McpServer {
     {
       title: 'Write shot',
       description:
-        'Validate and save a shot (shots/<NN>-<id>.json; `order` sets NN and therefore playback order). Cross-checks cast, anchors, face variants, who a line is spoken `to`, who carries what (`attach`; a `pickup` the carrier cannot reach says where to stand) and whether a `crossfade` has a shot to dissolve from, and warns when two actors speak at once. The project check also warns when someone ends a shot carrying a prop and starts the next empty-handed. Listeners look at the speaker on their own; do not stage looks. Returns a contact sheet of evenly spaced frames so you can check staging, timing and bubbles.',
+        'Validate and save a shot (shots/<NN>-<id>.json; `order` sets NN and therefore playback order). Cross-checks cast, anchors, face variants, who a line is spoken `to`, who carries what (`attach`; a `pickup` the carrier cannot reach says where to stand) and whether a `crossfade` has a shot to dissolve from, and warns when two actors speak at once. The project check also warns when someone ends a shot carrying a prop and starts the next empty-handed. Listeners look at the speaker on their own; do not stage looks. Returns a contact sheet of evenly spaced frames so you can check staging, timing and bubbles; it is drawn smaller than preview_shot draws it, so use that when a detail is hard to make out.',
       inputSchema: {
         path: pathArg,
         shot: ShotSchema,
@@ -439,7 +452,7 @@ export function buildServer(): McpServer {
         const saved = fresh.shots.find((s) => s.id === shot.id)!;
         return ok(
           text(`wrote ${file}\n${formatProblems(problems)}`),
-          image(contactSheetSvg(fresh, saved, frames ?? 6))
+          reduced(contactSheetSvg(fresh, saved, frames ?? 6), SHOT_SHEET)
         );
       } catch (e) {
         return fail((e as Error).message);
@@ -518,7 +531,7 @@ export function buildServer(): McpServer {
                 ? ''
                 : `\n\nSheet: ${from.toFixed(2)}s to ${to.toFixed(2)}s of ${saved.duration}s`)
           ),
-          image(contactSheetSvg(fresh, saved, frames ?? (whole ? 6 : 4), 2, from, to))
+          reduced(contactSheetSvg(fresh, saved, frames ?? (whole ? 6 : 4), 2, from, to), SHOT_SHEET)
         );
       } catch (e) {
         return fail((e as Error).message);
@@ -585,7 +598,8 @@ export function buildServer(): McpServer {
     'preview_shot',
     {
       title: 'Preview a shot',
-      description: 'Contact sheet of evenly spaced frames from a shot (default 6, up to 12).',
+      description:
+        'Contact sheet of evenly spaced frames from a shot (default 6, up to 12), at full size: the closer look at a sheet that write_shot or patch_shot returned smaller.',
       inputSchema: {
         path: pathArg,
         shotId: z.string(),

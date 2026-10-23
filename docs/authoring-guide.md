@@ -36,7 +36,9 @@ colors)` (colour tokens: hair, skin, dress, shirt…); without `name` the
 5. **Shots.** `write_shot(path, shot, order)` one at a time, in order. Study
    the contact sheet: are people where you expect, facing each other, bubbles
    readable, timing sensible? Use `preview_frame(path, shotId, t)` for an
-   exact moment and `preview_shot(path, shotId, frames)` for more frames.
+   exact moment and `preview_shot(path, shotId, frames)` for more frames. The
+   sheets a write returns are drawn smaller to save tokens; `preview_shot` and
+   `preview_frame` are full size, for when a face or a line is hard to read.
    To fix a written shot, `patch_shot(path, shotId, …)` rather than writing
    it all again: `edit` merges fields into an action by its index (`{ index:
 3, fields: { t: 4.5 } }`; null removes a field), `remove` takes actions

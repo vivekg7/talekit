@@ -105,6 +105,14 @@ actions }`. Cast places characters at anchors. Actions are
       shots to move one line, or wrote their own Python patchers to avoid
       it. It edits, removes and adds actions by index and returns a sheet of
       only the stretch that changed, at the usual cell size.
+      The same day the pictures a write returns were drawn smaller. A
+      picture costs about width × height / 750 tokens, sheets were 18% of a
+      film agent's input, and every write returns one. Shot and scene sheets
+      now come back 1000 px wide (a shot sheet 2.0k → 1.2k tokens), the pose
+      sheet 1200 px (3.8k → 2.1k); those widths were checked by eye against
+      Devanagari bubbles and the smallest faces. The construction sheet,
+      whose labels are small, and `preview_shot` / `preview_frame`, the
+      closer look, stay full size.
 - [x] **Phase 5 — Viewer.** `talekit serve` with a shot picker and scrubber.
       Grown into a review app after the clever-rabbit run: the person could
       not see the assets, could not point at a moment, and had no channel
