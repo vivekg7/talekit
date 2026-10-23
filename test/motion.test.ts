@@ -7,7 +7,7 @@ import { applyVerb, emptyPose, resolveFace } from '../src/engine/motion.js';
 import { RIGS } from '../src/engine/rigs.js';
 import { applySprings } from '../src/engine/springs.js';
 import { resolveFrame, type ActorState } from '../src/engine/timeline.js';
-import { ShotSchema, type Project } from '../src/engine/types.js';
+import { SceneSchema, ShotSchema, type Project } from '../src/engine/types.js';
 import { LIBRARY } from '../src/library/index.js';
 
 function project(actions: unknown[], cast: Record<string, unknown> = {}): Project {
@@ -175,5 +175,49 @@ describe('weight and follow-through', () => {
     }
     expect(doubles).toBeGreaterThan(2);
     expect(doubles).toBeLessThan(runs);
+  });
+});
+
+describe('knees', () => {
+  const seated = (actions: unknown[], cast: Record<string, unknown>) => {
+    const p = project(actions, cast);
+    const park = SceneSchema.parse(LIBRARY.scenes.park);
+    // A low stool: a kid's feet reach the floor from it.
+    park.anchors.stool = { x: 600, y: 610, scale: 1, floor: 640 };
+    return { ...p, scenes: { park } };
+  };
+  const feetY = (a: ActorState, t: number) => Object.values(worldFeet(a, t)).map(([, y]) => y);
+
+  it('sits on the ground with bent knees and the feet on it all the way down', () => {
+    const p = project([{ t: 1, actor: 'kid', do: 'sit' }]);
+    for (const t of [1.05, 1.15, 1.25, 1.35, 2])
+      for (const y of feetY(actorAt(p, 'kid', t), t)) expect(Math.abs(y - 640)).toBeLessThan(1.5);
+    const sat = actorAt(p, 'kid', 2);
+    expect(sat.seat).toBe(0);
+    expect(poseFor(sat, 2).bend.legR).toBeGreaterThan(20);
+  });
+
+  it("puts the feet on the floor under a seat: the anchor's floor, else where it stood", () => {
+    const p = seated([{ t: 0, actor: 'kid', do: 'sit', to: 'stool' }], { kid: { at: 'stool' } });
+    const a = actorAt(p, 'kid', 1);
+    expect(a.seat).toBe(30);
+    for (const y of feetY(a, 1)) expect(Math.abs(y - 640)).toBeLessThan(1.5);
+    // Sat down onto a seat with no floor given: the floor is where the kid stood.
+    const box = project([{ t: 0, actor: 'kid', do: 'sit', to: { x: 300, y: 600 } }], {
+      kid: { at: { x: 280, y: 640 } },
+    });
+    expect(actorAt(box, 'kid', 1).seat).toBe(40);
+  });
+
+  it('draws a bent leg as one shape: both outlines before either fill', () => {
+    const p = project([{ t: 1, actor: 'kid', do: 'sit' }]);
+    expect(composeFrame(p, p.shots[0], 0.5)).not.toContain('tk-knee');
+    const svg = composeFrame(p, p.shots[0], 2);
+    const leg = svg.slice(svg.indexOf("class='part-legR'"));
+    const at = (k: string) => leg.indexOf(`url(#tk-knee-kid-legR-${k})`);
+    expect(at('ul')).toBeGreaterThan(-1);
+    expect(at('ul')).toBeLessThan(at('ll'));
+    expect(at('ll')).toBeLessThan(at('uf'));
+    expect(at('uf')).toBeLessThan(at('lf'));
   });
 });

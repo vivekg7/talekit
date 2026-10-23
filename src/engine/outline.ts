@@ -168,3 +168,17 @@ export function outlineFor(svg: string, color: string, width: number): string {
   }
   return hit;
 }
+
+/**
+ * Width of the thickest stroke in a part: a leg drawn as one round-capped stroke, as the
+ * guide asks, is that wide. 0 when the part has no stroke.
+ */
+export function limbWidth(svg: string): number {
+  let w = 0;
+  for (const m of svg.matchAll(/<[a-zA-Z]+\b([^>]*?)\/?>/g)) {
+    const a = parseAttrs(m[1]);
+    if (a.stroke && a.stroke !== 'none' && a['stroke-width'])
+      w = Math.max(w, Number(a['stroke-width']));
+  }
+  return w;
+}

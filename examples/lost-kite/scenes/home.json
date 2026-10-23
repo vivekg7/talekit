@@ -28,7 +28,8 @@
     "sofa-seat": {
       "x": 310,
       "y": 566,
-      "scale": 1
+      "scale": 1,
+      "floor": 650
     }
   }
 }

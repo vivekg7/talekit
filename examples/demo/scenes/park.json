@@ -29,7 +29,8 @@
     "bench-seat": {
       "x": 1010,
       "y": 604,
-      "scale": 1
+      "scale": 1,
+      "floor": 655
     }
   }
 }

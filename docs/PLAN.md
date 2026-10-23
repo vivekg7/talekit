@@ -379,6 +379,22 @@ before audio, and they turned up these fixes:
   the chest. Now the head's outline goes down with the body's (`Rig.fuse`),
   so the neck grows out of the shoulders. A person's chin keeps its line
   against the chest.
+- No leg had a knee, so a sitting girl's legs stuck out stiff below the
+  seat, and a sitting bear's or a sleeping deer's hind legs poked forward
+  like sticks. Every rig now has knee points (`Rig.knees`) and a pose bends
+  a leg there (`Pose.bend`). The composer cuts the leg across the knee with
+  a disc the width of the leg on each half and turns the lower half, so the
+  joint is round with no gap, and draws both outlines before either fill,
+  so no line crosses it. Doing it in the engine rather than adding a shin
+  part means every leg already drawn as one straight stroke bends, with no
+  art to redo. `sit` folds the legs from how high the hips are at each
+  moment, so the feet stay on the floor all the way down. A person needs to
+  know how far below the seat the floor is: an anchor's `floor` says, else
+  it is where the actor stood before sitting onto the seat, and sitting
+  where one stands is on the ground, legs out with the knees up a little.
+  The bottom of the torso, not the hips, now rests on the seat, so a skirt
+  no longer sinks into the bench. Walking and the jump's crouch still use
+  rigid legs.
 
 ### 7.6 Audio (last, on purpose)
 

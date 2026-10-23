@@ -32,6 +32,9 @@ describe('quadruped motion', () => {
       applyVerb(QUADRUPED, pose, 'sit', k);
       for (const leg of ['legFL', 'legFR'])
         expect(Math.abs(foot(pose, leg)[1] - 200)).toBeLessThan(k === 1 ? 4 : 0.01);
+      // The hind legs bend at the knee to keep their paws on the floor as the rump drops.
+      for (const leg of ['legBL', 'legBR'])
+        expect(Math.abs(foot(pose, leg)[1] - 200)).toBeLessThan(1);
     }
     // Sat, the hind legs fold forward along the floor instead of standing.
     const pose = emptyPose();

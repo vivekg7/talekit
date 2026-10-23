@@ -55,6 +55,8 @@ export interface ActorState {
   turn?: { from: Facing; u: number };
   /** 0 standing, 1 sat; in between while sitting down or getting up. */
   sit: number;
+  /** How far below the seat (the actor's point) the floor is, scene pixels: 0 on the ground. */
+  seat: number;
   /** The anchor's perspective scale under the actor (already folded into `scale`). */
   perspective: number;
   /** Carried by this actor (`attach`), and whether this actor is carrying something. */
@@ -114,6 +116,17 @@ export function resolvePosition(project: Project, scene: Scene, pos: Position): 
     default:
       throw new Error(`unknown position '${pos}' in scene '${scene.id}'`);
   }
+}
+
+/**
+ * How far below a seat the floor is: what the seat's anchor says (`floor`), else where the
+ * actor stood before sitting down onto it; sitting down where it stands is on the ground.
+ */
+function seatHeight(scene: Scene, from: Point, at: Point): number {
+  for (const a of Object.values(scene.anchors))
+    if (a.floor !== undefined && Math.abs(a.x - at.x) < 1 && Math.abs(a.y - at.y) < 1)
+      return Math.max(0, a.floor - a.y);
+  return Math.max(0, from.y - at.y);
 }
 
 export function sayDuration(text: string): number {
@@ -251,6 +264,7 @@ export function resolveActor(
   let emotion: Emotion = cast.emotion;
   let face: Record<string, string> = {};
   let sitting = false;
+  let seat = 0;
   let sitAt = -Infinity;
   let sitFrom = 0;
   let turnAt = -Infinity;
@@ -333,10 +347,12 @@ export function resolveActor(
         if (verb === 'jump' && t < a.t + d) verbs.push({ verb, u: (t - a.t) / d });
         sitTo(false, a.t);
       } else if (verb === 'sit') {
+        const from = point;
         if (a.to) {
           point = resolvePosition(project, scene, a.to);
           move = undefined;
         }
+        if (!sitting) seat = seatHeight(scene, from, point);
         sitTo(true, a.t);
       } else if (verb === 'stand') {
         sitTo(false, a.t);
@@ -403,6 +419,7 @@ export function resolveActor(
     travel,
     turn,
     sit: sitAmount(t),
+    seat,
     perspective: point.scale,
     heldBy,
     holding,

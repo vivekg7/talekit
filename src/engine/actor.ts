@@ -1,7 +1,7 @@
 import { toRoot } from './gait.js';
 import { applyTake, applyVerb, basePose, resolveFace, type Pose } from './motion.js';
 import { rigPart, RIGS, type Rig } from './rigs.js';
-import { DEFAULT_LINE_COLOR, OUTLINE_PX, outlineFor } from './outline.js';
+import { DEFAULT_LINE_COLOR, limbWidth, OUTLINE_PX, outlineFor } from './outline.js';
 import { applyColors, n } from './svg.js';
 import type { ActorState } from './timeline.js';
 import type { Character, Facing } from './types.js';
@@ -15,7 +15,9 @@ export function poseFor(actor: ActorState, t: number): Pose {
   const sat = actor.sit > 0;
   const loco = sat ? 'idle' : actor.locomotion;
   const pose = basePose(rig, loco, actor.locoT, actor.phase, actor.travel);
-  if (sat) applyVerb(rig, pose, 'sit', actor.sit);
+  // The floor under the seat, in the character's own units.
+  const seat = actor.seat / ((actor.character.height / rig.height) * actor.scale);
+  if (sat) applyVerb(rig, pose, 'sit', actor.sit, seat);
   // Carrying: the near arm hangs a little forward and swings less, under the weight.
   if (actor.holding && rig.name === 'humanoid') pose.rot.armR = 0.35 * (pose.rot.armR ?? 0) - 12;
   const head = rig.name === 'simple' ? 'body' : 'head';
@@ -67,6 +69,35 @@ function transformChain(rig: Rig, pose: Pose, name: string): string {
   return out.trim();
 }
 
+/**
+ * A leg bent at the knee: the part drawn twice, cut across the knee, the lower half turned
+ * by `bend`. Each half keeps a disc as wide as the leg round the knee, so the turn opens no
+ * gap and the joint is round; both outlines go down before either fill, so no line crosses
+ * where the halves meet and the leg reads as one shape.
+ */
+function bentLeg(
+  id: string,
+  knee: [number, number],
+  bend: number,
+  svg: string,
+  under: string,
+  line: number
+): string {
+  const [kx, ky] = knee;
+  // A leg drawn as a filled shape has no stroke to measure: assume a typical one.
+  const r = limbWidth(svg) / 2 || 9;
+  const clip = (key: string, lower: boolean, radius: number) =>
+    `<clipPath id='${id}-${key}'><rect x='-1000' y='${lower ? ky : -1000}' width='3000' height='${lower ? 2000 : ky + 1000}'/><circle cx='${kx}' cy='${ky}' r='${n(radius)}'/></clipPath>`;
+  const half = (key: string, inner: string) => `<g clip-path='url(#${id}-${key})'>${inner}</g>`;
+  const turned = (inner: string) => `<g transform='rotate(${n(bend)} ${kx} ${ky})'>${inner}</g>`;
+  return (
+    `<defs>${clip('ul', false, r + line)}${clip('ll', true, r + line)}${clip('uf', false, r)}${clip('lf', true, r)}</defs>` +
+    (under ? half('ul', under) + turned(half('ll', under)) : '') +
+    half('uf', svg) +
+    turned(half('lf', svg))
+  );
+}
+
 /** Draw the character's parts in canonical coordinates with the given pose. */
 export function characterBody(character: Character, pose: Pose): string {
   const rig = RIGS[character.rig];
@@ -95,7 +126,13 @@ export function characterBody(character: Character, pose: Pose): string {
     for (const f of drawn)
       if (f.under && rig.fuse[f.name] === d.name) out += group(`${f.name}-line`, f.tf, f.under);
     const fused = rig.fuse[d.name] && joined.has(rig.fuse[d.name]);
-    out += group(d.name, d.tf, (fused ? '' : d.under) + d.svg);
+    const knee = rig.knees[d.name];
+    const bend = pose.bend[d.name];
+    const inner =
+      knee && bend
+        ? bentLeg(`tk-knee-${character.id}-${d.name}`, knee, bend, d.svg, d.under, width)
+        : (fused ? '' : d.under) + d.svg;
+    out += group(d.name, d.tf, inner);
   }
   let body = out;
   if (pose.spin) {

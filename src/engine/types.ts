@@ -72,6 +72,12 @@ export const AnchorSchema = z.object({
   y: z.number(),
   /** Perspective multiplier applied to the character's scale when standing here. */
   scale: z.number().positive().default(1),
+  floor: z
+    .number()
+    .optional()
+    .describe(
+      'On a seat anchor (y on the seat surface): the y of the floor under it, so a character sat there bends its knees to put its feet on the floor. Without it, sitting down onto a seat from where the actor stood uses that spot as the floor, and sitting where it stands is sitting on the ground'
+    ),
 });
 export type Anchor = z.infer<typeof AnchorSchema>;
 

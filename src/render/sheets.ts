@@ -29,6 +29,8 @@ interface Cell {
   pose: Pose;
   /** Vertical shift of the feet line, for poses that hang below it (sit). */
   lift?: number;
+  /** Horizontal shift back, for poses that reach forward out of the cell (legs out). */
+  shift?: number;
 }
 
 /** Every pose the engine can put a character in, so the agent sees the whole range at once. */
@@ -51,11 +53,12 @@ export function characterSheetSvg(character: Character): string {
     (
       verb: Parameters<typeof applyVerb>[2],
       u: number,
-      loco: Parameters<typeof basePose>[1] = 'idle'
+      loco: Parameters<typeof basePose>[1] = 'idle',
+      seat = 0
     ) =>
     () => {
       const p = base(loco, 0);
-      applyVerb(rig, p, verb, u);
+      applyVerb(rig, p, verb, u, seat);
       return p;
     };
   // Label an emotion cell with any part that could not give the variant it wanted, so a
@@ -88,7 +91,11 @@ export function characterSheetSvg(character: Character): string {
     make('jump', withVerb('jump', 0.5)),
     make('tremble', withVerb('tremble', 0.3)),
     ...(rig.name === 'humanoid'
-      ? [{ ...make('sit', withVerb('sit', 1)), lift: 70 }]
+      ? [
+          // On a seat as high as a shin, the dashed line, with the floor below it.
+          { ...make('sit', withVerb('sit', 1, 'idle', 70)), lift: 70 },
+          { ...make('sit: ground', withVerb('sit', 1)), shift: 55 },
+        ]
       : quad
         ? [make('sit', withVerb('sit', 1))]
         : [make('bounce', withVerb('bounce', 0.25))]),
@@ -135,24 +142,12 @@ export function characterSheetSvg(character: Character): string {
     const feetY = cy + 110 + rig.height - (cell.lift ?? 0);
     out += `<rect x='${cx + 8}' y='${cy + 8}' width='${cellW - 16}' height='${cellH - 16}' rx='10' fill='#fff' stroke='#cfd6dd'/>`;
     out += `<line x1='${cx + 20}' y1='${feetY}' x2='${cx + cellW - 20}' y2='${feetY}' stroke='#bbb' stroke-dasharray='4 4'/>`;
+    if (cell.lift)
+      out += `<line x1='${cx + 20}' y1='${feetY + cell.lift}' x2='${cx + cellW - 20}' y2='${feetY + cell.lift}' stroke='#bbb'/>`;
     const body = characterBody(character, cell.pose);
-    if (shadow)
-      out += shadowSvg(
-        character,
-        cell.pose,
-        cx + cellW / 2,
-        feetY,
-        rig.height / character.height,
-        1
-      );
-    out += placeCharacter(
-      character,
-      body,
-      cx + cellW / 2,
-      feetY,
-      rig.height / character.height,
-      'right'
-    );
+    const x = cx + cellW / 2 - (cell.shift ?? 0);
+    if (shadow) out += shadowSvg(character, cell.pose, x, feetY, rig.height / character.height, 1);
+    out += placeCharacter(character, body, x, feetY, rig.height / character.height, 'right');
     out += `<text x='${cx + cellW / 2}' y='${cy + cellH - 22}' text-anchor='middle' font-family='${LABEL_FONT}' font-size='${cell.label.length > 18 ? 12 : 16}' fill='#555'>${escapeXml(cell.label)}</text>`;
   });
   return out + '</svg>';

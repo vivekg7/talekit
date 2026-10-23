@@ -105,6 +105,8 @@ const rotate = ([x, y]: Pt, deg: number, [cx, cy]: Pt): Pt => {
 /** A point drawn in `part`'s coordinates, carried through the pose to the root (before dx, dy). */
 export function toRoot(rig: Rig, pose: Pose, part: string, point: Pt): Pt {
   let p = point;
+  const knee = rig.knees[part];
+  if (knee && pose.bend[part] && point[1] > knee[1]) p = rotate(p, pose.bend[part], knee);
   const seen = new Set<string>();
   for (let cur: string | undefined = part; cur && !seen.has(cur); cur = rigPart(rig, cur).parent) {
     seen.add(cur);
@@ -205,6 +207,7 @@ function legsAt(rig: Rig, pl: Plan, phase: number): Legs {
 function feetY(rig: Rig, legs: Legs): Record<string, number> {
   const p: Pose = {
     rot: { ...legs.rot, body: legs.body },
+    bend: {},
     off: {},
     dx: 0,
     dy: 0,

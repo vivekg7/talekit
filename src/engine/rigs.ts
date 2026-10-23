@@ -43,6 +43,12 @@ export interface Rig {
    * of being stuck on in front of them. Keyed by the part, valued by the one it joins.
    */
   fuse: Record<string, string>;
+  /**
+   * Where each leg bends, in the leg's own coordinates: a point on the line the leg hangs
+   * along. The composer cuts a bent leg here with a round joint and turns the lower half
+   * (`Pose.bend`), so every leg drawn as one straight stroke gets a knee for free.
+   */
+  knees: Record<string, [number, number]>;
 }
 
 /**
@@ -83,6 +89,8 @@ export const HUMANOID: Rig = {
   shadow: 130,
   // The chin keeps its line against the chest: a person's head sits in front of the body.
   fuse: {},
+  // Halfway from the hip to the top of the shoe.
+  knees: { legL: [86, 330], legR: [114, 330] },
 };
 
 /**
@@ -109,6 +117,7 @@ export const SIMPLE: Rig = {
   hold: { part: 'body', point: [150, 110] },
   shadow: 120,
   fuse: {},
+  knees: {},
 };
 
 /**
@@ -158,6 +167,13 @@ export const QUADRUPED: Rig = {
   shadow: 200,
   // The head is drawn with its neck, which sinks into the shoulders.
   fuse: { head: 'body' },
+  // Stifle on the hind legs, elbow on the front ones: halfway down.
+  knees: {
+    legBL: [66, 166],
+    legFL: [178, 166],
+    legBR: [82, 166],
+    legFR: [194, 166],
+  },
 };
 
 export const RIGS: Record<RigName, Rig> = {

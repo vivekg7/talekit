@@ -55,6 +55,7 @@ anchor (the feet point).
  y 170 ─┼─ SHOULDERS: armL pivot (76,170), armR pivot (124,170)
         │   torso: shoulders → hips (x 60..140)
  y 272 ─┼─ HIPS: legL pivot (86,272), legR pivot (114,272)
+ y 330 ─┼─ KNEES: (86,330), (114,330); legs bend here to sit
         │   legs hang straight down, feet/shoes at y 384..400
  y 400 ─┴─ FEET LINE (anchor point is (100,400))
 ```
@@ -73,6 +74,10 @@ Rules that make the rig work:
 - Arms and legs are easiest as a `<path d='M76 170 L70 284' stroke='{skin}'
 stroke-width='18' stroke-linecap='round' fill='none'/>` plus a hand circle
   and a shoe shape at the end.
+- **Legs bend at the knee** when the character sits: the engine cuts the leg
+  across y=330 and turns the lower half, with a round joint as wide as the
+  leg's stroke. So draw each leg as one straight stroke down from its pivot,
+  as above, and keep the shoe and any sock below the knee.
 - `eyes` and `mouth` rotate with the head. Give them variants (below).
 - `torso` is required. Put the neck in the torso, reaching at least 12
   units up into the head, and end the torso at least 12 units below the hips
@@ -96,6 +101,7 @@ fox and mouse: copy and recolour one when you can, and read
         │   body: rump x≈42 … chest x≈212, y≈90 … 152; turns about the hips (72,132)
  y 132 ─┼─ HIPS: legBL (66,132), legBR (82,132)
         │  SHOULDERS: legFL (178,132), legFR (194,132)
+ y 166 ─┼─ KNEES: halfway down each leg, at its pivot's x
         │   legs hang straight down
  y 200 ─┴─ FEET LINE (anchor point is (130,200))
 ```
@@ -114,7 +120,8 @@ stroke-linecap='round' fill='none'/>`) with a paw or hoof shape at the
   bottom reaching y=200. The body must cover every pivot by at least 12
   units, so give it a deep chest and rump; a leg can be short and mostly
   hidden (a rabbit, a mouse), but it starts at its pivot. Far legs a shade
-  darker than near ones.
+  darker than near ones. A sitting animal's hind legs bend at the knee
+  (y=166), so keep each leg one straight stroke and the paw below the knee.
 - **Head** includes the neck: a thick stroke from inside the chest up to the
   head, so a nod lowers the whole neck. The head's outline is drawn with the
   body's, so no line crosses where the neck sinks into the chest and the head
@@ -130,8 +137,9 @@ stroke-linecap='round' fill='none'/>`) with a paw or hoof shape at the
 The engine walks it in diagonal pairs (near front with far hind), with the
 feet planted while they are down, the head bobbing against the step and the
 tail swinging; `run` is a gallop between a gathered pose and a stretched
-one; `sit` tips the body back about the hips, folds the hind legs and keeps
-the front paws planted on the way down; `wave` and `point` lift the near
+one; `sit` tips the body back about the hips, bends the hind legs at the
+knee with the paws on the floor and keeps the front paws planted on the way
+down; `wave` and `point` lift the near
 front paw; `jump` gathers on bent legs, then leaps stretched out. The tail
 and ears are springs by default (see below). `height`
 is the box height on screen: about 55 for a mouse, 90–110 for a cat or dog,
@@ -279,8 +287,13 @@ anchor shrinks characters that stand further back (`0.7` for a distant path).
 at 1280, so anything up to about 350 px wide starts fully hidden; for wider
 characters use an explicit point further out).
 
-Seating: `sit` puts the **hips** on the anchor, so a seat anchor goes on the
-seat surface (e.g. `"bench-seat": { "x": 1010, "y": 604 }`), not on the floor.
+Seating: `sit` puts the **bottom of the body** (just under the hips) on the
+anchor, so a seat anchor goes on the seat surface, not on the floor. Give it
+`floor`, the y of the floor under the seat, and a person sat there bends
+their knees to put their feet on it (e.g. `"bench-seat": { "x": 1010, "y":
+604, "floor": 655 }`). Without `floor`, sitting onto a seat from where the
+actor stood takes that spot as the floor, and sitting where it stands is
+sitting on the ground: legs out, knees up a little.
 
 Keep anchors that two people use at the same time at least a character's
 width apart (about 150 px, more if one stands further back at a smaller
@@ -381,7 +394,7 @@ and foreground objects a character touches (a bench, a well, a door) get a
 | `wave`, `point`       | near arm (or front paw) up and waving / pointing (simple rig: lean toward) | 1.5s             |
 | `nod`, `shake`        | head yes / no                                                              | 0.8s             |
 | `tremble`             | frightened shiver (head and shoulders, or the whole simple body)           | 1.2s             |
-| `sit` / `stand`       | persistent: hips on `to` (a seat anchor), or four legs sit on the floor    | 0.4s ease        |
+| `sit` / `stand`       | persistent: seat on `to` (a seat anchor), knees bent; four legs sit down   | 0.4s ease        |
 | `bounce`, `spin`      | squashy hop / full rotation (best on the simple rig)                       | 1s / 0.8s        |
 | `appear`, `disappear` | pop in past full size and settle / swell a touch and shrink away           | 0.4s             |
 
