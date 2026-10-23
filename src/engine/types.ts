@@ -188,7 +188,7 @@ export const WeatherSchema = z
       })
       .optional()
       .describe(
-        'Clouds drifting across the sky, with the wind or slowly to the right. Drawn in the far layer over its sky, so the scene needs `far`'
+        'Clouds drifting across the sky, with the wind or slowly to the right. Drawn in the far layer over its sky, so the scene needs `far`. From amount 0.4 up they wash the colour out of the far layer (an overcast sky), so paint the sky blue and let them grey it; clearing them brings the blue back'
       ),
     lightning: z
       .object({
@@ -234,7 +234,7 @@ export const WeatherSchema = z
       .describe('Heat haze: the far layer shimmers, as over desert sand at noon (0.5 is plenty)'),
   })
   .describe(
-    'Weather the engine animates. Draw the mood yourself (a grey sky and wet ground for rain, a white ground for snow), never the falling drops or flakes'
+    'Weather the engine animates. Draw the ground yourself (wet for rain, white for snow), never the falling drops or flakes; paint a fair sky and let `clouds` grey it'
   );
 export type Weather = z.infer<typeof WeatherSchema>;
 

@@ -376,9 +376,10 @@ layer should sit differently behind the stage with no gap anywhere.
 Anything in a scene that should move by itself (rain, snow, clouds, fire, the
 sea) is drawn by the engine, every frame. **Do not draw rain streaks,
 snowflakes or flames in the scene's SVG**: they would stand still. Draw the
-mood and everything that does not move (a grey sky, wet pavement and
-puddles, snow on the ground, the fire pit's stones, the rock face behind a
-waterfall), and name the rest.
+mood and everything that does not move (wet pavement and puddles, snow on
+the ground, the fire pit's stones, the rock face behind a waterfall), and
+name the rest. Paint the sky as it is in fair weather and let `clouds` grey
+it: then a `weather` action that clears them brings the blue back.
 
 `weather` covers the whole sky and air:
 
@@ -401,7 +402,9 @@ waterfall), and name the rest.
   leaves tumbling through (`colors` to recolour them).
 - `clouds` drift across the sky band (down to `low`, default 0.32 × height).
   `dark` 0 is white fair-weather cloud; 1 is a storm, which also darkens the
-  sky over the clouds and dims the frame a little.
+  sky over the clouds and dims the frame a little. From about `amount` 0.4
+  up they wash the colour out of the whole far layer, an overcast day
+  turning a painted blue sky grey (storm clouds darken it as well).
 - `lightning` strikes about every `every` seconds: a bolt in the sky and a
   flash that brightens the frame for a moment. For a strike at a story beat
   (the thunderclap that makes someone jump), put `{ "t": 3, "lightning":

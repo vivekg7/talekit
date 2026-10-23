@@ -350,6 +350,8 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
     // frame show the scenery rather than black.
     far += `<defs>${sky.haze.defs}</defs><g transform='translate(0 -${s})' filter='url(#${sky.haze.id})'><g transform='translate(0 ${s})'>${far}</g></g>`;
   }
+  // Clouds grey the sky behind the stage (the far layer), however it was painted.
+  if (far && sky.grade) far = `<defs>${sky.grade}</defs><g filter='url(#tk-sky)'>${far}</g>`;
   const nearSvg = (scene.near ?? '') + fx('near');
   let picture =
     far +

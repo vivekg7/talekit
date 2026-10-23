@@ -193,6 +193,24 @@ describe('weather turning within a shot', () => {
   });
 });
 
+describe('sky', () => {
+  it('greys the painted sky under clouds and gives it back as they clear', () => {
+    const p = project(
+      { weather: { clouds: { amount: 0.9, dark: 0.6 } } },
+      { actions: [{ t: 1, weather: { clouds: { amount: 0.2 } }, duration: 2 }] }
+    );
+    const at = (t: number) => composeFrame(p, p.shots[0], t);
+    const saturation = (svg: string) =>
+      Number(svg.match(/<filter id='tk-sky'.*?type='saturate' values='([\d.]+)'/)?.[1] ?? 1);
+    // The far layer, sky and hills, is what is filtered; the stage is not.
+    expect(at(0.5)).toMatch(/<g filter='url\(#tk-sky\)'><g class='far'/);
+    expect(saturation(at(0.5))).toBeLessThan(0.4);
+    expect(saturation(at(2))).toBeGreaterThan(saturation(at(0.5)));
+    // A few fair-weather clouds leave the sky as it was painted.
+    expect(at(3.5)).not.toContain('tk-sky');
+  });
+});
+
 describe('light', () => {
   /** Each actor's red gain, from the light filter wrapped round it. */
   const redOf = (svg: string) =>

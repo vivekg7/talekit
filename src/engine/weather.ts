@@ -70,6 +70,8 @@ export interface WeatherView {
   flash: number;
   /** Heat haze: a filter for the far layer, and how far its noise has scrolled. */
   haze?: { defs: string; id: string; scroll: number };
+  /** The clouds' grey over the far layer: a filter with id `tk-sky`, absent in fair weather. */
+  grade?: string;
 }
 
 interface Ctx {
@@ -220,7 +222,29 @@ export function weatherView(
     lit = Math.max(lit, flash(age));
   }
   const haze = w.heat ? { ...heatHaze(w.heat, ctx), scroll: 40 * ctx.k * t } : undefined;
-  return { sky, far, stage, front, light, flash: lit > 0.01 ? lit : 0, haze };
+  const grade = w.clouds ? skyGrade(w.clouds.amount, w.clouds.dark, W, H) : undefined;
+  return { sky, far, stage, front, light, flash: lit > 0.01 ? lit : 0, haze, grade };
+}
+
+/**
+ * How the clouds grey the sky: a filter over the far layer that washes the colour out as
+ * they cover it and darkens it under storm clouds. The scene paints a fair sky, and a
+ * `weather` turn that clears the clouds brings its blue back. Screen space.
+ */
+export function skyGrade(amount: number, dark: number, W: number, H: number): string | undefined {
+  // Below the least the schema allows, a turn is clearing the sky.
+  const fade = clamp01(amount / 0.1);
+  const cover = clamp01((amount - 0.3) / 0.6) * fade;
+  const storm = dark * fade;
+  const saturate = 1 - 0.75 * cover - 0.2 * storm;
+  const gain = 1 - 0.06 * cover - 0.22 * storm;
+  if (saturate > 0.98 && gain > 0.98) return undefined;
+  const fn = (c: string) => `<feFunc${c} type='linear' slope='${n(gain)}'/>`;
+  return (
+    `<filter id='tk-sky' filterUnits='userSpaceOnUse' x='0' y='0' width='${W}' height='${H}' color-interpolation-filters='sRGB'>` +
+    `<feColorMatrix type='saturate' values='${n(Math.max(0, saturate))}'/>` +
+    `<feComponentTransfer>${fn('R')}${fn('G')}${fn('B')}</feComponentTransfer></filter>`
+  );
 }
 
 /** Where drop `i` of a band is on screen (the lower end of a streak), and its size. */

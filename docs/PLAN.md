@@ -553,6 +553,14 @@ one style with real shapes, using downloaded art as reference only.
   shadow falls on the far side, and puts a warm rim on the near side
   (the silhouette minus a copy nudged away from the fire). The uniform
   warmth is halved, since the rim does most of the work.
+- The sky stayed grey when the rain cleared, because the guide told agents
+  to paint the mood into the far layer and nothing could change it. Now
+  clouds grade the far layer through a filter in screen space: saturation
+  falls as they cover the sky (from amount 0.3, gone at 0.9) and storm
+  clouds take some brightness, so a sky painted blue is overcast under
+  them and blue again when a `weather` turn clears them. The whole far
+  layer is graded, hills too, which is how an overcast day looks; the
+  stage is left as painted, since wet ground stays wet.
 
 ### 7.8 Audio (last, on purpose)
 
