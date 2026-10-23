@@ -91,9 +91,13 @@ actions }`. Cast places characters at anchors. Actions are
       doubles as the integration test.
 - [x] **Phase 4 — MCP server.** `get_guide`, `create_project`, `project_info`,
       `get_item`, `list_library`, `get_library_item`, `copy_from_library`, `write_character`,
-      `write_scene`, `write_shot`, `delete_item`, `preview_frame`,
-      `preview_shot`, `render`, `list_notes`, `resolve_note`. Every write
-      validates and returns an image.
+      `write_scene`, `write_shot`, `patch_shot`, `delete_item`,
+      `preview_frame`, `preview_shot`, `render`, `list_notes`,
+      `resolve_note`. Every write validates and returns an image.
+      `patch_shot` came later (2026-10-23): the film agents rewrote whole
+      shots to move one line, or wrote their own Python patchers to avoid
+      it. It edits, removes and adds actions by index and returns a sheet of
+      only the stretch that changed, at the usual cell size.
 - [x] **Phase 5 — Viewer.** `talekit serve` with a shot picker and scrubber.
       Grown into a review app after the clever-rabbit run: the person could
       not see the assets, could not point at a moment, and had no channel

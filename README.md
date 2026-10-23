@@ -104,6 +104,7 @@ my-story/
 | `write_character`          | validates, saves, returns a **pose sheet** and a **construction sheet** |
 | `write_scene`              | validates, saves, returns the scene with **anchors marked**             |
 | `write_shot`               | validates cross references, saves, returns a **contact sheet**          |
+| `patch_shot`               | changes fields, cast or actions of a saved shot without rewriting it    |
 | `get_item` / `delete_item` | read back or remove one file                                            |
 | `preview_frame`            | one frame at a time `t`, optional debug markers                         |
 | `preview_shot`             | contact sheet of a shot                                                 |

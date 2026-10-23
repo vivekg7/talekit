@@ -33,6 +33,15 @@ colors)` (colour tokens: hair, skin, dress, shirt…); without `name` the
    the contact sheet: are people where you expect, facing each other, bubbles
    readable, timing sensible? Use `preview_frame(path, shotId, t)` for an
    exact moment and `preview_shot(path, shotId, frames)` for more frames.
+   To fix a written shot, `patch_shot(path, shotId, …)` rather than writing
+   it all again: `edit` merges fields into an action by its index (`{ index:
+3, fields: { t: 4.5 } }`; null removes a field), `remove` takes actions
+   out, `add` puts new ones in, `set` replaces top-level fields such as
+   `duration` or `camera`, and `cast` replaces, adds or (null) removes cast
+   members. Indices are the actions before the patch, as `get_item` lists
+   them; the result lists them renumbered. It is validated as `write_shot`
+   is, keeps the shot's place in the film, and returns a sheet of the stretch
+   that changed. Restaging a shot from the beginning is still `write_shot`.
 6. **`render(path, shotId?)`** a single shot early to check motion, then the
    whole film. It returns a film sheet, one frame per shot, to confirm the cut.
 7. **Review notes.** The person watches the result in the review app

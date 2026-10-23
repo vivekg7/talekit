@@ -13,6 +13,7 @@ import {
   ShotSchema,
   type Character,
   type Project,
+  type Shot,
 } from '../engine/types.js';
 import { LIBRARY, nameFromId } from '../library/index.js';
 import {
@@ -22,7 +23,9 @@ import {
   saveCharacter,
   saveScene,
   saveShot,
+  shotOrder,
 } from '../project/store.js';
+import { listActions, patchShot, SETTABLE } from '../project/patch.js';
 import {
   formatProblems,
   hasErrors,
@@ -193,7 +196,7 @@ export function buildServer(): McpServer {
     {
       title: 'Get character, scene or shot',
       description:
-        'Return the stored JSON of one character, scene or shot so it can be edited and written back.',
+        'Return the stored JSON of one character, scene or shot so it can be edited and written back; for a shot, also its actions numbered as patch_shot addresses them.',
       inputSchema: { path: pathArg, kind: z.enum(['character', 'scene', 'shot']), id: z.string() },
     },
     async ({ path: root, kind, id }) => {
@@ -206,7 +209,11 @@ export function buildServer(): McpServer {
               ? project.scenes[id]
               : project.shots.find((s) => s.id === id);
         if (!item) return fail(`no ${kind} '${id}'`);
-        return ok(text(JSON.stringify(item, null, 2)));
+        const json = JSON.stringify(item, null, 2);
+        if (kind !== 'shot') return ok(text(json));
+        return ok(
+          text(`${json}\n\nActions by index (for patch_shot):\n${listActions(item as Shot)}`)
+        );
       } catch (e) {
         return fail((e as Error).message);
       }
@@ -398,6 +405,85 @@ export function buildServer(): McpServer {
         return ok(
           text(`wrote ${file}\n${formatProblems(problems)}`),
           image(contactSheetSvg(fresh, saved, frames ?? 6))
+        );
+      } catch (e) {
+        return fail((e as Error).message);
+      }
+    }
+  );
+
+  server.registerTool(
+    'patch_shot',
+    {
+      title: 'Patch shot',
+      description:
+        "Change a saved shot without writing it out again: replace top-level fields (`set`), add, replace or take out cast members (`cast`), merge fields into actions by index (`edit`; null removes a field), take actions out (`remove`) or add new ones (`add`). Indices are the shot's actions before the patch, as `get_item` and this tool list them. The result is validated exactly as write_shot validates and keeps the shot's place in the film. Returns the actions renumbered and a contact sheet of the stretch the change shows in (the whole shot after a `set` or `cast` change); preview_shot shows all of it. For a shot restaged from scratch, use write_shot.",
+      inputSchema: {
+        path: pathArg,
+        shotId: z.string(),
+        set: z
+          .partialRecord(z.enum(SETTABLE), z.unknown())
+          .optional()
+          .describe(
+            `Top-level fields replaced whole (${SETTABLE.join(', ')}), as in write_shot; weather: null drops the shot's own weather`
+          ),
+        cast: z
+          .record(z.string(), z.unknown())
+          .optional()
+          .describe(
+            'Cast members by id, each replaced whole as in write_shot, or null to take one out'
+          ),
+        edit: z
+          .array(
+            z.object({
+              index: z.number().int().min(0),
+              fields: z
+                .record(z.string(), z.unknown())
+                .describe(
+                  'Action fields to change, e.g. { "t": 3.5 } or { "say": "…" }; null removes one'
+                ),
+            })
+          )
+          .optional(),
+        remove: z
+          .array(z.number().int().min(0))
+          .optional()
+          .describe('Indices of actions to take out'),
+        add: z
+          .array(z.record(z.string(), z.unknown()))
+          .optional()
+          .describe('New actions, written as in write_shot; they take their place by t'),
+        frames: z
+          .number()
+          .int()
+          .min(1)
+          .max(12)
+          .optional()
+          .describe(
+            'Contact sheet frame count (default 4 over the changed stretch, 6 over a whole shot)'
+          ),
+      },
+    },
+    async ({ path: root, shotId, set, cast, edit, remove, add, frames }) => {
+      try {
+        const project = await loadProject(root);
+        const before = project.shots.find((s) => s.id === shotId);
+        if (!before) return fail(`no shot '${shotId}'`);
+        const { shot, from, to } = patchShot(before, { set, cast, edit, remove, add });
+        const problems = validateShot(shot, project);
+        if (hasErrors(problems)) return fail(formatProblems(problems));
+        const file = await saveShot(root, shot, await shotOrder(root, shotId));
+        const fresh = await loadProject(root);
+        const saved = fresh.shots.find((s) => s.id === shotId)!;
+        const whole = from === 0 && to === saved.duration;
+        return ok(
+          text(
+            `wrote ${file}\n${formatProblems(problems)}\n\nActions now:\n${listActions(saved)}` +
+              (whole
+                ? ''
+                : `\n\nSheet: ${from.toFixed(2)}s to ${to.toFixed(2)}s of ${saved.duration}s`)
+          ),
+          image(contactSheetSvg(fresh, saved, frames ?? (whole ? 6 : 4), 2, from, to))
         );
       } catch (e) {
         return fail((e as Error).message);

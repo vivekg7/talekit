@@ -362,10 +362,17 @@ function tileFrames(
   return out + '</svg>';
 }
 
-/** Evenly spaced frames from a shot, tiled with time stamps. */
-export function contactSheetSvg(project: Project, shot: Shot, count = 6, cols = 2): string {
+/** Evenly spaced frames from a shot (or from `from` to `to` in it), tiled with time stamps. */
+export function contactSheetSvg(
+  project: Project,
+  shot: Shot,
+  count = 6,
+  cols = 2,
+  from = 0,
+  to = shot.duration
+): string {
   const frames = Array.from({ length: count }, (_, i) => {
-    const t = ((i + 0.5) / count) * shot.duration;
+    const t = from + ((i + 0.5) / count) * (to - from);
     return { label: `${shot.id} · t=${t.toFixed(2)}s`, svg: composeFrame(project, shot, t) };
   });
   return tileFrames(project, frames, cols);

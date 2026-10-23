@@ -127,6 +127,24 @@ export async function saveScene(root: string, s: Scene): Promise<string> {
   return file;
 }
 
+/** The playback position in a saved shot's file name (`07-` is 7), if it has one. */
+export async function shotOrder(root: string, id: string): Promise<number | undefined> {
+  const dir = projectPaths(root).shots;
+  for (const f of existsSync(dir) ? await readdir(dir) : []) {
+    if (!f.endsWith('.json')) continue;
+    try {
+      const data = JSON.parse(await readFile(path.join(dir, f), 'utf8')) as { id?: string };
+      if (data.id === id) {
+        const m = f.match(/^(\d+)-/);
+        return m ? Number(m[1]) : undefined;
+      }
+    } catch {
+      /* unreadable files are loadProject's to report */
+    }
+  }
+  return undefined;
+}
+
 /** Shots play in filename order, so the file name carries an optional numeric prefix. */
 export async function saveShot(root: string, s: Shot, order?: number): Promise<string> {
   const dir = projectPaths(root).shots;
