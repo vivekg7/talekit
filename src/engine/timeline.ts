@@ -164,6 +164,8 @@ interface Move {
   to: Point;
   t0: number;
   t1: number;
+  /** When the actor last stood still, for its idle until t0 (while it gets up). */
+  rest: number;
 }
 
 /** Seconds a walk or run takes to get up to speed, and to stop. */
@@ -385,12 +387,17 @@ export function resolveActor(
       if (isMoveVerb(verb)) {
         const to = a.to ? resolvePosition(project, scene, a.to) : point;
         const d = actionDuration(a, point, to);
-        move = { verb, from: point, to, t0: a.t, t1: a.t + d };
-        locoStart = a.t;
+        // Sat or lying down, it gets up first (sitting up, then standing) and sets off once
+        // it is up; setting off at once would slide it along the floor as it rose.
+        const lie = lieAmount(a.t);
+        lieTo(false, a.t, Math.max(1e-3, LIE_TIME * lie));
+        const risen = lie > 0 ? lieAt + lieTime : a.t;
+        sitTo(false, risen);
+        const t0 = Math.max(risen, sitAmount(a.t) > 0 ? sitAt + sitTime : a.t);
+        move = { verb, from: point, to, t0, t1: t0 + d, rest: locoStart };
+        locoStart = t0;
         if (Math.abs(to.x - point.x) > 1) turnTo(to.x > point.x ? 'right' : 'left', a.t);
-        if (verb === 'jump' && t < a.t + d) verbs.push({ verb, u: (t - a.t) / d });
-        sitTo(false, a.t);
-        lieTo(false, a.t);
+        if (verb === 'jump' && t >= t0 && t < t0 + d) verbs.push({ verb, u: (t - t0) / d });
       } else if (verb === 'sit' || verb === 'lie') {
         const from = point;
         if (a.to) {
@@ -434,7 +441,9 @@ export function resolveActor(
   let travel: Travel | undefined;
   if (move) {
     point = movePoint(move, t);
-    if (t < move.t1) {
+    if (t < move.t0) {
+      locoStart = move.rest;
+    } else if (t < move.t1) {
       if (move.verb === 'walk' || move.verb === 'run') {
         const k = (character.height / RIGS[character.rig].height) * scale;
         const m = move;

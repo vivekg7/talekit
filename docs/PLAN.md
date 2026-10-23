@@ -561,6 +561,11 @@ one style with real shapes, using downloaded art as reference only.
   them and blue again when a `weather` turn clears them. The whole far
   layer is graded, hills too, which is how an overcast day looks; the
   stage is left as painted, since wet ground stays wet.
+- A walk from sitting or lying stood up and set off in the same moment, so
+  the actor slid along the floor as it rose; the guide asked for a `stand`
+  first, and agents forgot. A move now gets up first, sitting up and then
+  standing on the spot, and starts once it is up: the move keeps its own
+  duration and ends later by the time the getting up took.
 
 ### 7.8 Audio (last, on purpose)
 

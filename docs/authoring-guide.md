@@ -566,8 +566,10 @@ end; walk them mostly across the screen to keep the face in profile.
 face them the way their feet should point; an animal lies on its belly
 with its head down. A sleeper needs `face: { "eyes": "closed" }` and,
 if you like, a thought bubble (`"Zzz..."`): it comes from the head where it
-lies. `stand` gets up again (sitting up first) and `sit` sits back up;
-`stand` before walking off, or the walk slides while they get up. To open a
+lies. `stand` gets up again (sitting up first) and `sit` sits back up. A
+`walk`, `run` or `jump` from sitting or lying gets up first and sets off
+once up, so it ends that much later (0.4 s from sitting, 1.3 s from
+lying); give a `stand` first if the getting up should take longer. To open a
 shot with someone already lying or sat, give the `lie` or `sit` at `t: 0` a
 `duration` of `0.05`.
 

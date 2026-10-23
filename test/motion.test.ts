@@ -305,6 +305,24 @@ describe('lying down', () => {
     expect(actorAt(p, 'kid', 4.7).sit).toBe(0);
   });
 
+  it('gets up before walking off, rather than sliding up off the floor', () => {
+    const p = project([
+      { t: 0, actor: 'kid', do: 'lie', duration: 0.05 },
+      { t: 1, actor: 'kid', do: 'walk', to: { x: 900, y: 640 } },
+    ]);
+    const at = (t: number) => actorAt(p, 'kid', t);
+    const x0 = at(1).x;
+    // Sitting up, then standing, on the spot: 0.9 s and 0.4 s.
+    expect(at(1.5).lie).toBeGreaterThan(0);
+    expect(at(2).sit).toBeGreaterThan(0);
+    expect(at(2.25).x).toBe(x0);
+    expect(at(2.25).locomotion).toBe('idle');
+    // Up, it sets off, and arrives as late as it got up.
+    expect(at(2.6).sit).toBe(0);
+    expect(at(2.6).locomotion).toBe('walk');
+    expect(at(2.6).x).toBeGreaterThan(x0);
+  });
+
   it('puts the bubble at the head and stretches the shadow along the body', () => {
     const p = project([{ t: 0, actor: 'kid', do: 'lie' }]);
     const standing = actorAt(p, 'kid', 0);
