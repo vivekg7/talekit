@@ -595,6 +595,14 @@ one style with real shapes, using downloaded art as reference only.
   that cannot be measured, a group or a relative path, stays in both, as
   before). Each half is also shaded as it lies, the lower one turned by the
   bend, where before it carried the upper half's shading round with it.
+- The examples' library-based characters (all eight were the old library
+  drawings with only their colours changed) were recast onto the new
+  drawings with their own colours. Where a new drawing adds a shade of a
+  base colour (`hairLight` of `hair`), the example's shade is derived from
+  its own base the way the library's is from the library's, so a grey-haired
+  grandma does not get brown highlights. The lighthouse's from-scratch gull
+  and lantern, the kite, the monkey and the lion's reflection are left as
+  they were: they are the record of what an agent draws on its own.
 
 ### 7.8 Audio (last, on purpose)
 
