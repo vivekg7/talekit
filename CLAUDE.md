@@ -13,7 +13,8 @@ reasoning are in `docs/PLAN.md`. Read both before changing the data model.
   waves and the like, drawn from time each frame), `shade.ts` (the engine-drawn
   light and shadow on every part), `timeline.ts` (actions →
   actor state at time t), `actor.ts` + `compose.ts` (state → SVG), `outline.ts` (the engine-drawn outline under every part),
-  `bubble.ts` (text wrap and bubble geometry).
+  `bubble.ts` (text wrap and bubble geometry), `glyphs.ts` (Devanagari
+  shaped with HarfBuzz into outlines, in the bundled `fonts/Baloo2.ttf`).
 - `src/project/` — load/save/validate a project directory; `construction.ts`
   is the character linter (rasterises parts, checks box, feet, joints);
   `notes.ts` is the review-note store shared by the viewer and the MCP.

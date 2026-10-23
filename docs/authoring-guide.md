@@ -614,6 +614,12 @@ Bubbles are always laid out inside the frame and keep the same size at any
 camera zoom, so a bubble that looks clipped on a small contact-sheet frame is
 not; check the text, not the edges.
 
+Lines and captions can be in Hindi: Devanagari text is drawn in the bundled
+Baloo 2 font, whatever the project's `font` says (that stack is for Latin
+text). Write it as you would in a book, `"अरे कछुए, तुम कितने धीमे हो!"`;
+a Hindi line runs about as long on screen as an English one of the same
+number of words, so the same ≤ 12 words holds.
+
 Everyone listens without being told: while someone speaks, the others with
 eyes tip their heads toward the speaker (up to a grown-up, down to a dog), and
 the speaker looks at the one spoken to. That is whoever spoke to them last,

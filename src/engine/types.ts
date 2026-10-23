@@ -518,7 +518,7 @@ export const ProjectMetaSchema = z.object({
   width: z.number().int().positive().default(1280),
   height: z.number().int().positive().default(720),
   fps: z.number().int().positive().default(24),
-  /** Font stack for bubbles and captions. */
+  /** Font stack for bubbles and captions in Latin script; Devanagari always uses the bundled Baloo 2. */
   font: z
     .string()
     .default('Chalkboard SE, Comic Neue, Comic Sans MS, Arial Rounded MT Bold, sans-serif'),

@@ -603,6 +603,17 @@ one style with real shapes, using downloaded art as reference only.
   grandma does not get brown highlights. The lighthouse's from-scratch gull
   and lantern, the kite, the monkey and the lion's reflection are left as
   they were: they are the record of what an agent draws on its own.
+- Hindi. Stories told in Hindi need their bubbles in Devanagari, and resvg
+  sets it wrong: it misplaces vowel signs (a matra lands on the next
+  letter) and drops spaces, with the system fonts and with Noto, Hind and
+  Baloo alike, and its newest build does the same. HarfBuzz (WASM,
+  `harfbuzzjs`) shapes it correctly, so a Devanagari line is shaped there
+  in the bundled Baloo 2 and drawn as glyph outlines (`glyphs.ts`); its
+  width comes from the same shaping, so wrapping and bubble sizes fit. Only
+  lines in that script take this path: Latin text stays `<text>` in the
+  project's font, so existing films render exactly as before. Bundling one
+  font for everything was the alternative; it would change every film's
+  look for a problem only Hindi has.
 
 ### 7.8 Audio (last, on purpose)
 
@@ -619,4 +630,5 @@ one style with real shapes, using downloaded art as reference only.
   done once phase 7 has changed what the tools return.
 - More emotions and eyebrows; image-model generated backgrounds as a layer.
 - Parallel rasterisation across worker threads for long films.
-- Bundled font for identical output across machines (currently system fonts).
+- Bundled font for identical output across machines (currently system fonts
+  for Latin text; Devanagari is bundled, see 7.7).

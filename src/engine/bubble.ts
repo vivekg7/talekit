@@ -1,3 +1,4 @@
+import { needsShaping, shapedText, shapedWidth } from './glyphs.js';
 import { escapeXml, n } from './svg.js';
 
 /** Rough advance widths as a fraction of font size, tuned for rounded comic fonts. */
@@ -10,25 +11,26 @@ function charWidth(ch: string): number {
   return 0.54;
 }
 
-export function textWidth(text: string, fontSize: number): number {
+export function textWidth(text: string, fontSize: number, bold = false): number {
+  if (needsShaping(text)) return shapedWidth(text, fontSize, bold);
   let w = 0;
   for (const ch of text) w += charWidth(ch);
   return w * fontSize;
 }
 
 /** Greedy word wrap. Words longer than the line are split by character. */
-export function wrapText(text: string, maxWidth: number, fontSize: number): string[] {
+export function wrapText(text: string, maxWidth: number, fontSize: number, bold = false): string[] {
   const lines: string[] = [];
   for (const paragraph of text.split('\n')) {
     let line = '';
     for (const word of paragraph.split(/\s+/).filter(Boolean)) {
       const candidate = line ? `${line} ${word}` : word;
-      if (textWidth(candidate, fontSize) <= maxWidth || !line) {
-        if (textWidth(candidate, fontSize) > maxWidth && !line) {
+      if (textWidth(candidate, fontSize, bold) <= maxWidth || !line) {
+        if (textWidth(candidate, fontSize, bold) > maxWidth && !line) {
           // hard-split an over-long word
           let chunk = '';
           for (const ch of word) {
-            if (textWidth(chunk + ch, fontSize) > maxWidth && chunk) {
+            if (textWidth(chunk + ch, fontSize, bold) > maxWidth && chunk) {
               lines.push(chunk);
               chunk = '';
             }
@@ -108,8 +110,9 @@ function bubbleShape(spec: BubbleSpec): string {
   const tail = 26 * k;
   const maxText = Math.min(380 * k, spec.frameW - 2 * margin - 2 * padX);
 
-  const lines = wrapText(spec.text, maxText, fontSize);
-  const textW = Math.max(...lines.map((l) => textWidth(l, fontSize)), 40 * k);
+  const bold = spec.style === 'shout';
+  const lines = wrapText(spec.text, maxText, fontSize, bold);
+  const textW = Math.max(...lines.map((l) => textWidth(l, fontSize, bold)), 40 * k);
   const w = textW + 2 * padX;
   const h = lines.length * lineHeight + 2 * padY;
 
@@ -130,10 +133,12 @@ function bubbleShape(spec: BubbleSpec): string {
   const textX = x + w / 2;
   const firstBaseline = y + padY + lineHeight * 0.78;
   const textEl = lines
-    .map(
-      (l, i) =>
-        `<text x='${textX}' y='${firstBaseline + i * lineHeight}' text-anchor='middle' font-family="${escapeXml(spec.font)}" font-size='${fontSize}' fill='#1a1a1a'${spec.style === 'shout' ? " font-weight='bold'" : ''}>${escapeXml(l)}</text>`
-    )
+    .map((l, i) => {
+      const y = firstBaseline + i * lineHeight;
+      return needsShaping(l)
+        ? shapedText(l, { x: textX, y, fontSize, fill: '#1a1a1a', bold })
+        : `<text x='${textX}' y='${y}' text-anchor='middle' font-family="${escapeXml(spec.font)}" font-size='${fontSize}' fill='#1a1a1a'${bold ? " font-weight='bold'" : ''}>${escapeXml(l)}</text>`;
+    })
     .join('');
 
   if (spec.style === 'thought') {

@@ -2,6 +2,7 @@ import { actorHeadTop, poseFor, renderActor, renderShadow, sideOf, SHADOW_DEFS }
 import { DAYLIGHT, type Light } from './shade.js';
 import { applySprings } from './springs.js';
 import { bubbleSvg, wrapText, textWidth } from './bubble.js';
+import { needsShaping, shapedText } from './glyphs.js';
 import { clamp01, easeInOut } from './easing.js';
 import { escapeXml, n } from './svg.js';
 import { resolveFrame, type FrameState } from './timeline.js';
@@ -58,10 +59,10 @@ function captionSvg(
 ): string {
   const fontSize = (style === 'title' ? 54 : 28) * k;
   const lineHeight = fontSize * 1.25;
-  const lines = wrapText(text, W * 0.8, fontSize);
+  const lines = wrapText(text, W * 0.8, fontSize, true);
   const blockH = lines.length * lineHeight;
   const cy = style === 'title' ? H / 2 : H - 28 * k - blockH / 2;
-  const w = Math.max(...lines.map((l) => textWidth(l, fontSize))) + 40 * k;
+  const w = Math.max(...lines.map((l) => textWidth(l, fontSize, true))) + 40 * k;
   const bg =
     style === 'narration'
       ? `<rect x='${n(W / 2 - w / 2)}' y='${n(cy - blockH / 2 - 10 * k)}' width='${n(w)}' height='${n(blockH + 20 * k)}' rx='${12 * k}' fill='#000' fill-opacity='0.55'/>`
@@ -72,10 +73,19 @@ function captionSvg(
       ? ` stroke='#222' stroke-width='${n(fontSize * 0.08)}' paint-order='stroke'`
       : '';
   const texts = lines
-    .map(
-      (l, i) =>
-        `<text x='${W / 2}' y='${n(cy - blockH / 2 + lineHeight * (i + 0.8))}' text-anchor='middle' font-family="${escapeXml(font)}" font-size='${fontSize}' font-weight='bold' fill='${fill}'${stroke}>${escapeXml(l)}</text>`
-    )
+    .map((l, i) => {
+      const y = cy - blockH / 2 + lineHeight * (i + 0.8);
+      return needsShaping(l)
+        ? shapedText(l, {
+            x: W / 2,
+            y,
+            fontSize,
+            fill,
+            bold: true,
+            stroke: style === 'title' ? { color: '#222', width: fontSize * 0.08 } : undefined,
+          })
+        : `<text x='${W / 2}' y='${n(y)}' text-anchor='middle' font-family="${escapeXml(font)}" font-size='${fontSize}' font-weight='bold' fill='${fill}'${stroke}>${escapeXml(l)}</text>`;
+    })
     .join('');
   // Narration rises into place from just below; a title drifts up less.
   const dy = slide * (style === 'title' ? 10 : 18) * k;

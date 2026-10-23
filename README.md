@@ -139,8 +139,10 @@ talekit serve <dir>                  talekit mcp
 - `src/library` holds the hand-drawn built-ins; they set the quality bar and
   are the templates the agent copies.
 
-Text uses system fonts (default stack starts with Chalkboard SE on macOS), so
-output can differ slightly between machines. See [docs/PLAN.md](docs/PLAN.md)
+Latin text uses system fonts (default stack starts with Chalkboard SE on
+macOS), so output can differ slightly between machines. Hindi (Devanagari) is
+shaped with HarfBuzz in the bundled Baloo 2 (`fonts/`, SIL Open Font
+License), because the rasteriser misplaces its vowel signs. See [docs/PLAN.md](docs/PLAN.md)
 for the roadmap and the reasoning behind the design.
 
 ## Development
