@@ -74,11 +74,11 @@ Rules that make the rig work:
 - Arms and legs are easiest as a `<path d='M76 170 L70 284' stroke='{skin}'
 stroke-width='18' stroke-linecap='round' fill='none'/>` plus a hand circle
   and a shoe shape at the end.
-- **Legs bend at the knee** when the character walks, crouches or sits:
-  the engine cuts the leg across y=330 and turns the lower half, with a
-  round joint as wide as the leg's stroke. So draw each leg as one straight
-  stroke down from its pivot, as above, and keep the shoe and any sock below
-  the knee.
+- **Legs bend at the knee** when the character walks, crouches, sits or
+  lies down: the engine cuts the leg across y=330 and turns the lower half,
+  with a round joint as wide as the leg's stroke. So draw each leg as one
+  straight stroke down from its pivot, as above, and keep the shoe and any
+  sock below the knee.
 - `eyes` and `mouth` rotate with the head. Give them variants (below).
 - `torso` is required. Put the neck in the torso, reaching at least 12
   units up into the head, and end the torso at least 12 units below the hips
@@ -140,17 +140,19 @@ feet planted while they are down, a lifted paw bending at the knee, the head
 bobbing against the step and the tail swinging; `run` is a gallop between a
 gathered pose and a stretched one; `sit` tips the body back about the hips,
 bends the hind legs at the knee with the paws on the floor and keeps the
-front paws planted on the way down; `wave` and `point` lift the near front
-paw; `jump` gathers on bent legs, then leaps stretched out. The tail
-and ears are springs by default (see below). `height`
-is the box height on screen: about 55 for a mouse, 90–110 for a cat or dog,
-170–190 for a lion, bear or deer.
+front paws planted on the way down; `lie` brings the body level onto its
+belly with all four legs folded and the head lowered; `wave` and `point`
+lift the near front paw; `jump` gathers on bent legs, then leaps stretched
+out. The tail and ears are springs by default (see below). `height` is the
+box height on screen: about 55 for a mouse, 90–110 for a cat or dog, 170–190
+for a lion, bear or deer.
 
 ### `simple` rig — 200 × 200, base on y=200
 
 One required `body` part plus optional `eyes` and `mouth`. The engine bobs and
 tilts the whole body for walk/run, hops it for `bounce`, wobbles it for `fly`,
-rotates it for `spin`, leans it forward for `point`, shivers it for `tremble`.
+rotates it for `spin`, leans it forward for `point`, shivers it for `tremble`,
+settles it lower and wider for `lie`.
 Use it for birds, fish, vehicles, kites, balls, blobby monsters and props:
 anything that bobs, hops or flies rather than walks. A four-legged animal
 belongs on the quadruped rig.
@@ -396,6 +398,7 @@ and foreground objects a character touches (a bench, a well, a door) get a
 | `nod`, `shake`        | head yes / no                                                              | 0.8s             |
 | `tremble`             | frightened shiver (head and shoulders, or the whole simple body)           | 1.2s             |
 | `sit` / `stand`       | persistent: seat on `to` (a seat anchor), knees bent; four legs sit down   | 0.4s ease        |
+| `lie`                 | persistent: sits, then lies back on the floor (four legs: on the belly)    | 1.3s ease        |
 | `bounce`, `spin`      | squashy hop / full rotation (best on the simple rig)                       | 1s / 0.8s        |
 | `appear`, `disappear` | pop in past full size and settle / swell a touch and shrink away           | 0.4s             |
 
@@ -407,6 +410,16 @@ up with a walking child patters and a lion strolls. A walk starts and ends
 with the feet together, and a jump crosses the ground only while it is in
 the air (the crouch and the landing stay put). Every change of facing, by
 `set` or by walking the other way, is a quick turn (0.2 s), not a flip.
+
+`lie` is for sleeping and resting. A person sits down on the ground (or on
+`to`, a bed or a sofa seat) and lies back with the head behind them, so
+face them the way their feet should point; an animal lies on its belly
+with its head down. A sleeper needs `face: { "eyes": "closed" }` and,
+if you like, a thought bubble (`"Zzz..."`): it comes from the head where it
+lies. `stand` gets up again (sitting up first) and `sit` sits back up;
+`stand` before walking off, or the walk slides while they get up. To open a
+shot with someone already lying or sat, give the `lie` or `sit` at `t: 0` a
+`duration` of `0.05`.
 
 On the `simple` rig `wave`, `nod` and `shake` only tilt or nudge the body;
 `point` leans the body toward what it faces, `tremble` shivers it, and

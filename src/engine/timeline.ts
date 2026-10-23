@@ -57,6 +57,8 @@ export interface ActorState {
   sit: number;
   /** How far below the seat (the actor's point) the floor is, scene pixels: 0 on the ground. */
   seat: number;
+  /** 0 up, 1 lying down (from sitting); in between while lying back or sitting up. */
+  lie: number;
   /** The anchor's perspective scale under the actor (already folded into `scale`). */
   perspective: number;
   /** Carried by this actor (`attach`), and whether this actor is carrying something. */
@@ -164,6 +166,8 @@ const RAMP = 0.3;
 /** Seconds for a facing flip, and for sitting down or getting up. */
 const TURN_TIME = 0.2;
 const SIT_TIME = 0.4;
+/** Seconds to lie back from sitting, or sit up again. */
+const LIE_TIME = 0.9;
 
 /**
  * Progress along a move: walks and runs speed up and slow down at either end, a jump
@@ -267,6 +271,9 @@ export function resolveActor(
   let seat = 0;
   let sitAt = -Infinity;
   let sitFrom = 0;
+  let lying = false;
+  let lieAt = -Infinity;
+  let lieFrom = 0;
   let turnAt = -Infinity;
   let turnFrom: Facing = facing;
   let holder: string | undefined;
@@ -277,20 +284,35 @@ export function resolveActor(
   const verbs: ActiveVerb[] = [];
   let bubble: Bubble | undefined;
   let talking = false;
+  let sitTime = SIT_TIME;
+  let lieTime = LIE_TIME;
   const sitAmount = (time: number) =>
-    lerp(sitFrom, sitting ? 1 : 0, clamp01((time - sitAt) / SIT_TIME));
+    lerp(sitFrom, sitting ? 1 : 0, clamp01((time - sitAt) / sitTime));
   const turnTo = (to: Facing, at: number) => {
     if (to === facing) return;
     turnFrom = facing;
     turnAt = at;
     facing = to;
   };
-  const sitTo = (down: boolean, at: number) => {
+  const sitTo = (down: boolean, at: number, time = SIT_TIME) => {
     if (down === sitting) return;
     sitFrom = sitAmount(at);
     sitAt = at;
+    sitTime = time;
     sitting = down;
   };
+  const lieAmount = (time: number) =>
+    lerp(lieFrom, lying ? 1 : 0, clamp01((time - lieAt) / lieTime));
+  const lieTo = (down: boolean, at: number, time = LIE_TIME) => {
+    if (down === lying) return;
+    lieFrom = lieAmount(at);
+    lieAt = at;
+    lieTime = time;
+    lying = down;
+  };
+  // A `duration` on sit, lie or stand is the whole change; going between standing and
+  // lying it is shared between the sitting and the lying part as the defaults are.
+  const share = (a: Action, parts: number) => (a.duration ?? parts) / parts;
 
   for (const a of actions) {
     if (a.t > t) break;
@@ -346,16 +368,32 @@ export function resolveActor(
         if (Math.abs(to.x - point.x) > 1) turnTo(to.x > point.x ? 'right' : 'left', a.t);
         if (verb === 'jump' && t < a.t + d) verbs.push({ verb, u: (t - a.t) / d });
         sitTo(false, a.t);
-      } else if (verb === 'sit') {
+        lieTo(false, a.t);
+      } else if (verb === 'sit' || verb === 'lie') {
         const from = point;
         if (a.to) {
           point = resolvePosition(project, scene, a.to);
           move = undefined;
         }
-        if (!sitting) seat = seatHeight(scene, from, point);
-        sitTo(true, a.t);
+        if (verb === 'sit') {
+          if (!sitting) seat = seatHeight(scene, from, point);
+          // Already lying: sit back up.
+          const k = share(a, lying ? LIE_TIME : SIT_TIME);
+          sitTo(true, a.t, SIT_TIME * k);
+          lieTo(false, a.t, LIE_TIME * k);
+        } else {
+          // Lying is on the surface itself: sit down on it first, then lie back.
+          const k = share(a, (sitting ? 0 : SIT_TIME) + LIE_TIME);
+          const down = sitting ? 0 : SIT_TIME * k;
+          if (!sitting) seat = 0;
+          sitTo(true, a.t, SIT_TIME * k);
+          lieTo(true, a.t + down, LIE_TIME * k);
+        }
       } else if (verb === 'stand') {
-        sitTo(false, a.t);
+        // From lying, sit up first, then get up.
+        const k = share(a, (lying ? LIE_TIME : 0) + SIT_TIME);
+        sitTo(false, a.t + (lying ? LIE_TIME * k : 0), SIT_TIME * k);
+        lieTo(false, a.t, LIE_TIME * k);
       } else if (verb === 'appear' || verb === 'disappear') {
         const d = actionDuration(a);
         const u = clamp01((t - a.t) / d);
@@ -420,6 +458,7 @@ export function resolveActor(
     turn,
     sit: sitAmount(t),
     seat,
+    lie: lieAmount(t),
     perspective: point.scale,
     heldBy,
     holding,

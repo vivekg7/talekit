@@ -31,6 +31,8 @@ interface Cell {
   lift?: number;
   /** Horizontal shift back, for poses that reach forward out of the cell (legs out). */
   shift?: number;
+  /** Drawn smaller, for a pose wider than the cell (a person lying down). */
+  zoom?: number;
 }
 
 /** Every pose the engine can put a character in, so the agent sees the whole range at once. */
@@ -99,6 +101,16 @@ export function characterSheetSvg(character: Character): string {
       : quad
         ? [make('sit', withVerb('sit', 1))]
         : [make('bounce', withVerb('bounce', 0.25))]),
+    // Lying is layered on sitting on the ground, as the timeline does it.
+    {
+      ...make('lie', () => {
+        const p = base('idle', 0);
+        applyVerb(rig, p, 'sit', 1);
+        applyVerb(rig, p, 'lie', 1);
+        return p;
+      }),
+      ...(rig.name === 'humanoid' ? { zoom: 0.5, shift: -40 } : {}),
+    },
     make('talking', () => base('idle', 0), 'neutral', true),
     ...(character.parts.eyes
       ? [
@@ -146,8 +158,9 @@ export function characterSheetSvg(character: Character): string {
       out += `<line x1='${cx + 20}' y1='${feetY + cell.lift}' x2='${cx + cellW - 20}' y2='${feetY + cell.lift}' stroke='#bbb'/>`;
     const body = characterBody(character, cell.pose);
     const x = cx + cellW / 2 - (cell.shift ?? 0);
-    if (shadow) out += shadowSvg(character, cell.pose, x, feetY, rig.height / character.height, 1);
-    out += placeCharacter(character, body, x, feetY, rig.height / character.height, 'right');
+    const scale = (rig.height / character.height) * (cell.zoom ?? 1);
+    if (shadow) out += shadowSvg(character, cell.pose, x, feetY, scale, 1);
+    out += placeCharacter(character, body, x, feetY, scale, 'right');
     out += `<text x='${cx + cellW / 2}' y='${cy + cellH - 22}' text-anchor='middle' font-family='${LABEL_FONT}' font-size='${cell.label.length > 18 ? 12 : 16}' fill='#555'>${escapeXml(cell.label)}</text>`;
   });
   return out + '</svg>';

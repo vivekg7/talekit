@@ -20,6 +20,11 @@ export interface Pose {
   spin: number;
   /** Chosen variant per multi-variant part. */
   face: Record<string, string>;
+  /**
+   * The ground shadow when the body is not standing over its feet (lying down): its centre
+   * moved by `dx` canonical units and its width times `scale`.
+   */
+  shadow?: { dx: number; scale: number };
 }
 
 export type Locomotion = 'idle' | 'walk' | 'run' | 'move' | 'fly';
@@ -224,6 +229,11 @@ const QUAD_LEGS = ['legFL', 'legFR', 'legBL', 'legBR'];
 const DEG = 180 / Math.PI;
 /** How far below the hips a person's torso ends: what rests on the seat (see the guide). */
 const SEAT_DEPTH = 12;
+/** How far behind the hips a person's back is (the torso spans x 60..140): what lies on the floor. */
+const BACK_DEPTH = 40;
+/** How far a four-legged body comes down to lie on its belly (its underside is at y≈152). */
+const BELLY_DROP = 48;
+const mix = (a: number, b: number, u: number): number => a + (b - a) * u;
 
 /**
  * A leg folding to sit, with its foot on a floor `h` below the hip: the thigh comes
@@ -323,6 +333,30 @@ function quadrupedVerb(pose: Pose, verb: Verb, u: number): boolean {
       add('head', 18 * k);
       add('tail', -40 * k);
       if (k < 1) plantFeet(QUADRUPED, pose, ['legFL', 'legFR']);
+      return true;
+    }
+    case 'lie': {
+      // From sitting: the body comes level and down onto its belly, the front legs fold
+      // forward along the floor, the hind legs stay folded under, and the head goes down
+      // onto the paws. `u` is how far down (0 sitting, 1 lying).
+      const l = easeInOut(u);
+      const [ox, oy] = pose.off.body ?? [0, 0];
+      pose.off.body = [ox, mix(oy, BELLY_DROP, l)];
+      pose.rot.body = (pose.rot.body ?? 0) * (1 - l);
+      for (const leg of QUAD_LEGS) {
+        const hip = toRoot(QUADRUPED, pose, 'body', QUADRUPED.parts[leg].pivot);
+        const [turn, bend] = foldLeg(QUADRUPED, leg, QUADRUPED.height - hip[1], 0, -90);
+        const hind = leg.startsWith('legB');
+        // The hind legs are already folded; the front ones go from planted to folded.
+        pose.rot[leg] = hind
+          ? turn - pose.rot.body
+          : mix(pose.rot[leg] ?? 0, turn - pose.rot.body, l);
+        pose.bend[leg] = hind ? bend : mix(pose.bend[leg] ?? 0, bend, l);
+      }
+      // The neck sinks into the shoulders rather than the head tipping onto its face.
+      add('head', 12 * l);
+      nudge(pose, 'head', 4 * l, 26 * l);
+      add('tail', 30 * l);
       return true;
     }
     default:
@@ -457,6 +491,36 @@ export function applyVerb(rig: Rig, pose: Pose, verb: Verb, u: number, seat = 0)
         pose.rot.torso = 0;
       }
       break;
+    case 'lie': {
+      // From sitting on the ground: the torso turns back about the hips until the back is
+      // on the floor, the hips come up to the back's depth, the head tips forward as on a
+      // pillow, the arms rest along the body and the legs stretch out. `u` is how far
+      // back (0 sitting, 1 lying).
+      const l = easeInOut(u);
+      if (humanoid) {
+        pose.dy -= (BACK_DEPTH - SEAT_DEPTH) * l;
+        pose.rot.torso = (pose.rot.torso ?? 0) - 90 * l;
+        pose.rot.head = (pose.rot.head ?? 0) + 20 * l;
+        pose.rot.armL = mix(pose.rot.armL ?? 0, 2, l);
+        pose.rot.armR = mix(pose.rot.armR ?? 0, 4, l);
+        for (const leg of ['legL', 'legR']) {
+          const [turn, bend] = foldLeg(rig, leg, BACK_DEPTH, 5, 0);
+          pose.rot[leg] = mix(pose.rot[leg] ?? 0, turn, l);
+          pose.bend[leg] = mix(pose.bend[leg] ?? 0, bend, l);
+        }
+        // The shadow runs from the head, a whole torso behind the hips, to the feet.
+        const hip = rig.parts.legR.pivot[1];
+        pose.shadow = {
+          dx: ((-hip + 0.85 * (rig.height - hip)) / 2) * l,
+          scale: 1 + ((0.9 * rig.height) / rig.shadow - 1) * l,
+        };
+      } else {
+        // Settle down, lower and wider.
+        pose.sy *= 1 - 0.2 * l;
+        pose.sx *= 1 + 0.12 * l;
+      }
+      break;
+    }
     default:
       break;
   }

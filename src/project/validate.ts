@@ -224,7 +224,7 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
         where: w,
         message: `starts at or after the shot ends (${shot.duration}s)`,
       });
-    if (a.to && a.do && !['walk', 'run', 'move', 'fly', 'jump', 'sit'].includes(a.do))
+    if (a.to && a.do && !['walk', 'run', 'move', 'fly', 'jump', 'sit', 'lie'].includes(a.do))
       out.push({ level: 'warning', where: w, message: `'to' is ignored for '${a.do}'` });
     if (a.face && a.actor && shot.cast[a.actor] && project.characters[a.actor]) {
       const parts = project.characters[a.actor].parts;

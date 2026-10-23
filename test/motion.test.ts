@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { poseFor, sideOf } from '../src/engine/actor.js';
+import { actorHeadTop, poseFor, sideOf } from '../src/engine/actor.js';
 import { bubblePop } from '../src/engine/bubble.js';
 import { composeFrame } from '../src/engine/compose.js';
 import { footPoint } from '../src/engine/gait.js';
@@ -256,5 +256,61 @@ describe('knees', () => {
     expect(poseFor(a, t).bend.legR).toBeGreaterThan(30);
     for (const y of Object.values(worldFeet(a, t)).map(([, y]) => y))
       expect(Math.abs(y - 640)).toBeLessThan(0.5);
+  });
+});
+
+describe('lying down', () => {
+  it('sits first, then lies back; standing up sits up first', () => {
+    const p = project([
+      { t: 1, actor: 'kid', do: 'lie' },
+      { t: 4, actor: 'kid', do: 'stand' },
+    ]);
+    const at = (t: number) => actorAt(p, 'kid', t);
+    expect(at(1.3).lie).toBe(0);
+    expect(at(1.3).sit).toBeGreaterThan(0.5);
+    expect(at(2.5).lie).toBe(1);
+    expect(poseFor(at(2.5), 2.5).rot.torso).toBeCloseTo(-90);
+    // Getting up: lies less first, still sat, then stands.
+    expect(at(4.5).lie).toBeLessThan(1);
+    expect(at(4.5).sit).toBe(1);
+    expect(at(5.6).lie).toBe(0);
+    expect(at(5.6).sit).toBe(0);
+  });
+
+  it('takes its duration, so a shot can open with someone already lying or sat', () => {
+    const p = project([
+      { t: 0, actor: 'kid', do: 'lie', duration: 0.05 },
+      { t: 0, actor: 'dog', do: 'sit', duration: 0.05 },
+      { t: 2, actor: 'kid', do: 'stand', duration: 2.6 },
+    ]);
+    expect(actorAt(p, 'kid', 0.06).lie).toBe(1);
+    expect(actorAt(p, 'dog', 0.06).sit).toBe(1);
+    // Getting up over twice the default time: still lying a little after the default.
+    expect(actorAt(p, 'kid', 3.3).lie).toBeGreaterThan(0);
+    expect(actorAt(p, 'kid', 4.7).sit).toBe(0);
+  });
+
+  it('puts the bubble at the head and stretches the shadow along the body', () => {
+    const p = project([{ t: 0, actor: 'kid', do: 'lie' }]);
+    const standing = actorAt(p, 'kid', 0);
+    const lying = actorAt(p, 'kid', 2);
+    const up = actorHeadTop(standing, poseFor(standing, 0));
+    const down = actorHeadTop(lying, poseFor(lying, 2));
+    // Facing right, the head lies behind the hips, near the ground.
+    expect(down.x).toBeLessThan(up.x - 80);
+    expect(down.y).toBeGreaterThan(up.y + 120);
+    expect(poseFor(lying, 2).shadow?.scale).toBeGreaterThan(2);
+  });
+
+  it('lays a four-legged animal on its belly with its head down', () => {
+    const p = project([{ t: 0, actor: 'dog', do: 'lie' }]);
+    const a = actorAt(p, 'dog', 2);
+    const pose = poseFor(a, 2);
+    expect(pose.rot.body ?? 0).toBeCloseTo(0);
+    expect(pose.off.body[1]).toBeGreaterThan(40);
+    for (const [, y] of Object.values(worldFeet(a, 2))) expect(y).toBeLessThan(662);
+    // The head comes down on its neck rather than tipping onto its face.
+    expect(pose.off.head[1]).toBeGreaterThan(20);
+    expect(pose.rot.head).toBeLessThan(40);
   });
 });

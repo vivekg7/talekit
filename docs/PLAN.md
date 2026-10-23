@@ -402,6 +402,20 @@ before audio, and they turned up these fixes:
   animal's planted legs still slide (`give: false` on its gaits): on legs
   that short, a give of a few units becomes a deep bend and the walk looks
   rubbery.
+- `lie` was missing, so a sleeping deer slept sitting up. It is layered on
+  sitting: a person sits on the ground, then the torso turns back about
+  the hips until the back is on the floor, with the head tipped forward as
+  on a pillow and the legs out; an animal brings its body level onto its
+  belly, folds all four legs and lowers its head on its neck (tipping it
+  instead put the face on the floor). Getting up runs it backwards. The
+  bubble point is carried through the posture (sitting, lying), not
+  through passing moves like a nod, so a "Zzz" comes from the head where
+  it lies without the bubble bobbing; a lying person's shadow stretches
+  along them.
+- `sit` and `stand` ignored `duration`, so a shot could not open with
+  someone already sat: the agents wrote `duration: 0.05` and got a 0.4 s
+  sit-down. `sit`, `lie` and `stand` now take it, shared between sitting
+  and lying back the way the defaults are.
 
 ### 7.6 Audio (last, on purpose)
 

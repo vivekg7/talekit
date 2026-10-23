@@ -1,5 +1,5 @@
 import { toRoot } from './gait.js';
-import { applyTake, applyVerb, basePose, resolveFace, type Pose } from './motion.js';
+import { applyTake, applyVerb, basePose, emptyPose, resolveFace, type Pose } from './motion.js';
 import { rigPart, RIGS, type Rig } from './rigs.js';
 import { DEFAULT_LINE_COLOR, limbWidth, OUTLINE_PX, outlineFor } from './outline.js';
 import { applyColors, n } from './svg.js';
@@ -12,12 +12,13 @@ import type { Character, Facing } from './types.js';
  */
 export function poseFor(actor: ActorState, t: number): Pose {
   const rig = RIGS[actor.character.rig];
-  const sat = actor.sit > 0;
+  const sat = actor.sit > 0 || actor.lie > 0;
   const loco = sat ? 'idle' : actor.locomotion;
   const pose = basePose(rig, loco, actor.locoT, actor.phase, actor.travel);
   // The floor under the seat, in the character's own units.
   const seat = actor.seat / ((actor.character.height / rig.height) * actor.scale);
   if (sat) applyVerb(rig, pose, 'sit', actor.sit, seat);
+  if (actor.lie > 0) applyVerb(rig, pose, 'lie', actor.lie);
   // Carrying: the near arm hangs a little forward and swings less, under the weight.
   if (actor.holding && rig.name === 'humanoid') pose.rot.armR = 0.35 * (pose.rot.armR ?? 0) - 12;
   const head = rig.name === 'simple' ? 'body' : 'head';
@@ -220,11 +221,12 @@ export function shadowSvg(
   const rig = RIGS[character.rig];
   const s = (character.height / rig.height) * scale;
   const k = 1 / (1 + Math.max(0, -pose.dy) / 120);
-  const rx = (rig.shadow / 2) * s * Math.abs(pose.sx) * k;
+  const rx = (rig.shadow / 2) * s * Math.abs(pose.sx) * k * (pose.shadow?.scale ?? 1);
   const o = opacity * k * k;
   if (rx <= 0 || o <= 0.01) return '';
   const op = o < 1 ? ` opacity='${n(o)}'` : '';
-  return `<ellipse cx='${n(x + s * side * pose.dx)}' cy='${n(y)}' rx='${n(rx)}' ry='${n(rx * 0.2)}' fill='url(#tk-shadow)'${op}/>`;
+  const cx = x + s * side * (pose.dx + (pose.shadow?.dx ?? 0));
+  return `<ellipse cx='${n(cx)}' cy='${n(y)}' rx='${n(rx)}' ry='${n(rx * 0.2)}' fill='url(#tk-shadow)'${op}/>`;
 }
 
 /** An actor's ground shadow: none while it flies, is carried, or is hidden. */
@@ -256,11 +258,21 @@ export function holdPoint(actor: ActorState, pose: Pose): { x: number; y: number
   };
 }
 
-/** Top of the head in world space (for bubbles): the rig's speaker point, mirrored. */
+/**
+ * Top of the head in world space (for bubbles): the rig's speaker point, mirrored, carried
+ * through the posture (sitting, lying down) so a bubble comes from a head that has sat back
+ * or lies on the floor. Passing moves (a nod, a look) are left out, or the bubble would bob.
+ */
 export function actorHeadTop(actor: ActorState, pose: Pose): { x: number; y: number } {
   const rig = RIGS[actor.character.rig];
   const s = (actor.character.height / rig.height) * actor.scale;
-  const [sx, sy] = rig.speaker;
+  let [sx, sy] = rig.speaker;
+  if (rig.parts.head && (actor.sit > 0 || actor.lie > 0)) {
+    const held = emptyPose();
+    applyVerb(rig, held, 'sit', actor.sit);
+    if (actor.lie > 0) applyVerb(rig, held, 'lie', actor.lie);
+    [sx, sy] = toRoot(rig, held, 'head', rig.speaker);
+  }
   const side = sideOf(actor);
   return {
     x: actor.x + (pose.dx + (sx - rig.width / 2)) * s * side,
