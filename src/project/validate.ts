@@ -202,8 +202,18 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
         message: `crossfade (${shot.crossfade}s) is longer than the shot (${shot.duration}s)`,
       });
   }
+  const follows = (camera: { follow?: string } | undefined, w: string) => {
+    if (camera?.follow && !shot.cast[camera.follow])
+      out.push({
+        level: 'error',
+        where: w,
+        message: `camera follows '${camera.follow}', who is not in the cast`,
+      });
+  };
+  follows(shot.camera, where);
   shot.actions.forEach((a, i) => {
     const w = `${where} action[${i}] (t=${a.t})`;
+    follows(a.camera, w);
     if (a.actor && !shot.cast[a.actor])
       out.push({ level: 'error', where: w, message: `actor '${a.actor}' is not in the cast` });
     // On a line with no move, `to` names who is spoken to.

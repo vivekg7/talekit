@@ -1,6 +1,6 @@
 import { clamp01, easeInOut, hash01, lerp, TAU } from './easing.js';
 import { n } from './svg.js';
-import type { Camera, Scene, Shot, Weather } from './types.js';
+import type { Scene, Shot, View, Weather } from './types.js';
 
 /**
  * Weather the engine animates, as functions of shot time: nothing is stored between frames,
@@ -75,7 +75,7 @@ export interface WeatherView {
 }
 
 interface Ctx {
-  c: Required<Camera>;
+  c: View;
   W: number;
   H: number;
   t: number;
@@ -154,7 +154,7 @@ const wrap = (v: number, span: number) => ((v % span) + span) % span;
 export function weatherView(
   w: Weather,
   shot: Shot,
-  c: Required<Camera>,
+  c: View,
   W: number,
   H: number,
   t: number,

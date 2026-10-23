@@ -5,7 +5,7 @@ import { bubbleSvg, wrapText, textWidth } from './bubble.js';
 import { clamp01, easeInOut } from './easing.js';
 import { escapeXml, n } from './svg.js';
 import { resolveFrame, type FrameState } from './timeline.js';
-import type { Camera, Project, Shot, Weather } from './types.js';
+import type { Project, Shot, View, Weather } from './types.js';
 import { effectsSvg, fireLights, type EffectLayer, type FireLight } from './effects.js';
 import type { Pose } from './motion.js';
 import { RIGS } from './rigs.js';
@@ -34,7 +34,7 @@ const FRAME_DEFS =
  * camera exactly, 0 does not move at all. Zoom scales geometrically (zoom^p), so a far
  * layer behind a clamped stage view always covers the frame too.
  */
-export function layerTransform(c: Required<Camera>, W: number, H: number, p: number): string {
+export function layerTransform(c: View, W: number, H: number, p: number): string {
   const zoom = Math.pow(c.zoom, p);
   const x = W / 2 + p * (c.x - W / 2);
   const y = H / 2 + p * (c.y - H / 2);

@@ -126,13 +126,15 @@ describe('carrying', () => {
     expect(ids.indexOf('lantern')).toBe(ids.indexOf('kid') + 1);
   });
 
-  it('checks who is spoken to and who carries what', () => {
+  it('checks who is spoken to, who carries what and whom the camera follows', () => {
     const p = project(cast, [
       { t: 1, actor: 'kid', say: 'Hi', to: 'nobody' },
       { t: 2, actor: 'lantern', attach: 'lantern' },
       { t: 3, actor: 'lantern', attach: 'ghost' },
+      { t: 4, camera: { zoom: 1.5, follow: 'ghost' } },
     ]);
     const messages = validateShot(p.shots[0], p).map((m) => m.message);
+    expect(messages.join('\n')).toMatch(/camera follows 'ghost', who is not in the cast/);
     expect(messages.join('\n')).toMatch(/'nobody' is not in the cast/);
     expect(messages.join('\n')).toMatch(/cannot carry itself/);
     expect(messages.join('\n')).toMatch(/attach: 'ghost' is not in the cast/);

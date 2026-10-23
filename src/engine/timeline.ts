@@ -14,6 +14,7 @@ import type {
   Scene,
   Shot,
   Verb,
+  View,
 } from './types.js';
 
 export interface Point {
@@ -94,7 +95,7 @@ export interface FrameState {
   shot: Shot;
   scene: Scene;
   actors: ActorState[];
-  camera: Required<Camera>;
+  camera: View;
   captions: CaptionState[];
   /** 0 = clear, 1 = fully black. */
   fade: number;
@@ -609,17 +610,28 @@ export const LOOK_LIMIT: Record<Character['rig'], number> = {
   simple: 5,
 };
 
-function resolveCamera(project: Project, shot: Shot, t: number): Required<Camera> {
+/** Seconds of an actor's path the camera averages when it follows: how far it trails. */
+const FOLLOW_LAG = 0.9;
+/** Room left ahead of a followed actor, as a share of the frame's width. */
+const FOLLOW_LEAD = 0.12;
+
+function resolveCamera(project: Project, scene: Scene, shot: Shot, t: number): View {
   const { width, height } = project.meta;
-  const base = (c: Partial<Camera>, prev: Required<Camera>): Required<Camera> => ({
+  type Aim = View & { follow?: string };
+  const base = (c: Partial<Camera>, prev: Aim): Aim => ({
     zoom: c.zoom ?? prev.zoom,
     x: c.x ?? prev.x,
     y: c.y ?? prev.y,
+    // An explicit point lets go of whoever the camera was following.
+    follow:
+      c.follow !== undefined
+        ? c.follow || undefined
+        : c.x !== undefined || c.y !== undefined
+          ? undefined
+          : prev.follow,
   });
-  let cam = base(shot.camera, { zoom: 1, x: width / 2, y: height / 2 });
-  let tween: { from: Required<Camera>; to: Required<Camera>; t0: number; t1: number } | undefined;
   // Keep the view inside the scene so zooming never shows the black outside the artwork.
-  const clampCam = (c: Required<Camera>): Required<Camera> => {
+  const clampCam = (c: View): View => {
     const zoom = Math.max(1, c.zoom);
     const hw = width / (2 * zoom);
     const hh = height / (2 * zoom);
@@ -629,22 +641,48 @@ function resolveCamera(project: Project, shot: Shot, t: number): Required<Camera
       y: Math.min(height - hh, Math.max(hh, c.y)),
     };
   };
-  const camAt = (time: number): Required<Camera> => {
-    if (!tween) return clampCam(cam);
+  // Where following an actor puts the camera: the mean of where it has been over the last
+  // moment, newer places weighing more, so the camera eases after a start and settles
+  // after a stop instead of being nailed to the actor. Pure in t, as every frame must be.
+  const followed = (id: string, zoom: number, time: number): View => {
+    const n = 8;
+    let x = 0;
+    let y = 0;
+    let sum = 0;
+    for (let j = 0; j <= n; j++) {
+      const a = resolveActor(project, scene, shot, id, Math.max(0, time - (FOLLOW_LAG * j) / n));
+      const h = a.character.height * a.scale;
+      const w = n + 1 - j;
+      const ahead = (a.facing === 'left' ? -1 : 1) * ((FOLLOW_LEAD * width) / zoom);
+      // Each place is kept inside the scene before the mean, so the camera eases to a stop
+      // at the scene's edge rather than hitting it.
+      const at = clampCam({ zoom, x: a.x + ahead, y: a.y - 0.45 * h });
+      x += w * at.x;
+      y += w * at.y;
+      sum += w;
+    }
+    return { zoom, x: x / sum, y: y / sum };
+  };
+  const view = (c: Aim, time: number): View =>
+    c.follow && shot.cast[c.follow] ? followed(c.follow, c.zoom, time) : c;
+  let cam = base(shot.camera, { zoom: 1, x: width / 2, y: height / 2 });
+  let tween: { from: View; t0: number; t1: number } | undefined;
+  const camAt = (time: number): View => {
+    const to = view(cam, time);
+    if (!tween) return clampCam(to);
     const u = easeInOut(clamp01((time - tween.t0) / Math.max(1e-6, tween.t1 - tween.t0)));
     return clampCam({
-      zoom: lerp(tween.from.zoom, tween.to.zoom, u),
-      x: lerp(tween.from.x, tween.to.x, u),
-      y: lerp(tween.from.y, tween.to.y, u),
+      zoom: lerp(tween.from.zoom, to.zoom, u),
+      x: lerp(tween.from.x, to.x, u),
+      y: lerp(tween.from.y, to.y, u),
     });
   };
   for (const a of shot.actions.filter((a) => a.camera).sort((a, b) => a.t - b.t)) {
     if (a.t > t) break;
     const from = camAt(a.t);
-    const to = base(a.camera!, from);
     const d = a.duration ?? 1;
-    cam = to;
-    tween = d > 0 ? { from, to, t0: a.t, t1: a.t + d } : undefined;
+    cam = base(a.camera!, { ...cam, ...from });
+    tween = d > 0 ? { from, t0: a.t, t1: a.t + d } : undefined;
   }
   return camAt(t);
 }
@@ -691,7 +729,7 @@ export function resolveFrame(project: Project, shot: Shot, t: number): FrameStat
     shot,
     scene,
     actors,
-    camera: resolveCamera(project, shot, t),
+    camera: resolveCamera(project, scene, shot, t),
     captions: resolveCaptions(shot, t),
     fade: clamp01(fade),
   };

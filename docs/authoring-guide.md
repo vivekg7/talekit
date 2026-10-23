@@ -629,12 +629,20 @@ to look, so set `facing` so that people who talk face each other.
   speech bubble without touching it, but a title card sits in the middle of
   the frame where faces and bubbles are, so do not talk over one.
 - `camera: { zoom, x, y }` tweens from the current camera over `duration`
-  (default 1 s; `0` cuts). `x, y` is the world point at frame centre. Zoom in
+  (default 1 s; `0.05` is a cut). `x, y` is the world point at frame centre. Zoom in
   on a face for reactions, pull back for arrivals. Keep zoom between 1 and 2:
   below 1 is raised to 1 (the scene has nothing outside its edges), and the
   view is clamped to the scene, so a zoom near an edge shifts toward the middle.
   A layered scene's `far` and `near` move at their own rates (see Scenes),
   and above zoom 1.3 the frame's edges darken a little, more the closer in.
+- `camera: { zoom: 1.6, follow: "kid" }` follows a cast member: the camera
+  pans after them, trailing a moment behind with room left ahead of the way
+  they face, and settles when they stop. Use it for a walk or a chase longer
+  than the frame shows: draw the scene wide in the story sense (things worth
+  passing along the way) and zoom in, since the view stays inside the scene
+  and at zoom 1 there is nowhere to pan. Put it on the shot's `camera` to
+  follow from the start, or in an action to take over (it eases across over
+  `duration`); a `camera` with `x`/`y`, or `follow: ""`, lets go.
 - `set: { facing, scale, visible, at }` changes state instantly (teleport,
   grow); a new `facing` turns round over 0.2 s.
 - `lightning: true` (no actor) strikes at `t`: a bolt in the sky and a flash.

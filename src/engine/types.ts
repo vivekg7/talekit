@@ -372,8 +372,20 @@ export const CameraSchema = z.object({
   /** World point shown at the centre of the frame. Defaults to the frame centre. */
   x: z.number().optional(),
   y: z.number().optional(),
+  /**
+   * Keep an actor in frame: the camera trails it, a little ahead of the way it faces, and
+   * settles when it stops. Setting x or y, or an empty string, lets go of it.
+   */
+  follow: z
+    .string()
+    .optional()
+    .describe(
+      "Cast id the camera follows: it pans after the actor, trailing a moment behind with room ahead of it, and settles when it stops. Needs zoom above 1 (1.4 to 1.8), since the view stays inside the scene. Setting x or y, or follow: '', lets go"
+    ),
 });
 export type Camera = z.infer<typeof CameraSchema>;
+/** Where the camera is at an instant: the zoom and the world point at the frame centre. */
+export type View = { zoom: number; x: number; y: number };
 
 export const ActionSchema = z
   .object({
@@ -408,7 +420,7 @@ export const ActionSchema = z
     /** On-screen text that belongs to no actor: a title card or a narrator line. */
     caption: z.string().optional(),
     captionStyle: z.enum(['title', 'narration']).optional(),
-    /** Camera target, tweened over `duration` (default 1s; 0 for a cut). */
+    /** Camera target, tweened over `duration` (default 1s; 0.05 for a cut). */
     camera: CameraSchema.partial().optional(),
     /**
      * Carry: this actor (a prop) is held by another's hand, or a four-legged one's mouth,

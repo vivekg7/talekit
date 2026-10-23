@@ -566,6 +566,16 @@ one style with real shapes, using downloaded art as reference only.
   first, and agents forgot. A move now gets up first, sitting up and then
   standing on the spot, and starts once it is up: the move keeps its own
   duration and ends later by the time the getting up took.
+- The camera could only be sent to fixed points, so a walk across a scene
+  was either a wide shot or a pan the author timed by hand, and agents
+  timed it wrong. `camera.follow` names a cast member: the camera aims at
+  them, ahead by a share of the frame the way they face, and trails through
+  a weighted mean of where they were over the last 0.9 s, newer places
+  weighing more. A mean of past states rather than a spring keeps every
+  frame computable on its own (nine actor lookups, nothing integrated), and
+  it eases out of a start and settles after a stop. Each sample is clamped
+  into the scene before the mean, or the camera would run into the scene's
+  edge and stop dead. Setting a point, or `follow: ""`, lets go.
 
 ### 7.8 Audio (last, on purpose)
 

@@ -86,6 +86,35 @@ describe('timeline', () => {
     expect(resolveFrame(p, shot, 4).camera.zoom).toBeCloseTo(1.5, 5);
     expect(resolveFrame(p, shot, 6).camera.zoom).toBe(2);
   });
+  it('follows an actor, trailing it, with room ahead, and lets go for a fixed point', () => {
+    const fp = project({
+      id: 'f',
+      scene: 'park',
+      duration: 10,
+      camera: { zoom: 1.6, follow: 'kid' },
+      cast: { kid: { at: { x: 200, y: 640 } } },
+      actions: [
+        { t: 1, actor: 'kid', do: 'walk', to: { x: 1100, y: 640 }, duration: 4 },
+        { t: 7, camera: { x: 640, y: 360 }, duration: 0.5 },
+      ],
+    });
+    const f = fp.shots[0];
+    const at = (t: number) => resolveFrame(fp, f, t);
+    const xs = Array.from({ length: 24 * 7 }, (_, i) => at(i / 24).camera.x);
+    // Pans the same way the actor walks, never jumping from one frame to the next.
+    expect(xs[24 * 4]).toBeGreaterThan(xs[24 * 2]);
+    for (let i = 2; i < xs.length; i++)
+      expect(Math.abs(xs[i] - 2 * xs[i - 1] + xs[i - 2])).toBeLessThan(2.5);
+    // Mid-walk it trails the actor's lead point but keeps it in frame.
+    const mid = at(3);
+    const kid = mid.actors[0];
+    const lead = kid.x + (0.12 * 1280) / 1.6;
+    expect(mid.camera.x).toBeLessThan(lead);
+    expect(Math.abs(kid.x - mid.camera.x)).toBeLessThan(640 / 1.6);
+    // Stopped by the scene's right edge, inside it.
+    expect(at(6.5).camera.x).toBeCloseTo(1280 - 640 / 1.6, 0);
+    expect(at(8).camera.x).toBe(640);
+  });
   it('draws closer actors later', () => {
     const f = resolveFrame(p, shot, 0);
     expect(f.actors.map((a) => a.id)).toEqual(['dog', 'kid']); // bench y=655 is behind gate y=660
