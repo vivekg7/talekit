@@ -92,11 +92,21 @@ export function validateCharacter(c: Character): Problem[] {
   return out;
 }
 
-/** Whether a fragment has a rect at the origin at least the size of the frame. */
+/**
+ * Whether a fragment has an opaque rect at the origin at least the size of the frame. A
+ * see-through one (a dusk tint over the whole stage) leaves far showing, so it does not count.
+ */
 function coversFrame(svg: string, width: number, height: number): boolean {
   for (const [, attrs] of svg.matchAll(/<rect\b([^>]*)>/g)) {
-    const num = (k: string) => parseFloat(attrs.match(new RegExp(`\\b${k}='([^']*)'`))?.[1] ?? '0');
-    if (num('x') <= 0 && num('y') <= 0 && num('width') >= width && num('height') >= height)
+    const attr = (k: string) => attrs.match(new RegExp(`(?:^|\\s)${k}='([^']*)'`))?.[1];
+    const num = (k: string, d: number) => parseFloat(attr(k) ?? String(d));
+    if (attr('fill') === 'none' || num('opacity', 1) * num('fill-opacity', 1) < 0.95) continue;
+    if (
+      num('x', 0) <= 0 &&
+      num('y', 0) <= 0 &&
+      num('width', 0) >= width &&
+      num('height', 0) >= height
+    )
       return true;
   }
   return false;

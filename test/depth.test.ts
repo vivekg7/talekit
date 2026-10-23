@@ -95,6 +95,12 @@ describe('layers', () => {
     });
     const messages = validateScene(scene, W, H).map((p) => p.message);
     expect(messages.join('\n')).toMatch(/hides far/);
+    // A see-through tint over the whole stage leaves far showing.
+    const tinted = SceneSchema.parse({
+      ...LIBRARY.scenes.park,
+      svg: `<rect width='1280' height='720' fill='#ff8c4a' opacity='0.2'/>`,
+    });
+    expect(validateScene(tinted, W, H)).toEqual([]);
     expect(validateScene(SceneSchema.parse(LIBRARY.scenes.park), W, H)).toEqual([]);
   });
 });

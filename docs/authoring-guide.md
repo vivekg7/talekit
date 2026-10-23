@@ -367,7 +367,8 @@ Split it into depths and it opens up:
   it still like a sky). **It must fill the whole frame on its own**, down to
   the bottom edge (run the far hill or the sea to y=720), because a zoom
   shows more of it than you expect; and `svg` must leave the sky out, or it
-  hides `far` (the validator warns about a full-frame rect in `svg`).
+  hides `far` (the validator warns about an opaque full-frame rect in
+  `svg`; a see-through one, such as a dusk tint over everything, is fine).
 - `svg` and `foreground`: the stage, where the actors and every anchor are.
   They move with the camera exactly. Keep anchors on the stage: an actor
   standing on something in `far` slides off it when the camera moves.
