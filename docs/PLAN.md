@@ -686,12 +686,19 @@ bubbles):
   render to under 1 GB.
 
 Result: the race film went from 262 s to 39 s wall (byte-identical mp4), and
-lost-kite from 41 s to 10 s with half the CPU time. What is left is drawing
-itself: on the race film about 27 of 38 ms a frame is the scenery, which does
-not change in most shots, so drawing it once per shot and laying the actors
-over it is the next step if long films need to be faster. On lost-kite the
-scenery is 5 of 16 ms, so there the actors dominate and caching would gain
-little.
+lost-kite from 41 s to 10 s with half the CPU time. Drawing is still what
+takes the time: ffmpeg alone encodes the race film in 7 s.
+
+Drawing the scenery once per shot was tried and dropped. Everything behind
+the actors (the far layer, the sky, the scene's art) is 27 of 38 ms a frame
+on the race film, but it is not still: a `sun` effect turns its rays and
+pulses its halo every frame, and clouds and rain move, so a cached backdrop
+that gives the same pixels almost never repeats (2 of 16 race shots). The
+parts that are still cost too little to pay for laying a picture down
+(about 8 ms a frame to unpack it): the far art alone is 5 to 9 ms, and the
+scene's art, drawn alone on a clear layer and laid over the moving sky,
+saved 16% but moved edge pixels by up to 54 of 255, because a clear layer
+rounds its edges differently from drawing straight onto the sky.
 
 ## Later (deliberately not now)
 
