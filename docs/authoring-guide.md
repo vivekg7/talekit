@@ -363,6 +363,83 @@ split. The anchor sheet of a layered scene adds a strip underneath: each
 layer on its own, then the camera zoomed into either side, where the far
 layer should sit differently behind the stage with no gap anywhere.
 
+### Weather and moving nature
+
+Anything in a scene that should move by itself (rain, snow, clouds, fire, the
+sea) is drawn by the engine, every frame. **Do not draw rain streaks,
+snowflakes or flames in the scene's SVG**: they would stand still. Draw the
+mood and everything that does not move (a grey sky, wet pavement and
+puddles, snow on the ground, the fire pit's stones, the rock face behind a
+waterfall), and name the rest.
+
+`weather` covers the whole sky and air:
+
+```json
+"weather": {
+  "rain": { "amount": 0.6 },
+  "wind": 0.4,
+  "clouds": { "amount": 0.8, "dark": 0.8 },
+  "lightning": { "every": 6 }
+}
+```
+
+- `rain` (`amount` 0.2 drizzle to 1 downpour) falls at three depths: a fine
+  haze behind the scenery, drops between the scenery and the actors, a few
+  big ones in front of the actors. Splashes ring on the floor around
+  `ground`. `snow` is the same with flakes that sway as they fall.
+- `wind` (-1 to 1, positive blows right) slants the rain, carries snow,
+  smoke, sparks and leaves, moves the clouds, and from 0.3 up draws wavy
+  gusts streaming across the frame. `leaves: { "amount": 0.5 }` sends
+  leaves tumbling through (`colors` to recolour them).
+- `clouds` drift across the sky band (down to `low`, default 0.32 × height).
+  `dark` 0 is white fair-weather cloud; 1 is a storm, which also darkens the
+  sky over the clouds and dims the frame a little.
+- `lightning` strikes about every `every` seconds: a bolt in the sky and a
+  flash that brightens the frame for a moment. For a strike at a story beat
+  (the thunderclap that makes someone jump), put `{ "t": 3, "lightning":
+true }` in the shot's actions instead.
+- `heat` (0 to 1) makes the far layer shimmer, as over desert sand at noon.
+- `top`, on `rain` or `snow`: the stage y it falls from, for a shot under a
+  shelter (a bench seat, an awning across the top of the frame).
+- `scale`: for a close-up scene drawn large, the same scale its anchors give
+  the characters, so the drops are as big as they would be that close.
+
+Clouds, the lightning bolt and the heat haze are drawn in the `far` layer,
+so a scene that uses them needs one (the validator warns). A shot can set
+its own `weather`, which replaces the scene's for that shot: the rain
+stopping, a storm coming in. `{}` clears it.
+
+`effects` places moving things, each in the coordinates of the plane it
+belongs to (`layer`):
+
+```json
+"effects": [
+  { "kind": "fire", "x": 640, "y": 608 },
+  { "kind": "smoke", "x": 645, "y": 500, "size": 0.8 },
+  { "kind": "sun", "x": 980, "y": 130 },
+  { "kind": "waves", "y": 390, "height": 170 },
+  { "kind": "waterfall", "x": 640, "y": 180, "width": 150, "height": 360 }
+]
+```
+
+| kind        | where `x`, `y` is                                  | what moves                                                                      |
+| ----------- | -------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `fire`      | the middle of the base, on the ground              | crossed logs (`logs: false` for none), flickering flames, a glow, rising sparks |
+| `smoke`     | where it comes out (a chimney top, a flame's tip)  | puffs rising, swelling, drifting with the wind                                  |
+| `waterfall` | the middle of the lip it pours over                | streaks pouring down `height`, foam, ripples and mist at the foot               |
+| `waves`     | `y` is the far edge of the sea, `height` its depth | rows of crests, a swell rolling in, foam washing up the shore line and back     |
+| `sun`       | the centre of the disc                             | a breathing halo and slowly turning rays                                        |
+
+`size` scales fire (1 is a campfire about 110 px tall), smoke and the sun;
+`color` recolours the water, the foam, the smoke or the sun. The default
+plane is `far` for the sun and `stage` (behind the actors) for the rest;
+`front` puts it in front of the actors, `near` with the near layer. Waves on
+a sea drawn in `far` need `"layer": "far"`. Draw the sea itself, the pool
+under the waterfall and the fire pit: the effect only adds what moves.
+
+The anchor sheet of a scene with weather or effects adds a row of the empty
+scene at a few moments, so you can see the rain fall and the flames move.
+
 Design tips: the floor band should be the bottom 15–25% of the frame; keep
 the middle third uncluttered where faces and bubbles go; a 220px character is
 about a third of the frame height. The anchor sheet shows a ghost for scale:
@@ -522,6 +599,9 @@ to look, so set `facing` so that people who talk face each other.
   and above zoom 1.3 the frame's edges darken a little, more the closer in.
 - `set: { facing, scale, visible, at }` changes state instantly (teleport,
   grow); a new `facing` turns round over 0.2 s.
+- `lightning: true` (no actor) strikes at `t`: a bolt in the sky and a flash.
+  A shot's own `weather` replaces the scene's (see Weather and moving
+  nature).
 
 ## Pacing a children's story
 

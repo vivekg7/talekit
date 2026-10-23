@@ -81,6 +81,158 @@ export const AnchorSchema = z.object({
 });
 export type Anchor = z.infer<typeof AnchorSchema>;
 
+const ShelterSchema = z
+  .number()
+  .optional()
+  .describe(
+    'Stage y it falls from, for a shot under a shelter (the underside of a bench seat, an awning across the top of the frame); default: the top of the frame'
+  );
+
+export const WeatherSchema = z
+  .object({
+    rain: z
+      .object({
+        amount: z
+          .number()
+          .min(0.1)
+          .max(1)
+          .default(0.5)
+          .describe('0.2 a drizzle, 0.5 steady rain (default), 1 a downpour'),
+        top: ShelterSchema,
+      })
+      .optional()
+      .describe(
+        'Rain falling at three depths (a haze behind the scenery, drops behind the actors, a few in front of them) with splashes on the floor around `ground`'
+      ),
+    snow: z
+      .object({
+        amount: z
+          .number()
+          .min(0.1)
+          .max(1)
+          .default(0.5)
+          .describe('0.2 a few flakes, 0.5 steady snow (default), 1 a blizzard'),
+        top: ShelterSchema,
+      })
+      .optional()
+      .describe('Snowflakes drifting down at three depths, swaying as they fall'),
+    wind: z
+      .number()
+      .min(-1)
+      .max(1)
+      .optional()
+      .describe(
+        'Wind: positive blows to the right, negative to the left, 1 a gale. It slants rain, drifts snow, smoke, sparks and leaves, moves the clouds, and from 0.3 up draws wavy gusts streaming across the frame'
+      ),
+    leaves: z
+      .object({
+        amount: z.number().min(0.1).max(1).default(0.5),
+        colors: z
+          .array(z.string())
+          .min(1)
+          .optional()
+          .describe('Leaf colours; default autumn oranges, yellows and a green'),
+      })
+      .optional()
+      .describe('Leaves tumbling down through the frame, carried sideways by the wind'),
+    clouds: z
+      .object({
+        amount: z
+          .number()
+          .min(0.1)
+          .max(1)
+          .default(0.5)
+          .describe('How much of the sky they cover: 0.2 a few, 1 overcast'),
+        dark: z
+          .number()
+          .min(0)
+          .max(1)
+          .default(0)
+          .describe(
+            '0 white fair-weather clouds, 1 storm clouds; dark clouds also darken the sky above them and dim the whole frame a little'
+          ),
+        low: z
+          .number()
+          .optional()
+          .describe('y of the bottom of the cloud band in the far layer (default 0.32 × height)'),
+      })
+      .optional()
+      .describe(
+        'Clouds drifting across the sky, with the wind or slowly to the right. Drawn in the far layer over its sky, so the scene needs `far`'
+      ),
+    lightning: z
+      .object({
+        every: z
+          .number()
+          .min(2)
+          .default(8)
+          .describe('Seconds between strikes, roughly (default 8)'),
+      })
+      .optional()
+      .describe(
+        'Lightning: a bolt in the sky (behind the stage, so it needs `far`) and a flash over the frame. For a strike at a story moment use a `lightning` action instead'
+      ),
+    scale: z
+      .number()
+      .min(0.5)
+      .max(3)
+      .optional()
+      .describe(
+        'Size of the drops, flakes and leaves, for a close-up scene drawn large: use the scale its anchors give the characters (default 1)'
+      ),
+    heat: z
+      .number()
+      .min(0)
+      .max(1)
+      .optional()
+      .describe('Heat haze: the far layer shimmers, as over desert sand at noon (0.5 is plenty)'),
+  })
+  .describe(
+    'Weather the engine animates. Draw the mood yourself (a grey sky and wet ground for rain, a white ground for snow), never the falling drops or flakes'
+  );
+export type Weather = z.infer<typeof WeatherSchema>;
+
+export const EffectSchema = z
+  .object({
+    kind: z
+      .enum(['fire', 'smoke', 'waterfall', 'waves', 'sun'])
+      .describe(
+        'fire: burning logs with flickering flames, a glow and sparks (x, y = the middle of the base on the ground). smoke: puffs rising from x, y (a chimney top, a doused fire). waterfall: water pouring from the lip at x, y (its middle) down `height`, `width` wide, foaming and misting at the bottom. waves: the sea moving between y and y + height, rows of crests and foam washing up and back at the shore line (the bottom); x and width default to the whole frame. sun: a glowing sun at x, y with slowly turning rays'
+      ),
+    x: z.number().optional(),
+    y: z.number(),
+    width: z.number().positive().optional().describe('waterfall (default 120), waves'),
+    height: z
+      .number()
+      .positive()
+      .optional()
+      .describe(
+        'waterfall: drop to the pool (default 300); waves: depth of the sea band (default 120)'
+      ),
+    size: z
+      .number()
+      .positive()
+      .default(1)
+      .describe(
+        'Scale: fire 1 is a campfire about 110px tall; smoke 1 a chimney plume; sun 1 is 55px across the disc'
+      ),
+    color: z
+      .string()
+      .optional()
+      .describe(
+        'waterfall: the water (default #7cc6ec); waves: the crests and foam (default white); smoke: the puffs; sun: the disc'
+      ),
+    logs: z.boolean().default(true).describe('fire: draw the burning logs under the flames'),
+    layer: z
+      .enum(['far', 'stage', 'front', 'near'])
+      .optional()
+      .describe(
+        "Which plane it belongs to, in that plane's coordinates: far (with the far scenery), stage (on the stage behind the actors), front (on the stage in front of them), near. Default far for sun, stage for the rest"
+      ),
+  })
+  .refine((e) => e.kind === 'waves' || e.x !== undefined, 'x is required except for waves');
+export type Effect = z.infer<typeof EffectSchema>;
+
 export const SceneSchema = z.object({
   id: IdSchema,
   name: z.string().min(1),
@@ -117,6 +269,14 @@ export const SceneSchema = z.object({
     ),
   /** Default floor y for the stage shortcuts left/center/right. Defaults to 0.9 * height. */
   ground: z.number().optional(),
+  /** Weather and moving nature the engine animates, so the author never draws a frame of it. */
+  weather: WeatherSchema.optional(),
+  effects: z
+    .array(EffectSchema)
+    .default([])
+    .describe(
+      'Moving things placed in the scene that the engine animates: fire, smoke, waterfall, waves, sun. Draw what does not move (the rock face, the beach, the fire pit stones) yourself'
+    ),
   anchors: z.record(z.string(), AnchorSchema).default({}),
 });
 export type Scene = z.infer<typeof SceneSchema>;
@@ -208,6 +368,13 @@ export const ActionSchema = z
       .describe(
         "Carry this actor (a prop): the id of the carrier, whose near hand (or a four-legged animal's mouth) holds it at the prop's grip; false lets go, leaving it where it is"
       ),
+    /** A lightning strike at t: a bolt in the sky and a flash over the frame. */
+    lightning: z
+      .literal(true)
+      .optional()
+      .describe(
+        "A lightning strike now: a bolt in the sky (needs the scene's far layer) and a flash"
+      ),
     /** Instant state changes. */
     set: z
       .object({
@@ -227,8 +394,9 @@ export const ActionSchema = z
       a.caption ||
       a.camera ||
       a.set ||
+      a.lightning ||
       a.attach !== undefined,
-    'an action needs at least one of: do, say, emotion, face, caption, camera, set, attach'
+    'an action needs at least one of: do, say, emotion, face, caption, camera, set, attach, lightning'
   )
   .refine(
     (a) => !(a.do || a.say || a.emotion || a.face || a.set || a.attach !== undefined) || a.actor,
@@ -267,6 +435,10 @@ export const ShotSchema = z.object({
     .describe(
       "Seconds this shot dissolves in from the previous one at its start (default 0, a cut). The previous shot's last moment carries on underneath, so it needs no fadeOut"
     ),
+  /** Replaces the scene's weather for this shot: the rain stops, a storm starts. */
+  weather: WeatherSchema.optional().describe(
+    "This shot's weather instead of the scene's (the rain has stopped, a storm is coming); {} for clear weather in a scene that has some"
+  ),
   actions: z.array(ActionSchema).default([]),
 });
 export type Shot = z.infer<typeof ShotSchema>;

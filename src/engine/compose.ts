@@ -5,6 +5,8 @@ import { clamp01, easeInOut } from './easing.js';
 import { escapeXml, n } from './svg.js';
 import { resolveFrame, type FrameState } from './timeline.js';
 import type { Camera, Project, Shot } from './types.js';
+import { effectsSvg, type EffectLayer } from './effects.js';
+import { flashFilter, weatherView } from './weather.js';
 
 export interface ComposeOptions {
   /** Draw anchor markers and actor feet points. */
@@ -142,7 +144,13 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
     applySprings(project, frame.shot, actor, pose, frame.t);
     return { actor, pose };
   });
-  let world = `<g class='scene'>${scene.svg}</g>`;
+  // A shot's own weather replaces the scene's, so one street can be wet in one shot and dry
+  // in the next.
+  const w = frame.shot.weather ?? scene.weather;
+  // Always asked, even in fair weather: a `lightning` action strikes in any sky.
+  const sky = weatherView(w ?? {}, frame.shot, c, W, H, frame.t, scene.ground ?? H * 0.9);
+  const fx = (plane: EffectLayer) => effectsSvg(scene.effects, plane, frame.t, w?.wind ?? 0, W, H);
+  let world = `<g class='scene'>${scene.svg}</g>` + fx('stage') + sky.stage;
   world += posed.map(({ actor, pose }) => renderShadow(actor, pose)).join('');
   const bubbles: string[] = [];
   for (const { actor, pose } of posed) {
@@ -170,6 +178,7 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
     }
   }
   if (scene.foreground) world += `<g class='foreground'>${scene.foreground}</g>`;
+  world += fx('front');
   if (opts.debug) {
     for (const [name, a] of Object.entries(scene.anchors)) {
       world += `<g><circle cx='${a.x}' cy='${a.y}' r='6' fill='#0af' stroke='#fff' stroke-width='2'/><text x='${a.x + 10}' y='${a.y - 8}' font-size='18' fill='#0af' font-family='sans-serif' stroke='#000' stroke-width='3' paint-order='stroke'>${escapeXml(name)}</text></g>`;
@@ -185,11 +194,29 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
       ? `<rect width='${W}' height='${H}' fill='#000' opacity='${n(frame.fade)}'/>`
       : '';
 
+  const farSvg = (scene.far ?? '') + fx('far') + sky.sky;
+  let far = farSvg ? layer('far', farSvg, scene.parallax?.far ?? PARALLAX.far) : '';
+  if (far && sky.haze) {
+    // The haze's noise is fixed to the filtered group's coordinates: shift that group up by
+    // the scroll and the layer back down inside it, and the noise rises through the scenery.
+    const s = n(sky.haze.scroll);
+    // The plain layer goes underneath, so the edges the shimmer pulls in from outside the
+    // frame show the scenery rather than black.
+    far += `<defs>${sky.haze.defs}</defs><g transform='translate(0 -${s})' filter='url(#${sky.haze.id})'><g transform='translate(0 ${s})'>${far}</g></g>`;
+  }
+  const nearSvg = (scene.near ?? '') + fx('near');
+  let picture =
+    far +
+    sky.far +
+    layer('camera', world, 1) +
+    sky.front +
+    (nearSvg ? layer('near', nearSvg, scene.parallax?.near ?? PARALLAX.near) : '') +
+    sky.light;
+  if (sky.flash)
+    picture = `<defs>${flashFilter('tk-flash', sky.flash, W, H)}</defs><g filter='url(#tk-flash)'>${picture}</g>`;
   return (
     `<rect width='${W}' height='${H}' fill='#000'/>` +
-    (scene.far ? layer('far', scene.far, scene.parallax?.far ?? PARALLAX.far) : '') +
-    layer('camera', world, 1) +
-    (scene.near ? layer('near', scene.near, scene.parallax?.near ?? PARALLAX.near) : '') +
+    picture +
     (vignette > 0
       ? `<rect width='${W}' height='${H}' fill='url(#tk-vignette)' opacity='${n(vignette)}'/>`
       : '') +

@@ -8,6 +8,8 @@ import {
 import { springParts } from '../engine/springs.js';
 import { LOOK_LIMIT } from '../engine/timeline.js';
 import { composeFrame, layerTransform, PARALLAX } from '../engine/compose.js';
+import { effectsSvg, type EffectLayer } from '../engine/effects.js';
+import { strikeAt } from '../engine/weather.js';
 import {
   applyVerb,
   basePose,
@@ -19,7 +21,14 @@ import {
 import { RIGS } from '../engine/rigs.js';
 import { escapeXml, n } from '../engine/svg.js';
 import { STAGE_SHORTCUTS, resolvePosition } from '../engine/timeline.js';
-import type { Character, Emotion, Project, Scene, Shot } from '../engine/types.js';
+import {
+  ShotSchema,
+  type Character,
+  type Emotion,
+  type Project,
+  type Scene,
+  type Shot,
+} from '../engine/types.js';
 import { lintCharacter, partBox } from '../project/construction.js';
 
 const LABEL_FONT = 'Helvetica, Arial, sans-serif';
@@ -206,20 +215,73 @@ export function sceneSheetSvg(project: Project, scene: Scene): string {
   const ghostW = tallest ? (ghostH * RIGS[tallest.rig].width) / RIGS[tallest.rig].height : 110;
   const ghostLabel = tallest ? `${tallest.id} (${ghostH}px, tallest)` : '220px character';
   const ghost = `<g opacity='0.35'><rect x='${n(ground.x - ghostW / 2)}' y='${n(ground.y - ghostH)}' width='${n(ghostW)}' height='${n(ghostH)}' rx='${n(Math.min(40, ghostW / 2))}' fill='#333'/><text x='${n(ground.x)}' y='${n(ground.y - ghostH - 8)}' text-anchor='middle' font-family='${LABEL_FONT}' font-size='16' fill='#333'>${escapeXml(ghostLabel)}</text></g>`;
-  const strip = scene.far || scene.near ? layerStrip(project, scene) : undefined;
-  const SH = H + (strip?.height ?? 0);
+  // Effects stand still at one moment here, where they are placed against the anchors; the
+  // strip underneath shows them moving with the weather.
+  const fx = (plane: EffectLayer) =>
+    effectsSvg(scene.effects, plane, 1, scene.weather?.wind ?? 0, W, H);
+  const strips = [
+    scene.far || scene.near ? layerStrip(project, scene) : undefined,
+    scene.weather || scene.effects.length ? motionStrip(project, scene) : undefined,
+  ].filter((x) => x !== undefined);
+  let y = H;
+  let below = '';
+  for (const st of strips) {
+    below += `<g transform='translate(0 ${n(y)})'>${st.svg}</g>`;
+    y += st.height;
+  }
   return (
-    `<svg xmlns='http://www.w3.org/2000/svg' width='${W}' height='${SH}' viewBox='0 0 ${W} ${SH}'>` +
-    `<rect width='${W}' height='${SH}' fill='#000'/>` +
+    `<svg xmlns='http://www.w3.org/2000/svg' width='${W}' height='${n(y)}' viewBox='0 0 ${W} ${n(y)}'>` +
+    `<rect width='${W}' height='${n(y)}' fill='#000'/>` +
     (scene.far ? `<g>${scene.far}</g>` : '') +
-    `<g>${scene.svg}</g>${ghost}` +
+    fx('far') +
+    `<g>${scene.svg}</g>${fx('stage')}${ghost}` +
     (scene.foreground ? `<g>${scene.foreground}</g>` : '') +
+    fx('front') +
     (scene.near ? `<g>${scene.near}</g>` : '') +
+    fx('near') +
     marks +
     `<text x='12' y='28' font-family='${LABEL_FONT}' font-size='20' fill='#fff' stroke='#000' stroke-width='4' paint-order='stroke'>${escapeXml(scene.name)} (${scene.id}) · green = anchors · yellow = stage shortcuts</text>` +
-    (strip?.svg ?? '') +
+    below +
     `</svg>`
   );
+}
+
+/** A row of small labelled pictures, each a whole frame, starting at y = 0. */
+function strip(W: number, H: number, cells: [string, string][]): { svg: string; height: number } {
+  const gap = 10;
+  const cw = (W - gap * (cells.length + 1)) / cells.length;
+  const ch = (cw * H) / W;
+  let svg = `<rect width='${W}' height='${n(ch + 2 * gap + 24)}' fill='#222'/>`;
+  cells.forEach(([label, inner], i) => {
+    const x = gap + i * (cw + gap);
+    svg += `<svg x='${n(x)}' y='${gap}' width='${n(cw)}' height='${n(ch)}' viewBox='0 0 ${W} ${H}'>${inner}</svg>`;
+    svg += `<text x='${n(x + 4)}' y='${n(gap + ch + 18)}' font-family='${LABEL_FONT}' font-size='15' fill='#ddd'>${escapeXml(label)}</text>`;
+  });
+  return { svg, height: ch + 2 * gap + 24 };
+}
+
+/**
+ * Under a scene with weather or effects: the empty scene as the film draws it at a few
+ * moments, so falling rain, drifting clouds, flames and waves show that they move and
+ * where they reach. Ids are renamed per cell: they are global to the sheet, and a flash
+ * filter differs from one moment to the next.
+ */
+function motionStrip(project: Project, scene: Scene): { svg: string; height: number } {
+  const { width: W, height: H } = project.meta;
+  const withScene = { ...project, scenes: { ...project.scenes, [scene.id]: scene } };
+  const shot = ShotSchema.parse({ id: `sheet-${scene.id}`, scene: scene.id, duration: 4 });
+  const times = [0, 0.4, 0.8, 1.6];
+  // Catch a strike just as it lights up, when there is lightning to see.
+  const every = scene.weather?.lightning?.every;
+  if (every) times[3] = Math.round((strikeAt(shot.id, every, 0) + 0.02) * 100) / 100;
+  const cells: [string, string][] = times.map((t, i) => [
+    `moving · t=${t}s`,
+    composeFrame(withScene, shot, t)
+      .replace(/^<svg[^>]*>/, '')
+      .replace(/<\/svg>$/, '')
+      .replace(/(id='|url\(#)tk-/g, `$1tk-m${i}-`),
+  ]);
+  return strip(W, H, cells);
 }
 
 /**
@@ -252,16 +314,7 @@ function layerStrip(project: Project, scene: Scene): { svg: string; height: numb
     [`camera ${zoom}× left`, view({ zoom, x: W / (2 * zoom), y }, ['far', 'stage', 'near'])],
     [`camera ${zoom}× right`, view({ zoom, x: W - W / (2 * zoom), y }, ['far', 'stage', 'near'])],
   ];
-  const gap = 10;
-  const cw = (W - gap * (cells.length + 1)) / cells.length;
-  const ch = (cw * H) / W;
-  let svg = `<rect y='${H}' width='${W}' height='${ch + 2 * gap + 24}' fill='#222'/>`;
-  cells.forEach(([label, inner], i) => {
-    const x = gap + i * (cw + gap);
-    svg += `<svg x='${n(x)}' y='${H + gap}' width='${n(cw)}' height='${n(ch)}' viewBox='0 0 ${W} ${H}'>${inner}</svg>`;
-    svg += `<text x='${n(x + 4)}' y='${n(H + gap + ch + 18)}' font-family='${LABEL_FONT}' font-size='15' fill='#ddd'>${escapeXml(label)}</text>`;
-  });
-  return { svg, height: ch + 2 * gap + 24 };
+  return strip(W, H, cells);
 }
 
 /**

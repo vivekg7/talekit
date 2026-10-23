@@ -340,7 +340,7 @@ export function buildServer(): McpServer {
     {
       title: 'Write scene',
       description:
-        'Validate and save a scene (scenes/<id>.json). Returns the scene with anchors and stage shortcuts marked, plus a ghost showing how tall a 220px character is, so you can check scale and placement. A layered scene (`far` behind the stage, `near` in front of it) gets a strip underneath: each layer alone, then the camera zoomed into either side, where the far layer must still fill the frame and should sit differently behind the stage.',
+        'Validate and save a scene (scenes/<id>.json). Returns the scene with anchors and stage shortcuts marked, plus a ghost showing how tall a 220px character is, so you can check scale and placement. A layered scene (`far` behind the stage, `near` in front of it) gets a strip underneath: each layer alone, then the camera zoomed into either side, where the far layer must still fill the frame and should sit differently behind the stage. A scene with `weather` or `effects` gets a row of the empty scene at a few moments, to show the rain, clouds, flames or waves moving.',
       inputSchema: { path: pathArg, scene: SceneSchema },
     },
     async ({ path: root, scene }) => {

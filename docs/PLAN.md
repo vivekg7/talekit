@@ -452,13 +452,54 @@ before audio, and they turned up these fixes:
   lowered by as much as the lowest foot rose. Backs are variants rather than
   a new part list, so a character without one still works.
 
-### 7.6 Audio (last, on purpose)
+### 7.6 Weather and moving nature
+
+**Done 2026-10-23.** The red-umbrella film's rain was streaks drawn into the
+scene's `near` layer, so it hung in the air and only slid when the camera
+moved. The agent had no other way to make rain, nor a fire that flickers,
+the sea, or a waterfall: a scene was a still picture. Now the engine draws
+what moves by itself, every frame, from time and `hash01`, so any frame
+still renders on its own and the film stays deterministic.
+
+- Scene `weather` is the sky and the air: `rain` and `snow` at three depths
+  (a haze behind the stage, drops behind the actors, a few large ones in
+  front of them), each depth moving with the camera like a layer at that
+  parallax and wrapping round the frame so it is always evenly full; rain
+  splashes on the floor; `wind`, which slants and carries everything and
+  from 0.3 up draws wavy gusts; tumbling `leaves`; drifting `clouds`, whose
+  `dark` makes storm clouds and dims the frame; `lightning`; and `heat`
+  haze. A shot's own `weather` replaces the scene's, and a `lightning`
+  action strikes at a story beat, since a storm's timing is the story's.
+- Scene `effects` are placed things that move: `fire` (logs, nested
+  flickering flames, glow, sparks), `smoke`, `waterfall`, `waves` (rows of
+  crests, a swell rolling in, foam washing up the shore) and `sun`. Each is
+  drawn in its plane (`far`, `stage` behind the actors, `front`, `near`).
+- The flash brightens the frame through a filter (gain and lift on every
+  channel) instead of laying white over it, which read as fog: the scene
+  keeps its contrast and looks lit by the bolt.
+- Heat haze displaces the far layer with a noise that scrolls up. resvg's
+  noise is fixed to the filtered group's coordinates, so the layer is drawn
+  in a group shifted down by the scroll inside one shifted back up, and the
+  plain layer goes underneath so the edges the shimmer pulls in are not
+  black.
+- Rain gets a faint dark edge under each streak, or it vanishes against a
+  pale wall; and a close-up scene drawn large sets `weather.scale`, since
+  the engine cannot tell a close-up from a wide shot.
+- The anchor sheet adds a row of the empty scene at a few moments, one of
+  them just as a strike lights up, so an agent writing a scene sees it move.
+
+Clouds, bolts and haze live in the far layer, so they need a layered scene;
+the validator says so. Not done: rain does not stop at an umbrella or a
+roof the engine cannot see (`top` covers a shelter across the frame),
+weather does not change within a shot, and nothing is lit by a fire.
+
+### 7.7 Audio (last, on purpose)
 
 - Narration and dialogue through TTS, with `say` duration taken from the
   audio and mouth flaps driven by amplitude instead of a sine wave.
 - A music bed per project, a handful of effects tied to verbs (jump, splash,
   appear).
-- Only after 7.1 to 7.5, because sound makes a silent film feel finished and
+- Only after 7.1 to 7.6, because sound makes a silent film feel finished and
   would hide what still looks wrong.
 
 ## Later (deliberately not now)

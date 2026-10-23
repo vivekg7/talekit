@@ -1,8 +1,9 @@
 import { missingColorTokens } from '../engine/svg.js';
 import { lintCharacter } from './construction.js';
+import { effectLayer } from '../engine/effects.js';
 import { RIGS } from '../engine/rigs.js';
 import { sayDuration, STAGE_SHORTCUTS } from '../engine/timeline.js';
-import type { Character, Project, Scene, Shot } from '../engine/types.js';
+import type { Character, Effect, Project, Scene, Shot, Weather } from '../engine/types.js';
 
 export interface Problem {
   level: 'error' | 'warning';
@@ -94,6 +95,27 @@ function coversFrame(svg: string, width: number, height: number): boolean {
   return false;
 }
 
+/**
+ * Clouds, bolts, heat haze and far effects are drawn in the far layer: in a scene without
+ * one, the stage's own sky covers them.
+ */
+function needsFar(where: string, weather: Weather | undefined, effects: Effect[]): Problem[] {
+  const what = [
+    weather?.clouds && 'weather.clouds',
+    weather?.lightning && 'the lightning bolt (the flash still works)',
+    weather?.heat && 'weather.heat',
+    ...effects.filter((e) => effectLayer(e) === 'far').map((e) => `a ${e.kind} in the far layer`),
+  ].filter((x): x is string => !!x);
+  if (!what.length) return [];
+  return [
+    {
+      level: 'warning',
+      where,
+      message: `${what.join(', ')} ${what.length > 1 ? 'are' : 'is'} drawn in the far layer, which the scene does not have; move its sky into far`,
+    },
+  ];
+}
+
 export function validateScene(s: Scene, width: number, height: number): Problem[] {
   const out: Problem[] = [];
   const where = `scene '${s.id}'`;
@@ -114,6 +136,7 @@ export function validateScene(s: Scene, width: number, height: number): Problem[
       message:
         'svg paints a rect over the whole frame, which hides far; move the sky into far and leave svg transparent above the ground',
     });
+  if (!s.far) out.push(...needsFar(where, s.weather, s.effects));
   for (const [name, a] of Object.entries(s.anchors)) {
     if ((STAGE_SHORTCUTS as readonly string[]).includes(name))
       out.push({ level: 'warning', where, message: `anchor '${name}' shadows a stage shortcut` });
@@ -146,6 +169,9 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
     if (scene.anchors[p] || (STAGE_SHORTCUTS as readonly string[]).includes(p)) return undefined;
     return `unknown position '${p}' (scene '${scene.id}' has anchors: ${Object.keys(scene.anchors).join(', ') || 'none'}; shortcuts: ${STAGE_SHORTCUTS.join(', ')})`;
   };
+  if (!scene.far && shot.weather) out.push(...needsFar(where, shot.weather, []));
+  if (!scene.far && shot.actions.some((a) => a.lightning))
+    out.push(...needsFar(where, { lightning: { every: 8 } }, []));
   for (const [id, member] of Object.entries(shot.cast)) {
     if (!project.characters[id])
       out.push({ level: 'error', where, message: `cast member '${id}' is not a character` });
