@@ -399,15 +399,38 @@ waterfall), and name the rest.
   (the thunderclap that makes someone jump), put `{ "t": 3, "lightning":
 true }` in the shot's actions instead.
 - `heat` (0 to 1) makes the far layer shimmer, as over desert sand at noon.
+- `light: { "color": "#4a5a8f", "amount": 0.7 }` is the light on the
+  characters. They are drawn in daylight colours, so in a night or dusk
+  scene (drawn in its own colours) they would glow: `light` tints them to
+  match, a night blue at about 0.7, a dusk orange at about 0.5. A `fire`
+  then lights whoever comes near it, warmer the closer, and spreads a glow
+  over the scene around it.
 - `top`, on `rain` or `snow`: the stage y it falls from, for a shot under a
-  shelter (a bench seat, an awning across the top of the frame).
+  shelter across the whole top of the frame (the underside of a bench seat
+  in a close-up).
 - `scale`: for a close-up scene drawn large, the same scale its anchors give
   the characters, so the drops are as big as they would be that close.
 
 Clouds, the lightning bolt and the heat haze are drawn in the `far` layer,
-so a scene that uses them needs one (the validator warns). A shot can set
-its own `weather`, which replaces the scene's for that shot: the rain
-stopping, a storm coming in. `{}` clears it.
+so a scene that uses them needs one (the validator warns).
+
+**Shelters.** Rain and snow stop on a shelter and the ground under it stays
+dry, with drops gathering and dripping off both ends. A scene lists its own
+as `shelters: [{ "x": 858, "y": 500, "width": 224 }]` (a bench seat, a
+roof's edge, an awning, a tree's canopy: from x to x + width at height y,
+marked blue on the anchor sheet). A character carries one as `shelter: {
+"x": 13, "y": 50, "width": 180, "when": "open" }` in its own box (an
+umbrella's canopy edge): it goes where the character goes, and `when` limits
+it to a variant, so a closed umbrella keeps nothing dry. A list gives one
+span per variant (open overhead, propped over a cat). The construction sheet
+marks it.
+
+**Changing weather.** A shot can set its own `weather`, which replaces the
+scene's for the whole shot; `{}` clears it. To change it during a shot, add
+an action: `{ "t": 4, "weather": { "clouds": { "amount": 0.3 } }, "duration":
+3 }` turns the weather in force into that over 3 s (default 2): rain thins
+out drop by drop, clouds fade away or roll in where they will stay, the
+wind drops, night falls with `light`. What the action leaves out goes away.
 
 `effects` places moving things, each in the coordinates of the plane it
 belongs to (`layer`):
@@ -555,7 +578,8 @@ down there at once instead. Give the prop a `grip`, the point in its own box
 the hand holds (`[100, 22]` for a lantern's handle, the end of a balloon's
 string); without one it is held at its middle. The construction sheet marks a
 character's `hold` point and a prop's `grip`. Carry one thing at a time, and
-do not carry a carrier.
+do not carry a carrier. An umbrella keeps the rain off whoever carries it
+when it has a `shelter` (see Weather and moving nature).
 
 ### Dialogue
 
@@ -600,8 +624,8 @@ to look, so set `facing` so that people who talk face each other.
 - `set: { facing, scale, visible, at }` changes state instantly (teleport,
   grow); a new `facing` turns round over 0.2 s.
 - `lightning: true` (no actor) strikes at `t`: a bolt in the sky and a flash.
-  A shot's own `weather` replaces the scene's (see Weather and moving
-  nature).
+- `weather: { … }` (no actor) turns the weather into that over `duration`
+  (default 2 s); see Weather and moving nature.
 
 ## Pacing a children's story
 

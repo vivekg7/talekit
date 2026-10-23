@@ -1,12 +1,15 @@
-import { actorHeadTop, poseFor, renderActor, renderShadow, SHADOW_DEFS } from './actor.js';
+import { actorHeadTop, poseFor, renderActor, renderShadow, sideOf, SHADOW_DEFS } from './actor.js';
 import { applySprings } from './springs.js';
 import { bubbleSvg, wrapText, textWidth } from './bubble.js';
 import { clamp01, easeInOut } from './easing.js';
 import { escapeXml, n } from './svg.js';
 import { resolveFrame, type FrameState } from './timeline.js';
-import type { Camera, Project, Shot } from './types.js';
-import { effectsSvg, type EffectLayer } from './effects.js';
-import { flashFilter, weatherView } from './weather.js';
+import type { Camera, Project, Shot, Weather } from './types.js';
+import { effectsSvg, fireLights, type EffectLayer, type FireLight } from './effects.js';
+import type { Pose } from './motion.js';
+import { RIGS } from './rigs.js';
+import type { ActorState } from './timeline.js';
+import { flashFilter, mix, weatherAt, weatherView, type Span } from './weather.js';
 
 export interface ComposeOptions {
   /** Draw anchor markers and actor feet points. */
@@ -106,6 +109,84 @@ export function composeFrame(
   );
 }
 
+/** Where a character with a `shelter` keeps the rain off, in the scene, as it is now. */
+function actorShelter(actor: ActorState, pose: Pose): Span[] {
+  const spans = actor.character.shelter;
+  if (!spans || !actor.visible || actor.opacity <= 0) return [];
+  const rig = RIGS[actor.character.rig];
+  const s = (actor.character.height / rig.height) * actor.scale;
+  const side = sideOf(actor);
+  const at = (bx: number) => actor.x + s * side * (pose.sx * (bx - rig.width / 2) + pose.dx);
+  const variants = Object.values(pose.face);
+  return (Array.isArray(spans) ? spans : [spans])
+    .filter((sh) => !sh.when || variants.includes(sh.when))
+    .map((sh) => {
+      const [a, b] = [at(sh.x), at(sh.x + sh.width)];
+      return {
+        x0: Math.min(a, b),
+        x1: Math.max(a, b),
+        y: actor.y + s * (pose.sy * (sh.y - rig.height) + pose.dy),
+      };
+    });
+}
+
+/** The warm colour a fire throws, per channel, and its glow. */
+const FIRE_RGB = [1, 0.72, 0.42];
+const FIRE_GLOW = '#ff9a3c';
+
+/** How much firelight reaches a point, 0..~1: falling off to nothing at each fire's reach. */
+function fireAt(fires: FireLight[], x: number, y: number): number {
+  let sum = 0;
+  for (const f of fires) {
+    const d = Math.hypot(x - f.x, y - f.y) / f.radius;
+    if (d < 1) sum += f.strength * (1 - d) * (1 - d);
+  }
+  return Math.min(1, sum);
+}
+
+/**
+ * An actor in the scene's light: tinted toward `weather.light` (characters are drawn in
+ * daylight; a night scene is not) and warmed by any fire near them, through a filter that
+ * scales each colour channel. A fire matters more the darker it is around it.
+ */
+function lit(svg: string, id: string, actor: ActorState, w: Weather, fires: FireLight[]): string {
+  if (!svg) return svg;
+  const amount = w.light?.amount ?? 0;
+  const tint = w.light ? mix('#ffffff', w.light.color, amount) : '#ffffff';
+  const middle = actor.y - (actor.character.height * actor.scale) / 2;
+  const warm = fireAt(fires, actor.x, middle) * (0.3 + 0.7 * amount);
+  const slopes = [1, 3, 5].map((i, ch) =>
+    Math.min(1.12, parseInt(tint.slice(i, i + 2), 16) / 255 + warm * FIRE_RGB[ch] * 0.75)
+  );
+  if (slopes.every((v) => Math.abs(v - 1) < 0.01)) return svg;
+  const fn = (c: string, v: number) => `<feFunc${c} type='linear' slope='${n(v)}'/>`;
+  return (
+    `<defs><filter id='${id}' color-interpolation-filters='sRGB'><feComponentTransfer>` +
+    `${fn('R', slopes[0])}${fn('G', slopes[1])}${fn('B', slopes[2])}</feComponentTransfer></filter></defs>` +
+    `<g filter='url(#${id})'>${svg}</g>`
+  );
+}
+
+/**
+ * The glow each fire spreads over what is around it, actors included: a warm pool blended
+ * as light (screen), stronger the darker the scene, pulsing with the flames.
+ */
+function firelight(fires: FireLight[], w: Weather): string {
+  if (!fires.length) return '';
+  const amount = w.light?.amount ?? 0;
+  const pools = fires
+    .map(
+      (f) =>
+        `<circle cx='${n(f.x)}' cy='${n(f.y)}' r='${n(f.radius)}' fill='url(#tk-firelight)' fill-opacity='${n((0.2 + 0.5 * amount) * f.strength)}'/>`
+    )
+    .join('');
+  return (
+    `<defs><radialGradient id='tk-firelight'><stop offset='0' stop-color='${FIRE_GLOW}' stop-opacity='0.9'/>` +
+    `<stop offset='0.5' stop-color='${FIRE_GLOW}' stop-opacity='0.35'/><stop offset='1' stop-color='${FIRE_GLOW}' stop-opacity='0'/></radialGradient></defs>` +
+    `<g class='firelight' style='mix-blend-mode:screen'>${pools}</g>`
+  );
+}
+
 function previousShot(project: Project, shot: Shot): Shot | undefined {
   const i = project.shots.findIndex((s) => s.id === shot.id);
   return i > 0 ? project.shots[i - 1] : undefined;
@@ -144,17 +225,21 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
     applySprings(project, frame.shot, actor, pose, frame.t);
     return { actor, pose };
   });
-  // A shot's own weather replaces the scene's, so one street can be wet in one shot and dry
-  // in the next.
-  const w = frame.shot.weather ?? scene.weather;
+  // The shot's weather or the scene's, as `weather` actions have turned it by now.
+  const w = weatherAt(scene, frame.shot, frame.t);
+  const shelters: Span[] = [
+    ...scene.shelters.map((s) => ({ x0: s.x, x1: s.x + s.width, y: s.y })),
+    ...posed.flatMap(({ actor, pose }) => actorShelter(actor, pose)),
+  ];
   // Always asked, even in fair weather: a `lightning` action strikes in any sky.
-  const sky = weatherView(w ?? {}, frame.shot, c, W, H, frame.t, scene.ground ?? H * 0.9);
-  const fx = (plane: EffectLayer) => effectsSvg(scene.effects, plane, frame.t, w?.wind ?? 0, W, H);
+  const sky = weatherView(w, frame.shot, c, W, H, frame.t, scene.ground ?? H * 0.9, shelters);
+  const fx = (plane: EffectLayer) => effectsSvg(scene.effects, plane, frame.t, w.wind ?? 0, W, H);
+  const fires = fireLights(scene.effects, frame.t, H);
   let world = `<g class='scene'>${scene.svg}</g>` + fx('stage') + sky.stage;
   world += posed.map(({ actor, pose }) => renderShadow(actor, pose)).join('');
   const bubbles: string[] = [];
-  for (const { actor, pose } of posed) {
-    world += renderActor(actor, frame.t, pose);
+  for (const [i, { actor, pose }] of posed.entries()) {
+    world += lit(renderActor(actor, frame.t, pose), `tk-lit-${i}`, actor, w, fires);
     if (actor.bubble && actor.visible) {
       const head = actorHeadTop(actor, pose);
       const s = worldToScreen(frame, W, H, head.x, head.y);
@@ -177,6 +262,7 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
       world += `<circle cx='${n(actor.x)}' cy='${n(actor.y)}' r='5' fill='#f0f'/>`;
     }
   }
+  world += firelight(fires, w);
   if (scene.foreground) world += `<g class='foreground'>${scene.foreground}</g>`;
   world += fx('front');
   if (opts.debug) {

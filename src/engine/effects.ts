@@ -49,6 +49,35 @@ export function effectsSvg(
     .join('');
 }
 
+/** Light a fire throws: where from, how far it reaches, and how bright it is now (0..1). */
+export interface FireLight {
+  x: number;
+  y: number;
+  radius: number;
+  strength: number;
+}
+
+/**
+ * The fires on the stage (behind or in front of the actors) as lights, flickering with the
+ * same wobble that drives their flames, so the light pulses when the fire does.
+ */
+export function fireLights(effects: Effect[], t: number, H: number): FireLight[] {
+  const k = H / 720;
+  const out: FireLight[] = [];
+  effects.forEach((e, i) => {
+    const layer = effectLayer(e);
+    if (e.kind !== 'fire' || (layer !== 'stage' && layer !== 'front')) return;
+    const s = e.size * k;
+    out.push({
+      x: e.x ?? 0,
+      y: e.y - 50 * s,
+      radius: 340 * s,
+      strength: 0.85 + 0.15 * wobble(t, `tk-fx-${layer}-${i}:f`),
+    });
+  });
+  return out;
+}
+
 /** Sum of sines at unrelated rates: a wobble that never visibly repeats. */
 const wobble = (t: number, seed: string) =>
   0.5 * Math.sin(TAU * (1.3 + 0.4 * hash01(seed + 'a')) * t + TAU * hash01(seed + 'p')) +

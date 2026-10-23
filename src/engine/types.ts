@@ -12,6 +12,16 @@ export type Part = z.infer<typeof PartSchema>;
 export const RigNameSchema = z.enum(['humanoid', 'simple', 'quadruped']);
 export type RigName = z.infer<typeof RigNameSchema>;
 
+const ShelterSpanSchema = z.object({
+  x: z.number(),
+  y: z.number(),
+  width: z.number().positive(),
+  when: z
+    .string()
+    .optional()
+    .describe("Only while a part shows this variant (an umbrella's 'open')"),
+});
+
 export const CharacterSchema = z.object({
   id: IdSchema,
   name: z.string().min(1),
@@ -60,6 +70,16 @@ export const CharacterSchema = z.object({
     .optional()
     .describe(
       'Soft ground shadow under the feet. Default: on for humanoid and quadruped, off for the simple rig (birds and kites hang in the air); true for a prop that sits on the ground'
+    ),
+  /**
+   * A span this character keeps the rain and snow off (an umbrella's canopy, a hat brim),
+   * in its own box, optionally only while one of its parts shows a given variant.
+   */
+  shelter: z
+    .union([ShelterSpanSchema, z.array(ShelterSpanSchema)])
+    .optional()
+    .describe(
+      "Keeps rain and snow off what is under it: the span from x to x + width at height y in the character's own box (an umbrella's canopy edge), or a list of them, one per variant. Drops stop on it, the ground below stays dry, and it drips at both ends"
     ),
   parts: z.record(z.string(), PartSchema),
 });
@@ -172,6 +192,22 @@ export const WeatherSchema = z
       .describe(
         'Lightning: a bolt in the sky (behind the stage, so it needs `far`) and a flash over the frame. For a strike at a story moment use a `lightning` action instead'
       ),
+    light: z
+      .object({
+        color: z
+          .string()
+          .describe("The light's colour: a night blue (#4a5a8f), a dusk orange (#e08a5a)"),
+        amount: z
+          .number()
+          .min(0)
+          .max(1)
+          .default(0.5)
+          .describe('How strongly it tints the characters: 0 daylight, 0.5 dusk, 0.7 night'),
+      })
+      .optional()
+      .describe(
+        'The light falling on the characters, who are drawn in daylight colours: tints them to match a night or dusk scene (draw the scene itself in those colours). A fire then lights them warmly as they come near it'
+      ),
     scale: z
       .number()
       .min(0.5)
@@ -271,6 +307,12 @@ export const SceneSchema = z.object({
   ground: z.number().optional(),
   /** Weather and moving nature the engine animates, so the author never draws a frame of it. */
   weather: WeatherSchema.optional(),
+  shelters: z
+    .array(z.object({ x: z.number(), y: z.number(), width: z.number().positive() }))
+    .default([])
+    .describe(
+      'Spans that keep rain and snow off what is under them, from x to x + width at height y on the stage: a roof edge, an awning, a bench seat, a tree. Drops stop on them, the ground below stays dry, and they drip at both ends'
+    ),
   effects: z
     .array(EffectSchema)
     .default([])
@@ -368,6 +410,10 @@ export const ActionSchema = z
       .describe(
         "Carry this actor (a prop): the id of the carrier, whose near hand (or a four-legged animal's mouth) holds it at the prop's grip; false lets go, leaving it where it is"
       ),
+    /** The weather changes, over `duration`, to this. */
+    weather: WeatherSchema.optional().describe(
+      'The weather turns to this over duration (default 2 s): the rain easing off, storm clouds rolling in, night falling with `light`. It replaces the weather in force; {} clears it'
+    ),
     /** A lightning strike at t: a bolt in the sky and a flash over the frame. */
     lightning: z
       .literal(true)
@@ -395,8 +441,9 @@ export const ActionSchema = z
       a.camera ||
       a.set ||
       a.lightning ||
+      a.weather ||
       a.attach !== undefined,
-    'an action needs at least one of: do, say, emotion, face, caption, camera, set, attach, lightning'
+    'an action needs at least one of: do, say, emotion, face, caption, camera, set, attach, lightning, weather'
   )
   .refine(
     (a) => !(a.do || a.say || a.emotion || a.face || a.set || a.attach !== undefined) || a.actor,

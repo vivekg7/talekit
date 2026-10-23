@@ -489,11 +489,37 @@ still renders on its own and the film stays deterministic.
   them just as a strike lights up, so an agent writing a scene sees it move.
 
 Clouds, bolts and haze live in the far layer, so they need a layered scene;
-the validator says so. Not done: rain does not stop at an umbrella or a
-roof the engine cannot see (`top` covers a shelter across the frame),
-weather does not change within a shot, and nothing is lit by a fire.
+the validator says so.
 
-### 7.7 Audio (last, on purpose)
+Then the three gaps left after the first pass:
+
+- Rain fell through the red umbrella and the bench. Shelters are spans that
+  stop rain and snow: a scene's `shelters` for what is drawn into it (a bench
+  seat, a roof), a character's `shelter` in its own box for what moves (an
+  umbrella's canopy), limited by `when` to a variant, so a closed umbrella
+  shelters nothing, or a list for one span per variant. A drop whose slanted
+  path crosses a span stops on it; one wholly under it is not drawn; no
+  splash lands below it; drops gather on both ends and fall to the floor.
+  Spans rather than shapes, because a drop only needs to know where it is
+  stopped, and a span is something an agent can read off its own drawing.
+  A falling drip keeps up with a moving umbrella rather than being left
+  behind, since a frame knows only where the umbrella is now.
+- Weather could not change within a shot. A `weather` action turns the
+  weather in force into another over its duration, blending every amount
+  (absent rain is rain at 0), so rain thins out drop by drop. Clouds had to
+  stop depending on how many there were: they sat at count-dependent places,
+  so a clearing sky reshuffled them. They now sit in ten fixed slots shown in
+  an order that keeps any number spread out, and the last one in or out
+  fades.
+- Nothing was lit by a fire, and nothing could be, since characters are
+  drawn in daylight colours and stayed bright in a night scene. `weather.light`
+  tints the characters through a filter that scales each colour channel (the
+  scene is drawn in its own colours, so it is left alone), and a fire adds
+  warmth to the actors it reaches, falling off with distance and flickering
+  with the flames, plus a warm pool blended as light (screen) over the scene
+  and the actors around it. The fire counts for more the darker the light.
+
+### 7.7 Audio### 7.7 Audio (last, on purpose)
 
 - Narration and dialogue through TTS, with `say` duration taken from the
   audio and mouth flaps driven by amplitude instead of a sine wave.

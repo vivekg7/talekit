@@ -209,6 +209,10 @@ export function sceneSheetSvg(project: Project, scene: Scene): string {
     if (p.x >= 0 && p.x <= W) marks += mark(s, p.x, p.y, '#ffd166');
   }
   for (const [name, a] of Object.entries(scene.anchors)) marks += mark(name, a.x, a.y, '#06d6a0');
+  for (const sh of scene.shelters)
+    marks +=
+      `<path d='M${n(sh.x)} ${n(sh.y)} L${n(sh.x + sh.width)} ${n(sh.y)}' stroke='#4ea8ff' stroke-width='5' stroke-dasharray='14 6'/>` +
+      `<text x='${n(sh.x)}' y='${n(sh.y - 8)}' font-family='${LABEL_FONT}' font-size='18' font-weight='bold' fill='#4ea8ff' stroke='#000' stroke-width='4' paint-order='stroke'>shelter</text>`;
   const ground = resolvePosition(project, scene, 'center');
   const tallest = Object.values(project.characters).sort((a, b) => b.height - a.height)[0];
   const ghostH = tallest?.height ?? 220;
@@ -240,7 +244,7 @@ export function sceneSheetSvg(project: Project, scene: Scene): string {
     (scene.near ? `<g>${scene.near}</g>` : '') +
     fx('near') +
     marks +
-    `<text x='12' y='28' font-family='${LABEL_FONT}' font-size='20' fill='#fff' stroke='#000' stroke-width='4' paint-order='stroke'>${escapeXml(scene.name)} (${scene.id}) · green = anchors · yellow = stage shortcuts</text>` +
+    `<text x='12' y='28' font-family='${LABEL_FONT}' font-size='20' fill='#fff' stroke='#000' stroke-width='4' paint-order='stroke'>${escapeXml(scene.name)} (${scene.id}) · green = anchors · yellow = stage shortcuts${scene.shelters.length ? ' · blue = shelters' : ''}</text>` +
     below +
     `</svg>`
   );
@@ -444,6 +448,18 @@ export function constructionSheetSvg(character: Character): string {
   if (character.parts[rig.hold.part] && character.parts.eyes)
     parts += marker(...rig.hold.point, 'hold');
   if (character.grip) parts += marker(...character.grip, 'grip');
+  // What it keeps the rain off: a blue span with drops stopping on it.
+  const shelters = character.shelter
+    ? Array.isArray(character.shelter)
+      ? character.shelter
+      : [character.shelter]
+    : [];
+  for (const sh of shelters) {
+    const w = 2.5 / scale;
+    parts +=
+      `<path d='M${sh.x} ${sh.y} L${sh.x + sh.width} ${sh.y}' stroke='#1d6fd8' stroke-width='${w}' stroke-dasharray='${6 / scale} ${3 / scale}'/>` +
+      `<text x='${sh.x}' y='${sh.y - 4 / scale}' font-family='${LABEL_FONT}' font-size='${11 / scale}' fill='#1d6fd8'>shelter${sh.when ? ` (${escapeXml(sh.when)})` : ''}</text>`;
+  }
   for (const m of marks)
     parts += `<rect x='${m.x - 2}' y='${m.y - 2}' width='${m.w + 4}' height='${m.h + 4}' fill='#e63946' fill-opacity='0.12' stroke='#e63946' stroke-width='${2.5 / scale}'/><circle cx='${m.x + m.w}' cy='${m.y}' r='${9 / scale}' fill='#e63946'/><text x='${m.x + m.w}' y='${m.y + 4 / scale}' text-anchor='middle' font-family='${LABEL_FONT}' font-size='${11 / scale}' font-weight='bold' fill='#fff'>${m.n}</text>`;
   parts += pivots;

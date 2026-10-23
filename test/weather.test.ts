@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { composeFrame } from '../src/engine/compose.js';
 import { strikeAt } from '../src/engine/weather.js';
-import { SceneSchema, ShotSchema, type Project } from '../src/engine/types.js';
+import { CharacterSchema, SceneSchema, ShotSchema, type Project } from '../src/engine/types.js';
 import { LIBRARY } from '../src/library/index.js';
 import { sceneSheetSvg } from '../src/render/sheets.js';
 import { validateScene, validateShot } from '../src/project/validate.js';
@@ -10,11 +10,26 @@ const W = 1280;
 const H = 720;
 const park = SceneSchema.parse(LIBRARY.scenes.park);
 
+/** A 200-wide canopy on a pole, as tall as a person: it shelters the span at its top. */
+const BROLLY = CharacterSchema.parse({
+  id: 'brolly',
+  name: 'Brolly',
+  rig: 'simple',
+  height: 200,
+  shelter: { x: 0, y: 20, width: 200, when: 'open' },
+  parts: {
+    body: {
+      open: `<path d='M0 20 Q100 -20 200 20 Z' fill='red'/><path d='M100 20 L100 200' stroke='#333' stroke-width='6'/>`,
+      shut: `<path d='M100 0 L100 200' stroke='red' stroke-width='12'/>`,
+    },
+  },
+});
+
 function project(scene: unknown, shot: Record<string, unknown> = {}): Project {
   const s = SceneSchema.parse({ ...park, id: 'wet', ...(scene as object) });
   return {
     meta: { title: 't', width: W, height: H, fps: 24, font: 'sans-serif' },
-    characters: { kid: LIBRARY.characters.kid },
+    characters: { kid: LIBRARY.characters.kid, brolly: BROLLY },
     scenes: { wet: s },
     shots: [
       ShotSchema.parse({
@@ -29,7 +44,7 @@ function project(scene: unknown, shot: Record<string, unknown> = {}): Project {
 }
 
 const lines = (svg: string, cls: string) => {
-  const g = svg.match(new RegExp(`<g class='${cls}'.*?</g></g>`))?.[0] ?? '';
+  const g = svg.match(new RegExp(`<g class='${cls}'.*?</g>(</g>)+`))?.[0] ?? '';
   return [
     ...g.matchAll(
       /<line x1='([-\d.]+)' y1='([-\d.]+)' x2='([-\d.]+)' y2='([-\d.]+)' stroke-opacity/g
@@ -96,6 +111,101 @@ describe('weather', () => {
   });
 });
 
+describe('shelter', () => {
+  // The canopy spans x 540..740 at y 380 + 20 = 400 (feet at 580, 200 tall). A drop is
+  // under it when its path, slanting 0.08 in still air, crossed that span on the way down;
+  // drops stopping on the canopy end on it, which bobs a little with the idle pose.
+  const under = (lines: number[][]) =>
+    lines.filter(([, , x2, y2]) => {
+      const cross = x2 - 0.08 * (y2 - 400);
+      return y2 > 406 && cross > 541 && cross < 739;
+    });
+
+  it('keeps the rain off the ground under an open umbrella, and lets it drip', () => {
+    const p = project(
+      { weather: { rain: { amount: 1 } } },
+      { cast: { brolly: { at: { x: 640, y: 580 } } } }
+    );
+    for (const t of [0.5, 1, 1.5, 2]) {
+      const svg = composeFrame(p, p.shots[0], t);
+      expect(under(lines(svg, 'rain-back'))).toEqual([]);
+      expect(under(lines(svg, 'rain-front'))).toEqual([]);
+      expect(svg).toContain("class='rain-drips'");
+    }
+  });
+
+  it('shelters only in the variant it names', () => {
+    const p = project(
+      { weather: { rain: { amount: 1 } } },
+      {
+        cast: { brolly: { at: { x: 640, y: 580 } } },
+        actions: [{ t: 0, actor: 'brolly', face: { body: 'shut' } }],
+      }
+    );
+    const svg = composeFrame(p, p.shots[0], 1);
+    expect(under(lines(svg, 'rain-back')).length).toBeGreaterThan(0);
+    expect(svg).not.toContain("class='rain-drips'");
+  });
+
+  it('takes shelters drawn into the scene', () => {
+    const p = project({
+      weather: { rain: { amount: 1 } },
+      shelters: [{ x: 540, y: 400, width: 200 }],
+    });
+    expect(under(lines(composeFrame(p, p.shots[0], 1), 'rain-back'))).toEqual([]);
+  });
+});
+
+describe('weather turning within a shot', () => {
+  it('eases the rain off over the action and keeps the clouds where they are', () => {
+    const p = project(
+      { weather: { rain: { amount: 1 }, clouds: { amount: 1, dark: 1 } } },
+      { actions: [{ t: 1, weather: { clouds: { amount: 0.3 } }, duration: 2 }] }
+    );
+    const at = (t: number) => composeFrame(p, p.shots[0], t);
+    const count = (t: number) => lines(at(t), 'rain-back').length;
+    expect(count(2)).toBeLessThan(count(0.5));
+    expect(count(2)).toBeGreaterThan(0);
+    expect(count(3.5)).toBe(0);
+    // A cloud on screen before the turn is in the same place, give or take its drift.
+    const firstCloud = (t: number) =>
+      Number(at(t).match(/<g class='clouds'>.*?<circle cx='([-\d.]+)'/)![1]);
+    expect(Math.abs(firstCloud(3.5) - firstCloud(0.5))).toBeLessThan(60);
+  });
+});
+
+describe('light', () => {
+  /** Each actor's red gain, from the light filter wrapped round it. */
+  const redOf = (svg: string) =>
+    Object.fromEntries(
+      [
+        ...svg.matchAll(
+          /<feFuncR type='linear' slope='([\d.]+)'\/>.*?<g filter='url\(#tk-lit-\d+\)'><g class='actor actor-(\w+)'/g
+        ),
+      ].map((m) => [m[2], Number(m[1])])
+    );
+
+  it('tints the characters at night and warms one beside a fire', () => {
+    const p = project(
+      {
+        weather: { light: { color: '#4a5a8f', amount: 0.7 } },
+        effects: [{ kind: 'fire', x: 300, y: 620 }],
+      },
+      { cast: { kid: { at: { x: 360, y: 620 } }, brolly: { at: { x: 1100, y: 620 } } } }
+    );
+    const svg = composeFrame(p, p.shots[0], 1);
+    const red = redOf(svg);
+    expect(red.brolly).toBeLessThan(0.75);
+    expect(red.kid).toBeGreaterThan(red.brolly + 0.2);
+    expect(svg).toContain("class='firelight'");
+  });
+
+  it('leaves daylight characters untouched', () => {
+    const p = project({});
+    expect(composeFrame(p, p.shots[0], 1)).not.toContain('tk-lit-');
+  });
+});
+
 describe('effects', () => {
   const effects = [
     { kind: 'fire', x: 400, y: 600 },
@@ -138,5 +248,7 @@ describe('effects', () => {
     expect(sheet).toContain('moving · t=0.4s');
     // Ids inside each moment are its own, so one moment's flash cannot light another.
     expect(sheet).toContain("id='tk-m1-fx-stage-0-glow'");
+    const sheltered = project({ shelters: [{ x: 100, y: 400, width: 200 }] });
+    expect(sceneSheetSvg(sheltered, sheltered.scenes.wet)).toContain('blue = shelters');
   });
 });

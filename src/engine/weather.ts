@@ -1,6 +1,6 @@
-import { clamp01, hash01, lerp, TAU } from './easing.js';
+import { clamp01, easeInOut, hash01, lerp, TAU } from './easing.js';
 import { n } from './svg.js';
-import type { Camera, Shot, Weather } from './types.js';
+import type { Camera, Scene, Shot, Weather } from './types.js';
 
 /**
  * Weather the engine animates, as functions of shot time: nothing is stored between frames,
@@ -79,6 +79,66 @@ interface Ctx {
   t: number;
   wind: number;
   k: number;
+  /** Shelters on screen, which the drops behind and in front of the actors stop at. */
+  cover: Span[];
+}
+
+/** A shelter: nothing falls through the span from x0 to x1 at height y. */
+export interface Span {
+  x0: number;
+  x1: number;
+  y: number;
+}
+
+/** Seconds a `weather` action takes to turn the weather when it gives no duration. */
+export const WEATHER_TURN = 2;
+
+/**
+ * The weather in force at shot time t: the shot's own or the scene's, turned by each
+ * `weather` action as it plays. A turn blends every amount from what was there to what is
+ * asked (rain absent is rain at 0), so rain thins out drop by drop and clouds roll in.
+ */
+export function weatherAt(scene: Scene, shot: Shot, t: number): Weather {
+  let w: Weather = shot.weather ?? scene.weather ?? {};
+  for (const a of shot.actions.filter((a) => a.weather && a.t <= t).sort((a, b) => a.t - b.t)) {
+    const u = easeInOut(clamp01((t - a.t) / (a.duration ?? WEATHER_TURN)));
+    w = blendWeather(w, a.weather!, u);
+  }
+  return w;
+}
+
+function blendWeather(a: Weather, b: Weather, u: number): Weather {
+  if (u >= 1) return b;
+  if (u <= 0) return a;
+  const num = (x: number | undefined, y: number | undefined) =>
+    x === undefined && y === undefined ? undefined : lerp(x ?? 0, y ?? 0, u);
+  const fall = <T extends { amount: number }>(x: T | undefined, y: T | undefined): T | undefined =>
+    x || y ? ({ ...x, ...y, amount: lerp(x?.amount ?? 0, y?.amount ?? 0, u) } as T) : undefined;
+  return {
+    rain: fall(a.rain, b.rain),
+    snow: fall(a.snow, b.snow),
+    leaves: fall(a.leaves, b.leaves),
+    clouds:
+      a.clouds || b.clouds
+        ? {
+            low: b.clouds?.low ?? a.clouds?.low,
+            amount: lerp(a.clouds?.amount ?? 0, b.clouds?.amount ?? 0, u),
+            dark: lerp(a.clouds?.dark ?? b.clouds!.dark, b.clouds?.dark ?? a.clouds!.dark, u),
+          }
+        : undefined,
+    light:
+      a.light || b.light
+        ? {
+            color: mix(a.light?.color ?? b.light!.color, b.light?.color ?? a.light!.color, u),
+            amount: lerp(a.light?.amount ?? 0, b.light?.amount ?? 0, u),
+          }
+        : undefined,
+    wind: num(a.wind, b.wind),
+    heat: num(a.heat, b.heat),
+    scale: b.scale ?? a.scale,
+    // A storm's strikes start or stop halfway through the turn.
+    lightning: u < 0.5 ? a.lightning : b.lightning,
+  };
 }
 
 const wrap = (v: number, span: number) => ((v % span) + span) % span;
@@ -91,11 +151,25 @@ export function weatherView(
   W: number,
   H: number,
   t: number,
-  ground: number
+  ground: number,
+  shelters: Span[] = []
 ): WeatherView {
   const wind = w.wind ?? 0;
+  const toScreen = (s: Span): Span => ({
+    x0: (s.x0 - c.x) * c.zoom + W / 2,
+    x1: (s.x1 - c.x) * c.zoom + W / 2,
+    y: (s.y - c.y) * c.zoom + H / 2,
+  });
   // A close-up scene drawn large has its rain, snow and leaves drawn large too.
-  const ctx: Ctx = { c, W, H, t, wind, k: (H / 720) * (w.scale ?? 1) };
+  const ctx: Ctx = {
+    c,
+    W,
+    H,
+    t,
+    wind,
+    k: (H / 720) * (w.scale ?? 1),
+    cover: shelters.map(toScreen),
+  };
   // A shelter overhead (a bench seat, an awning) stops what falls behind and in front of
   // the actors; the far haze is behind the stage, which hides it there anyway.
   const shelter = (top?: number) => (top === undefined ? -Infinity : (top - c.y) * c.zoom + H / 2);
@@ -108,7 +182,8 @@ export function weatherView(
     far += rain('far', w.rain.amount, ctx, -Infinity);
     back += rain('back', w.rain.amount, ctx, top);
     front += rain('front', w.rain.amount, ctx, top);
-    stage += splashes(w.rain.amount, ctx, ground);
+    stage += splashes(w.rain.amount, ctx, ground, shelters);
+    stage += drips(w.rain.amount, ctx, shelters, ground);
   }
   if (w.snow) {
     const top = shelter(w.snow.top);
@@ -128,7 +203,7 @@ export function weatherView(
   if (w.clouds) {
     const dark = w.clouds.dark;
     sky += clouds(w.clouds.amount, dark, low, ctx);
-    const dim = 0.3 * dark * (0.4 + 0.6 * w.clouds.amount);
+    const dim = 0.3 * dark * (0.4 + 0.6 * w.clouds.amount) * clamp01(w.clouds.amount / 0.1);
     if (dim > 0.01)
       light += `<rect width='${W}' height='${H}' fill='#1c2333' opacity='${n(dim)}'/>`;
   }
@@ -161,12 +236,75 @@ function place(name: string, b: Band, i: number, ctx: Ctx, slant: number) {
   return { x, y, size, grow, h };
 }
 
+const rainSlant = (ctx: Ctx) => (ctx.wind ? ctx.wind * SLANT : STILL_SLANT);
+
+/**
+ * Where a falling streak ending at (x, y) and `len` long stops, given shelters: wholly under
+ * one (below it, where its slanted path crosses the span) it is gone; crossing one, it ends
+ * on it. Undefined when it is gone.
+ */
+function stopAt(cover: Span[], x: number, y: number, len: number, slant: number) {
+  let end = { x, y };
+  for (const s of cover) {
+    if (end.y <= s.y) continue;
+    const cross = end.x - slant * (end.y - s.y);
+    if (cross < s.x0 || cross > s.x1) continue;
+    if (end.y - len >= s.y) return undefined;
+    end = { x: cross, y: s.y };
+  }
+  return end;
+}
+
+/**
+ * Water running off the ends of each shelter: a drop gathers at the edge, lets go and falls,
+ * speeding up, until it reaches the floor; then the next one gathers.
+ */
+function drips(amount: number, ctx: Ctx, shelters: Span[], ground: number): string {
+  const { t, k, H } = ctx;
+  const floor = Math.min(ground + 0.04 * H, H);
+  let out = '';
+  let edge = '';
+  shelters.forEach((s, i) => {
+    for (const [end, x] of [
+      ['l', s.x0],
+      ['r', s.x1],
+    ] as const) {
+      const h = (key: string) => hash01(`drip:${i}:${end}:${key}`);
+      const period = (0.9 - 0.4 * amount) * (0.8 + 0.4 * h('T'));
+      const age = ((t / period + h('p')) % 1) * period;
+      const gather = period * 0.45;
+      if (age < gather) {
+        // Swelling on the edge.
+        const r = (1.5 + 2.5 * (age / gather)) * k;
+        out += `<circle cx='${n(x)}' cy='${n(s.y + r)}' r='${n(r)}' stroke='none' fill-opacity='0.9'/>`;
+        edge += `<circle cx='${n(x)}' cy='${n(s.y + r)}' r='${n(r + 0.8 * k)}'/>`;
+        continue;
+      }
+      const a = age - gather;
+      const fall = 0.5 * 2600 * k * a * a;
+      const y = s.y + 4 * k + fall;
+      if (y > floor) continue;
+      const len = Math.min(24 * k, 5 * k + fall * 0.3);
+      const dx = ctx.wind * fall * 0.3;
+      const line = `<line x1='${n(x + dx * 0.9)}' y1='${n(y - len)}' x2='${n(x + dx)}' y2='${n(y)}'`;
+      out += `${line} stroke-opacity='0.9'/>`;
+      edge += `${line}/>`;
+    }
+  });
+  if (!out) return '';
+  return (
+    `<g class='rain-drips' stroke-linecap='round'>` +
+    `<g stroke='#3d4c60' stroke-opacity='0.25' fill='#3d4c60' fill-opacity='0.25' stroke-width='${n(4.6 * k)}'>${edge}</g>` +
+    `<g stroke='${RAIN_COLOR}' fill='${RAIN_COLOR}' stroke-width='${n(3 * k)}'>${out}</g></g>`
+  );
+}
+
 const bandCount = (b: Band, amount: number, ctx: Ctx) =>
   Math.round(b.count * (amount / 0.5) * (ctx.W / ctx.H / (16 / 9)));
 
 function rain(name: BandName, amount: number, ctx: Ctx, top: number): string {
   const b = RAIN[name];
-  const slant = ctx.wind ? ctx.wind * SLANT : STILL_SLANT;
+  const slant = rainSlant(ctx);
   let out = '';
   let edge = '';
   let width = 0;
@@ -174,10 +312,12 @@ function rain(name: BandName, amount: number, ctx: Ctx, top: number): string {
     const { x, y, size: len, grow, h } = place(`rain:${name}`, b, i, ctx, slant);
     width = b.width * grow;
     if (y <= top) continue;
+    const end = name === 'far' ? { x, y } : stopAt(ctx.cover, x, y, len, slant);
+    if (!end) continue;
     const y0 = Math.max(y - len, top);
     const x0 = x - slant * (y - y0);
     const o = lerp(b.opacity[0], b.opacity[1], h('o'));
-    const line = `<line x1='${n(x0)}' y1='${n(y0)}' x2='${n(x)}' y2='${n(y)}'`;
+    const line = `<line x1='${n(x0)}' y1='${n(y0)}' x2='${n(end.x)}' y2='${n(end.y)}'`;
     out += `${line} stroke-opacity='${n(o)}'/>`;
     edge += `${line}/>`;
   }
@@ -201,6 +341,7 @@ function snow(name: BandName, amount: number, ctx: Ctx, top: number): string {
     // Each flake sways on its own rhythm as it falls.
     const sway =
       (8 + 10 * h('a')) * grow * Math.sin(TAU * (0.35 + 0.4 * h('f')) * ctx.t + TAU * h('p'));
+    if (name !== 'far' && !stopAt(ctx.cover, x + sway, y, 0, slant)) continue;
     const o = lerp(b.opacity[0], b.opacity[1], h('o'));
     out += `<circle cx='${n(x + sway)}' cy='${n(y)}' r='${n(r)}' fill-opacity='${n(o)}'/>`;
   }
@@ -212,7 +353,7 @@ function snow(name: BandName, amount: number, ctx: Ctx, top: number): string {
  * Rings on the ground where drops land, each slot firing at its own rate at a new spot,
  * on the floor band around `ground`: nearer the camera (lower) is bigger.
  */
-function splashes(amount: number, ctx: Ctx, ground: number): string {
+function splashes(amount: number, ctx: Ctx, ground: number, shelters: Span[]): string {
   const { W, H, t, k } = ctx;
   const slots = Math.round(30 * (amount / 0.5) * (W / H / (16 / 9)));
   let out = '';
@@ -225,6 +366,8 @@ function splashes(amount: number, ctx: Ctx, ground: number): string {
     const d = hash01(`splash:${i}:${at}:y`);
     const x = hash01(`splash:${i}:${at}:x`) * (W + 80) - 40;
     const y = Math.min(ground - 0.03 * H + d * 0.11 * H, H - 4 * k);
+    // Dry ground under a shelter.
+    if (!stopAt(shelters, x, y, 0, rainSlant(ctx))) continue;
     const s = (0.8 + 0.7 * d) * k;
     const rx = s * (4 + 11 * u);
     const lift = 14 * s * 4 * u * (1 - u);
@@ -319,7 +462,8 @@ function gusts(ctx: Ctx): string {
  */
 function clouds(amount: number, dark: number, low: number, ctx: Ctx): string {
   const { W, t, k, wind } = ctx;
-  const count = Math.round(3 + 7 * amount);
+  // Below the least the schema allows, a turn is clearing the sky: the clouds fade out.
+  const fade = clamp01(amount / 0.1);
   const speed = (wind ? wind * 40 : 6) * k;
   const span = W + 700 * k;
   const top = mix('#ffffff', '#6f7787', dark);
@@ -329,14 +473,19 @@ function clouds(amount: number, dark: number, low: number, ctx: Ctx): string {
   if (dark > 0.05)
     out +=
       `<defs><linearGradient id='tk-storm-sky' x1='0' y1='0' x2='0' y2='1'>` +
-      `<stop offset='0' stop-color='#2a3040' stop-opacity='${n(0.75 * dark)}'/>` +
+      `<stop offset='0' stop-color='#2a3040' stop-opacity='${n(0.75 * dark * fade)}'/>` +
       `<stop offset='1' stop-color='#2a3040' stop-opacity='0'/></linearGradient></defs>` +
       `<rect x='${n(-W)}' y='${n(-200 * k)}' width='${n(3 * W)}' height='${n(low + 320 * k)}' fill='url(#tk-storm-sky)'/>`;
-  for (let i = 0; i < count; i++) {
+  // Ten fixed slots along the band, so a cloud keeps its place as the sky fills or clears;
+  // `amount` says how many show, taken in an order that keeps any number spread out, and
+  // the last one in or out fades.
+  const shown = 3 + 7 * amount;
+  CLOUD_ORDER.forEach((i, rank) => {
+    const vis = clamp01(shown - rank) * fade;
+    if (vis <= 0.01) return;
     const h = (key: string) => hash01(`cloud:${i}:${key}`);
-    // Spread along the band evenly, with a jitter, so they never bunch up.
     const w = (170 + 170 * h('w')) * k * (0.8 + 0.4 * amount);
-    const cx = wrap(((i + 0.6 * h('x')) / count) * span + speed * t, span) - 350 * k;
+    const cx = wrap(((i + 0.6 * h('x')) / CLOUD_ORDER.length) * span + speed * t, span) - 350 * k;
     const cy = low - (20 * k + 0.55 * low * h('y'));
     const puffs = 4 + Math.floor(h('n') * 3);
     // The same lump twice: in the shade colour, then lit and nudged up, so the cloud's
@@ -354,10 +503,14 @@ function clouds(amount: number, dark: number, low: number, ctx: Ctx): string {
         `<ellipse cx='${n(cx)}' cy='${n(cy + dy)}' rx='${n((w / 2) * grow)}' ry='${n(w * 0.12 * grow)}'/>`
       );
     };
-    out += `<g fill='${base}'>${lump(0, 1)}</g><g fill='${top}'>${lump(-w * 0.05, 0.94)}</g>`;
-  }
+    const op = vis < 1 ? ` opacity='${n(vis)}'` : '';
+    out += `<g${op}><g fill='${base}'>${lump(0, 1)}</g><g fill='${top}'>${lump(-w * 0.05, 0.94)}</g></g>`;
+  });
   return `<g class='clouds'>${out}</g>`;
 }
+
+/** Cloud slots in the order they fill the sky: any first n of them are spread along it. */
+const CLOUD_ORDER = [0, 5, 2, 7, 4, 9, 1, 6, 3, 8];
 
 /** Hex colour a toward b by u. */
 export function mix(a: string, b: string, u: number): string {

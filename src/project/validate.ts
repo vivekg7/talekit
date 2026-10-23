@@ -169,7 +169,9 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
     if (scene.anchors[p] || (STAGE_SHORTCUTS as readonly string[]).includes(p)) return undefined;
     return `unknown position '${p}' (scene '${scene.id}' has anchors: ${Object.keys(scene.anchors).join(', ') || 'none'}; shortcuts: ${STAGE_SHORTCUTS.join(', ')})`;
   };
-  if (!scene.far && shot.weather) out.push(...needsFar(where, shot.weather, []));
+  if (!scene.far)
+    for (const w of [shot.weather, ...shot.actions.map((a) => a.weather)])
+      if (w) out.push(...needsFar(where, w, []));
   if (!scene.far && shot.actions.some((a) => a.lightning))
     out.push(...needsFar(where, { lightning: { every: 8 } }, []));
   for (const [id, member] of Object.entries(shot.cast)) {
