@@ -68,8 +68,9 @@ page follows the project directory, so the agent's edits appear as it works.
   bobs).
 - **Scene** — a background SVG with named floor **anchors** (`door`, `bench`),
   an optional foreground layer, optional `far` and `near` layers that move at
-  their own rates when the camera does, and a ground line for the built-in
-  stage shortcuts `left/center/right/offLeft/offRight`.
+  their own rates when the camera does, a ground line for the built-in
+  stage shortcuts `left/center/right/offLeft/offRight`, and `lights` (a sun,
+  moon or lamp painted in) that every character casts a shadow from.
 - **Shot** — one scene, a cast with starting positions, and a list of timed
   actions: `walk`, `run`, `fly`, `jump`, `wave`, `point`, `nod`, `shake`,
   `sit`, `bounce`, `spin`, `appear`, `disappear`, `pickup` / `putdown`

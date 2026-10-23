@@ -329,6 +329,33 @@ export const SceneSchema = z.object({
     .describe(
       'Moving things placed in the scene that the engine animates: fire, smoke, waterfall, waves, sun. Draw what does not move (the rock face, the beach, the fire pit stones) yourself'
     ),
+  lights: z
+    .array(
+      z.object({
+        kind: z
+          .enum(['sun', 'moon', 'lamp'])
+          .describe(
+            'sun or moon: a light in the sky (far away, its rays parallel; the higher it is, the shorter the shadows). lamp: a light on the stage among the actors (a bulb, a lantern on a post, a lit window), throwing shadows away from itself along the floor'
+          ),
+        x: z.number(),
+        y: z.number().describe('Where the light is: the sun or moon in the sky, the bulb itself'),
+        strength: z
+          .number()
+          .min(0)
+          .max(1)
+          .optional()
+          .describe('How dark a shadow it throws: default 1, a moon 0.55'),
+        reach: z
+          .number()
+          .positive()
+          .optional()
+          .describe('lamp: how far its light goes, in scene pixels (default 700)'),
+      })
+    )
+    .default([])
+    .describe(
+      'Light sources painted into the art (a sun or moon in the far layer, a bulb, a street lamp): every person, animal and grounded prop casts a shadow away from each, along the floor. A `sun` effect and every fire are lights already. A scene with none has only the soft shadow under the feet'
+    ),
   anchors: z.record(z.string(), AnchorSchema).default({}),
 });
 export type Scene = z.infer<typeof SceneSchema>;

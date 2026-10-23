@@ -8,7 +8,8 @@ import {
 import { springParts } from '../engine/springs.js';
 import { LOOK_LIMIT } from '../engine/timeline.js';
 import { composeFrame, layerTransform, PARALLAX } from '../engine/compose.js';
-import { effectsSvg, type EffectLayer } from '../engine/effects.js';
+import { CAST_DEFS, castLights, floorMap, throwOf } from '../engine/cast.js';
+import { effectsSvg, fireLights, type EffectLayer } from '../engine/effects.js';
 import { strikeAt } from '../engine/weather.js';
 import {
   applyVerb,
@@ -219,7 +220,19 @@ export function sceneSheetSvg(project: Project, scene: Scene): string {
   const ghostH = tallest?.height ?? 220;
   const ghostW = tallest ? (ghostH * RIGS[tallest.rig].width) / RIGS[tallest.rig].height : 110;
   const ghostLabel = tallest ? `${tallest.id} (${ghostH}px, tallest)` : '220px character';
-  const ghost = `<g opacity='0.35'><rect x='${n(ground.x - ghostW / 2)}' y='${n(ground.y - ghostH)}' width='${n(ghostW)}' height='${n(ghostH)}' rx='${n(Math.min(40, ghostW / 2))}' fill='#333'/><text x='${n(ground.x)}' y='${n(ground.y - ghostH - 8)}' text-anchor='middle' font-family='${LABEL_FONT}' font-size='16' fill='#333'>${escapeXml(ghostLabel)}</text></g>`;
+  const ghostBox = `<rect x='${n(ground.x - ghostW / 2)}' y='${n(ground.y - ghostH)}' width='${n(ghostW)}' height='${n(ghostH)}' rx='${n(Math.min(40, ghostW / 2))}'`;
+  // Each light marked where it is, and the shadow it throws of the ghost.
+  const lights = castLights(scene, fireLights(scene.effects, 1, H));
+  let shadows = '';
+  for (const l of lights) {
+    const th = throwOf(l, ground.x, ground.y, ghostH, W, H, scene.weather ?? {});
+    if (th)
+      shadows += `<g opacity='${n(th.opacity)}' filter='url(#tk-cast)'>${ghostBox} transform='${floorMap(th, ground.y)}' fill='#000'/></g>`;
+    marks +=
+      `<g><circle cx='${n(l.x)}' cy='${n(l.y)}' r='13' fill='none' stroke='#ffe14d' stroke-width='4'/>` +
+      `<text x='${n(l.x + 18)}' y='${n(l.y + 7)}' font-family='${LABEL_FONT}' font-size='18' font-weight='bold' fill='#ffe14d' stroke='#000' stroke-width='4' paint-order='stroke'>${l.kind === 'sky' ? 'light (sky)' : 'light (lamp)'}</text></g>`;
+  }
+  const ghost = `<defs>${CAST_DEFS}</defs>${shadows}<g opacity='0.35'>${ghostBox} fill='#333'/><text x='${n(ground.x)}' y='${n(ground.y - ghostH - 8)}' text-anchor='middle' font-family='${LABEL_FONT}' font-size='16' fill='#333'>${escapeXml(ghostLabel)}</text></g>`;
   // Effects stand still at one moment here, where they are placed against the anchors; the
   // strip underneath shows them moving with the weather.
   const fx = (plane: EffectLayer) =>
@@ -245,7 +258,7 @@ export function sceneSheetSvg(project: Project, scene: Scene): string {
     (scene.near ? `<g>${scene.near}</g>` : '') +
     fx('near') +
     marks +
-    `<text x='12' y='28' font-family='${LABEL_FONT}' font-size='20' fill='#fff' stroke='#000' stroke-width='4' paint-order='stroke'>${escapeXml(scene.name)} (${scene.id}) · green = anchors · yellow = stage shortcuts${scene.shelters.length ? ' · blue = shelters' : ''}</text>` +
+    `<text x='12' y='28' font-family='${LABEL_FONT}' font-size='20' fill='#fff' stroke='#000' stroke-width='4' paint-order='stroke'>${escapeXml(scene.name)} (${scene.id}) · green = anchors · yellow = stage shortcuts${scene.shelters.length ? ' · blue = shelters' : ''}${lights.length ? ' · yellow rings = lights' : ''}</text>` +
     below +
     `</svg>`
   );

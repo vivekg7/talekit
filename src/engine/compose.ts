@@ -1,5 +1,13 @@
 import { actorHeadTop, poseFor, renderActor, renderShadow, sideOf, SHADOW_DEFS } from './actor.js';
 import { DAYLIGHT, type Light } from './shade.js';
+import {
+  castLights,
+  CAST_DEFS,
+  type CastLight,
+  castShadowSvg,
+  shadowFloor,
+  throwOf,
+} from './cast.js';
 import { applySprings } from './springs.js';
 import { bubbleSvg, wrapText, textWidth } from './bubble.js';
 import { needsShaping, shapedText } from './glyphs.js';
@@ -26,6 +34,7 @@ const VIGNETTE_FULL = 1.9;
 
 const FRAME_DEFS =
   SHADOW_DEFS +
+  CAST_DEFS +
   "<radialGradient id='tk-vignette' cx='0.5' cy='0.5' r='0.72'>" +
   "<stop offset='0.55' stop-color='#000' stop-opacity='0'/>" +
   "<stop offset='1' stop-color='#000' stop-opacity='0.5'/></radialGradient>";
@@ -183,7 +192,7 @@ const FIRE_RIM = '#ffb45a';
  * and warmed by the fire, through a filter that scales each colour channel. A fire matters
  * more the darker it is around it.
  */
-function lightOf(actor: ActorState, w: Weather, fires: FireLight[]) {
+function lightOf(actor: ActorState, w: Weather, fires: FireLight[], sky?: CastLight) {
   const amount = w.light?.amount ?? 0;
   const tint = w.light ? mix('#ffffff', w.light.color, amount) : '#ffffff';
   const middle = actor.y - (actor.character.height * actor.scale) / 2;
@@ -193,7 +202,8 @@ function lightOf(actor: ActorState, w: Weather, fires: FireLight[]) {
     Math.min(1.12, parseInt(tint.slice(i, i + 2), 16) / 255 + warm * FIRE_RGB[ch] * 0.45)
   );
   const swing = clamp01(3 * warm);
-  const [dx, dy] = DAYLIGHT.toward;
+  // By day the light comes from the sun where the scene has one, else from high to the left.
+  const [dx, dy] = sky ? towardSky(sky, actor.x, middle) : DAYLIGHT.toward;
   const tx = dx + (fire.toward[0] - dx) * swing;
   const ty = dy + (fire.toward[1] - dy) * swing;
   const len = Math.hypot(tx, ty) || 1;
@@ -206,6 +216,14 @@ function lightOf(actor: ActorState, w: Weather, fires: FireLight[]) {
         : undefined,
   };
   return { light, slopes };
+}
+
+/** The way to a light in the sky from a point, never lower than a little above level. */
+function towardSky(sky: CastLight, x: number, y: number): [number, number] {
+  const vx = sky.x - x;
+  const vy = Math.min(sky.y - y, -0.35 * Math.abs(vx));
+  const len = Math.hypot(vx, vy) || 1;
+  return [vx / len, vy / len];
 }
 
 /** An actor through the channel filter of `lightOf`, or as it is when that does nothing. */
@@ -237,6 +255,32 @@ function firelight(fires: FireLight[], w: Weather): string {
     `<stop offset='0.5' stop-color='${FIRE_GLOW}' stop-opacity='0.35'/><stop offset='1' stop-color='${FIRE_GLOW}' stop-opacity='0'/></radialGradient></defs>` +
     `<g class='firelight' style='mix-blend-mode:screen'>${pools}</g>`
   );
+}
+
+/**
+ * Every actor's shadow from every light (cast.ts), all on the floor before any actor is
+ * drawn, as the ground shadows are.
+ */
+function castShadows(
+  posed: { actor: ActorState; pose: Pose }[],
+  lights: CastLight[],
+  w: Weather,
+  W: number,
+  H: number
+): string {
+  if (!lights.length) return '';
+  const byId = new Map(posed.map((p) => [p.actor.id, p.actor]));
+  let out = '';
+  for (const [i, { actor, pose }] of posed.entries()) {
+    const gy = shadowFloor(actor, actor.heldBy ? byId.get(actor.heldBy) : undefined);
+    if (gy === undefined) continue;
+    const height = actor.character.height * actor.scale;
+    lights.forEach((light, j) => {
+      const th = throwOf(light, actor.x, gy, height, W, H, w);
+      if (th) out += castShadowSvg(actor, pose, gy, th, `tk-cast-${i}-${j}`);
+    });
+  }
+  return out;
 }
 
 function previousShot(project: Project, shot: Shot): Shot | undefined {
@@ -306,9 +350,12 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
   const fires = fireLights(scene.effects, frame.t, H);
   let world = `<g class='scene'>${scene.svg}</g>` + fx('stage') + sky.stage;
   world += posed.map(({ actor, pose }) => renderShadow(actor, pose)).join('');
+  const lights = castLights(scene, fires);
+  const sun = lights.find((l) => l.kind === 'sky');
+  world += castShadows(posed, lights, w, W, H);
   const bubbles: string[] = [];
   for (const [i, { actor, pose }] of posed.entries()) {
-    const { light, slopes } = lightOf(actor, w, fires);
+    const { light, slopes } = lightOf(actor, w, fires, sun);
     world += lit(renderActor(actor, frame.t, pose, light), `tk-lit-${i}`, slopes);
     if (actor.bubble && actor.visible) {
       const head = actorHeadTop(actor, pose);

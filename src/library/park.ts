@@ -9,6 +9,8 @@ export const PARK: SceneInput = {
   name: 'Park',
   description: 'Sunny park with a path, a big tree (left) and a bench (right).',
   ground: 650,
+  // The sun painted in `far`, so everyone's shadow falls away from it.
+  lights: [{ kind: 'sun', x: 1100, y: 120 }],
   anchors: {
     gate: { x: 150, y: 660 },
     tree: { x: 360, y: 640 },

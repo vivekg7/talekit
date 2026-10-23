@@ -614,6 +614,25 @@ one style with real shapes, using downloaded art as reference only.
   project's font, so existing films render exactly as before. Bundling one
   font for everything was the alternative; it would change every film's
   look for a problem only Hindi has.
+- Cast shadows (`cast.ts`). Vivek asked for real shadows wherever there is
+  a light: the sun, the moon, a bulb. Each light throws every grounded
+  actor's own silhouette across the floor: the actor drawn again unshaded,
+  flattened by an affine map that keeps the floor line and moves each point
+  by its height, painted one cool dark through a filter, blurred a little
+  and faded toward its far end with a gradient mask. The silhouette rather
+  than a stretched ellipse, because a raised arm, a dog's tail and a sitter
+  on a cot should all show in it, and the same map serves every rig. A sky
+  light (a `sun` effect, or `lights` for a sun or moon painted in) is far
+  away and in the picture, so behind the stage: shadows fall forward and
+  away from its side, longer the lower it hangs; that the per-actor
+  direction then fans out from under the sun is how such shadows look in
+  perspective. A lamp (or a fire) stands on the stage, so shadows run along
+  the floor away from it and fade with distance, faint by day and strong at
+  night. A scene with a sun now shades its characters from the sun too, so
+  the dark side and the shadow agree. Painted lights are declared, not
+  found in the art: guessing a sun from the SVG is not reliable, and a
+  scene with no lights renders exactly as before. Scenery painted into the
+  art casts nothing; its shadows stay the painter's.
 - Picking up and putting down. The sticks film had the brothers' bundles
   arrive in their hands from nowhere, then vanish at the next cut. Both
   were the directing agent's staging mistakes, but for the first it had no

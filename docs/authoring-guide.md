@@ -250,7 +250,10 @@ or a bounce lifts the body, and goes while the character flies or is
 carried. The simple rig has none by default, since birds and kites hang in
 the air: set `"shadow": true` on a prop that sits on the ground (a lantern,
 a basket), or `false` on anything that should not touch the floor (a ghost,
-a reflection). The pose sheet draws it.
+a reflection). The pose sheet draws it. Where the scene has a light (see
+Lights and cast shadows), the same characters also throw their silhouette
+across the floor away from it; a carried prop's shadow goes with its
+carrier's.
 
 ### Colours
 
@@ -274,8 +277,9 @@ around them. The library characters are the bar; read one before drawing.
   It uses `colors.line` (default `#2e2633`, near-black plum). Set `"outline":
 false` only for something that should not look drawn: a glow, a ghost.
 - **Do not draw shading either.** The engine shades every part on the side
-  away from the light: by day the light is high to the left, so a head gets
-  a darker crescent low on the right and a leg a strip down its far side,
+  away from the light: by day the light comes from the scene's sun, or from
+  high to the left when it has none, so a head gets a darker crescent on
+  the side away from it and a leg a strip down its far side,
   turning with the part as it swings and staying put when the character
   faces left. By a `fire` the shadow swings round and the side toward the
   flames gets a warm rim. A four-legged animal's head and body shade as one
@@ -481,6 +485,41 @@ under the waterfall and the fire pit: the effect only adds what moves.
 
 The anchor sheet of a scene with weather or effects adds a row of the empty
 scene at a few moments, so you can see the rain fall and the flames move.
+
+### Lights and cast shadows
+
+Every person, animal and grounded prop (`shadow: true`) casts a shadow from
+each light in the scene: its own silhouette laid across the floor away from
+the light, soft at the edge and fading toward the far end. A `sun` effect
+and every `fire` are lights already. A light painted into the art is named in
+`lights`, so the shadows agree with the picture:
+
+```json
+"lights": [
+  { "kind": "moon", "x": 1180, "y": 63 },
+  { "kind": "lamp", "x": 420, "y": 380, "reach": 600 }
+]
+```
+
+- `sun` and `moon` are in the sky, far away (`x`, `y` where they are painted,
+  usually in `far`). High in the sky they throw short shadows, low over the
+  horizon long ones; being in the picture, they are behind the stage, so the
+  shadows fall forward, toward the viewer, and away from the light's side. A
+  scene with a sun also lights the characters' shading from it. A moon's
+  shadows are fainter (`strength` 0.55 by default).
+- `lamp` is a light on the stage among the actors (a bulb, a lantern on a
+  post, a lit window): shadows run along the floor away from it, longer the
+  further off the actor stands and the lower the lamp hangs, fading out at
+  `reach` (default 700 px). By day a lamp's shadows are faint; at night
+  (`weather.light`) they are strong. A fire is a lamp at its flames, so
+  shadows waver with it.
+- `strength` (0 to 1) is how dark a shadow a light throws: lower it for a
+  shady place (under a big tree, 0.35) or a hazy sun. Clouds and rain dim a
+  sun's shadows by themselves.
+
+A scene with no lights has only the soft shadow under the feet. Shadows of
+things painted into the scene (a tree, a house) are the painter's: paint
+them falling the same way.
 
 Design tips: the floor band should be the bottom 15–25% of the frame; keep
 the middle third uncluttered where faces and bubbles go; a 220px character is
@@ -709,6 +748,8 @@ to look, so set `facing` so that people who talk face each other.
 - Props are continuous: what is carried at the end of a shot is in hand at
   the start of the next, nothing is taken that was not lying there, and a
   prop put down stays down in the shots that follow in the same place.
+- A scene with a sun, moon or lamp painted in names it in `lights`, so the
+  shadows fall away from it.
 - Total duration matches what was asked for: a short fable is 60–120 s, a
   full picture-book story 5–10 minutes.
 - The film sheet returned by `render` shows every shot the way you intended.
