@@ -4,3 +4,4 @@ examples/*/out/
 *.log
 .DS_Store
 storage/
+stories/
