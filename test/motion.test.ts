@@ -220,4 +220,41 @@ describe('knees', () => {
     expect(at('ll')).toBeLessThan(at('uf'));
     expect(at('uf')).toBeLessThan(at('lf'));
   });
+
+  it('lifts a swinging foot by bending the knee; only a person gives on a planted leg', () => {
+    const p = project(
+      [
+        { t: 0.5, actor: 'kid', do: 'walk', to: { x: 1000, y: 640 }, duration: 3 },
+        { t: 0.5, actor: 'dog', do: 'walk', to: { x: 1000, y: 660 }, duration: 3 },
+      ],
+      { kid: { at: { x: 200, y: 640 } } }
+    );
+    const most = (id: string, legs: string[]) => {
+      let m = 0;
+      for (let t = 0.6; t < 3.4; t += 0.05) {
+        const pose = poseFor(actorAt(p, id, t), t);
+        for (const leg of legs) m = Math.max(m, pose.bend[leg] ?? 0);
+      }
+      return m;
+    };
+    expect(most('kid', ['legL', 'legR'])).toBeGreaterThan(30);
+    expect(most('dog', ['legFL', 'legFR', 'legBL', 'legBR'])).toBeGreaterThan(15);
+    // A dog's planted legs stay straight: at mid-stance every foot on the line is unbent.
+    for (let t = 0.6; t < 3.4; t += 0.05) {
+      const a = actorAt(p, 'dog', t);
+      const pose = poseFor(a, t);
+      const feet = worldFeet(a, t);
+      for (const [leg, [, y]] of Object.entries(feet))
+        if (Math.abs(y - 660) < 0.01) expect(pose.bend[leg] ?? 0).toBe(0);
+    }
+  });
+
+  it('crouches for a jump on bent knees with the feet planted', () => {
+    const p = project([{ t: 1, actor: 'kid', do: 'jump' }]);
+    const t = 1.1;
+    const a = actorAt(p, 'kid', t);
+    expect(poseFor(a, t).bend.legR).toBeGreaterThan(30);
+    for (const y of Object.values(worldFeet(a, t)).map(([, y]) => y))
+      expect(Math.abs(y - 640)).toBeLessThan(0.5);
+  });
 });

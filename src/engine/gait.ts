@@ -35,6 +35,11 @@ interface Gait {
   dip: number;
   /** Body pitch (degrees) over the cycle, and its lag. */
   rock?: [number, number];
+  /**
+   * Whether a planted leg gives at the knee. A person's does; on four short legs a give
+   * of a few units turns into a deep bend, so they stay straight and slide instead.
+   */
+  give: boolean;
 }
 
 const GAITS: Partial<Record<Rig['name'], Partial<Record<'walk' | 'run', Gait>>>> = {
@@ -49,6 +54,7 @@ const GAITS: Partial<Record<Rig['name'], Partial<Record<'walk' | 'run', Gait>>>>
       lift: 12,
       hop: 0,
       dip: 4,
+      give: true,
     },
     run: {
       duty: 0.36,
@@ -60,6 +66,7 @@ const GAITS: Partial<Record<Rig['name'], Partial<Record<'walk' | 'run', Gait>>>>
       lift: 30,
       hop: 16,
       dip: 7,
+      give: true,
     },
   },
   // Walk in diagonal pairs (near front with far hind); gallop with the hind pair landing
@@ -75,6 +82,7 @@ const GAITS: Partial<Record<Rig['name'], Partial<Record<'walk' | 'run', Gait>>>>
       lift: 6,
       hop: 0,
       dip: 2,
+      give: false,
     },
     run: {
       duty: 0.32,
@@ -87,6 +95,7 @@ const GAITS: Partial<Record<Rig['name'], Partial<Record<'walk' | 'run', Gait>>>>
       hop: 12,
       dip: 3,
       rock: [4, 0.8],
+      give: false,
     },
   },
 };
@@ -233,7 +242,7 @@ function stanceDrop(rig: Rig, pl: Plan, phase: number): number {
  * Pose the legs and body for a walk or run. Feet on the ground land exactly on the base
  * line and stay put; the others clear it. The body rises and falls with the legs (and
  * flies between contacts when the gait has a flight phase); the legs make up any
- * difference by giving at the knee, drawn as the leg sliding up into the body. Returns
+ * difference by bending at the knee, or by sliding up into the body (see `give`). Returns
  * the cycle phase in radians for the caller's secondary motion (arms, head, tail).
  */
 export function stride(
@@ -276,25 +285,63 @@ export function stride(
     // rocks, so the foot stays exactly where it landed.
     const pivot = rigPart(rig, leg).pivot;
     const drift = legs.stance[leg] ? pivot[0] - toRoot(rig, pose, leg, pivot)[0] : 0;
+    // A swinging leg with a knee bends to lift its foot, and so does a planted one where
+    // the gait gives; otherwise the leg slides up into the body.
+    const bends = shift < 0 && !!rig.knees[leg] && (gait.give || !legs.stance[leg]);
+    const slide = bends ? 0 : shift;
     // A shift on screen, written in the frame of whatever the leg hangs from.
     const r = parentTurn(rig, pose, leg) * RAD;
     pose.off[leg] = [
-      drift * Math.cos(r) + shift * Math.sin(r),
-      -drift * Math.sin(r) + shift * Math.cos(r),
+      drift * Math.cos(r) + slide * Math.sin(r),
+      -drift * Math.sin(r) + slide * Math.cos(r),
     ];
+    if (bends) raiseFoot(rig, pose, leg, -shift);
   }
   return TAU * pl.phase;
 }
 
 /**
+ * Raise a leg's foot straight up by `by` by bending the knee: the thigh comes forward and
+ * the shin folds back, the way a leg gives under weight or lifts to clear the ground. The
+ * foot ends exactly where sliding the leg up would have put it.
+ */
+export function raiseFoot(rig: Rig, pose: Pose, leg: string, by: number): void {
+  const knee = rig.knees[leg];
+  const pivot = rigPart(rig, leg).pivot;
+  const thigh = knee[1] - pivot[1];
+  const shin = rig.height - knee[1];
+  const hip = toRoot(rig, pose, leg, pivot);
+  const foot = toRoot(rig, pose, leg, [pivot[0], rig.height]);
+  const vx = foot[0] - hip[0];
+  const vy = foot[1] - by - hip[1];
+  const d = Math.min(
+    thigh + shin - 1e-6,
+    Math.max(Math.abs(thigh - shin) + 1e-6, Math.hypot(vx, vy))
+  );
+  // Angles from straight down, positive turning the foot back, as for `rot`.
+  const toFoot = Math.atan2(-vx, vy);
+  const open = Math.acos((thigh * thigh + d * d - shin * shin) / (2 * thigh * d));
+  const up = toFoot - open;
+  const kx = hip[0] - thigh * Math.sin(up);
+  const ky = hip[1] + thigh * Math.cos(up);
+  const down = Math.atan2(-(hip[0] + vx - kx), hip[1] + vy - ky);
+  pose.rot[leg] = up / RAD - parentTurn(rig, pose, leg);
+  pose.bend[leg] = (down - up) / RAD;
+}
+
+/**
  * Put these feet back on the base line after a verb has moved the body (a crouch, a
- * landing, sitting down): each leg slides along the screen vertical, into the body when
- * the body has come down onto it.
+ * landing, sitting down): a leg the body has come down onto bends at the knee, or slides
+ * up into the body when it has none; one the body has lifted slides down to the line.
  */
 export function plantFeet(rig: Rig, pose: Pose, legs: string[]): void {
   for (const leg of legs) {
     if (!rig.parts[leg]) continue;
     const shift = rig.height - footPoint(rig, pose, leg)[1];
+    if (shift < 0 && rig.knees[leg]) {
+      raiseFoot(rig, pose, leg, -shift);
+      continue;
+    }
     const r = parentTurn(rig, pose, leg) * RAD;
     const [ox, oy] = pose.off[leg] ?? [0, 0];
     pose.off[leg] = [ox + shift * Math.sin(r), oy + shift * Math.cos(r)];

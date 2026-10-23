@@ -393,8 +393,15 @@ before audio, and they turned up these fixes:
   it is where the actor stood before sitting onto the seat, and sitting
   where one stands is on the ground, legs out with the knees up a little.
   The bottom of the torso, not the hips, now rests on the seat, so a skirt
-  no longer sinks into the bench. Walking and the jump's crouch still use
-  rigid legs.
+  no longer sinks into the bench.
+- With knees in place, a leg that has to get shorter bends instead of
+  sliding up into the body: the swinging foot lifts by bending, a person's
+  planted leg gives a little on contact, and the jump crouches on bent
+  knees and tucks them in the air. The foot lands exactly where the slide
+  put it, so the planted-foot walk is unchanged underneath. A four-legged
+  animal's planted legs still slide (`give: false` on its gaits): on legs
+  that short, a give of a few units becomes a deep bend and the walk looks
+  rubbery.
 
 ### 7.6 Audio (last, on purpose)
 

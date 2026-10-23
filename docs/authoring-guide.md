@@ -74,10 +74,11 @@ Rules that make the rig work:
 - Arms and legs are easiest as a `<path d='M76 170 L70 284' stroke='{skin}'
 stroke-width='18' stroke-linecap='round' fill='none'/>` plus a hand circle
   and a shoe shape at the end.
-- **Legs bend at the knee** when the character sits: the engine cuts the leg
-  across y=330 and turns the lower half, with a round joint as wide as the
-  leg's stroke. So draw each leg as one straight stroke down from its pivot,
-  as above, and keep the shoe and any sock below the knee.
+- **Legs bend at the knee** when the character walks, crouches or sits:
+  the engine cuts the leg across y=330 and turns the lower half, with a
+  round joint as wide as the leg's stroke. So draw each leg as one straight
+  stroke down from its pivot, as above, and keep the shoe and any sock below
+  the knee.
 - `eyes` and `mouth` rotate with the head. Give them variants (below).
 - `torso` is required. Put the neck in the torso, reaching at least 12
   units up into the head, and end the torso at least 12 units below the hips
@@ -135,12 +136,12 @@ stroke-linecap='round' fill='none'/>`) with a paw or hoof shape at the
   the muzzle, with the same variants as every other rig.
 
 The engine walks it in diagonal pairs (near front with far hind), with the
-feet planted while they are down, the head bobbing against the step and the
-tail swinging; `run` is a gallop between a gathered pose and a stretched
-one; `sit` tips the body back about the hips, bends the hind legs at the
-knee with the paws on the floor and keeps the front paws planted on the way
-down; `wave` and `point` lift the near
-front paw; `jump` gathers on bent legs, then leaps stretched out. The tail
+feet planted while they are down, a lifted paw bending at the knee, the head
+bobbing against the step and the tail swinging; `run` is a gallop between a
+gathered pose and a stretched one; `sit` tips the body back about the hips,
+bends the hind legs at the knee with the paws on the floor and keeps the
+front paws planted on the way down; `wave` and `point` lift the near front
+paw; `jump` gathers on bent legs, then leaps stretched out. The tail
 and ears are springs by default (see below). `height`
 is the box height on screen: about 55 for a mouse, 90–110 for a cat or dog,
 170–190 for a lion, bear or deer.

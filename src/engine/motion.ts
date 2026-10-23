@@ -396,15 +396,16 @@ export function applyVerb(rig: Rig, pose: Pose, verb: Verb, u: number, seat = 0)
     case 'jump': {
       const { crouch, air, arc, squash } = jumpBeats(u);
       if (humanoid) {
-        // Knees bend (the legs slide up behind the torso), arms swing back, then throw up.
+        // Knees bend into a crouch, arms swing back, then throw up.
         pose.dy += 26 * crouch;
         pose.rot.torso = (pose.rot.torso ?? 0) + 10 * crouch;
         pose.rot.armL = 40 * crouch - 140 * air;
         pose.rot.armR = 40 * crouch - 140 * air;
-        pose.rot.legL = -12 * air;
-        pose.rot.legR = 12 * air;
-        pose.off.legL = [0, -10 * air];
-        pose.off.legR = [0, -10 * air];
+        // In the air the knees bend and the feet tuck back under the body.
+        pose.rot.legL = -24 * air;
+        pose.rot.legR = 4 * air;
+        pose.bend.legL = 50 * air;
+        pose.bend.legR = 36 * air;
         if (!air) plantFeet(rig, pose, ['legL', 'legR']);
       }
       pose.dy -= JUMP.height * arc;
