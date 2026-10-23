@@ -406,7 +406,7 @@ export function constructionSheetSvg(character: Character): string {
   });
   const rest = basePose(rig, 'move', 0, 0);
   rest.face = restFace;
-  const drawn = (pose: Pose) => characterBody(character, pose);
+  const drawn = (pose: Pose) => characterBody(character, pose, null);
   const swing = (sign: number): Pose => {
     const p = basePose(rig, 'move', 0, 0);
     p.face = restFace;

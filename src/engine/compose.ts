@@ -1,4 +1,5 @@
 import { actorHeadTop, poseFor, renderActor, renderShadow, sideOf, SHADOW_DEFS } from './actor.js';
+import { DAYLIGHT, type Light } from './shade.js';
 import { applySprings } from './springs.js';
 import { bubbleSvg, wrapText, textWidth } from './bubble.js';
 import { clamp01, easeInOut } from './easing.js';
@@ -136,31 +137,70 @@ function actorShelter(actor: ActorState, pose: Pose): Span[] {
 const FIRE_RGB = [1, 0.72, 0.42];
 const FIRE_GLOW = '#ff9a3c';
 
-/** How much firelight reaches a point, 0..~1: falling off to nothing at each fire's reach. */
-function fireAt(fires: FireLight[], x: number, y: number): number {
+/**
+ * How much firelight reaches a point, 0..~1, falling off to nothing at each fire's reach,
+ * and the way to it: the unit vector toward the fires, each weighted by what it gives.
+ */
+function fireAt(
+  fires: FireLight[],
+  x: number,
+  y: number
+): { warm: number; toward: [number, number] } {
   let sum = 0;
+  let vx = 0;
+  let vy = 0;
   for (const f of fires) {
-    const d = Math.hypot(x - f.x, y - f.y) / f.radius;
-    if (d < 1) sum += f.strength * (1 - d) * (1 - d);
+    const len = Math.hypot(x - f.x, y - f.y);
+    const d = len / f.radius;
+    if (d >= 1) continue;
+    const g = f.strength * (1 - d) * (1 - d);
+    sum += g;
+    vx += (g * (f.x - x)) / (len || 1);
+    vy += (g * (f.y - y)) / (len || 1);
   }
-  return Math.min(1, sum);
+  const v = Math.hypot(vx, vy) || 1;
+  return { warm: Math.min(1, sum), toward: [vx / v, vy / v] };
 }
 
+/** The lit side of an actor by a fire: its rim colour. */
+const FIRE_RIM = '#ffb45a';
+
 /**
- * An actor in the scene's light: tinted toward `weather.light` (characters are drawn in
- * daylight; a night scene is not) and warmed by any fire near them, through a filter that
- * scales each colour channel. A fire matters more the darker it is around it.
+ * The light an actor stands in, and its colour. Its shading (shade.ts) is lit by day from
+ * high to the left; by a fire, lit on the side toward the fire with a warm rim, its shadow
+ * swung round to the far side the more the fire outshines the scene. Its colours are
+ * tinted toward `weather.light` (characters are drawn in daylight; a night scene is not)
+ * and warmed by the fire, through a filter that scales each colour channel. A fire matters
+ * more the darker it is around it.
  */
-function lit(svg: string, id: string, actor: ActorState, w: Weather, fires: FireLight[]): string {
-  if (!svg) return svg;
+function lightOf(actor: ActorState, w: Weather, fires: FireLight[]) {
   const amount = w.light?.amount ?? 0;
   const tint = w.light ? mix('#ffffff', w.light.color, amount) : '#ffffff';
   const middle = actor.y - (actor.character.height * actor.scale) / 2;
-  const warm = fireAt(fires, actor.x, middle) * (0.3 + 0.7 * amount);
+  const fire = fireAt(fires, actor.x, middle);
+  const warm = fire.warm * (0.3 + 0.7 * amount);
   const slopes = [1, 3, 5].map((i, ch) =>
-    Math.min(1.12, parseInt(tint.slice(i, i + 2), 16) / 255 + warm * FIRE_RGB[ch] * 0.75)
+    Math.min(1.12, parseInt(tint.slice(i, i + 2), 16) / 255 + warm * FIRE_RGB[ch] * 0.45)
   );
-  if (slopes.every((v) => Math.abs(v - 1) < 0.01)) return svg;
+  const swing = clamp01(3 * warm);
+  const [dx, dy] = DAYLIGHT.toward;
+  const tx = dx + (fire.toward[0] - dx) * swing;
+  const ty = dy + (fire.toward[1] - dy) * swing;
+  const len = Math.hypot(tx, ty) || 1;
+  const light: Light = {
+    toward: [tx / len, ty / len],
+    shade: DAYLIGHT.shade + 0.12 * swing,
+    rim:
+      warm > 0.03
+        ? { toward: fire.toward, color: FIRE_RIM, amount: Math.min(0.85, 2.4 * warm) }
+        : undefined,
+  };
+  return { light, slopes };
+}
+
+/** An actor through the channel filter of `lightOf`, or as it is when that does nothing. */
+function lit(svg: string, id: string, slopes: number[]): string {
+  if (!svg || slopes.every((v) => Math.abs(v - 1) < 0.01)) return svg;
   const fn = (c: string, v: number) => `<feFunc${c} type='linear' slope='${n(v)}'/>`;
   return (
     `<defs><filter id='${id}' color-interpolation-filters='sRGB'><feComponentTransfer>` +
@@ -258,7 +298,8 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
   world += posed.map(({ actor, pose }) => renderShadow(actor, pose)).join('');
   const bubbles: string[] = [];
   for (const [i, { actor, pose }] of posed.entries()) {
-    world += lit(renderActor(actor, frame.t, pose), `tk-lit-${i}`, actor, w, fires);
+    const { light, slopes } = lightOf(actor, w, fires);
+    world += lit(renderActor(actor, frame.t, pose, light), `tk-lit-${i}`, slopes);
     if (actor.bubble && actor.visible) {
       const head = actorHeadTop(actor, pose);
       const s = worldToScreen(frame, W, H, head.x, head.y);

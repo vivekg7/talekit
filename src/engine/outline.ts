@@ -105,7 +105,7 @@ function closePath(d: string): string {
  * units. Faint shapes (blush, glow) and thin line work are left out, so they never grow a
  * rim; so is anything already drawn in the line colour.
  */
-export function outlineUnderlay(svg: string, color: string, width: number): string {
+export function outlineUnderlay(svg: string, color: string, width: number, paint = color): string {
   let out = '';
   const stack: Paint[] = [ROOT_PAINT];
   let skipDepth = 0;
@@ -150,19 +150,26 @@ export function outlineUnderlay(svg: string, color: string, width: number): stri
     }
     const sw = (limb ? p.strokeWidth : 0) + 2 * width;
     const cap = a['stroke-linecap'] ? '' : ` stroke-linecap='round'`;
-    out += `<${tag}${geo} fill='${fillShows ? color : 'none'}' stroke='${color}' stroke-width='${+sw.toFixed(2)}' stroke-linejoin='round'${cap}/>`;
+    const stroke =
+      sw > 0
+        ? ` stroke='${paint}' stroke-width='${+sw.toFixed(2)}' stroke-linejoin='round'${cap}`
+        : '';
+    out += `<${tag}${geo} fill='${fillShows ? paint : 'none'}'${stroke}/>`;
   }
   return out;
 }
 
 const cache = new Map<string, string>();
 
-/** Memoised `outlineUnderlay`: parts repeat every frame, so parse each one once. */
-export function outlineFor(svg: string, color: string, width: number): string {
-  const key = `${color}|${width}|${svg}`;
+/**
+ * Memoised `outlineUnderlay`: parts repeat every frame, so parse each one once. `paint`
+ * draws the shapes in another colour than the line they are picked against (a silhouette).
+ */
+export function outlineFor(svg: string, color: string, width: number, paint = color): string {
+  const key = `${color}|${paint}|${width}|${svg}`;
   let hit = cache.get(key);
   if (hit === undefined) {
-    hit = outlineUnderlay(svg, color, width);
+    hit = outlineUnderlay(svg, color, width, paint);
     if (cache.size > 5000) cache.clear();
     cache.set(key, hit);
   }

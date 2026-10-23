@@ -525,7 +525,36 @@ Then the three gaps left after the first pass:
   with the flames, plus a warm pool blended as light (screen) over the scene
   and the actors around it. The fire counts for more the darker the light.
 
-### 7.7 Audio### 7.7 Audio (last, on purpose)
+### 7.7 Light and form
+
+Vivek asked (2026-10-23) for better-looking characters, suggesting
+downloaded SVGs. Dropped-in art does not suit the engine: a downloaded cat
+is one picture, while the rig turns separate parts about their joints; art
+from several sources would not share one style, and art that brings its own
+outline gets a second one from the engine. What makes the library look like
+stickers is that every part is one flat colour. So the engine draws the
+light, the way it draws the outline (7.1), and the library is redrawn in
+one style with real shapes, using downloaded art as reference only.
+
+- Every part is shaded on the side away from the light (`shade.ts`). The
+  part's silhouette (the outline underlay with no widening) is drawn over
+  the part in a cool dark at about 20%, masked by the same silhouette
+  nudged toward the light, so only the far side shows: a crescent on a
+  round head, a strip down a leg. Hard-edged, as cel shading is, and cheap
+  enough for resvg: one mask per part, with no blur. The nudge is turned
+  into each part's frame and mirrored with the actor, so a raised arm keeps
+  its shade on the side away from the light and a character facing left is
+  lit from the same side as one facing right. A part fused into its parent
+  (a quadruped's head) adds the parent's silhouette to its mask, or a
+  shaded edge would run across the neck where it meets the shoulders.
+  The face parts (eyes, mouth) and line work are not shaded.
+- Firelight was a uniform warm tint on the whole actor. A fire now also
+  swings the light toward itself the more it outshines the scene, so the
+  shadow falls on the far side, and puts a warm rim on the near side
+  (the silhouette minus a copy nudged away from the fire). The uniform
+  warmth is halved, since the rim does most of the work.
+
+### 7.8 Audio (last, on purpose)
 
 - Narration and dialogue through TTS, with `say` duration taken from the
   audio and mouth flaps driven by amplitude instead of a sine wave.

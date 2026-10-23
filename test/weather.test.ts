@@ -204,7 +204,7 @@ describe('light', () => {
       ].map((m) => [m[2], Number(m[1])])
     );
 
-  it('tints the characters at night and warms one beside a fire', () => {
+  it('tints the characters at night and warms and rims one beside a fire', () => {
     const p = project(
       {
         weather: { light: { color: '#4a5a8f', amount: 0.7 } },
@@ -215,8 +215,12 @@ describe('light', () => {
     const svg = composeFrame(p, p.shots[0], 1);
     const red = redOf(svg);
     expect(red.brolly).toBeLessThan(0.75);
-    expect(red.kid).toBeGreaterThan(red.brolly + 0.2);
+    expect(red.kid).toBeGreaterThan(red.brolly + 0.1);
     expect(svg).toContain("class='firelight'");
+    // The side toward the fire gets a warm rim; the actor far off in the dark does not.
+    const actor = (id: string) => svg.split(`actor-${id}'`)[1].split("class='actor ")[0];
+    expect(actor('kid')).toContain('#ffb45a');
+    expect(actor('brolly')).not.toContain('#ffb45a');
   });
 
   it('leaves daylight characters untouched', () => {

@@ -2,6 +2,7 @@ import { bodyWidth, footPoint, partOffset, swingOf, toRoot } from './gait.js';
 import { applyTake, applyVerb, basePose, emptyPose, resolveFace, type Pose } from './motion.js';
 import { rigPart, RIGS, type Rig } from './rigs.js';
 import { DEFAULT_LINE_COLOR, limbWidth, OUTLINE_PX, outlineFor } from './outline.js';
+import { DAYLIGHT, shadePart, silhouette, type Light } from './shade.js';
 import { applyColors, n } from './svg.js';
 import type { ActorState } from './timeline.js';
 import type { Character, Facing } from './types.js';
@@ -74,7 +75,8 @@ export function outlineWidth(character: Character): number {
   return OUTLINE_PX / (character.height / rig.height);
 }
 
-function transformChain(rig: Rig, pose: Pose, name: string): string {
+/** A part and its parents, root first. */
+function chainOf(rig: Rig, name: string): string[] {
   const chain: string[] = [];
   let cur: string | undefined = name;
   const seen = new Set<string>();
@@ -83,8 +85,28 @@ function transformChain(rig: Rig, pose: Pose, name: string): string {
     chain.unshift(cur);
     cur = rigPart(rig, cur).parent;
   }
+  return chain;
+}
+
+/**
+ * Undo one part's own move off its parent (its offset and turn about its pivot): what is
+ * drawn in the parent's frame, seen from the part's. Foreshortening is left out.
+ */
+function unLink(rig: Rig, pose: Pose, name: string): string {
+  const [px, py] = rigPart(rig, name).pivot;
+  const [ox, oy] = partOffset(rig, pose, name);
+  const [rot] = swingOf(rig, pose, name);
+  return `rotate(${n(-rot)} ${px} ${py}) translate(${n(-ox)} ${n(-oy)})`;
+}
+
+/** How far the pose has turned a part, in degrees, its parents' turns included. */
+function turnOf(rig: Rig, pose: Pose, name: string): number {
+  return chainOf(rig, name).reduce((sum, p) => sum + swingOf(rig, pose, p)[0], pose.spin);
+}
+
+function transformChain(rig: Rig, pose: Pose, name: string): string {
   let out = '';
-  for (const p of chain) {
+  for (const p of chainOf(rig, name)) {
     const rp = rigPart(rig, p);
     const off = partOffset(rig, pose, p);
     const [rot, len] = swingOf(rig, pose, p);
@@ -138,8 +160,16 @@ function bentLimb(
   );
 }
 
-/** Draw the character's parts in canonical coordinates with the given pose. */
-export function characterBody(character: Character, pose: Pose): string {
+/**
+ * Draw the character's parts in canonical coordinates with the given pose, shaded by
+ * `light` (none for `null`) as seen from `side` (1 facing right, -1 mirrored to the left).
+ */
+export function characterBody(
+  character: Character,
+  pose: Pose,
+  light: Light | null = DAYLIGHT,
+  side = 1
+): string {
   const rig = RIGS[character.rig];
   const names = Object.keys(character.parts).sort((a, b) => rigPart(rig, a).z - rigPart(rig, b).z);
   const line = character.colors.line ?? DEFAULT_LINE_COLOR;
@@ -159,7 +189,18 @@ export function characterBody(character: Character, pose: Pose): string {
     const tf = [transformChain(rig, pose, name), turnPart(rig, pose, name)]
       .filter(Boolean)
       .join(' ');
-    drawn.push({ name, tf, svg: coloured, under });
+    // A part fused into its parent (a quadruped's head into its body) shades with it.
+    const into = rig.fuse[name];
+    const parent = into && character.parts[into];
+    const joined =
+      typeof parent === 'string' && rigPart(rig, name).parent === into
+        ? `<g transform='${unLink(rig, pose, name)}'>${silhouette(applyColors(parent, character.colors), line)}</g>`
+        : '';
+    const shade =
+      light && character.shade && !FACE_PARTS.has(name)
+        ? shadePart(coloured, turnOf(rig, pose, name), side, light, rig, line, joined)
+        : '';
+    drawn.push({ name, tf, svg: coloured + shade, under });
   }
   const group = (name: string, tf: string, inner: string) =>
     `<g class='part-${name}'${tf ? ` transform='${tf}'` : ''}>${inner}</g>`;
@@ -227,18 +268,16 @@ export function placeCharacter(
   return `<g class='actor actor-${character.id}' transform='${tf}'${op}>${body}</g>`;
 }
 
-export function renderActor(actor: ActorState, t: number, pose = poseFor(actor, t)): string {
+export function renderActor(
+  actor: ActorState,
+  t: number,
+  pose = poseFor(actor, t),
+  light: Light = DAYLIGHT
+): string {
   if (!actor.visible || actor.opacity <= 0) return '';
-  const body = characterBody(actor.character, pose);
-  return placeCharacter(
-    actor.character,
-    body,
-    actor.x,
-    actor.y,
-    actor.scale,
-    sideOf(actor),
-    actor.opacity
-  );
+  const side = sideOf(actor);
+  const body = characterBody(actor.character, pose, light, Math.sign(side) || 1);
+  return placeCharacter(actor.character, body, actor.x, actor.y, actor.scale, side, actor.opacity);
 }
 
 /** Whether a character casts a ground shadow (see `Character.shadow`). */

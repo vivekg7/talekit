@@ -10,7 +10,8 @@ reasoning are in `docs/PLAN.md`. Read both before changing the data model.
   format), `rigs.ts` (canonical boxes and pivots), `motion.ts` (verb → pose),
   `gait.ts` (planted-foot walk and run), `springs.ts` (follow-through,
   integrated per shot), `weather.ts` and `effects.ts` (rain, clouds, fire,
-  waves and the like, drawn from time each frame), `timeline.ts` (actions →
+  waves and the like, drawn from time each frame), `shade.ts` (the engine-drawn
+  light and shadow on every part), `timeline.ts` (actions →
   actor state at time t), `actor.ts` + `compose.ts` (state → SVG), `outline.ts` (the engine-drawn outline under every part),
   `bubble.ts` (text wrap and bubble geometry).
 - `src/project/` — load/save/validate a project directory; `construction.ts`

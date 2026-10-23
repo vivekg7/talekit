@@ -270,6 +270,14 @@ around them. The library characters are the bar; read one before drawing.
   without a line.
   It uses `colors.line` (default `#2e2633`, near-black plum). Set `"outline":
 false` only for something that should not look drawn: a glow, a ghost.
+- **Do not draw shading either.** The engine shades every part on the side
+  away from the light: by day the light is high to the left, so a head gets
+  a darker crescent low on the right and a leg a strip down its far side,
+  turning with the part as it swings and staying put when the character
+  faces left. By a `fire` the shadow swings round and the side toward the
+  flames gets a warm rim. A four-legged animal's head and body shade as one
+  shape. Set `"shade": false` only for something with no form or that gives
+  light itself: a glow, a ghost, a flat sign.
 - **Flat fills.** One base colour per area plus one darker shade of it for
   inner detail: a muzzle, a belly, an inner ear, a hem. No gradients on
   characters. Faint shapes (`opacity` below 0.95, e.g. blush at `0.5`) and
@@ -403,8 +411,9 @@ true }` in the shot's actions instead.
   characters. They are drawn in daylight colours, so in a night or dusk
   scene (drawn in its own colours) they would glow: `light` tints them to
   match, a night blue at about 0.7, a dusk orange at about 0.5. A `fire`
-  then lights whoever comes near it, warmer the closer, and spreads a glow
-  over the scene around it.
+  then lights whoever comes near it, warmer the closer: the side toward the
+  flames gets a warm rim and the shadow falls on the far side. It also
+  spreads a glow over the scene around it.
 - `top`, on `rain` or `snow`: the stage y it falls from, for a shot under a
   shelter across the whole top of the frame (the underside of a bench seat
   in a close-up).

@@ -42,6 +42,16 @@ export const CharacterSchema = z.object({
     .default(true)
     .describe('Engine-drawn outline around every part (default true); false for glows and ghosts'),
   /**
+   * The engine shades every part on the side away from the light (and lights the side
+   * toward a fire). Turn it off for things that give light or have no form: a glow, a ghost.
+   */
+  shade: z
+    .boolean()
+    .default(true)
+    .describe(
+      'Engine-drawn shading: a darker side away from the light on every part, and a warm rim toward a fire (default true); false for glows, ghosts, flat signs'
+    ),
+  /**
    * Follow-through: parts that swing behind the motion on a spring, so a tail trails a
    * start and flicks on a stop. Absent means the rig's own list; `[]` turns them off.
    */
