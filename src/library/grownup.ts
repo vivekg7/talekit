@@ -64,6 +64,6 @@ export const GROWNUP: CharacterInput = {
       angry: `<path d='M91 133 Q102 128 113 133' stroke='{line}' stroke-width='4' fill='none' stroke-linecap='round'/>`,
       scared: `<path d='M90 133 Q96 127 102 133 Q108 139 114 133' stroke='{line}' stroke-width='3.5' fill='none' stroke-linecap='round'/>`,
     },
-    armR: `<path d='M124 178 L130 288' stroke='{skin}' stroke-width='16' stroke-linecap='round' fill='none'/><path d='M119 284 C117 295 122 304 130 304 C139 304 142 296 141 285 C139 277 121 276 119 284 Z' fill='{skin}'/><path d='M130 283 C140 275 147 280 146 287 C145 292 140 297 130 295 Z' fill='{skin}'/><circle cx='124' cy='173' r='15' fill='{shirt}'/><path d='M109 174 L113.22 206 L139.22 206 L139 174 Z' fill='{shirt}'/><path d='M112.22 202 Q126.22 199 140.22 202 L140.22 213 Q126.22 216 112.22 213 Z' fill='{shirtLight}'/>`,
+    armR: `<path d='M124 178 L130 283' stroke='{skin}' stroke-width='16' stroke-linecap='round' fill='none'/><path d='M119 279 C117 290 122 299 130 299 C139 299 142 291 141 280 C139 272 121 271 119 279 Z' fill='{skin}'/><path d='M130 278 C140 270 147 275 146 282 C145 287 140 292 130 290 Z' fill='{skin}'/><circle cx='124' cy='173' r='15' fill='{shirt}'/><path d='M109 174 L113.22 206 L139.22 206 L139 174 Z' fill='{shirt}'/><path d='M112.22 202 Q126.22 199 140.22 202 L140.22 213 Q126.22 216 112.22 213 Z' fill='{shirtLight}'/>`,
   },
 };
