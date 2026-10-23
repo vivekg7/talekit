@@ -44,11 +44,19 @@ export interface Rig {
    */
   fuse: Record<string, string>;
   /**
-   * Where each leg bends, in the leg's own coordinates: a point on the line the leg hangs
-   * along. The composer cuts a bent leg here with a round joint and turns the lower half
-   * (`Pose.bend`), so every leg drawn as one straight stroke gets a knee for free.
+   * Where each limb bends, in the limb's own coordinates: the knee on a leg, the elbow on
+   * an arm, a point on the line the limb hangs along. The composer cuts a bent limb here
+   * with a round joint and turns the lower half (`Pose.bend`), so every limb drawn as one
+   * straight stroke gets its joint for free.
    */
-  knees: Record<string, [number, number]>;
+  bends: Record<string, [number, number]>;
+  /**
+   * The face turn: these parts are drawn front-on, centred on x = `centre`, and the engine
+   * slides them `shift` units toward the way the character faces and narrows them to
+   * `narrow`, which turns a round head to three-quarters (`Pose.yaw`). A turning
+   * character's face passes through front-on.
+   */
+  turn?: { parts: string[]; centre: number; shift: number; narrow: number };
 }
 
 /**
@@ -67,6 +75,8 @@ export const HUMANOID: Rig = {
     legR: { pivot: [114, 272], z: 2 },
     torso: { pivot: [100, 272], z: 3 },
     head: { parent: 'torso', pivot: [100, 152], z: 5 },
+    // Nose, cheeks, freckles, glasses: what is drawn on the face and turns with it.
+    face: { parent: 'head', pivot: [100, 152], z: 5.5 },
     eyes: { parent: 'head', pivot: [100, 152], z: 6 },
     mouth: { parent: 'head', pivot: [100, 152], z: 7 },
     armR: { parent: 'torso', pivot: [124, 170], z: 8 }, // near arm, drawn in front
@@ -83,14 +93,18 @@ export const HUMANOID: Rig = {
   ],
   speaker: [100, 8],
   springs: [],
-  eye: [100, 96],
+  // Where the turned face puts them.
+  eye: [122, 96],
   // The near hand, at the end of a hanging arm.
   hold: { part: 'armR', point: [129, 284] },
   shadow: 130,
   // The chin keeps its line against the chest: a person's head sits in front of the body.
   fuse: {},
-  // Halfway from the hip to the top of the shoe.
-  knees: { legL: [86, 330], legR: [114, 330] },
+  // Knees halfway from the hip to the top of the shoe; elbows halfway down the arm.
+  bends: { legL: [86, 330], legR: [114, 330], armL: [73, 226], armR: [127, 226] },
+  // A third of the way round a head about 110 across: far enough that the face looks the
+  // way the body goes, near enough that both eyes stay on it.
+  turn: { parts: ['face', 'eyes', 'mouth'], centre: 100, shift: 22, narrow: 0.8 },
 };
 
 /**
@@ -117,7 +131,7 @@ export const SIMPLE: Rig = {
   hold: { part: 'body', point: [150, 110] },
   shadow: 120,
   fuse: {},
-  knees: {},
+  bends: {},
 };
 
 /**
@@ -168,7 +182,7 @@ export const QUADRUPED: Rig = {
   // The head is drawn with its neck, which sinks into the shoulders.
   fuse: { head: 'body' },
   // Stifle on the hind legs, elbow on the front ones: halfway down.
-  knees: {
+  bends: {
     legBL: [66, 166],
     legFL: [178, 166],
     legBR: [82, 166],

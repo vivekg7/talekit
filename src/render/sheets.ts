@@ -112,6 +112,16 @@ export function characterSheetSvg(character: Character): string {
       ...(rig.name === 'humanoid' ? { zoom: 0.5, shift: -40 } : {}),
     },
     make('talking', () => base('idle', 0), 'neutral', true),
+    // Halfway through a turn the face looks straight out: check it is centred on the head.
+    ...(rig.turn
+      ? [
+          make('turning', () => {
+            const p = base('idle', 0);
+            p.yaw = 0;
+            return p;
+          }),
+        ]
+      : []),
     ...(character.parts.eyes
       ? [
           make('looking up', () => {

@@ -53,6 +53,7 @@ anchor (the feet point).
         │   head: circle around (100, 88) r≈62   (kid)   or (100, 96) r≈54 (adult)
  y 152 ─┼─ NECK pivot (100,152): head rotates here
  y 170 ─┼─ SHOULDERS: armL pivot (76,170), armR pivot (124,170)
+ y 226 ─┼─ ELBOWS: (73,226), (127,226); arms bend here to walk, run, wave
         │   torso: shoulders → hips (x 60..140)
  y 272 ─┼─ HIPS: legL pivot (86,272), legR pivot (114,272)
  y 330 ─┼─ KNEES: (86,330), (114,330); legs bend here to sit
@@ -61,9 +62,21 @@ anchor (the feet point).
 ```
 
 Parts and draw order (back → front): `armL`, `legL`, `legR`, `torso`, (any
-extra parts), `head`, `eyes`, `mouth`, `armR`. The character faces slightly
-**right**; the engine mirrors it for `facing: "left"`. `armR` is the near arm
-(waves, points), `armL` is the far arm.
+extra parts), `head`, `face`, `eyes`, `mouth`, `armR`. The character faces
+**right**, three-quarters to the viewer; the engine mirrors it for
+`facing: "left"`. `armR` is the near arm (waves, points), `armL` is the far
+arm.
+
+**Draw the face front-on and let the engine turn it.** `face` (the nose,
+cheeks, freckles, glasses: anything on the face that is not the eyes or the
+mouth), `eyes` and `mouth` are drawn looking straight out, centred on x=100.
+The engine slides them 22 units toward the way the character faces and
+narrows them to 0.8, so the face looks where the body goes instead of
+staring out of the screen, and when the character turns round the face
+comes through front-on. Keep the features inside x 64..136 so the turned
+face stays on the head. Draw the rest of the head for three-quarters: hair,
+an ear or a bow on the far (left) side only, since the face covers the near
+one; a collar or a buckle a little right of centre.
 
 Rules that make the rig work:
 
@@ -79,7 +92,12 @@ stroke-width='18' stroke-linecap='round' fill='none'/>` plus a hand circle
   with a round joint as wide as the leg's stroke. So draw each leg as one
   straight stroke down from its pivot, as above, and keep the shoe and any
   sock below the knee.
-- `eyes` and `mouth` rotate with the head. Give them variants (below).
+- **Arms bend at the elbow** the same way, across y=226: a little when they
+  hang, more as they swing forward in a walk, held bent to run, and from
+  the elbow to wave or rest a hand on the knee. Draw each arm as one
+  straight stroke with the hand at the end; a sleeve may cross the elbow.
+- `face`, `eyes` and `mouth` rotate with the head. Give the eyes and mouth
+  variants (below).
 - `torso` is required. Put the neck in the torso, reaching at least 12
   units up into the head, and end the torso at least 12 units below the hips
   so the legs start under it.
@@ -278,6 +296,9 @@ stroke='{skin}' stroke-width='18' stroke-linecap='round' fill='none'/>`. The
 - **Draw order is depth.** Inside a part, write the far side first, then the
   body, then the near side: far legs, tail, body, near legs, head, ears.
 - **Keep the head near the top of the box**, where bubbles hang.
+- **A person's face detail goes in `face`.** A nose, a cheek or freckles
+  drawn in `head` stay put while the engine turns the eyes and mouth, so
+  the nose ends up behind the eyes.
 
 ## Scenes
 
@@ -409,7 +430,8 @@ and its rate to the speed and the character's size, so a small dog keeping
 up with a walking child patters and a lion strolls. A walk starts and ends
 with the feet together, and a jump crosses the ground only while it is in
 the air (the crouch and the landing stay put). Every change of facing, by
-`set` or by walking the other way, is a quick turn (0.2 s), not a flip.
+`set` or by walking the other way, is a quick turn (0.2 s), not a flip; a
+person's face comes round through front-on as they turn.
 
 `lie` is for sleeping and resting. A person sits down on the ground (or on
 `to`, a bed or a sofa seat) and lies back with the head behind them, so

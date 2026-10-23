@@ -15,7 +15,7 @@ import type { Problem } from './validate.js';
 const M = 60;
 /** Overlap, in canonical units, below which a joint shows a gap once the part moves. */
 export const MIN_OVERLAP = 12;
-const FACE = new Set(['eyes', 'mouth']);
+const FACE = new Set(['eyes', 'mouth', 'face']);
 
 interface Mask {
   w: number;
@@ -321,6 +321,31 @@ export function lintCharacter(c: Character): Construction {
         bounds(p.mask)
       );
     });
+  }
+
+  // 5. Detail on a face that turns: the engine slides the eyes, mouth and `face` toward the
+  // way the character faces, so a nose or cheeks drawn in the head would stay behind.
+  if (rig.turn) {
+    const [x0, x1] = [rig.turn.centre - 36, rig.turn.centre + 36];
+    const variants = c.parts.head;
+    const all = typeof variants === 'string' ? [variants] : Object.values(variants ?? {});
+    // Every variant of the head, each piece once.
+    for (const piece of new Set(all.flatMap(topLevelPieces))) {
+      const width = /stroke-width='([\d.]+)'/.exec(piece);
+      const opacity = /\bopacity='([\d.]+)'/.exec(piece);
+      const detail =
+        (/stroke='(?!none)/.test(piece) && width && +width[1] < 8) ||
+        (opacity && +opacity[1] < 0.95);
+      const b = detail ? bounds(draw(piece)) : undefined;
+      if (!b) continue;
+      const cx = (b.x0 + b.x1) / 2;
+      const cy = (b.y0 + b.y1) / 2;
+      if (cx > x0 && cx < x1 && cy > rig.eye[1] - 30 && cy < rig.parts.head.pivot[1] - 10)
+        warn(
+          `in 'head', ${short(piece)} is drawn on the face but will not turn with it: move it into the 'face' part, which the engine turns with the eyes and mouth`,
+          b
+        );
+    }
   }
 
   const result = { problems, marks };

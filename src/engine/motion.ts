@@ -7,7 +7,10 @@ import type { Emotion, Verb } from './types.js';
 export interface Pose {
   /** Degrees per part, applied around the rig pivot. */
   rot: Record<string, number>;
-  /** Degrees per leg at its knee (`Rig.knees`); positive folds the lower leg back. */
+  /**
+   * Degrees per limb at its knee or elbow (`Rig.bends`); positive folds the lower half
+   * back, so a knee bends positive and an elbow, which folds the forearm forward, negative.
+   */
   bend: Record<string, number>;
   /** Pixel offsets per part in canonical units. */
   off: Record<string, [number, number]>;
@@ -21,6 +24,11 @@ export interface Pose {
   /** Chosen variant per multi-variant part. */
   face: Record<string, string>;
   /**
+   * How far the face is turned toward the way the actor faces (`Rig.turn`): 1 is the
+   * three-quarter view a character stands in, 0 looks straight out of the screen.
+   */
+  yaw: number;
+  /**
    * The ground shadow when the body is not standing over its feet (lying down): its centre
    * moved by `dx` canonical units and its width times `scale`.
    */
@@ -30,7 +38,7 @@ export interface Pose {
 export type Locomotion = 'idle' | 'walk' | 'run' | 'move' | 'fly';
 
 export function emptyPose(): Pose {
-  return { rot: {}, bend: {}, off: {}, dx: 0, dy: 0, sx: 1, sy: 1, spin: 0, face: {} };
+  return { rot: {}, bend: {}, off: {}, dx: 0, dy: 0, sx: 1, sy: 1, spin: 0, face: {}, yaw: 1 };
 }
 
 /** Add to a part's offset: a verb layered on a held one (a shiver while sat) keeps it. */
@@ -96,14 +104,14 @@ function quadrupedBase(p: Pose, loco: Locomotion, t: number, phase: number, trav
       p.rot.head = 2 * Math.sin((TAU * (t + phase * 5)) / 5);
       break;
     case 'walk': {
-      const phi = stride(QUADRUPED, p, 'walk', t, travel);
+      const { phi } = stride(QUADRUPED, p, 'walk', t, travel);
       p.rot.head = 2.5 * Math.cos(2 * phi);
       p.rot.tail = 9 * Math.sin(phi);
       p.rot.earL = p.rot.earR = 3 * Math.cos(2 * phi);
       break;
     }
     case 'run': {
-      const phi = stride(QUADRUPED, p, 'run', t, travel);
+      const { phi } = stride(QUADRUPED, p, 'run', t, travel);
       const g = Math.sin(phi);
       p.rot.head = -5 * g;
       p.rot.tail = -18 + 8 * g;
@@ -148,6 +156,8 @@ export function basePose(
         const sway = 2 * Math.sin((TAU * (t + phase * 4)) / 4);
         p.rot.armL = sway;
         p.rot.armR = -sway;
+        // A hanging arm is never quite straight.
+        p.bend.armL = p.bend.armR = -8;
         p.rot.head = 1.5 * Math.sin((TAU * (t + phase * 5)) / 5);
       }
       break;
@@ -156,11 +166,18 @@ export function basePose(
     case 'run': {
       const run = loco === 'run';
       if (humanoid) {
-        const phi = stride(rig, p, loco, t, travel);
-        // Each arm swings against the leg on its side.
-        const k = run ? 1.1 : 0.85;
-        p.rot.armL = -k * p.rot.legL! + (run ? -20 : 0);
-        p.rot.armR = -k * p.rot.legR! + (run ? -20 : 0);
+        const { phi, env } = stride(rig, p, loco, t, travel);
+        // Each arm swings against the leg on its side, from the shoulder, and bends at the
+        // elbow as it comes forward; a runner holds the elbows bent and pumps them, from
+        // the first stride to the last.
+        for (const [arm, leg] of [
+          ['armL', 'legL'],
+          ['armR', 'legR'],
+        ]) {
+          const a = run ? 6 * env - p.rot[leg]! : -0.8 * p.rot[leg]!;
+          p.rot[arm] = a;
+          p.bend[arm] = run ? -8 + (-72 + 0.4 * a) * env : -10 - 0.9 * Math.max(0, -a);
+        }
         p.rot.torso = (run ? 9 : 3) + (run ? 2 : 1) * Math.cos(2 * phi);
         p.rot.head = -(run ? 6 : 2) - (run ? 2 : 1) * Math.cos(2 * phi);
       } else {
@@ -250,8 +267,8 @@ function foldLeg(
   raise: number,
   lowest: number
 ): [number, number] {
-  const thigh = rig.knees[leg][1] - rig.parts[leg].pivot[1];
-  const shin = rig.height - rig.knees[leg][1];
+  const thigh = rig.bends[leg][1] - rig.parts[leg].pivot[1];
+  const shin = rig.height - rig.bends[leg][1];
   // A knee raised too high would leave the foot in the air: lower it until the shin reaches.
   const fits = Math.asin(Math.max(-1, Math.min(1, (shin - h) / thigh))) * DEG;
   const e = Math.max(lowest, Math.min(raise, fits)) / DEG;
@@ -388,8 +405,12 @@ export function applyVerb(rig: Rig, pose: Pose, verb: Verb, u: number, seat = 0)
   switch (verb) {
     case 'wave': {
       const k = settle(u, 0.18, 0.18);
-      if (humanoid) pose.rot.armR = k * (-135 + 22 * Math.sin(u * TAU * 2.5));
-      else pose.rot.body = 8 * Math.sin(u * TAU * 2.5) * k;
+      // The upper arm goes up and the hand waves from the elbow.
+      if (humanoid) {
+        const w = Math.sin(u * TAU * 2.5);
+        pose.rot.armR = k * (-75 + 5 * w);
+        pose.bend.armR = k * (-65 + 25 * w);
+      } else pose.rot.body = 8 * Math.sin(u * TAU * 2.5) * k;
       break;
     }
     case 'point': {
@@ -435,6 +456,7 @@ export function applyVerb(rig: Rig, pose: Pose, verb: Verb, u: number, seat = 0)
         pose.rot.torso = (pose.rot.torso ?? 0) + 10 * crouch;
         pose.rot.armL = 40 * crouch - 140 * air;
         pose.rot.armR = 40 * crouch - 140 * air;
+        pose.bend.armL = pose.bend.armR = -20 * crouch - 8 * (1 - air);
         // In the air the knees bend and the feet tuck back under the body.
         pose.rot.legL = -24 * air;
         pose.rot.legR = 4 * air;
@@ -485,8 +507,10 @@ export function applyVerb(rig: Rig, pose: Pose, verb: Verb, u: number, seat = 0)
           pose.rot[leg] = turn;
           pose.bend[leg] = bend;
         }
-        pose.rot.armL = -25 * k;
-        pose.rot.armR = -25 * k;
+        // Hands come to rest on the thighs.
+        pose.rot.armL = -10 * k;
+        pose.rot.armR = -10 * k;
+        pose.bend.armL = pose.bend.armR = mix(-8, -25, k);
         pose.dy += fall * k;
         pose.rot.torso = 0;
       }
@@ -503,6 +527,8 @@ export function applyVerb(rig: Rig, pose: Pose, verb: Verb, u: number, seat = 0)
         pose.rot.head = (pose.rot.head ?? 0) + 20 * l;
         pose.rot.armL = mix(pose.rot.armL ?? 0, 2, l);
         pose.rot.armR = mix(pose.rot.armR ?? 0, 4, l);
+        pose.bend.armL = mix(pose.bend.armL ?? 0, -6, l);
+        pose.bend.armR = mix(pose.bend.armR ?? 0, -6, l);
         for (const leg of ['legL', 'legR']) {
           const [turn, bend] = foldLeg(rig, leg, BACK_DEPTH, 5, 0);
           pose.rot[leg] = mix(pose.rot[leg] ?? 0, turn, l);

@@ -114,7 +114,7 @@ const rotate = ([x, y]: Pt, deg: number, [cx, cy]: Pt): Pt => {
 /** A point drawn in `part`'s coordinates, carried through the pose to the root (before dx, dy). */
 export function toRoot(rig: Rig, pose: Pose, part: string, point: Pt): Pt {
   let p = point;
-  const knee = rig.knees[part];
+  const knee = rig.bends[part];
   if (knee && pose.bend[part] && point[1] > knee[1]) p = rotate(p, pose.bend[part], knee);
   const seen = new Set<string>();
   for (let cur: string | undefined = part; cur && !seen.has(cur); cur = rigPart(rig, cur).parent) {
@@ -224,6 +224,7 @@ function feetY(rig: Rig, legs: Legs): Record<string, number> {
     sy: 1,
     spin: 0,
     face: {},
+    yaw: 1,
   };
   const out: Record<string, number> = {};
   for (const leg of Object.keys(legs.rot)) out[leg] = footPoint(rig, p, leg)[1];
@@ -243,7 +244,9 @@ function stanceDrop(rig: Rig, pl: Plan, phase: number): number {
  * line and stay put; the others clear it. The body rises and falls with the legs (and
  * flies between contacts when the gait has a flight phase); the legs make up any
  * difference by bending at the knee, or by sliding up into the body (see `give`). Returns
- * the cycle phase in radians for the caller's secondary motion (arms, head, tail).
+ * the cycle phase in radians for the caller's secondary motion (arms, head, tail), and how
+ * far into the stride the move is (0 with the legs together at either end, 1 in full
+ * stride), so that motion can settle with the legs.
  */
 export function stride(
   rig: Rig,
@@ -251,7 +254,7 @@ export function stride(
   loco: 'walk' | 'run',
   t: number,
   travel?: Travel
-): number {
+): { phi: number; env: number } {
   const gait = GAITS[rig.name]![loco]!;
   const pl = plan(rig, gait, t, travel);
   const legs = legsAt(rig, pl, pl.phase);
@@ -287,7 +290,7 @@ export function stride(
     const drift = legs.stance[leg] ? pivot[0] - toRoot(rig, pose, leg, pivot)[0] : 0;
     // A swinging leg with a knee bends to lift its foot, and so does a planted one where
     // the gait gives; otherwise the leg slides up into the body.
-    const bends = shift < 0 && !!rig.knees[leg] && (gait.give || !legs.stance[leg]);
+    const bends = shift < 0 && !!rig.bends[leg] && (gait.give || !legs.stance[leg]);
     const slide = bends ? 0 : shift;
     // A shift on screen, written in the frame of whatever the leg hangs from.
     const r = parentTurn(rig, pose, leg) * RAD;
@@ -297,7 +300,7 @@ export function stride(
     ];
     if (bends) raiseFoot(rig, pose, leg, -shift);
   }
-  return TAU * pl.phase;
+  return { phi: TAU * pl.phase, env: pl.env };
 }
 
 /**
@@ -306,7 +309,7 @@ export function stride(
  * foot ends exactly where sliding the leg up would have put it.
  */
 export function raiseFoot(rig: Rig, pose: Pose, leg: string, by: number): void {
-  const knee = rig.knees[leg];
+  const knee = rig.bends[leg];
   const pivot = rigPart(rig, leg).pivot;
   const thigh = knee[1] - pivot[1];
   const shin = rig.height - knee[1];
@@ -338,7 +341,7 @@ export function plantFeet(rig: Rig, pose: Pose, legs: string[]): void {
   for (const leg of legs) {
     if (!rig.parts[leg]) continue;
     const shift = rig.height - footPoint(rig, pose, leg)[1];
-    if (shift < 0 && rig.knees[leg]) {
+    if (shift < 0 && rig.bends[leg]) {
       raiseFoot(rig, pose, leg, -shift);
       continue;
     }

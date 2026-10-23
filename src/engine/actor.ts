@@ -20,13 +20,20 @@ export function poseFor(actor: ActorState, t: number): Pose {
   if (sat) applyVerb(rig, pose, 'sit', actor.sit, seat);
   if (actor.lie > 0) applyVerb(rig, pose, 'lie', actor.lie);
   // Carrying: the near arm hangs a little forward and swings less, under the weight.
-  if (actor.holding && rig.name === 'humanoid') pose.rot.armR = 0.35 * (pose.rot.armR ?? 0) - 12;
+  if (actor.holding && rig.name === 'humanoid') {
+    pose.rot.armR = 0.35 * (pose.rot.armR ?? 0) - 12;
+    pose.bend.armR = -20;
+  }
   const head = rig.name === 'simple' ? 'body' : 'head';
   if (actor.look) pose.rot[head] = (pose.rot[head] ?? 0) + actor.look;
   if (actor.take) applyTake(rig, pose, actor.take.emotion, actor.take.u);
   for (const v of actor.verbs) applyVerb(rig, pose, v.verb, v.u);
-  // Turning round: the body narrows through the mirror and stretches a touch as it does.
-  if (actor.turn) pose.sy *= 1 + 0.04 * Math.sin(Math.PI * actor.turn.u);
+  // Turning round: the body narrows through the mirror and stretches a touch as it does,
+  // and the face comes round through front-on.
+  if (actor.turn) {
+    pose.sy *= 1 + 0.04 * Math.sin(Math.PI * actor.turn.u);
+    if (actor.turn.from !== actor.facing) pose.yaw = Math.abs(Math.cos(Math.PI * actor.turn.u));
+  }
   pose.face = resolveFace(actor.character.parts, {
     emotion: actor.emotion,
     overrides: actor.face,
@@ -39,7 +46,7 @@ export function poseFor(actor: ActorState, t: number): Pose {
   return pose;
 }
 
-const FACE_PARTS = new Set(['eyes', 'mouth']);
+const FACE_PARTS = new Set(['face', 'eyes', 'mouth']);
 
 /**
  * Outline width in canonical units: the same line on screen for every character at scale 1,
@@ -71,21 +78,31 @@ function transformChain(rig: Rig, pose: Pose, name: string): string {
 }
 
 /**
- * A leg bent at the knee: the part drawn twice, cut across the knee, the lower half turned
- * by `bend`. Each half keeps a disc as wide as the leg round the knee, so the turn opens no
- * gap and the joint is round; both outlines go down before either fill, so no line crosses
- * where the halves meet and the leg reads as one shape.
+ * The face turn (`Rig.turn`) as a transform in the head's frame: narrowed about the centre
+ * line and slid toward the way the character faces.
  */
-function bentLeg(
+function turnFace(turn: NonNullable<Rig['turn']>, yaw: number): string {
+  if (!yaw) return '';
+  const k = 1 - (1 - turn.narrow) * yaw;
+  return `translate(${n(turn.centre * (1 - k) + turn.shift * yaw)} 0) scale(${n(k)} 1)`;
+}
+
+/**
+ * A limb bent at the knee or elbow: the part drawn twice, cut across the joint, the lower
+ * half turned by `bend`. Each half keeps a disc as wide as the limb round the joint, so the
+ * turn opens no gap and the joint is round; both outlines go down before either fill, so no
+ * line crosses where the halves meet and the limb reads as one shape.
+ */
+function bentLimb(
   id: string,
-  knee: [number, number],
+  joint: [number, number],
   bend: number,
   svg: string,
   under: string,
   line: number
 ): string {
-  const [kx, ky] = knee;
-  // A leg drawn as a filled shape has no stroke to measure: assume a typical one.
+  const [kx, ky] = joint;
+  // A limb drawn as a filled shape has no stroke to measure: assume a typical one.
   const r = limbWidth(svg) / 2 || 9;
   const clip = (key: string, lower: boolean, radius: number) =>
     `<clipPath id='${id}-${key}'><rect x='-1000' y='${lower ? ky : -1000}' width='3000' height='${lower ? 2000 : ky + 1000}'/><circle cx='${kx}' cy='${ky}' r='${n(radius)}'/></clipPath>`;
@@ -111,11 +128,13 @@ export function characterBody(character: Character, pose: Pose): string {
     const svg = typeof part === 'string' ? part : part[pose.face[name] ?? Object.keys(part)[0]];
     if (!svg) continue;
     const coloured = applyColors(svg, character.colors);
-    // Eyes and mouth are detail on top of the head: a lighter line, or they look stamped on.
+    // The face is detail on top of the head: a lighter line, or it looks stamped on.
     const under = character.outline
       ? outlineFor(coloured, line, FACE_PARTS.has(name) ? width / 2 : width)
       : '';
-    drawn.push({ name, tf: transformChain(rig, pose, name), svg: coloured, under });
+    const turned = rig.turn?.parts.includes(name) ? turnFace(rig.turn, pose.yaw) : '';
+    const tf = [transformChain(rig, pose, name), turned].filter(Boolean).join(' ');
+    drawn.push({ name, tf, svg: coloured, under });
   }
   const group = (name: string, tf: string, inner: string) =>
     `<g class='part-${name}'${tf ? ` transform='${tf}'` : ''}>${inner}</g>`;
@@ -127,11 +146,11 @@ export function characterBody(character: Character, pose: Pose): string {
     for (const f of drawn)
       if (f.under && rig.fuse[f.name] === d.name) out += group(`${f.name}-line`, f.tf, f.under);
     const fused = rig.fuse[d.name] && joined.has(rig.fuse[d.name]);
-    const knee = rig.knees[d.name];
+    const joint = rig.bends[d.name];
     const bend = pose.bend[d.name];
     const inner =
-      knee && bend
-        ? bentLeg(`tk-knee-${character.id}-${d.name}`, knee, bend, d.svg, d.under, width)
+      joint && bend
+        ? bentLimb(`tk-bend-${character.id}-${d.name}`, joint, bend, d.svg, d.under, width)
         : (fused ? '' : d.under) + d.svg;
     out += group(d.name, d.tf, inner);
   }
@@ -151,12 +170,16 @@ export function characterBody(character: Character, pose: Pose): string {
 /**
  * The mirror as a signed horizontal scale: 1 facing right, -1 facing left, and through a
  * turn a squash from one to the other (never quite flat, so the actor does not vanish).
+ * A character whose face turns (`Rig.turn`) squashes far less: its face, front-on at
+ * the mirror, carries the turn, so the body need only hide the swap of its near and far
+ * sides.
  */
-export function sideOf(actor: Pick<ActorState, 'facing' | 'turn'>): number {
+export function sideOf(actor: Pick<ActorState, 'facing' | 'turn' | 'character'>): number {
   const to = actor.facing === 'left' ? -1 : 1;
   if (!actor.turn || actor.turn.from === actor.facing) return to;
   const u = actor.turn.u;
-  return (u < 0.5 ? -to : to) * Math.max(0.12, Math.abs(Math.cos(Math.PI * u)));
+  const least = RIGS[actor.character.rig].turn ? 0.72 : 0.12;
+  return (u < 0.5 ? -to : to) * Math.max(least, Math.abs(Math.cos(Math.PI * u)));
 }
 
 /** Place a posed character in the world at feet point (x, y). */

@@ -416,6 +416,25 @@ before audio, and they turned up these fixes:
   someone already sat: the agents wrote `duration: 0.05` and got a 0.4 s
   sit-down. `sit`, `lie` and `stand` now take it, shared between sitting
   and lying back the way the defaults are.
+- People stared out of the screen whatever way they went: the faces were
+  drawn front-on on a body that walks side-on, so a girl walking right
+  looked at the viewer. Now the engine turns the face (`Rig.turn`,
+  `Pose.yaw`): the eyes, the mouth and a new `face` part (nose, cheeks)
+  slide toward the way the character faces and narrow, which on a round
+  head reads as three-quarters. Doing it in the engine rather than asking
+  for three-quarter faces means every character already drawn front-on
+  turns, and a turn can bring the face round through front-on: the body
+  now narrows only to 0.72 through the mirror, where it used to squash to
+  a sliver, so a turning person looks like they are turning round. The
+  library people (and the example casts copied from them) lost the near
+  ear and the near bow, which the face would cover, and moved the collar
+  and buckle toward the front.
+- Arms swung from the shoulder as straight sticks, so a runner flailed.
+  `Rig.knees` became `Rig.bends`, with elbows on the humanoid: an arm hangs
+  almost straight, bends as it swings forward in a walk, is held bent and
+  pumped to run (easing in and out with the stride), waves from the elbow,
+  and rests its hand on the knee when sitting. A carried prop stays in the
+  hand, since the hold point goes through the bend.
 
 ### 7.6 Audio (last, on purpose)
 

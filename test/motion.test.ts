@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { actorHeadTop, poseFor, sideOf } from '../src/engine/actor.js';
+import { actorHeadTop, characterBody, poseFor, sideOf } from '../src/engine/actor.js';
 import { bubblePop } from '../src/engine/bubble.js';
 import { composeFrame } from '../src/engine/compose.js';
 import { footPoint } from '../src/engine/gait.js';
@@ -106,13 +106,26 @@ describe('planted feet', () => {
 describe('weight and follow-through', () => {
   it('turns through a squash instead of mirroring in one frame', () => {
     const p = project([
-      { t: 1, actor: 'kid', do: 'walk', to: { x: 600, y: 640 }, duration: 2 },
-      { t: 4, actor: 'kid', do: 'walk', to: { x: 300, y: 640 }, duration: 2 },
+      { t: 1, actor: 'dog', do: 'walk', to: { x: 600, y: 660 }, duration: 2 },
+      { t: 4, actor: 'dog', do: 'walk', to: { x: 300, y: 660 }, duration: 2 },
     ]);
-    const sides = [4, 4.05, 4.1, 4.15, 4.25].map((t) => sideOf(actorAt(p, 'kid', t)));
+    const sides = [4, 4.05, 4.1, 4.15, 4.25].map((t) => sideOf(actorAt(p, 'dog', t)));
     expect(sides[0]).toBeGreaterThan(0.9);
     expect(Math.abs(sides[2])).toBeLessThan(0.2);
     expect(sides[4]).toBe(-1);
+  });
+
+  it('turns a person round with the face, coming through front-on', () => {
+    const p = project([
+      { t: 1, actor: 'kid', do: 'walk', to: { x: 600, y: 640 }, duration: 2 },
+      { t: 4, actor: 'kid', do: 'walk', to: { x: 300, y: 640 }, duration: 2 },
+    ]);
+    const at = (t: number) => actorAt(p, 'kid', t);
+    expect(poseFor(at(3.5), 3.5).yaw).toBe(1);
+    // Mid-turn the body only narrows; the face looks out of the screen.
+    expect(Math.abs(sideOf(at(4.1)))).toBeGreaterThan(0.7);
+    expect(poseFor(at(4.1), 4.1).yaw).toBeLessThan(0.2);
+    expect(poseFor(at(4.25), 4.25).yaw).toBe(1);
   });
 
   it('pops in past full size, and bubbles do the same', () => {
@@ -211,10 +224,10 @@ describe('knees', () => {
 
   it('draws a bent leg as one shape: both outlines before either fill', () => {
     const p = project([{ t: 1, actor: 'kid', do: 'sit' }]);
-    expect(composeFrame(p, p.shots[0], 0.5)).not.toContain('tk-knee');
+    expect(composeFrame(p, p.shots[0], 0.5)).not.toContain('tk-bend-kid-legR');
     const svg = composeFrame(p, p.shots[0], 2);
     const leg = svg.slice(svg.indexOf("class='part-legR'"));
-    const at = (k: string) => leg.indexOf(`url(#tk-knee-kid-legR-${k})`);
+    const at = (k: string) => leg.indexOf(`url(#tk-bend-kid-legR-${k})`);
     expect(at('ul')).toBeGreaterThan(-1);
     expect(at('ul')).toBeLessThan(at('ll'));
     expect(at('ll')).toBeLessThan(at('uf'));
@@ -312,5 +325,46 @@ describe('lying down', () => {
     // The head comes down on its neck rather than tipping onto its face.
     expect(pose.off.head[1]).toBeGreaterThan(20);
     expect(pose.rot.head).toBeLessThan(40);
+  });
+});
+
+describe('people', () => {
+  it('turns the face, nose and cheeks with it, the way the body faces', () => {
+    const p = project([]);
+    const a = actorAt(p, 'kid', 1);
+    const pose = poseFor(a, 1);
+    const svg = characterBody(a.character, pose);
+    const tf = (part: string) => svg.match(new RegExp(`class='part-${part}' transform='([^']*)'`));
+    for (const part of ['face', 'eyes', 'mouth'])
+      expect(tf(part)?.[1]).toContain('translate(42 0) scale(0.8 1)');
+    expect(tf('head')?.[1] ?? '').not.toContain('scale');
+    pose.yaw = 0;
+    expect(characterBody(a.character, pose)).not.toContain('scale(0.8 1)');
+  });
+
+  it('bends the elbows: more as an arm swings forward, held bent to run', () => {
+    const p = project(
+      [
+        { t: 0.5, actor: 'kid', do: 'walk', to: { x: 900, y: 640 }, duration: 3 },
+        { t: 4, actor: 'kid', do: 'run', to: { x: 300, y: 640 }, duration: 1.5 },
+      ],
+      { kid: { at: { x: 200, y: 640 } } }
+    );
+    let forward = 0;
+    let back = 0;
+    for (let t = 1; t < 3; t += 0.05) {
+      const pose = poseFor(actorAt(p, 'kid', t), t);
+      for (const arm of ['armL', 'armR']) {
+        if (pose.rot[arm] < -10) forward = Math.min(forward, pose.bend[arm]);
+        if (pose.rot[arm] > 10) back = Math.min(back, pose.bend[arm]);
+      }
+    }
+    expect(forward).toBeLessThan(-20);
+    expect(back).toBeGreaterThan(-15);
+    const run = poseFor(actorAt(p, 'kid', 4.75), 4.75);
+    expect(run.bend.armL).toBeLessThan(-60);
+    expect(run.bend.armR).toBeLessThan(-60);
+    // Standing still the arms hang, all but straight.
+    expect(poseFor(actorAt(p, 'kid', 0.2), 0.2).bend.armR).toBeGreaterThan(-10);
   });
 });

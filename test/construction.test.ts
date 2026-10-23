@@ -106,6 +106,22 @@ describe('construction linter', () => {
     expect(messages).not.toMatch(/legR/);
   });
 
+  it('asks for a nose or cheeks drawn in the head to move into the turning face', () => {
+    const c = blob(
+      {
+        torso: `<rect x='70' y='130' width='60' height='160' fill='#48c'/>`,
+        head: `<circle cx='100' cy='96' r='54' fill='#fc9'/><circle cx='72' cy='114' r='9' fill='#f88' opacity='0.5'/><path d='M102 99 Q108 105 101 108' stroke='#333' stroke-width='3' fill='none'/><path d='M60 60 Q100 30 140 60' stroke='#531' stroke-width='4' fill='none'/>`,
+      },
+      'humanoid'
+    );
+    const turning = lintCharacter(c)
+      .problems.map((p) => p.message)
+      .filter((m) => m.includes('will not turn'));
+    // The cheek and the nose; the hair line is not on the face.
+    expect(turning).toHaveLength(2);
+    expect(turning[0]).toMatch(/move it into the 'face' part/);
+  });
+
   it('passes the library characters and draws their construction sheets', () => {
     for (const c of Object.values(LIBRARY.characters)) {
       expect(lintCharacter(c).problems.map((p) => p.message)).toEqual([]);
