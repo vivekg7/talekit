@@ -1,4 +1,4 @@
-import { toRoot } from './gait.js';
+import { bodyWidth, footPoint, partOffset, swingOf, toRoot } from './gait.js';
 import { applyTake, applyVerb, basePose, emptyPose, resolveFace, type Pose } from './motion.js';
 import { rigPart, RIGS, type Rig } from './rigs.js';
 import { DEFAULT_LINE_COLOR, limbWidth, OUTLINE_PX, outlineFor } from './outline.js';
@@ -32,9 +32,26 @@ export function poseFor(actor: ActorState, t: number): Pose {
   // and the face comes round through front-on.
   if (actor.turn) {
     pose.sy *= 1 + 0.04 * Math.sin(Math.PI * actor.turn.u);
-    if (actor.turn.from !== actor.facing) pose.yaw = Math.abs(Math.cos(Math.PI * actor.turn.u));
+    if (actor.turn.from !== actor.facing) pose.yaw *= Math.abs(Math.cos(Math.PI * actor.turn.u));
+  }
+  // Going into the screen the face turns on round to side-on and then away; coming out of
+  // it, round to the viewer.
+  if (rig.turn && actor.view > 0) pose.yaw *= 1 - actor.view;
+  // A limb swinging toward or away from the viewer is foreshortened. A bent leg comes out
+  // a little shorter than it was, so the body comes down by as much as its lowest foot rose.
+  if (rig.turn && actor.view) {
+    const lowest = () => Math.max(...rig.feet.map((leg) => footPoint(rig, pose, leg)[1]));
+    const before = lowest();
+    pose.depth = 0.75 * Math.abs(actor.view);
+    pose.dy += before - lowest();
+  }
+  if (rig.turn && actor.view < 0) {
+    const away = -actor.view;
+    if (away < 0.5) pose.yaw += (2 - pose.yaw) * 2 * away;
+    else pose.back = true;
   }
   pose.face = resolveFace(actor.character.parts, {
+    back: pose.back,
     emotion: actor.emotion,
     overrides: actor.face,
     talking: actor.talking,
@@ -69,22 +86,27 @@ function transformChain(rig: Rig, pose: Pose, name: string): string {
   let out = '';
   for (const p of chain) {
     const rp = rigPart(rig, p);
-    const off = pose.off[p];
-    const rot = pose.rot[p];
-    if (off && (off[0] || off[1])) out += `translate(${n(off[0])} ${n(off[1])}) `;
+    const off = partOffset(rig, pose, p);
+    const [rot, len] = swingOf(rig, pose, p);
+    if (off[0] || off[1]) out += `translate(${n(off[0])} ${n(off[1])}) `;
     if (rot) out += `rotate(${n(rot)} ${rp.pivot[0]} ${rp.pivot[1]}) `;
+    if (len !== 1) out += `translate(0 ${n(rp.pivot[1] * (1 - len))}) scale(1 ${n(len)}) `;
   }
   return out.trim();
 }
 
 /**
- * The face turn (`Rig.turn`) as a transform in the head's frame: narrowed about the centre
- * line and slid toward the way the character faces.
+ * The turn (`Rig.turn`) of one part as a transform in its own frame: the face narrowed
+ * about the centre line and slid toward the way the character faces, the body narrowed.
  */
-function turnFace(turn: NonNullable<Rig['turn']>, yaw: number): string {
-  if (!yaw) return '';
-  const k = 1 - (1 - turn.narrow) * yaw;
-  return `translate(${n(turn.centre * (1 - k) + turn.shift * yaw)} 0) scale(${n(k)} 1)`;
+function turnPart(rig: Rig, pose: Pose, name: string): string {
+  const turn = rig.turn;
+  if (!turn) return '';
+  const narrow = (k: number, dx = 0) =>
+    k === 1 && !dx ? '' : `translate(${n(turn.centre * (1 - k) + dx)} 0) scale(${n(k)} 1)`;
+  if (turn.body.includes(name)) return narrow(bodyWidth(rig, pose));
+  if (!turn.parts.includes(name)) return '';
+  return narrow(1 - (1 - turn.narrow) * pose.yaw, turn.shift * pose.yaw);
 }
 
 /**
@@ -132,8 +154,11 @@ export function characterBody(character: Character, pose: Pose): string {
     const under = character.outline
       ? outlineFor(coloured, line, FACE_PARTS.has(name) ? width / 2 : width)
       : '';
-    const turned = rig.turn?.parts.includes(name) ? turnFace(rig.turn, pose.yaw) : '';
-    const tf = [transformChain(rig, pose, name), turned].filter(Boolean).join(' ');
+    // Seen from behind there is no face.
+    if (pose.back && rig.turn?.parts.includes(name)) continue;
+    const tf = [transformChain(rig, pose, name), turnPart(rig, pose, name)]
+      .filter(Boolean)
+      .join(' ');
     drawn.push({ name, tf, svg: coloured, under });
   }
   const group = (name: string, tf: string, inner: string) =>

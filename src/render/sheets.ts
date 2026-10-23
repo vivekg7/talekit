@@ -38,8 +38,8 @@ interface Cell {
 /** Every pose the engine can put a character in, so the agent sees the whole range at once. */
 export function characterSheetSvg(character: Character): string {
   const rig = RIGS[character.rig];
-  const face = (emotion: Emotion, talking = false) =>
-    resolveFace(character.parts, { emotion, overrides: {}, talking, t: 0.06, phase: 0.2 });
+  const face = (emotion: Emotion, talking = false, back = false) =>
+    resolveFace(character.parts, { emotion, overrides: {}, talking, t: 0.06, phase: 0.2, back });
   const make = (
     label: string,
     build: () => Pose,
@@ -47,7 +47,7 @@ export function characterSheetSvg(character: Character): string {
     talking = false
   ): Cell => {
     const pose = build();
-    pose.face = face(emotion, talking);
+    pose.face = face(emotion, talking, pose.back);
     return { label, pose };
   };
   const base = (loco: Parameters<typeof basePose>[1], t: number) => basePose(rig, loco, t, 0);
@@ -120,6 +120,12 @@ export function characterSheetSvg(character: Character): string {
             p.yaw = 0;
             return p;
           }),
+          // Walking into the screen: the face hidden, the `back` variants drawn.
+          make('from behind', () => {
+            const p = base('idle', 0);
+            p.back = true;
+            return p;
+          }),
         ]
       : []),
     ...(character.parts.eyes
@@ -143,6 +149,8 @@ export function characterSheetSvg(character: Character): string {
   for (const [name, part] of Object.entries(character.parts)) {
     if (typeof part === 'string' || name === 'eyes' || name === 'mouth') continue;
     for (const variant of Object.keys(part)) {
+      // `default` is the idle cell; `back` is on the from-behind cell.
+      if (variant === 'default' || variant === 'back') continue;
       const cell = make(`${name}: ${variant}`, () => base('idle', 0));
       cell.pose.face[name] = variant;
       cells.push(cell);

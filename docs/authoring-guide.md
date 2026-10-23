@@ -76,7 +76,20 @@ staring out of the screen, and when the character turns round the face
 comes through front-on. Keep the features inside x 64..136 so the turned
 face stays on the head. Draw the rest of the head for three-quarters: hair,
 an ear or a bow on the far (left) side only, since the face covers the near
-one; a collar or a buckle a little right of centre.
+one; a collar or a buckle a little right of centre. The body turns with the
+face: the engine draws the torso a little narrower (0.88) and hangs the far
+arm and leg further behind it, and a walker or a runner turns further,
+nearly side-on. So draw the torso front-on too.
+
+**Give the head and the torso a back.** Walking or running into the screen
+(up it more than across it) the character turns away: the face parts are
+hidden and every part with a `back` variant draws that, so make `head` and
+`torso` `{ "default": "…", "back": "…" }` with the back of the head (hair
+over it, both ears or both pigtails) and the torso without its collar or
+buttons. Without a `back` the head shows as a blank face, which only suits
+a bald character. Coming out of the screen the face turns to the viewer.
+The arms and legs swing toward and away from the viewer then, so the engine
+foreshortens them and the steps fall under the body.
 
 Rules that make the rig work:
 
@@ -431,7 +444,10 @@ up with a walking child patters and a lion strolls. A walk starts and ends
 with the feet together, and a jump crosses the ground only while it is in
 the air (the crouch and the landing stay put). Every change of facing, by
 `set` or by walking the other way, is a quick turn (0.2 s), not a flip; a
-person's face comes round through front-on as they turn.
+person's face comes round through front-on as they turn. A person walking
+up the screen (into it) turns away and is seen from behind, and one walking
+down it faces the viewer, turning at the start of the move and back at its
+end; walk them mostly across the screen to keep the face in profile.
 
 `lie` is for sleeping and resting. A person sits down on the ground (or on
 `to`, a bed or a sofa seat) and lies back with the head behind them, so

@@ -111,6 +111,45 @@ const rotate = ([x, y]: Pt, deg: number, [cx, cy]: Pt): Pt => {
   return [cx + dx * Math.cos(a) - dy * Math.sin(a), cy + dx * Math.sin(a) + dy * Math.cos(a)];
 };
 
+/**
+ * How narrow the body is drawn at this turn (`Rig.turn`): 1 front-on, `bodyNarrow` at
+ * three-quarters and narrower toward side-on. Seen from behind it is three-quarters again.
+ */
+export function bodyWidth(rig: Rig, pose: Pose, most = 2): number {
+  if (!rig.turn) return 1;
+  const yaw = pose.back ? 1 : Math.min(most, pose.yaw);
+  return 1 - (1 - rig.turn.bodyNarrow) * yaw;
+}
+
+/**
+ * How far the body's turn (`Rig.turn`) steps a limb's shoulder or hip in toward the middle.
+ * Only as far as three-quarters: past that (a walker turning further toward the way they
+ * go) a hip moving under a planted foot would drag the foot along.
+ */
+export function limbStep(rig: Rig, pose: Pose, part: string): number {
+  if (!rig.turn?.limbs.includes(part)) return 0;
+  return (rigPart(rig, part).pivot[0] - rig.turn.centre) * (bodyWidth(rig, pose, 1) - 1);
+}
+
+/**
+ * A part's turn about its pivot and its length along itself, as drawn. A limb swinging into
+ * or out of the screen (`Pose.depth`) is foreshortened: it points where its end would be
+ * with the sideways swing squeezed, and is shortened to reach just there, keeping its width.
+ */
+export function swingOf(rig: Rig, pose: Pose, part: string): [number, number] {
+  const rot = pose.rot[part] ?? 0;
+  if (!pose.depth || !rig.turn?.limbs.includes(part)) return [rot, 1];
+  const x = (1 - pose.depth) * Math.sin(rot * RAD);
+  const y = Math.cos(rot * RAD);
+  return [Math.atan2(x, y) / RAD, Math.hypot(x, y)];
+}
+
+/** A part's offset: the pose's, plus a limb's step in with the body's turn. */
+export function partOffset(rig: Rig, pose: Pose, part: string): Pt {
+  const [x, y] = pose.off[part] ?? [0, 0];
+  return [x + limbStep(rig, pose, part), y];
+}
+
 /** A point drawn in `part`'s coordinates, carried through the pose to the root (before dx, dy). */
 export function toRoot(rig: Rig, pose: Pose, part: string, point: Pt): Pt {
   let p = point;
@@ -119,9 +158,12 @@ export function toRoot(rig: Rig, pose: Pose, part: string, point: Pt): Pt {
   const seen = new Set<string>();
   for (let cur: string | undefined = part; cur && !seen.has(cur); cur = rigPart(rig, cur).parent) {
     seen.add(cur);
-    p = rotate(p, pose.rot[cur] ?? 0, rigPart(rig, cur).pivot);
-    const off = pose.off[cur];
-    if (off) p = [p[0] + off[0], p[1] + off[1]];
+    const pivot = rigPart(rig, cur).pivot;
+    const [rot, len] = swingOf(rig, pose, cur);
+    if (len !== 1) p = [p[0], pivot[1] + (p[1] - pivot[1]) * len];
+    p = rotate(p, rot, pivot);
+    const [ox, oy] = partOffset(rig, pose, cur);
+    p = [p[0] + ox, p[1] + oy];
   }
   return p;
 }
@@ -225,6 +267,8 @@ function feetY(rig: Rig, legs: Legs): Record<string, number> {
     spin: 0,
     face: {},
     yaw: 1,
+    back: false,
+    depth: 0,
   };
   const out: Record<string, number> = {};
   for (const leg of Object.keys(legs.rot)) out[leg] = footPoint(rig, p, leg)[1];
@@ -287,7 +331,8 @@ export function stride(
     // A planted leg also cancels the sideways drift of its hip or shoulder when the body
     // rocks, so the foot stays exactly where it landed.
     const pivot = rigPart(rig, leg).pivot;
-    const drift = legs.stance[leg] ? pivot[0] - toRoot(rig, pose, leg, pivot)[0] : 0;
+    const home = pivot[0] + limbStep(rig, pose, leg);
+    const drift = legs.stance[leg] ? home - toRoot(rig, pose, leg, pivot)[0] : 0;
     // A swinging leg with a knee bends to lift its foot, and so does a planted one where
     // the gait gives; otherwise the leg slides up into the body.
     const bends = shift < 0 && !!rig.bends[leg] && (gait.give || !legs.stance[leg]);

@@ -328,7 +328,13 @@ export function lintCharacter(c: Character): Construction {
   if (rig.turn) {
     const [x0, x1] = [rig.turn.centre - 36, rig.turn.centre + 36];
     const variants = c.parts.head;
-    const all = typeof variants === 'string' ? [variants] : Object.values(variants ?? {});
+    // The back of the head has no face on it.
+    const all =
+      typeof variants === 'string'
+        ? [variants]
+        : Object.entries(variants ?? {})
+            .filter(([k]) => k !== 'back')
+            .map(([, v]) => v);
     // Every variant of the head, each piece once.
     for (const piece of new Set(all.flatMap(topLevelPieces))) {
       const width = /stroke-width='([\d.]+)'/.exec(piece);

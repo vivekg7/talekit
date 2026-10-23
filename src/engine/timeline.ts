@@ -53,6 +53,11 @@ export interface ActorState {
   travel?: Travel;
   /** Mid-turn after a facing change: the old facing and progress 0..1. */
   turn?: { from: Facing; u: number };
+  /**
+   * Which way a move goes: -1 straight into the screen (seen from behind), 1 straight out
+   * of it (face to the viewer), 0 across or standing.
+   */
+  view: number;
   /** 0 standing, 1 sat; in between while sitting down or getting up. */
   sit: number;
   /** How far below the seat (the actor's point) the floor is, scene pixels: 0 on the ground. */
@@ -168,6 +173,23 @@ const TURN_TIME = 0.2;
 const SIT_TIME = 0.4;
 /** Seconds to lie back from sitting, or sit up again. */
 const LIE_TIME = 0.9;
+/** Seconds to turn into or out of the screen as a move starts, and back as it ends. */
+const VIEW_TIME = 0.25;
+
+/**
+ * How far a move turns its actor into the screen (negative) or out of it: none while it
+ * goes more across than up or down the screen, all the way when it goes straight up or
+ * down, turning at the start and turning back at the end.
+ */
+function moveView(m: Move, t: number): number {
+  const dx = m.to.x - m.from.x;
+  const dy = m.to.y - m.from.y;
+  const len = Math.hypot(dx, dy);
+  if (len < 1 || t < m.t0) return 0;
+  const steep = easeInOut(clamp01((Math.abs(dy) / len - 0.5) / 0.35));
+  const k = t < m.t1 ? clamp01((t - m.t0) / VIEW_TIME) : clamp01(1 - (t - m.t1) / VIEW_TIME);
+  return Math.sign(dy) * steep * easeInOut(k) || 0;
+}
 
 /**
  * Progress along a move: walks and runs speed up and slow down at either end, a jump
@@ -456,6 +478,7 @@ export function resolveActor(
     locoT: t - locoStart,
     travel,
     turn,
+    view: move && !heldBy ? moveView(move, t) : 0,
     sit: sitAmount(t),
     seat,
     lie: lieAmount(t),

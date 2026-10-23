@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { actorHeadTop, characterBody, poseFor, sideOf } from '../src/engine/actor.js';
 import { bubblePop } from '../src/engine/bubble.js';
 import { composeFrame } from '../src/engine/compose.js';
-import { footPoint } from '../src/engine/gait.js';
+import { footPoint, toRoot } from '../src/engine/gait.js';
 import { applyVerb, emptyPose, resolveFace } from '../src/engine/motion.js';
 import { RIGS } from '../src/engine/rigs.js';
 import { applySprings } from '../src/engine/springs.js';
@@ -121,11 +121,13 @@ describe('weight and follow-through', () => {
       { t: 4, actor: 'kid', do: 'walk', to: { x: 300, y: 640 }, duration: 2 },
     ]);
     const at = (t: number) => actorAt(p, 'kid', t);
+    // Walking, a person turns past three-quarters toward the way they go.
+    expect(poseFor(at(2), 2).yaw).toBeGreaterThan(1.2);
     expect(poseFor(at(3.5), 3.5).yaw).toBe(1);
     // Mid-turn the body only narrows; the face looks out of the screen.
     expect(Math.abs(sideOf(at(4.1)))).toBeGreaterThan(0.7);
     expect(poseFor(at(4.1), 4.1).yaw).toBeLessThan(0.2);
-    expect(poseFor(at(4.25), 4.25).yaw).toBe(1);
+    expect(poseFor(at(4.25), 4.25).yaw).toBeGreaterThan(1);
   });
 
   it('pops in past full size, and bubbles do the same', () => {
@@ -366,5 +368,58 @@ describe('people', () => {
     expect(run.bend.armR).toBeLessThan(-60);
     // Standing still the arms hang, all but straight.
     expect(poseFor(actorAt(p, 'kid', 0.2), 0.2).bend.armR).toBeGreaterThan(-10);
+  });
+
+  it('turns the body with the face: narrower, the far shoulder and hip tucked in', () => {
+    const p = project([]);
+    const a = actorAt(p, 'kid', 1);
+    const pose = poseFor(a, 1);
+    const rig = RIGS.humanoid;
+    expect(toRoot(rig, pose, 'armL', rig.parts.armL.pivot)[0]).toBeGreaterThan(77);
+    expect(toRoot(rig, pose, 'legR', rig.parts.legR.pivot)[0]).toBeLessThan(113);
+    expect(characterBody(a.character, pose)).toMatch(
+      /class='part-torso' transform='[^']*scale\(0\.88 1\)/
+    );
+  });
+
+  it('is seen from behind walking into the screen, and face on walking out of it', () => {
+    const p = project(
+      [
+        { t: 0.5, actor: 'kid', do: 'walk', to: { x: 420, y: 440 }, duration: 2 },
+        { t: 3, actor: 'kid', do: 'walk', to: { x: 400, y: 640 }, duration: 2 },
+        { t: 5.5, actor: 'kid', do: 'walk', to: { x: 900, y: 640 }, duration: 2 },
+      ],
+      { kid: { at: { x: 400, y: 640 } } }
+    );
+    const away = actorAt(p, 'kid', 1.5);
+    expect(away.view).toBe(-1);
+    const back = poseFor(away, 1.5);
+    expect(back.back).toBe(true);
+    expect(back.face.head).toBe('back');
+    const svg = characterBody(away.character, back);
+    expect(svg).not.toContain("class='part-eyes'");
+    expect(svg).not.toContain("class='part-mouth'");
+    // Turned round at the start of the move, and back again at the end.
+    expect(actorAt(p, 'kid', 0.6).view).toBeGreaterThan(-0.6);
+    expect(actorAt(p, 'kid', 2.9).view).toBe(0);
+    const toward = actorAt(p, 'kid', 4);
+    expect(toward.view).toBe(1);
+    expect(poseFor(toward, 4).yaw).toBe(0);
+    expect(poseFor(toward, 4).face.head).toBe('default');
+    expect(actorAt(p, 'kid', 6.5).view).toBe(0);
+  });
+
+  it('steps under itself walking into the screen, feet still on the ground', () => {
+    const p = project([{ t: 0.5, actor: 'kid', do: 'walk', to: { x: 420, y: 440 }, duration: 3 }], {
+      kid: { at: { x: 400, y: 640 } },
+    });
+    for (let t = 1; t < 3; t += 0.05) {
+      const a = actorAt(p, 'kid', t);
+      const feet = Object.values(worldFeet(a, t));
+      const s = (a.character.height / RIGS.humanoid.height) * a.scale;
+      // The lower foot is on the line, and the stride is half what it is side-on (about 150).
+      expect(Math.max(...feet.map(([, y]) => y))).toBeCloseTo(a.y, 0);
+      expect(Math.abs(feet[0][0] - feet[1][0]) / s).toBeLessThan(75);
+    }
   });
 });

@@ -24,10 +24,18 @@ export interface Pose {
   /** Chosen variant per multi-variant part. */
   face: Record<string, string>;
   /**
-   * How far the face is turned toward the way the actor faces (`Rig.turn`): 1 is the
-   * three-quarter view a character stands in, 0 looks straight out of the screen.
+   * How far the face and body are turned toward the way the actor faces (`Rig.turn`): 1 is
+   * the three-quarter view a character stands in, 0 looks straight out of the screen, 2 is
+   * side-on.
    */
   yaw: number;
+  /** Seen from behind: the face is hidden and parts with a `back` variant use it. */
+  back: boolean;
+  /**
+   * How much the limbs (`Rig.turn`) swing into and out of the screen rather than across it,
+   * 0..1: their sideways swing about the shoulder or hip shrinks by this share.
+   */
+  depth: number;
   /**
    * The ground shadow when the body is not standing over its feet (lying down): its centre
    * moved by `dx` canonical units and its width times `scale`.
@@ -38,7 +46,20 @@ export interface Pose {
 export type Locomotion = 'idle' | 'walk' | 'run' | 'move' | 'fly';
 
 export function emptyPose(): Pose {
-  return { rot: {}, bend: {}, off: {}, dx: 0, dy: 0, sx: 1, sy: 1, spin: 0, face: {}, yaw: 1 };
+  return {
+    rot: {},
+    bend: {},
+    off: {},
+    dx: 0,
+    dy: 0,
+    sx: 1,
+    sy: 1,
+    spin: 0,
+    face: {},
+    yaw: 1,
+    back: false,
+    depth: 0,
+  };
 }
 
 /** Add to a part's offset: a verb layered on a held one (a shiver while sat) keeps it. */
@@ -167,6 +188,8 @@ export function basePose(
       const run = loco === 'run';
       if (humanoid) {
         const { phi, env } = stride(rig, p, loco, t, travel);
+        // On the move a person turns further toward the way they go than standing.
+        p.yaw = 1 + (run ? 0.5 : 0.35) * env;
         // Each arm swings against the leg on its side, from the shoulder, and bends at the
         // elbow as it comes forward; a runner holds the elbows bent and pumps them, from
         // the first stride to the last.
@@ -588,7 +611,8 @@ export function pickVariant(
 ): string {
   for (const w of wanted) if (variants[w] !== undefined) return w;
   if (variants.default !== undefined) return 'default';
-  const first = Object.keys(variants)[0];
+  // The back is only for when the character is seen from behind.
+  const first = Object.keys(variants).find((k) => k !== 'back');
   return first ?? part;
 }
 
@@ -622,6 +646,8 @@ export interface FaceContext {
   phase: number;
   /** Close the eyes now, whatever the blink cycle says (a take). */
   blink?: boolean;
+  /** Seen from behind: every part with a `back` variant uses it. */
+  back?: boolean;
 }
 
 /** Decide the variant of every multi-variant part. */
@@ -634,6 +660,10 @@ export function resolveFace(
   for (const [name, part] of Object.entries(parts)) {
     if (typeof part === 'string') continue;
     let wanted: string[] = [];
+    if (ctx.back && part.back !== undefined) {
+      out[name] = 'back';
+      continue;
+    }
     if (ctx.overrides[name]) wanted = [ctx.overrides[name]];
     else if (prefs[name]) wanted = [...prefs[name]];
 

@@ -435,6 +435,22 @@ before audio, and they turned up these fixes:
   pumped to run (easing in and out with the stride), waves from the elbow,
   and rests its hand on the knee when sitting. A carried prop stays in the
   hand, since the hold point goes through the bend.
+- The turned face sat on a body still drawn front-on, and a person walking
+  into the screen kept looking at the viewer. The body now turns with the
+  face (`Rig.turn` `body`, `limbs`): the torso is drawn narrower and the
+  far shoulder and hip step in behind it, and a walker turns further toward
+  side-on than someone standing. The limbs step in only as far as
+  three-quarters, since a hip moving under a planted foot drags the foot.
+  A move mostly up the screen turns the actor away (`ActorState.view`): the
+  face parts are hidden and parts with a `back` variant draw it, so the
+  library people have the back of the head and a torso without its collar;
+  a move mostly down the screen turns the face to the viewer. Limbs
+  swinging toward or away from the viewer are foreshortened: each points
+  where its end would be with the sideways swing squeezed and is shortened
+  to reach just there, which keeps its width, unlike squeezing the whole
+  limb. A bent leg comes out a little short that way, so the body is
+  lowered by as much as the lowest foot rose. Backs are variants rather than
+  a new part list, so a character without one still works.
 
 ### 7.6 Audio (last, on purpose)
 

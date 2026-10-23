@@ -51,12 +51,22 @@ export interface Rig {
    */
   bends: Record<string, [number, number]>;
   /**
-   * The face turn: these parts are drawn front-on, centred on x = `centre`, and the engine
-   * slides them `shift` units toward the way the character faces and narrows them to
-   * `narrow`, which turns a round head to three-quarters (`Pose.yaw`). A turning
-   * character's face passes through front-on.
+   * The turn: `parts` (the face) are drawn front-on, centred on x = `centre`, and the
+   * engine slides them `shift` units toward the way the character faces and narrows them to
+   * `narrow`, which turns a round head to three-quarters (`Pose.yaw`); a turning character's
+   * face passes through front-on. The body turns with it: `body` parts narrow to
+   * `bodyNarrow` about the centre and the `limbs` hang that much closer in, so the far
+   * shoulder and hip go behind the body.
    */
-  turn?: { parts: string[]; centre: number; shift: number; narrow: number };
+  turn?: {
+    parts: string[];
+    centre: number;
+    shift: number;
+    narrow: number;
+    body: string[];
+    limbs: string[];
+    bodyNarrow: number;
+  };
 }
 
 /**
@@ -104,7 +114,16 @@ export const HUMANOID: Rig = {
   bends: { legL: [86, 330], legR: [114, 330], armL: [73, 226], armR: [127, 226] },
   // A third of the way round a head about 110 across: far enough that the face looks the
   // way the body goes, near enough that both eyes stay on it.
-  turn: { parts: ['face', 'eyes', 'mouth'], centre: 100, shift: 22, narrow: 0.8 },
+  // The body, wider than it is deep, narrows less than the face moves.
+  turn: {
+    parts: ['face', 'eyes', 'mouth'],
+    centre: 100,
+    shift: 22,
+    narrow: 0.8,
+    body: ['torso'],
+    limbs: ['armL', 'armR', 'legL', 'legR'],
+    bodyNarrow: 0.88,
+  },
 };
 
 /**
