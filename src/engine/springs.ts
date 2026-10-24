@@ -1,7 +1,7 @@
 import { poseFor } from './actor.js';
 import { toRoot } from './gait.js';
 import type { Pose } from './motion.js';
-import { rigPart, RIGS, type Rig } from './rigs.js';
+import { rigPart, rigOf, type Rig } from './rigs.js';
 import { resolveActor, type ActorState } from './timeline.js';
 import type { Character, Project, Shot } from './types.js';
 
@@ -52,7 +52,7 @@ function roughCentre(svg: string): Pt | undefined {
 }
 
 export function springParts(character: Character): string[] {
-  const names = character.springs ?? RIGS[character.rig].springs;
+  const names = character.springs ?? rigOf(character).springs;
   return names.filter((n) => character.parts[n] !== undefined);
 }
 
@@ -105,7 +105,7 @@ function turnOf(rig: Rig, pose: Pose, part: string, own: boolean): number {
 function sample(project: Project, shot: Shot, id: string, springs: Spring[], t: number) {
   const scene = project.scenes[shot.scene];
   const actor: ActorState = resolveActor(project, scene, shot, id, t);
-  const rig = RIGS[actor.character.rig];
+  const rig = rigOf(actor.character);
   const pose = poseFor(actor, t);
   const k = (actor.character.height / rig.height) * actor.scale;
   const side = actor.facing === 'left' ? -1 : 1;
@@ -129,7 +129,7 @@ function simFor(project: Project, shot: Shot, id: string): Sim {
   let sim = byActor.get(id);
   if (sim && sim.project === project) return sim;
   const character = project.characters[id];
-  const rig = RIGS[character.rig];
+  const rig = rigOf(character);
   const springs: Spring[] = springParts(character).map((part) => ({
     part,
     turns: !!rig.parts[part],

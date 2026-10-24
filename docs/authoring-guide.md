@@ -82,7 +82,8 @@ anchor (the feet point).
 ```
 
 Parts and draw order (back → front): `armL`, `legL`, `legR`, `torso`, (any
-extra parts), `head`, `face`, `eyes`, `mouth`, `armR`. The character faces
+extra parts), `head`, `face`, `eyes`, `mouth`, `armR`; a part placed with
+`hangs` is drawn next to the part it hangs from. The character faces
 **right**, three-quarters to the viewer; the engine mirrors it for
 `facing: "left"`. `armR` is the near arm (waves, points), `armL` is the far
 arm.
@@ -131,6 +132,10 @@ stroke-width='18' stroke-linecap='round' fill='none'/>` plus a hand circle
   straight stroke with the hand at the end; a sleeve may cross the elbow.
 - `face`, `eyes` and `mouth` rotate with the head. Give the eyes and mouth
   variants (below).
+- **Hair that swings is a part of its own.** Draw a pigtail or a ponytail
+  as its own part, hung from the head where it is tied (`hangs`, under
+  Springs below), and list it in `springs`; keep the bobble or the band on
+  the head, over the hair, so the tie stays put while the hair swings.
 - `torso` is required. Put the neck in the torso, reaching at least 12
   units up into the head, and end the torso at least 12 units below the hips
   so the legs start under it.
@@ -274,9 +279,29 @@ landing. On the quadruped the default is `["tail", "earL", "earR"]`; other
 rigs have none. Write your own list to change it (`["tail", "scarf"]`), or
 `[]` to keep every part rigid. A part the rig places turns about its pivot,
 so draw it hanging from there; a part the rig does not know (`hair`,
-`scarf` on a humanoid) sways in place by a few units instead. The
-construction sheet marks spring parts with `~`. Nothing in a shot drives a
-spring: it follows the motion the engine makes.
+`scarf` on a humanoid) sways in place by a few units instead, unless you
+hang it. The construction sheet marks spring parts with `~`. Nothing in a
+shot drives a spring: it follows the motion the engine makes.
+
+`hangs` places a part the rig does not know: which part carries it
+(`from`), and the point in the box it turns about (`at`), where it is tied
+on. It moves with that part, so a pigtail hung from the head nods and
+turns with it, and it is drawn just behind it, or just in front with
+`"front": true`. The library kid's pigtails:
+
+```json
+"hangs": {
+  "pigtailL": { "from": "head", "at": [31, 103] },
+  "pigtailR": { "from": "head", "at": [172, 105] }
+},
+"springs": ["pigtailL", "pigtailR"]
+```
+
+Listed in `springs`, a hung part swings about `at`: it trails as a walk
+starts, bounces with each step and lifts on a jump. Draw it hanging from
+`at`, reaching into the part it hangs from; the construction linter checks
+that joint like the rig's own. A part may hang from another hung part (a
+ribbon on a pigtail).
 
 ### Shadow
 

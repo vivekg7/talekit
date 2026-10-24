@@ -2,7 +2,7 @@ import { clamp01, easeInOut, easeOut, hash01, lerp, ramp } from './easing.js';
 import { holdPoint, poseFor } from './actor.js';
 import type { Travel } from './gait.js';
 import { isMoveVerb, JUMP, SPEED, STOOP, VERB_DURATION, type Locomotion } from './motion.js';
-import { RIGS } from './rigs.js';
+import { rigOf } from './rigs.js';
 import { clipFor, lineDuration, lineLead, mouthOpen, sayDuration, shownText } from './voice.js';
 import type {
   Action,
@@ -283,7 +283,7 @@ function heldPoint(
 ): { point: Point; facing: Facing; turn?: ActorState['turn'] } {
   const holder = resolveActor(project, scene, shot, holderId, t, depth + 1);
   const hand = holdPoint(holder, poseFor(holder, t));
-  const rig = RIGS[prop.rig];
+  const rig = rigOf(prop);
   const [gx, gy] = prop.grip ?? [rig.width / 2, rig.height / 2];
   const k = (prop.height / rig.height) * propScale * holder.perspective;
   const side = holder.facing === 'left' ? -1 : 1;
@@ -517,7 +517,7 @@ export function resolveActor(
       locoStart = move.rest;
     } else if (t < move.t1) {
       if (move.verb === 'walk' || move.verb === 'run') {
-        const k = (character.height / RIGS[character.rig].height) * scale;
+        const k = (character.height / rigOf(character).height) * scale;
         const m = move;
         travel = {
           dist: canonicalDistance(m, moveProgress(m, t), k),
@@ -588,7 +588,7 @@ export function resolveActor(
 
 /** Between the eyes, in the scene, ignoring the pose: what others look toward. */
 function eyePoint(a: ActorState): { x: number; y: number } {
-  const rig = RIGS[a.character.rig];
+  const rig = rigOf(a.character);
   const k = (a.character.height / rig.height) * a.scale;
   const side = a.facing === 'left' ? -1 : 1;
   return {
@@ -827,8 +827,4 @@ export function locateTime(
 
 export function movieDuration(project: Project): number {
   return project.shots.reduce((s, sh) => s + sh.duration, 0);
-}
-
-export function rigOf(character: Character) {
-  return RIGS[character.rig];
 }

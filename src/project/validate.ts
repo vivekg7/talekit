@@ -1,7 +1,7 @@
 import { missingColorTokens } from '../engine/svg.js';
 import { lintCharacter } from './construction.js';
 import { effectLayer } from '../engine/effects.js';
-import { RIGS } from '../engine/rigs.js';
+import { RIGS, rigOf } from '../engine/rigs.js';
 import { holdPoint, poseFor } from '../engine/actor.js';
 import { attachTime, holderAt, resolveActor, STAGE_SHORTCUTS } from '../engine/timeline.js';
 import { resolveSound } from '../engine/sources.js';
@@ -59,7 +59,7 @@ export function voiceProblems(where: string, voice: Voice | undefined): Problem[
 
 export function validateCharacter(c: Character): Problem[] {
   const out: Problem[] = [];
-  const rig = RIGS[c.rig];
+  const rig = rigOf(c);
   const where = `character '${c.id}'`;
   out.push(...voiceProblems(where, c.voice));
   if (!c.parts[rig.required])
@@ -94,6 +94,23 @@ export function validateCharacter(c: Character): Problem[] {
   for (const name of c.springs ?? [])
     if (!c.parts[name])
       out.push({ level: 'warning', where, message: `springs names '${name}', which has no part` });
+  const base = RIGS[c.rig];
+  for (const [name, h] of Object.entries(c.hangs ?? {})) {
+    if (base.parts[name])
+      out.push({
+        level: 'error',
+        where,
+        message: `hangs places '${name}', which the ${c.rig} rig already places`,
+      });
+    else if (!rig.parts[name])
+      out.push({
+        level: 'error',
+        where,
+        message: `hangs '${name}' from '${h.from}', which is neither a ${c.rig} part nor hung itself, or hangs from '${name}' again`,
+      });
+    if (!c.parts[name])
+      out.push({ level: 'warning', where, message: `hangs names '${name}', which has no part` });
+  }
   if (rig.expected.length) {
     for (const p of rig.expected)
       if (!c.parts[p])
@@ -529,7 +546,7 @@ function pickupReach(shot: Shot, project: Project): Problem[] {
     const carrier = resolveActor(project, scene, shot, a.attach, at);
     const prop = resolveActor(project, scene, shot, a.actor, at - 1e-3);
     const hand = holdPoint(carrier, poseFor(carrier, at));
-    const rig = RIGS[prop.character.rig];
+    const rig = rigOf(prop.character);
     const k = (prop.character.height / rig.height) * prop.scale;
     const [gx, gy] = prop.character.grip ?? [rig.width / 2, rig.height / 2];
     const side = prop.facing === 'left' ? -1 : 1;

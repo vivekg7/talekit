@@ -1,5 +1,5 @@
 import { Resvg } from '@resvg/resvg-js';
-import { RIGS, type Rig } from '../engine/rigs.js';
+import { rigOf, type Rig } from '../engine/rigs.js';
 import { applyColors, topLevelPieces } from '../engine/svg.js';
 
 export { topLevelPieces };
@@ -156,7 +156,7 @@ export function partBox(
   name: string
 ): { x: number; y: number; w: number; h: number } | undefined {
   const svg = firstVariant(c.parts[name]);
-  const b = svg.trim() ? bounds(maskOf(applyColors(svg, c.colors), RIGS[c.rig])) : undefined;
+  const b = svg.trim() ? bounds(maskOf(applyColors(svg, c.colors), rigOf(c))) : undefined;
   return b && { x: b.x0, y: b.y0, w: b.x1 - b.x0, h: b.y1 - b.y0 };
 }
 
@@ -167,7 +167,7 @@ export function lintCharacter(c: Character): Construction {
   const key = JSON.stringify([c.rig, c.colors, c.parts]);
   const hit = cache.get(key);
   if (hit) return hit;
-  const rig = RIGS[c.rig];
+  const rig = rigOf(c);
   const where = `character '${c.id}'`;
   const problems: Problem[] = [];
   const marks: Mark[] = [];

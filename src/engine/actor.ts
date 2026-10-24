@@ -9,7 +9,7 @@ import {
   resolveFace,
   type Pose,
 } from './motion.js';
-import { rigPart, RIGS, type Rig } from './rigs.js';
+import { rigPart, rigOf, type Rig } from './rigs.js';
 import { DEFAULT_LINE_COLOR, limbWidth, OUTLINE_PX, outlineFor } from './outline.js';
 import { DAYLIGHT, shadePart, silhouette, type Light } from './shade.js';
 import { applyColors, n, topLevelPieces, verticalExtent } from './svg.js';
@@ -21,7 +21,7 @@ import type { Character, Facing } from './types.js';
  * see springs.ts).
  */
 export function poseFor(actor: ActorState, t: number): Pose {
-  const rig = RIGS[actor.character.rig];
+  const rig = rigOf(actor.character);
   const sat = actor.sit > 0 || actor.lie > 0;
   const loco = sat ? 'idle' : actor.locomotion;
   const pose = basePose(rig, loco, actor.locoT, actor.phase, actor.travel);
@@ -83,7 +83,7 @@ const FACE_PARTS = new Set(['face', 'eyes', 'mouth']);
  * so a 90px mouse and a 300px giant look drawn with the same pen. Perspective scale thins it.
  */
 export function outlineWidth(character: Character): number {
-  const rig = RIGS[character.rig];
+  const rig = rigOf(character);
   return OUTLINE_PX / (character.height / rig.height);
 }
 
@@ -202,7 +202,7 @@ export function characterBody(
   light: Light | null = DAYLIGHT,
   side = 1
 ): string {
-  const rig = RIGS[character.rig];
+  const rig = rigOf(character);
   const names = Object.keys(character.parts).sort((a, b) => rigPart(rig, a).z - rigPart(rig, b).z);
   const line = character.colors.line ?? DEFAULT_LINE_COLOR;
   const width = outlineWidth(character);
@@ -287,7 +287,7 @@ export function characterBody(
 export function sideOf(actor: Pick<ActorState, 'facing' | 'turn' | 'character'>): number {
   const to = actor.facing === 'left' ? -1 : 1;
   if (!actor.turn || actor.turn.from === actor.facing) return to;
-  const rig = RIGS[actor.character.rig];
+  const rig = rigOf(actor.character);
   const quad = rig.name === 'quadruped';
   // An animal's body swings round eased, slow out of side-on and back into it, and seen
   // end-on it is still about a third as wide as it is long.
@@ -306,7 +306,7 @@ export function placeCharacter(
   facing: Facing | number,
   opacity = 1
 ): string {
-  const rig = RIGS[character.rig];
+  const rig = rigOf(character);
   const s = (character.height / rig.height) * scale;
   const side = typeof facing === 'number' ? facing : facing === 'left' ? -1 : 1;
   const flip = side !== 1 ? ` scale(${n(side)} 1)` : '';
@@ -353,7 +353,7 @@ export function shadowSvg(
   side: number,
   opacity = 1
 ): string {
-  const rig = RIGS[character.rig];
+  const rig = rigOf(character);
   const s = (character.height / rig.height) * scale;
   const k = 1 / (1 + Math.max(0, -pose.dy) / 120);
   const rx = (rig.shadow / 2) * s * Math.abs(pose.sx) * k * (pose.shadow?.scale ?? 1);
@@ -381,7 +381,7 @@ export function renderShadow(actor: ActorState, pose: Pose): string {
 
 /** Where a carried prop is held (the rig's hold point, through the pose), in the scene. */
 export function holdPoint(actor: ActorState, pose: Pose): { x: number; y: number } {
-  const rig = RIGS[actor.character.rig];
+  const rig = rigOf(actor.character);
   const s = (actor.character.height / rig.height) * actor.scale;
   const [hx, hy] = toRoot(rig, pose, rig.hold.part, rig.hold.point);
   // The root transforms the composer applies: scale about the feet, then the body offset.
@@ -399,7 +399,7 @@ export function holdPoint(actor: ActorState, pose: Pose): { x: number; y: number
  * or lies on the floor. Passing moves (a nod, a look) are left out, or the bubble would bob.
  */
 export function actorHeadTop(actor: ActorState, pose: Pose): { x: number; y: number } {
-  const rig = RIGS[actor.character.rig];
+  const rig = rigOf(actor.character);
   const s = (actor.character.height / rig.height) * actor.scale;
   let [sx, sy] = rig.speaker;
   if (rig.parts.head && (actor.sit > 0 || actor.lie > 0)) {

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { characterBody } from '../src/engine/actor.js';
 import { emptyPose } from '../src/engine/motion.js';
 import { outlineUnderlay } from '../src/engine/outline.js';
+import { rigOf } from '../src/engine/rigs.js';
 import { CharacterSchema } from '../src/engine/types.js';
 import { LIBRARY } from '../src/library/index.js';
 import { lintCharacter, topLevelPieces } from '../src/project/construction.js';
@@ -133,4 +134,46 @@ describe('construction linter', () => {
       expect(png.subarray(1, 4).toString()).toBe('PNG');
     }
   );
+});
+
+describe('hung parts', () => {
+  const kid = LIBRARY.characters.kid;
+
+  it('places a part the rig does not know, behind the part it hangs from, as a joint', () => {
+    const rig = rigOf(kid);
+    expect(rig.parts.pigtailL).toEqual({ parent: 'head', pivot: [31, 103], z: 4.95 });
+    expect(rig.joints).toContainEqual({ part: 'pigtailR', into: 'head', pivot: true });
+    // The rig itself is left alone.
+    expect(rigOf({ rig: 'humanoid' }).parts.pigtailL).toBeUndefined();
+  });
+
+  it('moves a hung part with the part it hangs from', () => {
+    const pose = emptyPose();
+    pose.rot.head = 20;
+    const svg = characterBody(kid, pose);
+    const pigtail = svg.split("class='part-pigtailL'")[1].split('>')[0];
+    expect(pigtail).toContain('rotate(20 100 152)');
+    // Drawn before the head, so the head and its hair cover the root.
+    expect(svg.indexOf("class='part-pigtailL'")).toBeLessThan(svg.indexOf("class='part-head'"));
+  });
+
+  it('reports a part hung from nothing, or one the rig already places', () => {
+    const c = CharacterSchema.parse({
+      ...kid,
+      hangs: {
+        bow: { from: 'hat', at: [100, 20] },
+        head: { from: 'torso', at: [100, 152] },
+        loopA: { from: 'loopB', at: [0, 0] },
+        loopB: { from: 'loopA', at: [0, 0] },
+      },
+    });
+    const messages = validateCharacter(c).map((p) => p.message);
+    expect(messages).toContainEqual(
+      expect.stringMatching(/hangs 'bow' from 'hat', which is neither/)
+    );
+    expect(messages).toContainEqual(
+      expect.stringMatching(/hangs places 'head', which the humanoid/)
+    );
+    expect(messages).toContainEqual(expect.stringMatching(/hangs 'loopA' from 'loopB'/));
+  });
 });

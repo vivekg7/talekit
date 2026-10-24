@@ -199,6 +199,22 @@ describe('weight and follow-through', () => {
     expect(composeFrame(fresh, fresh.shots[0], 3)).toBe(composeFrame(p, shot, 3));
   });
 
+  it("swings a kid's hung pigtails about their ties as she sets off", () => {
+    const p = project([{ t: 1, actor: 'kid', do: 'walk', to: { x: 900, y: 660 }, duration: 3 }]);
+    const shot = p.shots[0];
+    const pigtail = (t: number) => {
+      const a = actorAt(p, 'kid', t);
+      const pose = poseFor(a, t);
+      applySprings(p, shot, a, pose, t);
+      // Turned, as a part the rig places, rather than swayed in place.
+      expect(pose.off.pigtailR).toBeUndefined();
+      return pose.rot.pigtailR ?? 0;
+    };
+    expect(Math.abs(pigtail(0.9))).toBeLessThan(0.5);
+    const swing = Math.max(...[1.1, 1.2, 1.3, 1.4, 1.5].map((t) => Math.abs(pigtail(t))));
+    expect(swing).toBeGreaterThan(2);
+  });
+
   it('blinks twice now and then', () => {
     const parts = { eyes: { open: 'o', closed: 'c' } };
     let runs = 0;

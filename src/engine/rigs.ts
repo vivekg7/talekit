@@ -1,4 +1,4 @@
-import type { RigName } from './types.js';
+import type { Character, RigName } from './types.js';
 
 export interface RigPart {
   /** Parent part whose rotation this part inherits. */
@@ -227,4 +227,38 @@ export const RIGS: Record<RigName, Rig> = {
 
 export function rigPart(rig: Rig, name: string): RigPart {
   return rig.parts[name] ?? rig.unknown;
+}
+
+const HUNG = new WeakMap<object, Rig>();
+
+/**
+ * The rig a character is drawn on: its rig, with the parts it hangs itself (`hangs`) placed
+ * like the rig's own, each turning about its pivot as a child of the part it hangs from and
+ * drawn just behind or in front of it, and checked by the construction linter as a joint.
+ * A hung part may hang from another; one whose chain does not reach a rig part, or loops,
+ * is left to the rig's fallback (`validate` reports it).
+ */
+export function rigOf(character: Pick<Character, 'rig' | 'hangs'>): Rig {
+  const base = RIGS[character.rig];
+  const hangs = character.hangs;
+  if (!hangs || !Object.keys(hangs).length) return base;
+  const cached = HUNG.get(hangs);
+  if (cached?.name === base.name) return cached;
+  const parts = { ...base.parts };
+  const joints = [...base.joints];
+  const place = (name: string, seen: Set<string>): RigPart | undefined => {
+    if (parts[name]) return parts[name];
+    const h = hangs[name];
+    if (!h || seen.has(name)) return undefined;
+    seen.add(name);
+    const from = place(h.from, seen);
+    if (!from) return undefined;
+    parts[name] = { parent: h.from, pivot: h.at, z: from.z + (h.front ? 0.05 : -0.05) };
+    joints.push({ part: name, into: h.from, pivot: true });
+    return parts[name];
+  };
+  for (const name of Object.keys(hangs)) if (!base.parts[name]) place(name, new Set());
+  const rig = { ...base, parts, joints };
+  HUNG.set(hangs, rig);
+  return rig;
 }

@@ -17,7 +17,7 @@ import { resolveFrame, type FrameState } from './timeline.js';
 import type { Project, Shot, View, Weather } from './types.js';
 import { effectsSvg, fireLights, type EffectLayer, type FireLight } from './effects.js';
 import type { Pose } from './motion.js';
-import { RIGS } from './rigs.js';
+import { rigOf } from './rigs.js';
 import type { ActorState } from './timeline.js';
 import { flashFilter, mix, weatherAt, weatherView, type Span } from './weather.js';
 
@@ -133,7 +133,7 @@ export function composeFrame(
 function actorShelter(actor: ActorState, pose: Pose): Span[] {
   const spans = actor.character.shelter;
   if (!spans || !actor.visible || actor.opacity <= 0) return [];
-  const rig = RIGS[actor.character.rig];
+  const rig = rigOf(actor.character);
   const s = (actor.character.height / rig.height) * actor.scale;
   const side = sideOf(actor);
   const at = (bx: number) => actor.x + s * side * (pose.sx * (bx - rig.width / 2) + pose.dx);

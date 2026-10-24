@@ -301,6 +301,16 @@ far side, and the end still shaded underneath. The joint disc of a bent
 limb also got 1.5 units of slack, which closes a notch in the outline where
 the art is drawn a little off the knee.
 
+For motion, the kid's pigtails swing. A part the rig does not know could
+only sway in place, and pigtails need to turn about their ties and nod with
+the head, so a character can now hang such a part from another (`hangs`:
+the part it moves with and the point it is tied at). The rig a character is
+drawn on is its rig plus its hung parts (`rigOf`), so every consumer
+(drawing, springs, the construction linter) treats a hung part like one of
+the rig's own. A per-character pivot was preferred to new humanoid parts
+with fixed pivots, which would have fitted the kid's head and no one
+else's.
+
 ### 7.3 Motion with weight
 
 Why: smoothness is not interpolation, it is contact, anticipation and

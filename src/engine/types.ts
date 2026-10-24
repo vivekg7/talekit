@@ -93,7 +93,37 @@ export const CharacterSchema = z.object({
     .array(z.string())
     .optional()
     .describe(
-      "Parts that swing behind the motion on a spring (a tail, ears, a scarf). Default: the rig's (quadruped: tail, earL, earR; humanoid and simple: none); [] for none. A part the rig does not place sways instead of turning"
+      "Parts that swing behind the motion on a spring (a tail, ears, a scarf). Default: the rig's (quadruped: tail, earL, earR; humanoid and simple: none); [] for none. A part the rig does not place (and `hangs` does not) sways instead of turning"
+    ),
+  /**
+   * Where a part the rig does not know hangs: from another part, which carries it, turning
+   * about a point drawn in the box, just behind that part or just in front. A spring part
+   * hung this way swings about its pivot (a pigtail from its tie) instead of swaying, and
+   * one hung from the head turns and nods with it.
+   */
+  hangs: z
+    .record(
+      z.string(),
+      z.object({
+        from: z
+          .string()
+          .describe(
+            "The part that carries it: a rig part ('head', 'torso', 'body') or another hung part"
+          ),
+        at: z
+          .tuple([z.number(), z.number()])
+          .describe(
+            'Its pivot, [x, y] in the box: where it is tied on. Draw the part hanging from here'
+          ),
+        front: z
+          .boolean()
+          .default(false)
+          .describe('Drawn just in front of `from` (default: just behind it)'),
+      })
+    )
+    .optional()
+    .describe(
+      "Parts the rig does not know, hung from one it does: { pigtailL: { from: 'head', at: [31, 103] } }. Such a part moves with `from` and, listed in `springs`, swings about `at`: pigtails, a ponytail, a scarf end, a feather on a hat"
     ),
   /**
    * Where something carrying this character holds it (see the `attach` action), in its own

@@ -20,7 +20,7 @@ import {
   resolveFace,
   type Pose,
 } from '../engine/motion.js';
-import { RIGS } from '../engine/rigs.js';
+import { rigOf } from '../engine/rigs.js';
 import { escapeXml, n } from '../engine/svg.js';
 import { STAGE_SHORTCUTS, resolvePosition } from '../engine/timeline.js';
 import {
@@ -48,7 +48,7 @@ interface Cell {
 
 /** Every pose the engine can put a character in, so the agent sees the whole range at once. */
 export function characterSheetSvg(character: Character): string {
-  const rig = RIGS[character.rig];
+  const rig = rigOf(character);
   const face = (emotion: Emotion, talking = false, back = false) =>
     resolveFace(character.parts, { emotion, overrides: {}, talking, t: 0.06, phase: 0.2, back });
   const make = (
@@ -219,7 +219,7 @@ export function sceneSheetSvg(project: Project, scene: Scene): string {
   const ground = resolvePosition(project, scene, 'center');
   const tallest = Object.values(project.characters).sort((a, b) => b.height - a.height)[0];
   const ghostH = tallest?.height ?? 220;
-  const ghostW = tallest ? (ghostH * RIGS[tallest.rig].width) / RIGS[tallest.rig].height : 110;
+  const ghostW = tallest ? (ghostH * rigOf(tallest).width) / rigOf(tallest).height : 110;
   const ghostLabel = tallest ? `${tallest.id} (${ghostH}px, tallest)` : '220px character';
   const ghostBox = `<rect x='${n(ground.x - ghostW / 2)}' y='${n(ground.y - ghostH)}' width='${n(ghostW)}' height='${n(ghostH)}' rx='${n(Math.min(40, ghostW / 2))}'`;
   // Each light marked where it is, and the shadow it throws of the ghost.
@@ -524,7 +524,7 @@ const SWING: Partial<Record<Character['rig'], Record<string, number>>> = {
  * in solid black?), and for the rigs with limbs two swing poses that open any gap at a joint.
  */
 export function constructionSheetSvg(character: Character): string {
-  const rig = RIGS[character.rig];
+  const rig = rigOf(character);
   const { problems, marks } = lintCharacter(character);
   const scale = rig.name === 'humanoid' ? 1 : rig.name === 'quadruped' ? 1.2 : 2;
   const pw = rig.width * scale + 60;

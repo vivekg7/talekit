@@ -1,6 +1,6 @@
 import { clamp01, hash01 } from './easing.js';
 import { footfalls, gaitPhase } from './gait.js';
-import { RIGS } from './rigs.js';
+import { rigOf } from './rigs.js';
 import {
   actionDuration,
   attachTime,
@@ -198,7 +198,7 @@ function footsteps(project: Project, shot: Shot, at0: number): Cue[] {
       ch && (ch.rig === 'humanoid' && scene.surface === 'grass' ? 'step-grass' : STEP[ch.rig]);
     if (!name) continue;
     if (!shot.actions.some((a) => a.actor === id && (a.do === 'walk' || a.do === 'run'))) continue;
-    const rig = RIGS[ch.rig];
+    const rig = rigOf(ch);
     let prev: { loco: string; phase: number; t: number } | undefined;
     let n = 0;
     for (let f = 0; f <= shot.duration * STEP_RATE; f++) {
