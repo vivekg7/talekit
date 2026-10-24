@@ -94,10 +94,14 @@ in glasses and a waistcoat, a `grandma` in a sari, and a `pirate` with an
 eye patch and a peg leg. Copy and recolour the nearest one before drawing
 a person from scratch.
 
-The grandma's sari skirt is drawn on the legs, not on the torso: the torso
-stops at the hips, so it does not sink into the floor when she sits on the
-ground, and the knees bend inside the sari. In a stride the two halves part
-like wide trousers. The pirate's near leg is a wooden peg below the knee
+The torso ends a little under the hips, at about y=292. A kurta, a coat
+or a dress drawn on the torso can go lower: say where with `"hem"` (the
+grandpa's kurta ends at 324). Sitting on the ground then rests the hem on
+the floor instead of pushing it through; on a seat it hangs over the
+edge. The construction check measures the torso and gives the number when
+it is more than 5 out. The grandma's sari skirt is drawn on the legs
+instead, so the knees bend inside it; in a stride the two halves part like
+wide trousers. The pirate's near leg is a wooden peg below the knee
 bend (y=330), so it bends, swings and plants like any shin; the walk does
 not limp. His patch is drawn in every `eyes` variant, because `eyes` draws
 over `face`.
@@ -166,10 +170,13 @@ stroke-width='18' stroke-linecap='round' fill='none'/>` plus a hand circle
 Four-legged animals. The library has a dog, cat, rabbit, deer, lion, tiger,
 bear, fox, jackal, crocodile and mouse: copy and recolour one when you can,
 and read `get_library_item("dog")` before drawing a new one (a horse, a
-pig, a sheep). Keep the underside of the body near y=152 even on a low
-animal: `lie` brings every body down by the same amount, so a belly drawn
-lower sinks into the floor. The crocodile stands on longer legs than a
-real one for this reason; in water the scene hides them.
+pig, a sheep). The underside of the body sits near y=152. `lie` lays it
+on the floor, so when you draw it higher (a slender deer) or lower (a
+round rabbit), say where with `"belly"`: the deer has 140, the rabbit 166.
+The construction check measures it between the legs and gives the number
+when it is more than 5 out. A low animal still needs its feet on y=200,
+so the crocodile stands on longer legs than a real one; in water the
+scene hides them.
 
 ```
  y   0 ─┬─ top of box (ear tips, antlers)

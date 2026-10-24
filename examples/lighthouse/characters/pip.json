@@ -4,6 +4,7 @@
   "description": "Child with pigtails and a dress; recolour hair/skin/dress via colors.",
   "rig": "humanoid",
   "height": 220,
+  "hem": 300,
   "colors": {
     "skin": "#f6c9a5",
     "hair": "#1f1a17",

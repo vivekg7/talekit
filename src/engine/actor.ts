@@ -28,7 +28,7 @@ export function poseFor(actor: ActorState, t: number): Pose {
   // The floor under the seat, in the character's own units.
   const seat = actor.seat / ((actor.character.height / rig.height) * actor.scale);
   if (sat) applyVerb(rig, pose, 'sit', actor.sit, seat);
-  if (actor.lie > 0) applyVerb(rig, pose, 'lie', actor.lie);
+  if (actor.lie > 0) applyVerb(rig, pose, 'lie', actor.lie, seat);
   // Carrying: the near arm hangs a little forward and swings less, under the weight.
   if (actor.holding && rig.name === 'humanoid') {
     pose.rot.armR = 0.35 * (pose.rot.armR ?? 0) - 12;

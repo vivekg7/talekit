@@ -16,6 +16,7 @@ export const JACKAL: CharacterInput = {
     'Lean golden jackal with a dark saddle (quadruped rig): sly trot, slinks, quick gallop.',
   rig: 'quadruped',
   height: 112,
+  belly: 142, // a lean belly, drawn high: where `lie` puts it on the floor
   colors: {
     fur: '#d2a263',
     furDark: '#ad7f48',

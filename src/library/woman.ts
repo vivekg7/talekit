@@ -20,6 +20,7 @@ export const WOMAN: CharacterInput = {
     'Woman with a long plait, kurta and churidar, bindi and bangles; recolour via colors.',
   rig: 'humanoid',
   height: 285,
+  hem: 305, // her kurta ends here: what `sit` rests on the seat
   colors: {
     skin: '#c98e64',
     skinDark: '#a8714b',

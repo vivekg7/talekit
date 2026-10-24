@@ -20,6 +20,7 @@ export const GRANDPA: CharacterInput = {
     'Elderly man, bald with white hair and moustache, glasses, kurta and sadri; recolour via colors.',
   rig: 'humanoid',
   height: 285,
+  hem: 324, // his knee-length kurta ends here: what `sit` rests on the seat
   colors: {
     skin: '#c98f62',
     skinDark: '#a8714a',

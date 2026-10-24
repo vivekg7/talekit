@@ -13,6 +13,7 @@ export const MOUSE: CharacterInput = {
   description: 'Little round grey mouse with big ears (quadruped rig): scurries, sits up, squeaks.',
   rig: 'quadruped',
   height: 56,
+  belly: 167, // its round belly is drawn low: where `lie` puts it on the floor
   colors: {
     fur: '#a7a3b4',
     furDark: '#86829a',

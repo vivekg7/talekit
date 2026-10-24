@@ -369,6 +369,27 @@ the head's width before it read as a hood at story size, and its neck is
 rigid for the swan's reason. Left for later: a parrot riding a shoulder,
 which needs `attach` to name a point on a part instead of the near hand.
 
+**Resting, 2026-10-24.** `lie` brought every animal down a fixed 48
+units, which put a body drawn to the guide's y=152 on the floor. But six
+of the library's own animals were drawn off that line, and they showed it:
+the deer's belly is at 140, so it hovered over its folded legs with the
+hooves showing underneath, while the rabbit and mouse sank 14 to 15 units
+into the ground. Redrawing a slender deer stockier to fit the rig would
+have been worse, so a character now says where its underside is (`belly`,
+on the rig as `Rig.belly`). The folded legs also stop 10 units short of
+the floor: a hoof drawn across the end of a slanted shin reached below the
+belly with its corner. People had the same fault sitting on the ground:
+`sit` rests the seat of the trousers 12 units under the hips, and every
+library torso is drawn longer, so a kurta went through the floor (the
+grandpa's by 40). Resting the hem on the seat instead was tried and is
+wrong on a stool, where the cloth hangs over the edge and the person still
+sits on the hips (their feet stopped reaching the floor). So a person sits
+as before unless the hem (`hem`, default y=292) would reach through the
+floor, and then sits on it, as cloth bunched on the ground. For both
+fields the construction check measures the drawing (the body between the
+legs, the torso across the middle) and gives the number when it is more
+than 5 out.
+
 ### 7.3 Motion with weight
 
 Why: smoothness is not interpolation, it is contact, anticipation and

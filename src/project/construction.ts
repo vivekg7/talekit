@@ -164,7 +164,7 @@ const cache = new Map<string, Construction>();
 
 /** Construction problems of a character at rest. Errors only for drawing outside the box. */
 export function lintCharacter(c: Character): Construction {
-  const key = JSON.stringify([c.rig, c.colors, c.parts]);
+  const key = JSON.stringify([c.rig, c.colors, c.parts, c.belly, c.hem]);
   const hit = cache.get(key);
   if (hit) return hit;
   const rig = rigOf(c);
@@ -330,6 +330,39 @@ export function lintCharacter(c: Character): Construction {
           b
         );
     }
+  }
+
+  // 6. What the body rests on: `lie` lays a four-legged animal's belly line on the floor
+  // and `sit` puts a person's hem on the seat, so a body drawn lower than the rig (or the
+  // character's `belly` or `hem`) says sinks in, and one drawn higher floats. Judged by
+  // the middle of the underside: between the legs, across the torso.
+  const rests = [
+    {
+      part: 'body',
+      field: 'belly',
+      at: rig.belly,
+      x: [90, 150],
+      what: "the body's underside",
+      how: 'lying',
+    },
+    { part: 'torso', field: 'hem', at: rig.hem, x: [70, 130], what: 'the torso', how: 'sitting' },
+  ];
+  for (const r of rests) {
+    if (r.at === undefined || !c.parts[r.part]) continue;
+    const m = draw(firstVariant(c.parts[r.part]));
+    const under: number[] = [];
+    for (let x = r.x[0] + M; x <= r.x[1] + M; x++)
+      for (let y = m.h - 1; y >= 0; y--)
+        if (m.data[y * m.w + x]) {
+          under.push(y + 1 - M);
+          break;
+        }
+    under.sort((a, b) => a - b);
+    const at = under[Math.floor(under.length / 2)];
+    if (at !== undefined && Math.abs(at - r.at) > 5)
+      warn(
+        `${r.what} ends at y=${at}, but ${r.how} rests y=${r.at} on the ${r.part === 'body' ? 'floor' : 'seat'}, so it would ${at < r.at ? 'float' : 'sink'} ${Math.abs(at - r.at)} units: set "${r.field}": ${at}`
+      );
   }
 
   const result = { problems, marks };

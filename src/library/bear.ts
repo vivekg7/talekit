@@ -12,6 +12,7 @@ export const BEAR: CharacterInput = {
   description: 'Big round brown bear (quadruped rig): lumbers, sits back on its haunches.',
   rig: 'quadruped',
   height: 180,
+  belly: 160, // a heavy belly, drawn low: where `lie` puts it on the floor
   colors: {
     fur: '#8d5a3b',
     furDark: '#6f4329',

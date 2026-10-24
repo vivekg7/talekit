@@ -4,7 +4,7 @@ import { bubblePop } from '../src/engine/bubble.js';
 import { composeFrame } from '../src/engine/compose.js';
 import { footPoint, toRoot } from '../src/engine/gait.js';
 import { applyVerb, emptyPose, resolveFace } from '../src/engine/motion.js';
-import { RIGS } from '../src/engine/rigs.js';
+import { RIGS, rigOf } from '../src/engine/rigs.js';
 import { applySprings } from '../src/engine/springs.js';
 import { resolveFrame, type ActorState } from '../src/engine/timeline.js';
 import { SceneSchema, ShotSchema, type Project } from '../src/engine/types.js';
@@ -268,6 +268,22 @@ describe('knees', () => {
     expect(actorAt(box, 'kid', 1).seat).toBe(40);
   });
 
+  it("sits a long kurta's hem on the ground rather than through it", () => {
+    // The kid's dress ends 28 under the hips: on the ground she sits on it.
+    const p = project([{ t: 0, actor: 'kid', do: 'sit' }]);
+    const pose = poseFor(actorAt(p, 'kid', 1), 1);
+    const hem = RIGS.humanoid.height + pose.sy * (300 - RIGS.humanoid.height) + pose.dy;
+    expect(Math.abs(hem - RIGS.humanoid.height)).toBeLessThan(2);
+    // On the stool it sits on the hips, as everyone does, and the dress hangs over the edge.
+    const stool = seated([{ t: 0, actor: 'kid', do: 'sit', to: 'stool' }], {
+      kid: { at: 'stool' },
+    });
+    const up = poseFor(actorAt(stool, 'kid', 1), 1);
+    const hips = RIGS.humanoid.parts.legR.pivot[1];
+    const seatY = RIGS.humanoid.height + up.sy * (hips + 12 - RIGS.humanoid.height) + up.dy;
+    expect(Math.abs(seatY - RIGS.humanoid.height)).toBeLessThan(2);
+  });
+
   it('draws a bent leg as one shape: both outlines before either fill', () => {
     const p = project([{ t: 1, actor: 'kid', do: 'sit' }]);
     expect(composeFrame(p, p.shots[0], 0.5)).not.toContain('tk-bend-kid-legR');
@@ -389,6 +405,14 @@ describe('lying down', () => {
     // The head comes down on its neck rather than tipping onto its face.
     expect(pose.off.head[1]).toBeGreaterThan(20);
     expect(pose.rot.head).toBeLessThan(40);
+    // A belly drawn higher (a deer's) comes down further, onto the floor.
+    const drop = (belly?: number) => {
+      const lying = emptyPose();
+      applyVerb(rigOf({ rig: 'quadruped', belly }), lying, 'sit', 1);
+      applyVerb(rigOf({ rig: 'quadruped', belly }), lying, 'lie', 1);
+      return lying.off.body[1];
+    };
+    expect(drop(140) - drop()).toBeCloseTo(12);
   });
 });
 

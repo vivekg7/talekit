@@ -35,6 +35,7 @@ export const PIRATE: CharacterInput = {
     'Pirate with a peg leg, eye patch, beard, tricorn and long coat; recolour via colors.',
   rig: 'humanoid',
   height: 290,
+  hem: 315, // his long coat ends here: what `sit` rests on the seat
   colors: {
     skin: '#c88b5c',
     skinDark: '#a26a40',

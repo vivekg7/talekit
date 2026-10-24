@@ -21,6 +21,7 @@ export const KID: CharacterInput = {
   description: 'Child with pigtails and a dress; recolour hair/skin/dress via colors.',
   rig: 'humanoid',
   height: 220,
+  hem: 300, // her dress ends here: what `sit` rests on the seat
   colors: {
     skin: '#f6c9a5',
     hair: '#5a3420',

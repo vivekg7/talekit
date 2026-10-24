@@ -15,6 +15,7 @@ export const DEER: CharacterInput = {
     'Slim spotted deer with small antlers (quadruped rig): long legs, a long neck that nods.',
   rig: 'quadruped',
   height: 190,
+  belly: 140, // a slender belly, drawn high: where `lie` puts it on the floor
   colors: {
     fur: '#c98a4b',
     furDark: '#a86d35',

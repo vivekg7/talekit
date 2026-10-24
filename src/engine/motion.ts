@@ -283,13 +283,20 @@ function jumpBeats(u: number): { crouch: number; air: number; arc: number; squas
 
 const QUAD_LEGS = ['legFL', 'legFR', 'legBL', 'legBR'];
 const DEG = 180 / Math.PI;
-/** How far below the hips a person's torso ends: what rests on the seat (see the guide). */
-const SEAT_DEPTH = 12;
 /** How far behind the hips a person's back is (the torso spans x 60..140): what lies on the floor. */
 const BACK_DEPTH = 40;
-/** How far a four-legged body comes down to lie on its belly (its underside is at y≈152). */
-const BELLY_DROP = 48;
+/** How far short of the floor a lying animal's folded feet stop (see `lie`). */
+const LIE_TUCK = 10;
 const mix = (a: number, b: number, u: number): number => a + (b - a) * u;
+/** How far below the hips a person sits: on the seat of the trousers. */
+const SEAT_DEPTH = 12;
+/**
+ * How far above the seat a person's hips are, with the floor `seat` below it: on the seat
+ * of their trousers, unless a kurta or a coat drawn longer (`Rig.hem`) would reach through
+ * the floor. Then on that, as cloth bunched on the ground; over a seat it just hangs.
+ */
+const seatDepth = (rig: Rig, seat: number): number =>
+  Math.max(SEAT_DEPTH, (rig.hem ?? 0) - rig.parts.legR.pivot[1] - seat);
 
 /**
  * A leg folding to sit, with its foot on a floor `h` below the hip: the thigh comes
@@ -346,7 +353,7 @@ export function quadrupedTurn(pose: Pose, u: number, busy: boolean): void {
 }
 
 /** Quadruped verbs: the near front paw does what the humanoid's near arm does. */
-function quadrupedVerb(pose: Pose, verb: Verb, u: number): boolean {
+function quadrupedVerb(rig: Rig, pose: Pose, verb: Verb, u: number): boolean {
   const add = (part: string, deg: number) => (pose.rot[part] = (pose.rot[part] ?? 0) + deg);
   switch (verb) {
     case 'wave': {
@@ -425,11 +432,14 @@ function quadrupedVerb(pose: Pose, verb: Verb, u: number): boolean {
       // onto the paws. `u` is how far down (0 sitting, 1 lying).
       const l = easeInOut(u);
       const [ox, oy] = pose.off.body ?? [0, 0];
-      pose.off.body = [ox, mix(oy, BELLY_DROP, l)];
+      pose.off.body = [ox, mix(oy, rig.height - (rig.belly ?? rig.height), l)];
       pose.rot.body = (pose.rot.body ?? 0) * (1 - l);
       for (const leg of QUAD_LEGS) {
         const hip = toRoot(QUADRUPED, pose, 'body', QUADRUPED.parts[leg].pivot);
-        const [turn, bend] = foldLeg(QUADRUPED, leg, QUADRUPED.height - hip[1], 0, -90);
+        // Folded to a floor a little higher than the real one: a hoof across the end of a
+        // slanted shin would reach below the belly with its corner.
+        const floor = QUADRUPED.height - hip[1] - LIE_TUCK * l;
+        const [turn, bend] = foldLeg(QUADRUPED, leg, floor, 0, -90);
         const hind = leg.startsWith('legB');
         // The hind legs are already folded; the front ones go from planted to folded.
         pose.rot[leg] = hind
@@ -478,7 +488,7 @@ export function applyVerb(rig: Rig, pose: Pose, verb: Verb, u: number, seat = 0)
     pose.sy *= k;
     return;
   }
-  if (rig.name === 'quadruped' && quadrupedVerb(pose, verb, u)) return;
+  if (rig.name === 'quadruped' && quadrupedVerb(rig, pose, verb, u)) return;
   switch (verb) {
     case 'wave': {
       const k = settle(u, 0.18, 0.18);
@@ -589,20 +599,15 @@ export function applyVerb(rig: Rig, pose: Pose, verb: Verb, u: number, seat = 0)
       break;
     case 'sit':
       if (humanoid) {
-        // The bottom of the torso, just under the hips, lands on the anchor; the knees bend
-        // so the feet reach the floor `seat` below, or the legs stretch out on the ground
-        // with the knees up a little.
+        // The seat of the trousers, just under the hips, lands on the anchor (on the ground,
+        // a long kurta's hem does: see seatDepth); the knees bend so the feet reach the floor
+        // `seat` below, or the legs stretch out on the ground with the knees up a little.
         const k = easeInOut(u);
-        const fall = rig.height - rig.parts.legR.pivot[1] - SEAT_DEPTH;
+        const depth = seatDepth(rig, seat);
+        const fall = rig.height - rig.parts.legR.pivot[1] - depth;
         for (const leg of ['legL', 'legR']) {
           // Folded for how high the hips are now: on the way down the feet stay on the floor.
-          const [turn, bend] = foldLeg(
-            rig,
-            leg,
-            fall * (1 - k) + SEAT_DEPTH + seat,
-            20,
-            -90 * (1 - k)
-          );
+          const [turn, bend] = foldLeg(rig, leg, fall * (1 - k) + depth + seat, 20, -90 * (1 - k));
           pose.rot[leg] = turn;
           pose.bend[leg] = bend;
         }
@@ -621,7 +626,7 @@ export function applyVerb(rig: Rig, pose: Pose, verb: Verb, u: number, seat = 0)
       // back (0 sitting, 1 lying).
       const l = easeInOut(u);
       if (humanoid) {
-        pose.dy -= (BACK_DEPTH - SEAT_DEPTH) * l;
+        pose.dy -= (BACK_DEPTH - seatDepth(rig, seat)) * l;
         pose.rot.torso = (pose.rot.torso ?? 0) - 90 * l;
         pose.rot.head = (pose.rot.head ?? 0) + 20 * l;
         pose.rot.armL = mix(pose.rot.armL ?? 0, 2, l);

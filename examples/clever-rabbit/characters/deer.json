@@ -4,6 +4,7 @@
   "description": "Slim spotted deer with small antlers (quadruped rig); faces right.",
   "rig": "quadruped",
   "height": 190,
+  "belly": 140,
   "colors": {
     "fur": "#c98a4b",
     "furDark": "#a86d36",

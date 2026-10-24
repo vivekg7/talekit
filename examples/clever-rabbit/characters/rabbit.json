@@ -4,6 +4,7 @@
   "description": "Small grey rabbit with tall ears and a cotton tail (quadruped rig); faces right.",
   "rig": "quadruped",
   "height": 100,
+  "belly": 166,
   "colors": {
     "fur": "#bfc3c9",
     "furDark": "#8f949b",

@@ -24,6 +24,7 @@ export const FARMER: CharacterInput = {
     'Village farmer in a pagdi, kurta, dhoti and chappals, a gamchha round his neck; recolour via colors.',
   rig: 'humanoid',
   height: 295,
+  hem: 306, // his kurta ends here: what `sit` rests on the seat
   colors: {
     skin: '#a8693f',
     skinDark: '#86502c',

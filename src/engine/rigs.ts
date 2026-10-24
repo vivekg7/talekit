@@ -57,6 +57,17 @@ export interface Rig {
    */
   hocks?: string[];
   /**
+   * The underside of the body, where a four-legged animal lies on the floor (`lie` brings
+   * it down to the base line). A character can move it (`belly`), since a deer's belly is
+   * drawn higher than a bear's.
+   */
+  belly?: number;
+  /**
+   * Where a person's torso ends, a little under the hips or lower for a kurta or a coat:
+   * what `sit` rests on the seat. A character can move it (`hem`).
+   */
+  hem?: number;
+  /**
    * The turn: `parts` (the face) are drawn front-on, centred on x = `centre`, and the
    * engine slides them `shift` units toward the way the character faces and narrows them to
    * `narrow`, which turns a round head to three-quarters (`Pose.yaw`); a turning character's
@@ -114,6 +125,7 @@ export const HUMANOID: Rig = {
   // The near hand, at the end of a hanging arm.
   hold: { part: 'armR', point: [129, 284] },
   shadow: 130,
+  hem: 292,
   // The chin keeps its line against the chest: a person's head sits in front of the body.
   fuse: {},
   // Knees halfway from the hip to the top of the shoe; elbows halfway down the arm.
@@ -217,6 +229,7 @@ export const QUADRUPED: Rig = {
     legFR: [194, 166],
   },
   hocks: ['legBL', 'legBR'],
+  belly: 152,
 };
 
 export const RIGS: Record<RigName, Rig> = {
@@ -238,7 +251,22 @@ const HUNG = new WeakMap<object, Rig>();
  * A hung part may hang from another; one whose chain does not reach a rig part, or loops,
  * is left to the rig's fallback (`validate` reports it).
  */
-export function rigOf(character: Pick<Character, 'rig' | 'hangs'>): Rig {
+export function rigOf(character: Pick<Character, 'rig' | 'hangs' | 'belly' | 'hem'>): Rig {
+  const rig = hungRig(character);
+  // A character's own belly line or hem, where the rig has one.
+  const belly = rig.belly === undefined ? undefined : character.belly;
+  const hem = rig.hem === undefined ? undefined : character.hem;
+  if ((belly ?? rig.belly) === rig.belly && (hem ?? rig.hem) === rig.hem) return rig;
+  const key = `${belly}/${hem}`;
+  let own = MOVED.get(rig);
+  if (!own) MOVED.set(rig, (own = new Map()));
+  if (!own.has(key)) own.set(key, { ...rig, belly: belly ?? rig.belly, hem: hem ?? rig.hem });
+  return own.get(key)!;
+}
+
+const MOVED = new WeakMap<Rig, Map<string, Rig>>();
+
+function hungRig(character: Pick<Character, 'rig' | 'hangs'>): Rig {
   const base = RIGS[character.rig];
   const hangs = character.hangs;
   if (!hangs || !Object.keys(hangs).length) return base;

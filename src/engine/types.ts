@@ -155,6 +155,20 @@ export const CharacterSchema = z.object({
     .describe(
       "Keeps rain and snow off what is under it: the span from x to x + width at height y in the character's own box (an umbrella's canopy edge), or a list of them, one per variant. Drops stop on it, the ground below stays dry, and it drips at both ends"
     ),
+  /** Quadruped: where the underside of the body is drawn, which `lie` sets on the floor. */
+  belly: z
+    .number()
+    .optional()
+    .describe(
+      'Quadruped only: y of the underside of the body in the box (default 152), which lie sets on the floor. Set it when the belly is drawn higher (a slender deer) or lower (a rabbit); the construction check measures it'
+    ),
+  /** Humanoid: where the torso ends, which `sit` rests on the seat. */
+  hem: z
+    .number()
+    .optional()
+    .describe(
+      'Humanoid only: y of the bottom of the torso in the box (default 292, a little under the hips at 272), which sit rests on the seat or the floor. Set it for a kurta or a long coat drawn lower (a grandpa in a knee-length kurta: 324); the construction check measures it'
+    ),
   voice: VoiceSchema.optional().describe(
     'How this character sounds when it says or thinks a line (list_voices). Without one its lines are silent'
   ),

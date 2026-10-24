@@ -12,6 +12,7 @@ export const RABBIT: CharacterInput = {
   description: 'Round rabbit with tall ears (quadruped rig): hops, sits up, twitches its nose.',
   rig: 'quadruped',
   height: 100,
+  belly: 166, // its round belly is drawn low: where `lie` puts it on the floor
   colors: {
     fur: '#d8cbbc',
     furDark: '#b3a493',
