@@ -1,3 +1,4 @@
+import { uiScale } from './format.js';
 import { shotStarts } from './sound.js';
 import type { Project, Shot } from './types.js';
 import { lineDuration, shownText } from './voice.js';
@@ -90,12 +91,12 @@ export const SUBTITLE_FONT = 'Baloo 2';
  */
 export function assScript(project: Project, subs: Subtitle[]): string {
   const { width, height } = project.meta;
-  const size = Math.round(height * 0.06);
+  const size = Math.round(43 * uiScale(project.meta));
   const outline = Math.max(1, Math.round(size / 20));
   // Baloo 2's space is a fifth of an em, which the outline round each word all but fills:
   // each space is drawn a tenth of an em wider.
   const gap = `{\\fsp${Math.round(size / 10)}} {\\fsp0}`;
-  const margin = Math.round(height * 0.04);
+  const margin = Math.round(29 * uiScale(project.meta));
   const style = (name: string, align: number) =>
     `Style: ${name},${SUBTITLE_FONT},${size},&H00FFFFFF,&H00FFFFFF,&H00202020,&H80000000,0,0,0,0,100,100,0,0,1,${outline},1,${align},${margin * 2},${margin * 2},${margin},1`;
   // Braces open an override block in ASS and a backslash starts a tag: neither is meant here.

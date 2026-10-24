@@ -1043,6 +1043,40 @@ em, which the outline round each word all but closes, so each space is
 drawn a tenth of an em wider (`\fsp`); and a narration caption sits where
 subtitles go, so a subtitle over one moves to the top.
 
+### 7.9 Reels (portrait)
+
+Most of the family watches reels, not films (Vivek, 2026-10-24), so a story
+also comes as a portrait reel: 720 × 1280, at most three minutes, one mp4.
+It is its own project, a second, shorter telling with its scenes drawn tall,
+not a reframe of the film. A 9:16 window on a 16:9 scene keeps a third of
+its width, and the stage's `left` and `right` are 716 px apart, so a
+conversation does not fit; following the speaker (pan and scan) was the
+alternative, and it would have made every exchange a whip pan or a cut and
+left the wide shots a slice. The agent writes the long and the short
+version from the same story instead, as a person adapting it for each
+would. So the engine's part is small:
+
+- **Text by the short side.** Bubbles, captions, weather and effects are
+  scaled by `min(width, height) / 720`, not the height, so a reel's text is
+  the size a film's is against the same width of phone.
+- **A safe area.** The reel apps draw the caption, account name and sound
+  over the bottom fifth, buttons down the right, icons across the top.
+  Bubbles and captions keep clear of them (insets 22%, 14%, 10% and 6% on the
+  left: the usual safe-zone figures for Reels and Shorts, a little
+  generous, since the apps move their overlays between versions), the
+  default floor is 0.78 × height and the stage shortcuts stand in at 26%
+  and 72%. Narration goes at the top of a reel, not the bottom: with the
+  feet standing just above the app's caption, a narration box there sat on
+  the cast.
+- **Three minutes,** the longest reel the apps take, is a warning, not an
+  error, so a draft can run over while it is cut.
+- **No .mkv.** The apps play one sound track and no subtitle tracks, so a
+  reel is the mp4 alone, its text already in the picture.
+
+A frame is portrait when it is taller than it is wide; there is no format
+field, since the size already says it. The first reel is lion-mouse's,
+cut from 5½ minutes to under 3 with its scenes drawn again.
+
 ## Render speed
 
 Measured 2026-10-23 on a 12-core M-series Mac, on the race film (273 s, scenery

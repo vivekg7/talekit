@@ -14,6 +14,7 @@ import { formatProblems, validateProject } from '../project/validate.js';
 import { mixAudio, RATE } from '../render/audio.js';
 import { characterSheetSvg, constructionSheetSvg, sceneSheetSvg } from '../render/sheets.js';
 import { writeMkv } from '../render/mkv.js';
+import { isPortrait } from '../engine/format.js';
 import { remixVideo } from '../render/video.js';
 import { PAGE } from './page.js';
 
@@ -205,7 +206,8 @@ export async function serve(root: string, port: number): Promise<void> {
         const project = await loadProject(root);
         const r = await remixVideo(project, file);
         // The .mkv carries the same sound, and more of it: it is built again from the mp4.
-        await writeMkv(project, file, file.replace(/\.mp4$/, '.mkv'));
+        if (!isPortrait(project.meta))
+          await writeMkv(project, file, file.replace(/\.mp4$/, '.mkv'));
         json(res, r);
         return;
       }

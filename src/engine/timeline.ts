@@ -2,6 +2,7 @@ import { clamp01, easeInOut, easeOut, hash01, lerp, ramp } from './easing.js';
 import { holdPoint, poseFor } from './actor.js';
 import type { Travel } from './gait.js';
 import { isMoveVerb, JUMP, SPEED, STOOP, VERB_DURATION, type Locomotion } from './motion.js';
+import { defaultGround, stageSides } from './format.js';
 import { rigOf } from './rigs.js';
 import { clipFor, lineDuration, lineLead, mouthOpen, sayDuration, shownText } from './voice.js';
 import type {
@@ -109,17 +110,18 @@ export const STAGE_SHORTCUTS = ['left', 'center', 'right', 'offLeft', 'offRight'
 /** Resolve an anchor name, stage shortcut or explicit point into scene coordinates. */
 export function resolvePosition(project: Project, scene: Scene, pos: Position): Point {
   const { width, height } = project.meta;
-  const ground = scene.ground ?? height * 0.9;
+  const ground = scene.ground ?? defaultGround(project.meta);
+  const [left, right] = stageSides(project.meta);
   if (typeof pos !== 'string') return { x: pos.x, y: pos.y, scale: pos.scale ?? 1 };
   const a = scene.anchors[pos];
   if (a) return { x: a.x, y: a.y, scale: a.scale };
   switch (pos) {
     case 'left':
-      return { x: width * 0.22, y: ground, scale: 1 };
+      return { x: width * left, y: ground, scale: 1 };
     case 'center':
       return { x: width * 0.5, y: ground, scale: 1 };
     case 'right':
-      return { x: width * 0.78, y: ground, scale: 1 };
+      return { x: width * right, y: ground, scale: 1 };
     case 'offLeft':
       return { x: -width * 0.15, y: ground, scale: 1 };
     case 'offRight':

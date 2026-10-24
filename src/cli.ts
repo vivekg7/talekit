@@ -16,6 +16,7 @@ import {
   sceneSheetSvg,
 } from './render/sheets.js';
 import { writeMkv } from './render/mkv.js';
+import { isPortrait } from './engine/format.js';
 import { remixVideo, renderVideo } from './render/video.js';
 import { makeVoices, type VoiceReport } from './project/voices.js';
 
@@ -29,7 +30,7 @@ const USAGE = `talekit — story video generation for AI agents
   talekit frame <dir> <shotId> [-t 1.5] [-o file.png] [--svg] [--debug]
   talekit contact <dir> <shotId> [-n 6] [-o file.png]
   talekit voice <dir> [shotId]                 speak the lines that have no audio yet (local TTS)
-  talekit render <dir> [shotId] [-o file.mp4] [--silent]   the whole film also writes a .mkv beside it
+  talekit render <dir> [shotId] [-o file.mp4] [--silent]   the whole film (not a reel) also writes a .mkv
   talekit remix <dir> [-o file.mp4]            mix the sound again under a rendered film (after a mix change)
   talekit mkv <dir> [-o file.mp4]              build the .mkv again from the rendered mp4 (after a translation)
   talekit serve <dir> [--port 4848]            review app: film, assets, notes
@@ -213,7 +214,9 @@ async function main(argv: string[]): Promise<void> {
       console.log(
         `${outPath}  (${r.seconds.toFixed(1)}s, ${r.frames} frames, ${((Date.now() - started) / 1000).toFixed(1)}s wall)`
       );
-      if (!shotId) console.log(await mkvBeside(project, outPath, values.silent));
+      // A reel is posted as the one mp4; only a film gets the .mkv beside it.
+      if (!shotId && !isPortrait(project.meta))
+        console.log(await mkvBeside(project, outPath, values.silent));
       return;
     }
     case 'remix': {
@@ -223,7 +226,7 @@ async function main(argv: string[]): Promise<void> {
       const file = values.out ?? path.join(projectPaths(dir).out, 'movie.mp4');
       const r = await remixVideo(project, file);
       console.log(`${file}  (new sound under ${r.seconds.toFixed(1)}s)`);
-      console.log(await mkvBeside(project, file));
+      if (!isPortrait(project.meta)) console.log(await mkvBeside(project, file));
       return;
     }
     case 'mkv': {

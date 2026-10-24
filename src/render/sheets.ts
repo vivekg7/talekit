@@ -223,7 +223,7 @@ export function sceneSheetSvg(project: Project, scene: Scene): string {
   const ghostLabel = tallest ? `${tallest.id} (${ghostH}px, tallest)` : '220px character';
   const ghostBox = `<rect x='${n(ground.x - ghostW / 2)}' y='${n(ground.y - ghostH)}' width='${n(ghostW)}' height='${n(ghostH)}' rx='${n(Math.min(40, ghostW / 2))}'`;
   // Each light marked where it is, and the shadow it throws of the ghost.
-  const lights = castLights(scene, fireLights(scene.effects, 1, H));
+  const lights = castLights(scene, fireLights(scene.effects, 1, W, H));
   let shadows = '';
   for (const l of lights) {
     const th = throwOf(l, ground.x, ground.y, ghostH, W, H, scene.weather ?? {});

@@ -8,7 +8,9 @@ write. Fix what looks wrong before moving on.
 ## Workflow
 
 1. **Read the story and plan.** List characters, locations and 6–40 shots of
-   5–20 seconds each. A shot is one location with one bit of action.
+   5–20 seconds each. A shot is one location with one bit of action. A reel
+   for a phone held upright is a project of its own, shorter and drawn tall
+   (see [A reel](#a-reel-the-portrait-version)).
 2. **`create_project(path, title)`** once; `path` is the absolute project
    directory and every later tool takes the same `path`. Then
    **`list_library()`**, and `set_audio(path, narrator, music)` for the
@@ -52,8 +54,8 @@ colors)` (colour tokens: hair, skin, dress, shirt…); without `name` the
    that changed. Restaging a shot from the beginning is still `write_shot`.
 6. **`render(path, shotId?)`** a single shot early to check motion, then the
    whole film. It returns a film sheet, one frame per shot, to confirm the cut.
-   The whole film also comes as `out/movie.mkv`, with more sound tracks and
-   subtitles (see Subtitles and the .mkv).
+   The whole film, unless it is a reel, also comes as `out/movie.mkv`, with
+   more sound tracks and subtitles (see Subtitles and the .mkv).
 7. **Review notes.** The person watches the result in the review app
    (`talekit serve <path>`) and leaves notes on a character, a scene, or one
    moment of a shot. When `project_info` reports open notes, or you are asked
@@ -440,7 +442,8 @@ stroke='{skin}' stroke-width='18' stroke-linecap='round' fill='none'/>`. The
 
 ## Scenes
 
-A scene is an SVG fragment the size of the project (default 1280×720) plus
+A scene is an SVG fragment the size of the project (default 1280×720; a
+reel's is 720×1280) plus
 named **anchors**: floor points where characters stand. Add an anchor for
 every door, chair, tree, table, path end you will use. Optional `scale` on an
 anchor shrinks characters that stand further back (`0.7` for a distant path).
@@ -964,6 +967,43 @@ missing. A translation changes no picture and no sound, so after adding
 them to a rendered film, `talekit mkv <path>` builds the .mkv again in
 seconds instead of rendering.
 
+## A reel: the portrait version
+
+A reel (Instagram Reels, YouTube Shorts) is the story for a phone held
+upright, made as its own project at 720 × 1280: `create_project(path,
+title, width: 720, height: 1280)`. It is not the film cropped. A crop of a
+wide frame keeps a third of it, and the two people talking across it fall
+out of the picture; so the reel is told again, shorter, in scenes drawn
+tall and staged for the narrow frame. Characters and voices can be the
+film's (copy their files); the scenes and the shots are new.
+
+- **Three minutes at most**, which is the longest the apps take, and
+  `project_info` warns past it. Keep the turns of the plot and drop the
+  rest: the walk there, the second line that says the first again, the
+  side character. 90 s to 170 s is a good length.
+- **The app draws over the edges.** The account name, caption and sound
+  along the bottom fifth, the like and share buttons down the right, the
+  camera and search icons across the top. The engine keeps bubbles and
+  captions clear of them (narration goes at the top, under the icons, so
+  it covers sky rather than the cast); keep the faces and the action clear
+  too, and leave the top of the frame for the narration. Stand people with their feet at about
+  y = 1000 (a reel's `ground` defaults to 0.78 × height) and between x 45
+  and 620, and paint the strip below as floor or foreground.
+- **Draw scenes tall.** `far` fills 720 × 1280 on its own. Use the height:
+  a trunk going up into its canopy, the rock above a cave, sky. The
+  library's scenes are 1280 × 720 and do not fit a reel; draw a tall one in
+  the same style.
+- **Stage close.** The frame holds two people side by side, 150 to 250 px
+  apart, not the film's wide `left` and `right` (a reel's are at 26% and
+  72% of the width). Draw the scene so that the wide shot already holds the
+  cast large: anchor `scale` 1.3 to 1.6 for the library's people and
+  animals, and camera zoom 1.3 to 1.8 for a face. Text is the size a film's
+  is beside the same width of screen.
+- **One file to post.** `render` writes `out/movie.mp4`, one picture and one
+  sound track, which is what the apps take; a reel gets no .mkv, since the
+  apps play neither a second sound track nor a subtitle track. Its bubbles
+  and captions are in the picture.
+
 ## Pacing a children's story
 
 - Open with a title card over the first scene (`fadeIn`, `caption` style
@@ -998,7 +1038,8 @@ seconds instead of rendering.
 - Every line not said calmly has its `emotion` set, and every growl, laugh
   or snore in a line is `*marked*` with a `sound`.
 - If the film is in Hindi (or anything but English), every `say` and
-  `caption` has an English `translation`, unless you were told otherwise.
+  `caption` has an English `translation`, unless you were told otherwise or
+  it is a reel (which has no subtitle track to put it in).
 - Total duration matches what was asked for: a short fable is 60–120 s, a
-  full picture-book story 5–10 minutes.
+  full picture-book story 5–10 minutes, a reel at most 3 minutes.
 - The film sheet returned by `render` shows every shot the way you intended.

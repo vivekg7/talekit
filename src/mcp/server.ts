@@ -57,6 +57,7 @@ import {
 } from '../render/sheets.js';
 import { faceFallbacks } from '../engine/motion.js';
 import { writeMkv } from '../render/mkv.js';
+import { isPortrait } from '../engine/format.js';
 import { renderVideo } from '../render/video.js';
 import { makeVoices } from '../project/voices.js';
 import { SOUNDS } from '../library/sounds.js';
@@ -233,8 +234,12 @@ export function buildServer(): McpServer {
       inputSchema: {
         path: pathArg,
         title: z.string(),
-        width: z.number().int().optional().describe('Default 1280'),
-        height: z.number().int().optional().describe('Default 720'),
+        width: z
+          .number()
+          .int()
+          .optional()
+          .describe('Default 1280. 720 with height 1280 makes a portrait reel (authoring guide)'),
+        height: z.number().int().optional().describe('Default 720; 1280 for a reel'),
         fps: z.number().int().optional().describe('Default 24'),
       },
     },
@@ -688,7 +693,7 @@ export function buildServer(): McpServer {
     {
       title: 'Render video',
       description:
-        "Render the whole movie (or one shot) to an H.264 mp4 in <project>/out/, with its sound: voices, music, ambience and effects (lines not yet spoken are spoken first). The whole movie also gets a movie.mkv: the same picture with three sound tracks (the full mix, music and effects without the dialogue, and that with the narrator), a subtitle track in the film's language and one per language the lines' `translation` gives (off until chosen), and a chapter per shot. Validation errors block rendering. A minute of 720p takes about ten seconds. Returns a film sheet: one frame from the middle of each rendered shot, so you can confirm the cut without opening the file.",
+        "Render the whole movie (or one shot) to an H.264 mp4 in <project>/out/, with its sound: voices, music, ambience and effects (lines not yet spoken are spoken first). The whole movie, unless it is a portrait reel, also gets a movie.mkv: the same picture with three sound tracks (the full mix, music and effects without the dialogue, and that with the narrator), a subtitle track in the film's language and one per language the lines' `translation` gives (off until chosen), and a chapter per shot. Validation errors block rendering. A minute of 720p takes about ten seconds. Returns a film sheet: one frame from the middle of each rendered shot, so you can confirm the cut without opening the file.",
       inputSchema: { path: pathArg, shotId: z.string().optional() },
     },
     async ({ path: root, shotId }) => {
@@ -703,7 +708,8 @@ export function buildServer(): McpServer {
         const spoken = await voice(root, project, shots);
         const r = await renderVideo(project, { outPath, shots });
         let mkv = '';
-        if (!shotId) {
+        // A reel is posted as the one mp4; only a film gets the .mkv beside it.
+        if (!shotId && !isPortrait(project.meta)) {
           const file = outPath.replace(/\.mp4$/, '.mkv');
           const m = await writeMkv(project, outPath, file);
           mkv = `\n${file}: sound ${m.audio.join(', ') || 'none'}; subtitles ${m.subtitles.join(', ') || 'none'}`;

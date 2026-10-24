@@ -1,5 +1,6 @@
 import { needsShaping, shapedText, shapedWidth } from './glyphs.js';
 import { escapeXml, n } from './svg.js';
+import { safeInsets } from './format.js';
 
 /** Rough advance widths as a fraction of font size, tuned for rounded comic fonts. */
 function charWidth(ch: string): number {
@@ -108,7 +109,12 @@ function bubbleShape(spec: BubbleSpec): string {
   const padY = 14 * k;
   const margin = 16 * k;
   const tail = 26 * k;
-  const maxText = Math.min(380 * k, spec.frameW - 2 * margin - 2 * padX);
+  // Inside what a reel app leaves clear of its own buttons and captions.
+  const safe = safeInsets({ width: spec.frameW, height: spec.frameH });
+  const minX = margin + safe.left;
+  const maxX = spec.frameW - margin - safe.right;
+  const minY = margin + safe.top;
+  const maxText = Math.min(380 * k, maxX - minX - 2 * padX);
 
   const bold = spec.style === 'shout';
   const lines = wrapText(spec.text, maxText, fontSize, bold);
@@ -117,12 +123,12 @@ function bubbleShape(spec: BubbleSpec): string {
   const h = lines.length * lineHeight + 2 * padY;
 
   let x = spec.headX - w / 2;
-  x = Math.max(margin, Math.min(spec.frameW - margin - w, x));
+  x = Math.max(minX, Math.min(maxX - w, x));
   let y = spec.headTop - tail - h;
   let tailUp = false; // bubble below the target
-  if (y < margin) {
-    y = margin;
-    if (spec.headTop < margin + h + tail) tailUp = true;
+  if (y < minY) {
+    y = minY;
+    if (spec.headTop < minY + h + tail) tailUp = true;
   }
 
   const tailBaseX = Math.max(x + 28 * k, Math.min(x + w - 28 * k, spec.headX));

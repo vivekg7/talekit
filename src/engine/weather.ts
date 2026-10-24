@@ -1,6 +1,7 @@
 import { clamp01, easeInOut, hash01, lerp, TAU } from './easing.js';
 import { n } from './svg.js';
 import type { Scene, Shot, View, Weather } from './types.js';
+import { uiScale } from './format.js';
 
 /**
  * Weather the engine animates, as functions of shot time: nothing is stored between frames,
@@ -175,7 +176,7 @@ export function weatherView(
     H,
     t,
     wind,
-    k: (H / 720) * (w.scale ?? 1),
+    k: uiScale({ width: W, height: H }) * (w.scale ?? 1),
     cover: shelters.map(toScreen),
   };
   // A shelter overhead (a bench seat, an awning) stops what falls behind and in front of

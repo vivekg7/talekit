@@ -14,6 +14,7 @@ import { needsShaping, shapedText } from './glyphs.js';
 import { clamp01, easeInOut } from './easing.js';
 import { cullOffFrame, parseTransform } from './cull.js';
 import { escapeXml, n } from './svg.js';
+import { defaultGround, isPortrait, safeInsets, uiScale } from './format.js';
 import { resolveFrame, type FrameState } from './timeline.js';
 import type { Project, Shot, View, Weather } from './types.js';
 import { effectsSvg, fireLights, type EffectLayer, type FireLight } from './effects.js';
@@ -69,9 +70,19 @@ function captionSvg(
 ): string {
   const fontSize = (style === 'title' ? 54 : 28) * k;
   const lineHeight = fontSize * 1.25;
-  const lines = wrapText(text, W * 0.8, fontSize, true);
+  // Kept clear of what a reel app draws over the frame, as wide on both sides so it stays
+  // in the middle. A reel's narration goes at the top, over the sky: above the app's
+  // caption it would sit on the cast's feet.
+  const safe = safeInsets({ width: W, height: H });
+  const side = Math.max(safe.left, safe.right);
+  const lines = wrapText(text, Math.min(W * 0.8, W - 2 * side), fontSize, true);
   const blockH = lines.length * lineHeight;
-  const cy = style === 'title' ? H / 2 : H - 28 * k - blockH / 2;
+  const cy =
+    style === 'title'
+      ? (safe.top + H - safe.bottom) / 2
+      : isPortrait({ width: W, height: H })
+        ? safe.top + 20 * k + blockH / 2
+        : H - 28 * k - blockH / 2;
   const w = Math.max(...lines.map((l) => textWidth(l, fontSize, true))) + 40 * k;
   const bg =
     style === 'narration'
@@ -310,7 +321,7 @@ function frameDocument(project: Project, body: string): string {
 /** Everything in one frame, back to front, without the document around it. */
 function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): string {
   const { width: W, height: H, font } = project.meta;
-  const k = H / 720; // UI scale so text is the same relative size at any resolution
+  const k = uiScale(project.meta); // text is the same relative size at any resolution
   const c = frame.camera;
   const scene = frame.scene;
   // Culled first: resvg panics on a layered shape far outside the frame (see cull.ts).
@@ -346,12 +357,12 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
     W,
     H,
     frame.t,
-    scene.ground ?? H * 0.9,
+    scene.ground ?? defaultGround(project.meta),
     shelters,
     sheltersAt
   );
   const fx = (plane: EffectLayer) => effectsSvg(scene.effects, plane, frame.t, w.wind ?? 0, W, H);
-  const fires = fireLights(scene.effects, frame.t, H);
+  const fires = fireLights(scene.effects, frame.t, W, H);
   let world = `<g class='scene'>${scene.svg}</g>` + fx('stage') + sky.stage;
   world += posed.map(({ actor, pose }) => renderShadow(actor, pose)).join('');
   const lights = castLights(scene, fires);

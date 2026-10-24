@@ -3,7 +3,14 @@ import { lintCharacter } from './construction.js';
 import { effectLayer } from '../engine/effects.js';
 import { RIGS, rigOf } from '../engine/rigs.js';
 import { holdPoint, poseFor } from '../engine/actor.js';
-import { attachTime, holderAt, resolveActor, STAGE_SHORTCUTS } from '../engine/timeline.js';
+import {
+  attachTime,
+  holderAt,
+  movieDuration,
+  resolveActor,
+  STAGE_SHORTCUTS,
+} from '../engine/timeline.js';
+import { isPortrait, REEL_SECONDS } from '../engine/format.js';
 import { resolveSound } from '../engine/sources.js';
 import {
   clipFor,
@@ -625,6 +632,14 @@ export function validateProject(project: Project): Problem[] {
   for (const shot of project.shots) out.push(...validateShot(shot, project));
   if (!hasErrors(out)) out.push(...carriedAcrossCuts(project));
   out.push(...translationGaps(project));
+  // Instagram and YouTube Shorts take a reel of up to three minutes.
+  const seconds = movieDuration(project);
+  if (isPortrait(project.meta) && seconds > REEL_SECONDS)
+    out.push({
+      level: 'warning',
+      where: 'project',
+      message: `the reel runs ${seconds.toFixed(1)}s, over the ${REEL_SECONDS}s the reel apps take; cut a scene or shorten shots`,
+    });
   if (project.shots.length === 0)
     out.push({ level: 'warning', where: 'project', message: 'no shots yet' });
   return out;

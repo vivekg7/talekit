@@ -16,7 +16,8 @@ reasoning are in `docs/PLAN.md`. Read both before changing the data model.
   actor state at time t), `actor.ts` + `compose.ts` (state → SVG), `cull.ts`
   (leaves out shapes far off the frame, which resvg would panic on),
   `outline.ts` (the engine-drawn outline under every part),
-  `sound.ts` (the cue sheet: what is heard when), `subtitles.ts` (subtitle
+  `format.ts` (a film's frame or a portrait reel's: text scale, the safe
+  area the reel apps leave), `sound.ts` (the cue sheet: what is heard when), `subtitles.ts` (subtitle
   tracks from the lines and their `translation`),
   `bubble.ts` (text wrap and bubble geometry), `glyphs.ts` (Devanagari
   shaped with HarfBuzz into outlines, in the bundled `fonts/Baloo2.ttf`).

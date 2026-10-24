@@ -1,4 +1,5 @@
 import { clamp01, hash01, TAU } from './easing.js';
+import { uiScale } from './format.js';
 import { n } from './svg.js';
 import type { Effect } from './types.js';
 import { mix } from './weather.js';
@@ -28,7 +29,7 @@ export function effectsSvg(
   W: number,
   H: number
 ): string {
-  const k = H / 720;
+  const k = uiScale({ width: W, height: H });
   return effects
     .map((e, i) => {
       if (effectLayer(e) !== layer) return '';
@@ -61,8 +62,8 @@ export interface FireLight {
  * The fires on the stage (behind or in front of the actors) as lights, flickering with the
  * same wobble that drives their flames, so the light pulses when the fire does.
  */
-export function fireLights(effects: Effect[], t: number, H: number): FireLight[] {
-  const k = H / 720;
+export function fireLights(effects: Effect[], t: number, W: number, H: number): FireLight[] {
+  const k = uiScale({ width: W, height: H });
   const out: FireLight[] = [];
   effects.forEach((e, i) => {
     const layer = effectLayer(e);

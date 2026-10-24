@@ -436,7 +436,10 @@ export const SceneSchema = z.object({
     .describe(
       'How fast each layer moves with the camera, the stage being 1: far 0..1 (default 0.5, 0 is fixed like the sky), near 1..3 (default 1.4)'
     ),
-  /** Default floor y for the stage shortcuts left/center/right. Defaults to 0.9 * height. */
+  /**
+   * Default floor y for the stage shortcuts left/center/right. Defaults to 0.9 × height, or
+   * 0.78 × height in a portrait reel.
+   */
   ground: z.number().optional(),
   /** Weather and moving nature the engine animates, so the author never draws a frame of it. */
   weather: WeatherSchema.optional(),
