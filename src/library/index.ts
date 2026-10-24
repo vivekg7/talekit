@@ -7,6 +7,8 @@ import { BOY } from './boy.js';
 import { WOMAN } from './woman.js';
 import { FARMER } from './farmer.js';
 import { GRANDPA } from './grandpa.js';
+import { GRANDMA } from './grandma.js';
+import { PIRATE } from './pirate.js';
 import { DOG } from './dog.js';
 import { CAT } from './cat.js';
 import { RABBIT } from './rabbit.js';
@@ -20,9 +22,11 @@ import { CROCODILE } from './crocodile.js';
 import { MOUSE } from './mouse.js';
 import { BIRD } from './bird.js';
 import { CROW } from './crow.js';
+import { PARROT } from './parrot.js';
 import { SWAN } from './swan.js';
 import { FROG } from './frog.js';
 import { FISH } from './fish.js';
+import { COBRA } from './cobra.js';
 import { PARK } from './park.js';
 import { HOME } from './home.js';
 import { STREET } from './street.js';
@@ -40,6 +44,8 @@ export const LIBRARY: { characters: Record<string, Character>; scenes: Record<st
       WOMAN,
       FARMER,
       GRANDPA,
+      GRANDMA,
+      PIRATE,
       DOG,
       CAT,
       RABBIT,
@@ -53,9 +59,11 @@ export const LIBRARY: { characters: Record<string, Character>; scenes: Record<st
       MOUSE,
       BIRD,
       CROW,
+      PARROT,
       SWAN,
       FROG,
       FISH,
+      COBRA,
     ].map((c) => [c.id, CharacterSchema.parse(c)])
   ),
   scenes: Object.fromEntries(

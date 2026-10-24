@@ -354,6 +354,21 @@ since a heavy tail on one drags into the floor as a walk starts. Left for
 later: ripples and a wake drawn round a swimmer, as moving water belongs
 to the engine.
 
+**Library, third batch (2026-10-24).** A pirate with a peg leg, a parrot,
+a grandma and a coiled cobra. The peg needed no engine work: drawn below
+the knee bend it is a shin, so it swings and plants like the other leg,
+and the walk does not limp; a hobble, and a knock instead of a shoe on
+its steps, would be engine work. The pirate's patch is drawn in every
+`eyes` variant, as `eyes` draws over `face`. The grandma's sari skirt is
+on the legs and her torso stops at the hips, which is what keeps her off
+the floor in `sit: ground`, where a kurta to mid-thigh sinks through it;
+the cost is that the skirt parts like wide trousers in a stride. Her
+pallu is drawn on the torso rather than hung, since a part hung from the
+torso draws under it from behind. The cobra's hood had to be about twice
+the head's width before it read as a hood at story size, and its neck is
+rigid for the swan's reason. Left for later: a parrot riding a shoulder,
+which needs `attach` to name a point on a part instead of the near hand.
+
 ### 7.3 Motion with weight
 
 Why: smoothness is not interpolation, it is contact, anticipation and

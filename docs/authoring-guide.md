@@ -89,9 +89,18 @@ extra parts), `head`, `face`, `eyes`, `mouth`, `armR`; a part placed with
 arm.
 
 The library has a girl (`kid`), a `boy`, a man (`grownup`), a `woman` in a
-kurta with a plait, a `farmer` in a pagdi and dhoti, and a bald `grandpa`
-in glasses and a waistcoat. Copy and recolour the nearest one before drawing
+kurta with a plait, a `farmer` in a pagdi and dhoti, a bald `grandpa`
+in glasses and a waistcoat, a `grandma` in a sari, and a `pirate` with an
+eye patch and a peg leg. Copy and recolour the nearest one before drawing
 a person from scratch.
+
+The grandma's sari skirt is drawn on the legs, not on the torso: the torso
+stops at the hips, so it does not sink into the floor when she sits on the
+ground, and the knees bend inside the sari. In a stride the two halves part
+like wide trousers. The pirate's near leg is a wooden peg below the knee
+bend (y=330), so it bends, swings and plants like any shin; the walk does
+not limp. His patch is drawn in every `eyes` variant, because `eyes` draws
+over `face`.
 
 **Draw the face front-on and let the engine turn it.** `face` (the nose,
 cheeks, freckles, glasses: anything on the face that is not the eyes or the
@@ -260,11 +269,14 @@ tail and head drawn in; `eyes` has `open`, `closed`, `wide`, `happy`; `mouth`
 has `closed`, `open`, `smile`, `sad` (a bird's beak is its mouth). Bubbles
 hang from the top of the box, so keep the head near the top.
 `get_library_item("bird")` is a complete worked example to copy the layout
-from (the library also has a `crow`, a `swan`, a `frog` and a `fish`);
-`height` on screen is typically 50–80 for a bird and 80–140 for a prop or a
-small creature. The fish's tail is its own part hung from the body (see
-Springs), so it swishes as the fish swims; the swan has no feet, since a
-scene's water covers the bottom of its body.
+from (the library also has a `crow`, a `parrot`, a `swan`, a `frog`, a
+`fish` and a coiled `cobra`); `height` on screen is typically 50–80 for a
+bird and 80–140 for a prop or a small creature. The fish's tail is its own
+part hung from the body (see Springs), so it swishes as the fish swims;
+the swan has no feet, since a scene's water covers the bottom of its body.
+The cobra is rigid, coiled with its hood spread: it sways only with the
+rig's bob and tilt, and its open mouth shows the fangs and a forked
+tongue, so talking reads as a hiss.
 
 ### Variants
 
