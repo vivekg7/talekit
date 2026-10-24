@@ -12,6 +12,9 @@
     "dist",
     "fonts",
     "sounds",
+    "tools/tts/pyproject.toml",
+    "tools/tts/uv.lock",
+    "tools/tts/speak.py",
     "docs/authoring-guide.md"
   ],
   "scripts": {
