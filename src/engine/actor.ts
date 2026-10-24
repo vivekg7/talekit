@@ -50,6 +50,7 @@ export function poseFor(actor: ActorState, t: number): Pose {
   // Going into the screen the face turns on round to side-on and then away; coming out of
   // it, round to the viewer.
   if (rig.turn && actor.view > 0) pose.yaw *= 1 - actor.view;
+  if (rig.turn && actor.view > 0.5) pose.toward = true;
   // A limb swinging toward or away from the viewer is foreshortened. A bent leg comes out
   // a little shorter than it was, so the body comes down by as much as its lowest foot rose.
   if (rig.turn && actor.view) {
@@ -194,6 +195,18 @@ function bentLimb(
 }
 
 /**
+ * Where a part is drawn, back to front. Facing the viewer, a part hung behind the head goes
+ * just behind the torso: a plait down the back is hidden by the body, not laid over it.
+ */
+function zOf(rig: Rig, pose: Pose, name: string): number {
+  const part = rigPart(rig, name);
+  const { head, torso } = rig.parts;
+  if (pose.toward && torso && head && part.parent === 'head' && part.z < head.z)
+    return torso.z - 0.05;
+  return part.z;
+}
+
+/**
  * Draw the character's parts in canonical coordinates with the given pose, shaded by
  * `light` (none for `null`) as seen from `side` (1 facing right, -1 mirrored to the left).
  */
@@ -204,7 +217,7 @@ export function characterBody(
   side = 1
 ): string {
   const rig = rigOf(character);
-  const names = Object.keys(character.parts).sort((a, b) => rigPart(rig, a).z - rigPart(rig, b).z);
+  const names = Object.keys(character.parts).sort((a, b) => zOf(rig, pose, a) - zOf(rig, pose, b));
   const line = character.colors.line ?? DEFAULT_LINE_COLOR;
   const width = outlineWidth(character);
   const drawn: {

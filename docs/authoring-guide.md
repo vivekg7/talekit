@@ -83,10 +83,11 @@ anchor (the feet point).
 
 Parts and draw order (back → front): `armL`, `legL`, `legR`, `torso`, (any
 extra parts), `head`, `face`, `eyes`, `mouth`, `armR`; a part placed with
-`hangs` is drawn next to the part it hangs from. The character faces
-**right**, three-quarters to the viewer; the engine mirrors it for
-`facing: "left"`. `armR` is the near arm (waves, points), `armL` is the far
-arm.
+`hangs` is drawn next to the part it hangs from, except that one hung
+behind the head (a plait) goes behind the torso while the character walks
+toward the viewer. The character faces **right**, three-quarters to the
+viewer; the engine mirrors it for `facing: "left"`. `armR` is the near arm
+(waves, points), `armL` is the far arm.
 
 The library has a girl (`kid`), a `boy`, a man (`grownup`), a `woman` in a
 kurta with a plait, a `farmer` in a pagdi and dhoti, a bald `grandpa`

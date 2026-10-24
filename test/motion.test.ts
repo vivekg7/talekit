@@ -522,6 +522,13 @@ describe('people', () => {
     expect(toward.view).toBe(1);
     expect(poseFor(toward, 4).yaw).toBe(0);
     expect(poseFor(toward, 4).face.head).toBe('default');
+    // Face on, what hangs behind the head goes behind the body; across, it lies over it.
+    const order = (a: ActorState, t: number) => {
+      const svg = characterBody(a.character, poseFor(a, t));
+      return svg.indexOf("class='part-pigtailL'") < svg.indexOf("class='part-torso'");
+    };
+    expect(order(toward, 4)).toBe(true);
+    expect(order(actorAt(p, 'kid', 7), 7)).toBe(false);
     expect(actorAt(p, 'kid', 6.5).view).toBe(0);
   });
 

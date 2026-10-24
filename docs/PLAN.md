@@ -397,7 +397,10 @@ left it standing there, from where a walk set off across the air. Now the
 pose starts the sit with the body lowered by the seat's height, feet on
 the floor, and rises onto the seat as the knees bend. Getting up runs that
 backwards and then puts the actor on the floor in front of the seat,
-before any walk sets off.
+before any walk sets off. A plait hung behind the head lay across the
+chest of a person walking toward the viewer, since a part hung from the
+head is drawn just behind the head, in front of the torso: facing out of
+the screen, it now goes just behind the torso (`Pose.toward`).
 
 ### 7.3 Motion with weight
 
