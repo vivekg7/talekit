@@ -402,7 +402,10 @@ chest of a person walking toward the viewer, since a part hung from the
 head is drawn just behind the head, in front of the torso: facing out of
 the screen, it now goes just behind the torso (`Pose.toward`). The
 farmer's pagdi tail hung inside the outline of his head and ear, so only a
-sliver showed; it hangs clear behind the ear now.
+sliver showed; it hangs clear behind the ear now. The clever-rabbit lion's
+reflection was still the old lion's head; it is now the library lion's
+head, ears, eyes and mouth in the water's blues, drawn a little smaller so
+the ears stay on the water.
 
 ### 7.3 Motion with weight
 
