@@ -1,4 +1,4 @@
-import { easeInOut } from './easing.js';
+import { clamp01, easeInOut } from './easing.js';
 import { bodyWidth, footPoint, partOffset, swingOf, toRoot } from './gait.js';
 import {
   applyTake,
@@ -51,7 +51,10 @@ export function poseFor(actor: ActorState, t: number): Pose {
   // Going into the screen the face turns on round to side-on and then away; coming out of
   // it, round to the viewer.
   if (rig.turn && actor.view > 0) pose.yaw *= 1 - actor.view;
-  if (rig.turn && actor.view > 0.5) pose.toward = true;
+  // What hangs down the back goes behind the body over the middle of the turn, rather than
+  // all at once.
+  if (rig.turn && actor.view > TOWARD[0])
+    pose.toward = easeInOut(clamp01((actor.view - TOWARD[0]) / (TOWARD[1] - TOWARD[0])));
   // A limb swinging toward or away from the viewer is foreshortened. A bent leg comes out
   // a little shorter than it was, so the body comes down by as much as its lowest foot rose.
   if (rig.turn && actor.view) {
@@ -195,16 +198,23 @@ function bentLimb(
   return (under ? lines : '') + fills;
 }
 
+/** Over this stretch of a turn toward the viewer, what hangs down the back goes behind. */
+const TOWARD = [0.2, 0.8];
+
+/** A part hung behind the head: a plait, down the back. */
+function hungBehind(rig: Rig, name: string): boolean {
+  const part = rigPart(rig, name);
+  const { head, torso } = rig.parts;
+  return !!torso && !!head && part.parent === 'head' && part.z < head.z;
+}
+
 /**
  * Where a part is drawn, back to front. Facing the viewer, a part hung behind the head goes
  * just behind the torso: a plait down the back is hidden by the body, not laid over it.
  */
 function zOf(rig: Rig, pose: Pose, name: string): number {
-  const part = rigPart(rig, name);
-  const { head, torso } = rig.parts;
-  if (pose.toward && torso && head && part.parent === 'head' && part.z < head.z)
-    return torso.z - 0.05;
-  return part.z;
+  if (pose.toward && hungBehind(rig, name)) return rig.parts.torso.z - 0.05;
+  return rigPart(rig, name).z;
 }
 
 /**
@@ -218,7 +228,16 @@ export function characterBody(
   side = 1
 ): string {
   const rig = rigOf(character);
-  const names = Object.keys(character.parts).sort((a, b) => zOf(rig, pose, a) - zOf(rig, pose, b));
+  // Part way round to the viewer, a plait is drawn behind the body and, fading, where it was.
+  const fading = (name: string) => pose.toward! < 1 && hungBehind(rig, name);
+  const names = [
+    ...Object.keys(character.parts).map((name) => ({ name, z: zOf(rig, pose, name), fade: 0 })),
+    ...(pose.toward
+      ? Object.keys(character.parts)
+          .filter(fading)
+          .map((name) => ({ name, z: rigPart(rig, name).z, fade: pose.toward! }))
+      : []),
+  ].sort((a, b) => a.z - b.z);
   const line = character.colors.line ?? DEFAULT_LINE_COLOR;
   const width = outlineWidth(character);
   const drawn: {
@@ -228,8 +247,10 @@ export function characterBody(
     under: string;
     /** The shading of (a piece of) this part, turned `extra` degrees further. */
     shade: (frag: string, extra?: number) => string;
+    /** A copy fading out where it was (see `Pose.toward`): how far gone. */
+    fade: number;
   }[] = [];
-  for (const name of names) {
+  for (const { name, fade } of names) {
     const part = character.parts[name];
     const svg = typeof part === 'string' ? part : part[pose.face[name] ?? Object.keys(part)[0]];
     if (!svg) continue;
@@ -255,10 +276,10 @@ export function characterBody(
       light && character.shade && !FACE_PARTS.has(name)
         ? shadePart(frag, rot + extra, side, light, rig, line, joined, name in rig.bends)
         : '';
-    drawn.push({ name, tf, svg: coloured, under, shade });
+    drawn.push({ name, tf, svg: coloured, under, shade, fade });
   }
-  const group = (name: string, tf: string, inner: string) =>
-    `<g class='part-${name}'${tf ? ` transform='${tf}'` : ''}>${inner}</g>`;
+  const group = (name: string, tf: string, inner: string, fade = 0) =>
+    `<g class='part-${name}'${tf ? ` transform='${tf}'` : ''}${fade ? ` opacity='${n(1 - fade)}'` : ''}>${inner}</g>`;
   // A fused part's outline goes down just before the part it joins, so that part's fill
   // covers the line where they overlap; the fused part's own fill still draws in its turn.
   const joined = new Set(drawn.map((d) => d.name));
@@ -277,7 +298,7 @@ export function characterBody(
     const fused = rig.fuse[d.name] && joined.has(rig.fuse[d.name]);
     const inner =
       limb(d, fused ? 'fills' : 'all') || (fused ? '' : d.under) + d.svg + d.shade(d.svg);
-    out += group(d.name, d.tf, inner);
+    out += group(d.name, d.tf, inner, d.fade);
   }
   let body = out;
   if (pose.spin) {

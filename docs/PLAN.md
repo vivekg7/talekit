@@ -423,7 +423,11 @@ reading as a fence, its legs reaching 45 below the floor its anchors gave;
 Mia sat on the top rail. It is redrawn as a bench, a backrest behind a lit
 seat plank on legs that stand on the floor line, and its seat anchor is 42
 above that floor: about what a grown-up's shin reaches in this style, so a
-child's feet swing just clear of the ground.
+child's feet swing just clear of the ground. The plait that went behind
+the body at view 0.5 did so in a frame, in the middle of the turn; now it
+is drawn behind the body from view 0.2 and, fading out by 0.8, where it
+was, so the part across the chest dissolves (`Pose.toward` is now how
+far).
 
 ### 7.3 Motion with weight
 

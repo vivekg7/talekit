@@ -32,10 +32,11 @@ export interface Pose {
   /** Seen from behind: the face is hidden and parts with a `back` variant use it. */
   back: boolean;
   /**
-   * Coming out of the screen, face to the viewer: what hangs behind the head (a plait) is
-   * drawn behind the body too, where it would otherwise lie across the chest.
+   * Coming out of the screen, face to the viewer, 0..1: what hangs behind the head (a
+   * plait) is drawn behind the body too, where it would otherwise lie across the chest.
+   * Part way, it is behind the body and fading out in front of it.
    */
-  toward?: boolean;
+  toward?: number;
   /**
    * How much the limbs (`Rig.turn`) swing into and out of the screen rather than across it,
    * 0..1: their sideways swing about the shoulder or hip shrinks by this share.

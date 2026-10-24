@@ -581,6 +581,17 @@ describe('people', () => {
       return svg.indexOf("class='part-pigtailL'") < svg.indexOf("class='part-torso'");
     };
     expect(order(toward, 4)).toBe(true);
+    // Half way round, it is behind the body and fading out where it was, not swapped over.
+    const half = { ...toward, view: 0.5 };
+    const mid = characterBody(half.character, poseFor(half, 4));
+    const tails = mid.match(/<g class='part-pigtailL'[^>]*>/g) ?? [];
+    expect(tails).toHaveLength(2);
+    expect(mid.indexOf("class='part-pigtailL'")).toBeLessThan(mid.indexOf("class='part-torso'"));
+    expect(tails[0]).not.toContain('opacity');
+    expect(Number(tails[1].match(/opacity='([\d.]+)'/)?.[1])).toBeCloseTo(0.5, 1);
+    expect(
+      characterBody(toward.character, poseFor(toward, 4)).match(/part-pigtailL/g)
+    ).toHaveLength(1);
     expect(order(actorAt(p, 'kid', 7), 7)).toBe(false);
     expect(actorAt(p, 'kid', 6.5).view).toBe(0);
   });
