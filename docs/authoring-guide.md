@@ -208,9 +208,13 @@ bends the hind legs at the knee with the paws on the floor and keeps the
 front paws planted on the way down; `lie` brings the body level onto its
 belly with all four legs folded and the head lowered; `wave` and `point`
 lift the near front paw; `jump` gathers on bent legs, then leaps stretched
-out. The tail and ears are springs by default (see below). `height` is the
-box height on screen: about 55 for a mouse, 90–110 for a cat or dog, 170–190
-for a lion, bear or deer.
+out. Turning round (a `facing` change, or a move back the way it came)
+takes about 0.7 s, where a person swivels in 0.2: the head comes round
+first, the body narrows to end-on and opens out the other way, the feet step
+round in diagonal pairs and the tail swings wide. The tail and ears are
+springs by default (see below). `height` is the box height on screen:
+about 55 for a mouse, 90–110 for a cat or dog, 170–190 for a lion, bear or
+deer.
 
 ### `simple` rig — 200 × 200, base on y=200
 

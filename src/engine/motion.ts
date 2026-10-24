@@ -1,5 +1,5 @@
 import { clamp01, easeInOut, hash01, TAU } from './easing.js';
-import { plantFeet, stride, toRoot, type Travel } from './gait.js';
+import { plantFeet, raiseFoot, stride, toRoot, type Travel } from './gait.js';
 import { QUADRUPED, type Rig } from './rigs.js';
 import type { Emotion, Verb } from './types.js';
 
@@ -315,6 +315,34 @@ function foldLeg(
   const reach = Math.acos(Math.min(1, Math.max(0, drop) / shin));
   const turn = -90 - e * DEG;
   return [turn, -reach * DEG - turn];
+}
+
+/**
+ * A four-legged animal turning round to face the other way; the mirror flips halfway
+ * (`sideOf`). The head leads, lifting and swinging back toward where it is going before
+ * the body follows; the body dips as it brings its weight round; the tail swings wide and
+ * lags. Standing, the feet step round in diagonal pairs, so it turns on its feet instead
+ * of spinning on them; `busy` (walking, sitting) leaves the legs to what they are doing.
+ */
+export function quadrupedTurn(pose: Pose, u: number, busy: boolean): void {
+  const add = (part: string, deg: number) => (pose.rot[part] = (pose.rot[part] ?? 0) + deg);
+  const lead = Math.sin(Math.PI * clamp01(u / 0.6));
+  add('head', -16 * lead);
+  nudge(pose, 'head', -3 * lead, -2 * lead);
+  add('tail', 28 * Math.sin(Math.PI * u));
+  add('earL', -10 * lead);
+  add('earR', -10 * lead);
+  pose.dy += 4 * Math.sin(Math.PI * u);
+  if (busy) return;
+  const step = (a: number, b: number) =>
+    u > a && u < b ? 9 * Math.sin((Math.PI * (u - a)) / (b - a)) : 0;
+  for (const [leg, lift] of [
+    ['legFR', step(0.08, 0.5)],
+    ['legBL', step(0.08, 0.5)],
+    ['legFL', step(0.5, 0.92)],
+    ['legBR', step(0.5, 0.92)],
+  ] as const)
+    if (lift > 0.01) raiseFoot(QUADRUPED, pose, leg, lift);
 }
 
 /** Quadruped verbs: the near front paw does what the humanoid's near arm does. */

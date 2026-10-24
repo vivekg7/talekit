@@ -270,6 +270,14 @@ a small heel above the knee. Studies in a more lifelike direction (longer
 muzzle, almond eye, a mane of swept locks, a zig-zag hind leg) were drawn
 and rejected for now: the cast keeps its round cartoon look and big eyes.
 
+An animal turning round flipped in 0.2 s like a person, squashing to a
+sliver, which read as instant: a long body cannot swivel on the spot. It
+now takes 0.7 s. The head leads, lifting and swinging back toward where it
+is going; the body swings round eased and narrows only to 0.45, about what
+an animal is end-on (narrower reads as a card being flipped); a standing
+animal steps round in diagonal pairs and dips as its weight comes round;
+the tail swings wide. A walking animal keeps its gait and turns as it goes.
+
 A detail pass after that, still in the cartoon style: a heavier thigh
 crease, a hock line behind the heel and an elbow behind the near foreleg,
 each drawn after the leg's stroke (drawn before it, the stroke covers

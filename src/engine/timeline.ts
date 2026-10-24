@@ -171,6 +171,11 @@ interface Move {
 const RAMP = 0.3;
 /** Seconds for a facing flip, and for sitting down or getting up. */
 const TURN_TIME = 0.2;
+/**
+ * A four-legged animal turns round more slowly: it is long, so it brings its head round
+ * first and steps its body after, where a person swivels on the spot.
+ */
+const QUAD_TURN_TIME = 0.7;
 const SIT_TIME = 0.4;
 /** Seconds to lie back from sitting, or sit up again. */
 const LIE_TIME = 0.9;
@@ -531,7 +536,8 @@ export function resolveActor(
     }
   }
 
-  let turn = t - turnAt < TURN_TIME ? { from: turnFrom, u: (t - turnAt) / TURN_TIME } : undefined;
+  const turnTime = character.rig === 'quadruped' ? QUAD_TURN_TIME : TURN_TIME;
+  let turn = t - turnAt < turnTime ? { from: turnFrom, u: (t - turnAt) / turnTime } : undefined;
   const heldBy = holder && depth < MAX_DEPTH ? holder : undefined;
   if (heldBy) {
     const held = heldPoint(project, scene, shot, character, scale, heldBy, t, depth);

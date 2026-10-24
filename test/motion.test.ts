@@ -106,13 +106,41 @@ describe('planted feet', () => {
 describe('weight and follow-through', () => {
   it('turns through a squash instead of mirroring in one frame', () => {
     const p = project([
+      { t: 1, actor: 'kid', do: 'walk', to: { x: 600, y: 640 }, duration: 2 },
+      { t: 4, actor: 'kid', do: 'walk', to: { x: 300, y: 640 }, duration: 2 },
+    ]);
+    const sides = [4, 4.05, 4.1, 4.15, 4.25].map((t) => sideOf(actorAt(p, 'kid', t)));
+    expect(sides[0]).toBeGreaterThan(0.9);
+    expect(Math.abs(sides[2])).toBeLessThan(0.8);
+    expect(sides[4]).toBe(-1);
+  });
+
+  it('brings an animal round slowly, never thinner than it is seen end-on', () => {
+    const p = project([
       { t: 1, actor: 'dog', do: 'walk', to: { x: 600, y: 660 }, duration: 2 },
       { t: 4, actor: 'dog', do: 'walk', to: { x: 300, y: 660 }, duration: 2 },
     ]);
-    const sides = [4, 4.05, 4.1, 4.15, 4.25].map((t) => sideOf(actorAt(p, 'dog', t)));
-    expect(sides[0]).toBeGreaterThan(0.9);
-    expect(Math.abs(sides[2])).toBeLessThan(0.2);
-    expect(sides[4]).toBe(-1);
+    const side = (t: number) => sideOf(actorAt(p, 'dog', t));
+    expect(side(4.1)).toBeGreaterThan(0.75);
+    const widths = [4.2, 4.3, 4.35, 4.4, 4.5].map((t) => Math.abs(side(t)));
+    expect(Math.min(...widths)).toBeCloseTo(0.45, 2);
+    expect(side(4.3)).toBeGreaterThan(0);
+    expect(side(4.4)).toBeLessThan(0);
+    expect(side(4.75)).toBe(-1);
+  });
+
+  it('turns a standing animal on its feet, head first', () => {
+    const p = project([{ t: 1, actor: 'dog', set: { facing: 'left' } }]);
+    const pose = (t: number) => poseFor(actorAt(p, 'dog', t), t);
+    // Early on the head has lifted round toward the way it is going, the body barely so.
+    expect(pose(1.2).rot.head).toBeLessThan(-8);
+    expect(Math.abs(sideOf(actorAt(p, 'dog', 1.2)))).toBeGreaterThan(0.6);
+    // One diagonal pair steps, then the other.
+    const lifted = (t: number) =>
+      RIGS.quadruped.feet.filter((leg) => footPoint(RIGS.quadruped, pose(t), leg)[1] < 196);
+    expect(lifted(1.2).sort()).toEqual(['legBL', 'legFR']);
+    expect(lifted(1.5).sort()).toEqual(['legBR', 'legFL']);
+    expect(lifted(1.8)).toEqual([]);
   });
 
   it('turns a person round with the face, coming through front-on', () => {

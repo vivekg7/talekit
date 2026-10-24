@@ -1,5 +1,14 @@
+import { easeInOut } from './easing.js';
 import { bodyWidth, footPoint, partOffset, swingOf, toRoot } from './gait.js';
-import { applyTake, applyVerb, basePose, emptyPose, resolveFace, type Pose } from './motion.js';
+import {
+  applyTake,
+  applyVerb,
+  basePose,
+  emptyPose,
+  quadrupedTurn,
+  resolveFace,
+  type Pose,
+} from './motion.js';
 import { rigPart, RIGS, type Rig } from './rigs.js';
 import { DEFAULT_LINE_COLOR, limbWidth, OUTLINE_PX, outlineFor } from './outline.js';
 import { DAYLIGHT, shadePart, silhouette, type Light } from './shade.js';
@@ -34,6 +43,8 @@ export function poseFor(actor: ActorState, t: number): Pose {
   if (actor.turn) {
     pose.sy *= 1 + 0.04 * Math.sin(Math.PI * actor.turn.u);
     if (actor.turn.from !== actor.facing) pose.yaw *= Math.abs(Math.cos(Math.PI * actor.turn.u));
+    if (rig.name === 'quadruped' && actor.turn.from !== actor.facing)
+      quadrupedTurn(pose, actor.turn.u, loco !== 'idle' || sat);
   }
   // Going into the screen the face turns on round to side-on and then away; coming out of
   // it, round to the viewer.
@@ -276,8 +287,12 @@ export function characterBody(
 export function sideOf(actor: Pick<ActorState, 'facing' | 'turn' | 'character'>): number {
   const to = actor.facing === 'left' ? -1 : 1;
   if (!actor.turn || actor.turn.from === actor.facing) return to;
-  const u = actor.turn.u;
-  const least = RIGS[actor.character.rig].turn ? 0.72 : 0.12;
+  const rig = RIGS[actor.character.rig];
+  const quad = rig.name === 'quadruped';
+  // An animal's body swings round eased, slow out of side-on and back into it, and seen
+  // end-on it is still about a third as wide as it is long.
+  const u = quad ? easeInOut(actor.turn.u) : actor.turn.u;
+  const least = rig.turn ? 0.72 : quad ? 0.45 : 0.12;
   return (u < 0.5 ? -to : to) * Math.max(least, Math.abs(Math.cos(Math.PI * u)));
 }
 
