@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { poseFor, renderShadow } from '../src/engine/actor.js';
 import { composeFrame, layerTransform } from '../src/engine/compose.js';
+import { cullOffFrame, parseTransform } from '../src/engine/cull.js';
 import { resolveFrame } from '../src/engine/timeline.js';
 import { CharacterSchema, SceneSchema, ShotSchema, type Project } from '../src/engine/types.js';
 import { LIBRARY } from '../src/library/index.js';
 import { validateScene, validateShot } from '../src/project/validate.js';
+import { rasterize } from '../src/render/raster.js';
 
 const W = 1280;
 const H = 720;
@@ -190,5 +192,57 @@ describe('cross-fade', () => {
         .map((m) => m.message)
         .join('\n')
     ).toMatch(/nothing to dissolve from/);
+  });
+});
+
+describe('culling', () => {
+  const far = `<circle cx='-3000' cy='100' r='20' opacity='0.8'/>`;
+
+  it('leaves out shapes a frame or more outside, through every transform', () => {
+    const near = `<circle cx='100' cy='100' r='20' opacity='0.8'/>`;
+    const id = (s: string) => parseTransform(s)!;
+    expect(cullOffFrame(near + far, id(''), W, H)).toBe(near);
+    // Just under a frame out is kept: a blur or a shadow could still reach in.
+    const edge = `<rect x='-1290' y='0' width='20' height='20'/>`;
+    expect(cullOffFrame(edge, id(''), W, H)).toBe(edge);
+    // A group moves its shapes, and empties out when they all go.
+    const moved = `<g transform='translate(3100 0)'>${far}</g>`;
+    expect(cullOffFrame(moved, id(''), W, H)).toBe(moved);
+    expect(cullOffFrame(`<g opacity='.5'>${far}</g>`, id(''), W, H)).toBe('');
+    // The camera's own transform counts: zoomed in, a shape at the scene's edge is far.
+    const corner = `<path d='M1230 0 q 10 5 0 10 a5 5 0 1 1 -5 -5Z' opacity='.8'/>`;
+    expect(cullOffFrame(corner, id(''), W, H)).toBe(corner);
+    expect(
+      cullOffFrame(corner, id(layerTransform({ zoom: 4, x: 160, y: 630 }, W, H, 1)), W, H)
+    ).toBe('');
+  });
+
+  it('keeps what it cannot measure, what has an id, and definitions', () => {
+    const keep =
+      `<defs><linearGradient id='g'/></defs>` +
+      `<circle id='sun' cx='-3000' cy='0' r='9'/>` +
+      `<text x='-3000' y='0'>far</text>` +
+      `<path d='M-3000 0 L-2990 0 X'/>`;
+    expect(cullOffFrame(keep, parseTransform('')!, W, H)).toBe(keep);
+  });
+
+  it('draws a close-up whose layered shapes lie far off the frame', () => {
+    // Before culling, resvg aborted the whole process on this frame.
+    const p = project([
+      {
+        id: 'z',
+        scene: 'far-leaf',
+        duration: 1,
+        camera: { zoom: 4, x: 160, y: 630 },
+      },
+    ]);
+    p.scenes['far-leaf'] = SceneSchema.parse({
+      id: 'far-leaf',
+      name: 'Far leaf',
+      svg: `<rect width='1280' height='720' fill='#9c6'/><ellipse cx='1250' cy='10' rx='20' ry='9' fill='#585' opacity='0.8'/>`,
+      near: `<circle cx='-200' cy='900' r='40' fill='#363' opacity='0.6'/>`,
+    });
+    const png = rasterize(composeFrame(p, p.shots[0], 0.5), 320);
+    expect(png.subarray(1, 4).toString()).toBe('PNG');
   });
 });

@@ -505,7 +505,17 @@ before audio, and they turned up these fixes:
 - resvg 2.6 panics on a group with `opacity` that holds another one (a
   translucent cloud) beside a layer wholly off the frame, which is a
   dissolve into a close-up with a `near` layer. So the dissolve fades with
-  an alpha filter over the frame instead; the pixels match.
+  an alpha filter over the frame instead; the pixels match. Later
+  (2026-10-24) a jungle close-up at zoom 4 crashed with no dissolve, and
+  the cause turned out to be the off-frame layer alone: resvg cuts every
+  group that needs its own canvas (an opacity, a filter, a mask, a clip)
+  to four times the frame and panics when one lies wholly outside it. The
+  stage gets that far past about zoom 3, a `near` layer much sooner, and
+  an actor parked well off-screen at any zoom. The panic aborts the
+  process, so it cannot be caught; every camera layer is now culled before
+  it is drawn instead (`cull.ts`), leaving out shapes more than a frame
+  outside. That changes no pixel of the examples. Boxes are conservative,
+  and anything unmeasurable or carrying an `id` is kept.
 - A quadruped's head looked stuck on: its neck carried its own line across
   the chest. Now the head's outline goes down with the body's (`Rig.fuse`),
   so the neck grows out of the shoulders. A person's chin keeps its line

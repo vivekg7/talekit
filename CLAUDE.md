@@ -13,7 +13,9 @@ reasoning are in `docs/PLAN.md`. Read both before changing the data model.
   waves and the like, drawn from time each frame), `shade.ts` (the engine-drawn
   light and shadow on every part), `cast.ts` (each actor's shadow thrown
   across the floor by the scene's lights), `timeline.ts` (actions →
-  actor state at time t), `actor.ts` + `compose.ts` (state → SVG), `outline.ts` (the engine-drawn outline under every part),
+  actor state at time t), `actor.ts` + `compose.ts` (state → SVG), `cull.ts`
+  (leaves out shapes far off the frame, which resvg would panic on),
+  `outline.ts` (the engine-drawn outline under every part),
   `bubble.ts` (text wrap and bubble geometry), `glyphs.ts` (Devanagari
   shaped with HarfBuzz into outlines, in the bundled `fonts/Baloo2.ttf`).
 - `src/project/` — load/save/validate a project directory; `construction.ts`
