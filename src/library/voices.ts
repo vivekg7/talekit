@@ -1,8 +1,14 @@
 /**
- * The voices the TTS sidecar (tools/tts) can speak in, as `engine:name`. Kokoro's are the
- * default: Apache-licensed, fast (a line in a fraction of a second) and with Hindi as well
- * as English. Its voices are grown-ups; a child or a small animal is one of them with the
- * pitch raised (`pitch: 3` to `5`), which is what a cartoon does anyway.
+ * The voices the TTS sidecar (tools/tts) can speak in, as `engine:name`. They are Kokoro's
+ * (Apache-licensed, with Hindi as well as English), in two engines:
+ *
+ * - `kokoro:<name>` reads evenly and clearly, a line in a fraction of a second: a draft.
+ * - `chatterbox:<name>` is the same voice acted by Chatterbox (MIT), which copies it from a
+ *   Kokoro recording and says each line with its speaker's emotion: every voice in a film.
+ *   A line takes a second or two, and it pronounces Hindi better.
+ *
+ * Kokoro's voices are grown-ups; a child or a small animal is one of them with the pitch
+ * raised (`pitch: 3` to `5`), which is what a cartoon does anyway.
  */
 export interface VoiceInfo {
   language: 'en-us' | 'en-gb' | 'hi';
@@ -10,7 +16,7 @@ export interface VoiceInfo {
   description: string;
 }
 
-export const VOICES: Record<string, VoiceInfo> = {
+const KOKORO: Record<string, VoiceInfo> = {
   'kokoro:af_heart': {
     language: 'en-us',
     gender: 'female',
@@ -102,3 +108,11 @@ export const VOICES: Record<string, VoiceInfo> = {
     description: 'Hindi, lighter; raise the pitch for a boy or a mouse',
   },
 };
+
+export const ENGINES = ['chatterbox', 'kokoro'] as const;
+
+export const VOICES: Record<string, VoiceInfo> = Object.fromEntries(
+  ENGINES.flatMap((engine) =>
+    Object.entries(KOKORO).map(([id, v]) => [id.replace(/^kokoro:/, `${engine}:`), v])
+  )
+);

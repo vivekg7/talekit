@@ -752,8 +752,11 @@ to look, so set `facing` so that people who talk face each other.
 A film has six layers of sound. You choose four; the engine makes the rest.
 
 - **Voices.** Give each character that speaks a `voice` from `list_voices`:
-  `"voice": "kokoro:hm_omega"`, or `{ "id": "kokoro:hm_psi", "pitch": 4 }`
-  for a mouse. Pitch is in semitones: 3 to 5 up turns a grown-up's voice into
+  `"voice": "chatterbox:hm_omega"`, or
+  `{ "id": "chatterbox:hm_psi", "pitch": 4 }` for a mouse. `chatterbox:` voices
+  act, saying each line with its speaker's emotion, and pronounce Hindi best;
+  the same voice as `kokoro:` reads evenly and is much faster to make, for a
+  quick draft. Pitch is in semitones: 3 to 5 up turns a grown-up's voice into
   a child's or a small animal's, -3 a giant's; `speed` 0.85 is slow and old,
   1.15 quick. Lines are spoken by a local model when a shot is written (and
   before a render) and kept in the project's `audio/voices/`. The voice sets
@@ -775,7 +778,7 @@ A film has six layers of sound. You choose four; the engine makes the rest.
   is only a sound (`"*हि हि!*"` with `"sound": "laugh-child"`) is not spoken at
   all. `write_shot` warns about growls, laughs and snores written out
   unmarked, and about a marked sound with no `sound` to be heard.
-- **Narrator.** `set_audio(path, narrator: "kokoro:hf_alpha")` reads every
+- **Narrator.** `set_audio(path, narrator: "chatterbox:hf_alpha")` reads every
   caption, narration and title cards alike.
 - **Music.** `set_audio(path, music: "playful")` plays under the whole film.
   A shot's `music` changes it from that shot on: `"tense"`,

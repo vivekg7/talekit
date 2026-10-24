@@ -717,21 +717,28 @@ export function buildServer(): McpServer {
     {
       title: 'List voices',
       description:
-        "Voices a character (`voice`) or the project's narrator (set_audio) can speak in, by language. Lines are spoken by a local model when a shot is written, and a voiced line lasts as long as it takes to say.",
+        "Voices a character (`voice`) or the project's narrator (set_audio) can speak in, by language, and the two engines that speak them. Lines are spoken by a local model when a shot is written, each with its speaker's emotion, and a voiced line lasts as long as it takes to say.",
       inputSchema: {},
     },
     async () => {
       const byLang = new Map<string, string[]>();
-      for (const [id, v] of Object.entries(VOICES))
+      for (const [id, v] of Object.entries(VOICES)) {
+        const [engine, name] = id.split(':');
+        if (engine !== 'kokoro') continue;
         byLang.set(v.language, [
           ...(byLang.get(v.language) ?? []),
-          `- ${id} (${v.gender}): ${v.description}`,
+          `- ${name} (${v.gender}): ${v.description}`,
         ]);
+      }
       const names = { 'en-us': 'English (American)', 'en-gb': 'English (British)', hi: 'Hindi' };
       return ok(
         text(
           [
-            "Write a voice as 'engine:name', or { id, speed, pitch }: pitch in semitones (3 to 5 turns a grown-up into a child or a small animal, -3 a giant), speed 0.85 slow to 1.15 quick.",
+            "Write a voice as 'engine:name' ('chatterbox:hm_omega'), or { id, speed, pitch }: pitch in semitones (3 to 5 turns a grown-up into a child or a small animal, -3 a giant), speed 0.85 slow to 1.15 quick.",
+            '',
+            'Two engines speak the same voices:',
+            "- chatterbox:<name> acts: each line is said with its speaker's emotion (set `emotion` on the character), and it pronounces Hindi best. Use it for every character and the narrator. A line takes a second or two to make.",
+            '- kokoro:<name> reads evenly and clearly, a line in a fraction of a second: for a quick draft.',
             ...[...byLang].flatMap(([lang, lines]) => [
               '',
               `## ${names[lang as keyof typeof names]}`,

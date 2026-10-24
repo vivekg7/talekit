@@ -27,11 +27,14 @@ export const VoiceSchema = z
   .union([
     z
       .string()
-      .regex(/^[a-z0-9]+:[A-Za-z0-9_-]+$/, "a voice is 'engine:name', e.g. 'kokoro:hf_alpha'"),
+      .regex(/^[a-z0-9]+:[A-Za-z0-9_-]+$/, "a voice is 'engine:name', e.g. 'chatterbox:hf_alpha'"),
     z.object({
       id: z
         .string()
-        .regex(/^[a-z0-9]+:[A-Za-z0-9_-]+$/, "a voice is 'engine:name', e.g. 'kokoro:hf_alpha'"),
+        .regex(
+          /^[a-z0-9]+:[A-Za-z0-9_-]+$/,
+          "a voice is 'engine:name', e.g. 'chatterbox:hf_alpha'"
+        ),
       speed: z
         .number()
         .min(0.5)
@@ -49,7 +52,7 @@ export const VoiceSchema = z
     }),
   ])
   .describe(
-    "A voice from list_voices ('kokoro:hf_alpha'), or { id, speed, pitch }. The voice sets the language: a Hindi voice for Devanagari lines"
+    "A voice from list_voices ('chatterbox:hf_alpha'), or { id, speed, pitch }. The voice sets the language: a Hindi voice for Devanagari lines"
   );
 export type Voice = z.infer<typeof VoiceSchema>;
 

@@ -2,9 +2,13 @@
 
 Reads one JSON request per line on stdin and answers each with one JSON line on stdout:
 
-    {"engine": "kokoro", "voice": "hf_alpha", "text": "...", "speed": 1.0,
+    {"engine": "kokoro", "voice": "hf_alpha", "text": "...", "speed": 1.0, "pitch": 0,
      "emotion": "happy", "style": "speech", "out": "/abs/x.wav"}
-    -> {"ok": true, "out": "/abs/x.wav", "seconds": 2.41}   or   {"ok": false, "error": "..."}
+    -> {"ok": true, "out": "/abs/x.wav", "seconds": 2.41, "pitched": false}
+       or {"ok": false, "error": "..."}
+
+`pitched` says the audio already has the voice's `pitch` (Chatterbox's does; Kokoro's is
+shifted by the caller).
 
 `emotion` is the speaker's (neutral, happy, sad, surprised, angry, scared) and `style` the
 line's (speech, thought, shout, narration, title), for an engine that can act on them.
@@ -14,7 +18,9 @@ libraries print goes to stderr.
 
 import json
 import os
+import subprocess
 import sys
+import zlib
 
 # Libraries that print to stdout would corrupt the answers: keep stdout for those alone.
 answers = os.fdopen(os.dup(sys.stdout.fileno()), "w", buffering=1)
@@ -43,7 +49,10 @@ use_system_espeak()
 from mlx_audio.audio_io import write as write_audio
 from mlx_audio.tts.utils import load_model
 
-MODELS = {"kokoro": "mlx-community/Kokoro-82M-bf16"}
+MODELS = {
+    "kokoro": "mlx-community/Kokoro-82M-bf16",
+    "chatterbox": "mlx-community/chatterbox-multilingual-v3",
+}
 loaded = {}
 
 
@@ -126,7 +135,8 @@ def delivery(req):
 
 
 def kokoro_line(req):
-    """Kokoro saying a line, its pitch curve bent by the line's emotion."""
+    """Kokoro saying a line, its pitch curve bent by the line's emotion. The voice's own
+    pitch shift is left to the caller."""
     m = model("kokoro")
     d = delivery(req)
     mood.update(range=d["range"], shift=d["shift"])
@@ -142,15 +152,111 @@ def kokoro_line(req):
     ), m.sample_rate
 
 
+# Chatterbox acts: it speaks in the voice of a reference recording, with an emotion dial
+# (exaggeration). The reference is a Kokoro voice reading a calm passage at the character's
+# pitch and speed, so `chatterbox:hm_omega` is hm_omega, acted. The dial by emotion is
+# from listening to the lion-and-mouse film: an excited thought wanted it high, an angry
+# shout sounded most natural low (the words carry the anger).
+EXAGGERATION = {
+    "neutral": 0.5,
+    "happy": 1.2,
+    "surprised": 1.2,
+    "scared": 1.0,
+    "angry": 0.5,
+    "sad": 0.6,
+}
+PASSAGE = {
+    "hi": "एक छोटे से गाँव में एक किसान रहता था। वह रोज़ सुबह खेत पर जाता, "
+    "और शाम को घर लौटकर अपने बच्चों को कहानियाँ सुनाता था।",
+    "en": "Once upon a time, in a small village by the river, there lived a farmer. "
+    "Every evening he told his children a story before they went to sleep.",
+}
+REFERENCES = os.path.expanduser("~/.cache/talekit/references")
+conditionals = {}
+
+
+def language(voice):
+    return "hi" if voice.startswith("h") else "en"
+
+
+def reference(voice, pitch, speed):
+    """The recording Chatterbox copies a voice from, made once and kept."""
+    path = os.path.join(REFERENCES, f"{voice}_{pitch:g}_{speed:g}.wav")
+    if not os.path.exists(path):
+        os.makedirs(REFERENCES, exist_ok=True)
+        audio, rate = kokoro_line(
+            {"voice": voice, "text": PASSAGE[language(voice)], "speed": speed}
+        )
+        raw = path + ".raw.wav"
+        write_audio(raw, audio, rate)
+        r = 2 ** (pitch / 12)
+        chain = (
+            f"asetrate={rate * r},aresample={rate},atempo={1 / r}" if pitch else "anull"
+        )
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-y",
+                "-i",
+                raw,
+                "-af",
+                chain,
+                "-ac",
+                "1",
+                "-ar",
+                "24000",
+                path,
+            ],
+            check=True,
+        )
+        os.remove(raw)
+    return path
+
+
+def chatterbox_line(req):
+    m = model("chatterbox")
+    ref = reference(
+        req["voice"], float(req.get("pitch", 0)), float(req.get("speed", 1.0))
+    )
+    ex = EXAGGERATION.get(req.get("emotion", "neutral"), 0.5)
+    if req.get("style") == "shout":
+        ex += 0.1
+    if ref not in conditionals:
+        conditionals[ref] = m.prepare_conditionals(ref, 24000, ex)
+    # Sampled, so seeded by the line: made again, it takes the same delivery (the GPU is not
+    # bit-exact, which is why lines are kept in the project).
+    mx.random.seed(zlib.crc32(json.dumps(req, sort_keys=True).encode()))
+    out = m.generate(
+        text=req["text"],
+        conds=conditionals[ref],
+        exaggeration=ex,
+        cfg_weight=0.3,
+        lang_code=language(req["voice"]),
+        verbose=False,
+    )
+    return np.concatenate(
+        [np.array(r.audio, dtype=np.float32).reshape(-1) for r in out]
+    ), m.sample_rate
+
+
 def speak(req):
     if req["engine"] not in MODELS:
         raise ValueError(
             f"unknown engine '{req['engine']}' (have: {', '.join(MODELS)})"
         )
-    audio, rate = kokoro_line(req)
+    acted = req["engine"] == "chatterbox"
+    audio, rate = chatterbox_line(req) if acted else kokoro_line(req)
     os.makedirs(os.path.dirname(req["out"]), exist_ok=True)
     write_audio(req["out"], audio, rate)
-    return {"ok": True, "out": req["out"], "seconds": round(len(audio) / rate, 3)}
+    return {
+        "ok": True,
+        "out": req["out"],
+        "seconds": round(len(audio) / rate, 3),
+        # Chatterbox's voice already has the pitch (its reference had it).
+        "pitched": acted,
+    }
 
 
 for line in sys.stdin:

@@ -17,7 +17,7 @@ import {
 } from '../src/engine/voice.js';
 import { resolveFrame } from '../src/engine/timeline.js';
 import { SOUNDS } from '../src/library/sounds.js';
-import { validateProject, validateShot } from '../src/project/validate.js';
+import { validateProject, validateShot, voiceProblems } from '../src/project/validate.js';
 import { makeVoices } from '../src/project/voices.js';
 import { mixAudio, RATE } from '../src/render/audio.js';
 
@@ -212,6 +212,12 @@ describe('voices', () => {
     } finally {
       delete process.env.TALEKIT_TTS;
     }
+  });
+
+  it('knows every voice in both engines, and no other', () => {
+    expect(voiceProblems('c', 'chatterbox:hm_omega')).toEqual([]);
+    expect(voiceProblems('c', { id: 'kokoro:hm_omega', pitch: -3 })).toEqual([]);
+    expect(voiceProblems('c', 'chatterbox:nobody')[0].message).toMatch(/not one list_voices/);
   });
 
   it('warns when an English voice would read Devanagari', () => {

@@ -176,6 +176,7 @@ export async function makeVoices(
           voice: line.voice.name,
           text: line.text.trim(),
           speed: line.voice.speed,
+          pitch: line.voice.pitch,
           emotion: line.emotion,
           style: line.style,
           out: raw(line),
@@ -186,13 +187,14 @@ export async function makeVoices(
         throw new Error(
           `the voice sidecar stopped: ${stderr.trim().split('\n').slice(-5).join('\n')}`
         );
-      const answer = JSON.parse(next.value) as { ok: boolean; error?: string };
+      const answer = JSON.parse(next.value) as { ok: boolean; error?: string; pitched?: boolean };
       if (!answer.ok) {
         report.failed.push({ line, error: answer.error ?? 'failed' });
         continue;
       }
       const file = `${line.key}.ogg`;
-      const chain = [...TRIM, ...pitchChain(line.voice.pitch)].join(',');
+      // An engine that copies a voice from a recording has the pitch already.
+      const chain = [...TRIM, ...(answer.pitched ? [] : pitchChain(line.voice.pitch))].join(',');
       const samples = level(await decode(raw(line), 1, 'ffmpeg', chain));
       await encode(samples, path.join(voicesDir, file));
       await rm(raw(line), { force: true });

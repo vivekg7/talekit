@@ -789,6 +789,24 @@ the narrator (hf_alpha) are right; the dialogue is not. Three things followed.
 Two espeak-ng slips in Hindi were also fixed in the sidecar: the flap in ड़ came
 out as `r.`, whose dot Kokoro read as a full stop, and ऊँ as "un".
 
+Tried for emotion on the film's eight hardest lines (Whisper's error, then
+what it offers): Chatterbox, cloning each character's Kokoro voice, 0–9%,
+an exaggeration dial; rumik-oss with a mood description, 5–47%, repeating
+and garbling words, women's voices only and non-commercial.
+
+Vivek's verdict: Chatterbox is always better than Kokoro, for dialogue and
+narration alike. It pronounced हँसा right where Kokoro was badly wrong, and
+it acts. So every voice is `chatterbox:<kokoro voice>`: Kokoro reads a calm
+passage at the character's pitch and speed once, kept in
+`~/.cache/talekit/references/`, and Chatterbox speaks every line in that
+voice. The characters keep the voices they were given, and `kokoro:` stays
+for quick drafts. Its emotion dial (exaggeration) is set by emotion from two
+of Vivek's notes: an excited thought was more natural at 1.26 than 0.5, an
+angry shout at 0.5 than 1.4 (the words carry the anger). So happy and
+surprised are 1.2, scared 1.0, sad 0.6, angry and neutral 0.5. A line takes
+about a second to make, five times Kokoro's, which `write_shot` can afford
+for a shot's few lines.
+
 ## Render speed
 
 Measured 2026-10-23 on a 12-core M-series Mac, on the race film (273 s, scenery

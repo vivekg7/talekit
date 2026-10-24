@@ -26,8 +26,8 @@ story ──agent──▶ characters/*.json  scenes/*.json  shots/*.json ──
 - For voices: [uv](https://docs.astral.sh/uv/) and an Apple Silicon Mac (the
   model runs on MLX), plus `brew install espeak-ng` for Hindi. The first
   voiced line sets up a Python environment in `tools/tts/` (about 1.2 GB)
-  and downloads the Kokoro model and voices (about 700 MB), which takes a few
-  minutes once. Without them, everything works and lines are silent.
+  and downloads the Kokoro and Chatterbox models (about 3.2 GB), which takes
+  a few minutes once. Without them, everything works and lines are silent.
 
 ## Quick start
 
@@ -153,7 +153,8 @@ talekit mcp
   when, how loud, from where), `src/render/audio.ts` decodes the clips with
   ffmpeg and mixes them, ducking the music under voices, and the encoder
   muxes the mix as AAC. Lines are spoken by `tools/tts/speak.py`, a Python
-  sidecar on MLX (Kokoro), and cached in the project, so a render is the same
+  sidecar on MLX (Chatterbox acting Kokoro's voices, each line with its
+  speaker's emotion), and cached in the project, so a render is the same
   every time and needs no model once the lines exist.
 - `src/engine/outline.ts` draws the house outline under every part;
   `src/project/construction.ts` is the construction linter behind
