@@ -30,8 +30,8 @@ colors)` (colour tokens: hair, skin, dress, shirt…); without `name` the
    Give every character that speaks a `voice` from `list_voices`.
 4. **Scenes.** `copy_from_library` or `write_scene(path, scene)`. Look at the
    anchor sheet: every place a character will stand or sit needs an anchor on
-   the floor. The library's jungle, cave and village hut are painted in
-   detail; when the story happens in one, copy it and add the places the
+   the floor. The library's jungle, cave, village hut and pond are painted
+   in detail; when the story happens in one, copy it and add the places the
    story needs with `anchors` (`{ "well": { "x": 420, "y": 660 } }`, which
    also moves an anchor of the same name) instead of painting a new scene or
    writing it out again.
@@ -155,8 +155,12 @@ stroke-width='18' stroke-linecap='round' fill='none'/>` plus a hand circle
 ### `quadruped` rig — 260 wide × 200 tall, feet on y=200
 
 Four-legged animals. The library has a dog, cat, rabbit, deer, lion, tiger,
-bear, fox, jackal and mouse: copy and recolour one when you can, and read
-`get_library_item("dog")` before drawing a new one (a horse, a pig, a sheep).
+bear, fox, jackal, crocodile and mouse: copy and recolour one when you can,
+and read `get_library_item("dog")` before drawing a new one (a horse, a
+pig, a sheep). Keep the underside of the body near y=152 even on a low
+animal: `lie` brings every body down by the same amount, so a belly drawn
+lower sinks into the floor. The crocodile stands on longer legs than a
+real one for this reason; in water the scene hides them.
 
 ```
  y   0 ─┬─ top of box (ear tips, antlers)
@@ -256,8 +260,11 @@ tail and head drawn in; `eyes` has `open`, `closed`, `wide`, `happy`; `mouth`
 has `closed`, `open`, `smile`, `sad` (a bird's beak is its mouth). Bubbles
 hang from the top of the box, so keep the head near the top.
 `get_library_item("bird")` is a complete worked example to copy the layout
-from (the library also has a `crow`); `height` on screen is typically 50–80
-for a bird and 80–140 for a prop or a small creature.
+from (the library also has a `crow`, a `swan`, a `frog` and a `fish`);
+`height` on screen is typically 50–80 for a bird and 80–140 for a prop or a
+small creature. The fish's tail is its own part hung from the body (see
+Springs), so it swishes as the fish swims; the swan has no feet, since a
+scene's water covers the bottom of its body.
 
 ### Variants
 
@@ -428,6 +435,12 @@ width apart (about 150 px, more if one stands further back at a smaller
 `scale`), or the nearer one hides the other and their bubbles collide.
 
 Optional `foreground` is drawn in front of the actors (a table edge, a fence).
+Water is a translucent `foreground`: the library's pond lays the water's
+front surface over the pond from its waterline down, so a swan or a
+crocodile standing in it is cut at the waterline and the part below shows
+tinted through it, and a fish placed lower swims wholly under it. One
+waterline serves one swimming depth; a point lower in the water sinks the
+actor deeper, a higher one lifts it out.
 
 ### Layers and depth
 

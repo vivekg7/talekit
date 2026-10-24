@@ -335,7 +335,7 @@ export function buildServer(): McpServer {
     {
       title: 'Get library item JSON',
       description:
-        'The full JSON of a built-in character or scene without copying it into the project. Read a character on the rig you are about to draw (`kid` for the humanoid, `dog` for the quadruped, `bird` for the simple rig) to see how its parts and variants are laid out, then write your own with write_character. A painted scene (jungle, cave, hut) comes back without its long SVG layers: copy it instead, and its anchor sheet shows the picture.',
+        'The full JSON of a built-in character or scene without copying it into the project. Read a character on the rig you are about to draw (`kid` for the humanoid, `dog` for the quadruped, `bird` for the simple rig) to see how its parts and variants are laid out, then write your own with write_character. A painted scene (jungle, cave, hut, pond) comes back without its long SVG layers: copy it instead, and its anchor sheet shows the picture.',
       inputSchema: { libraryId: z.string() },
     },
     async ({ libraryId }) => {

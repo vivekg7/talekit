@@ -334,6 +334,26 @@ which needs a body that bends along its length; and a one-legged person,
 which needs crutches and a gait for them. That and a wheelchair are engine
 work, not drawings.
 
+**Library, second batch (2026-10-24).** A pond scene with a crocodile, a
+swan, a frog and a fish: the monkey-and-crocodile tale and the pond fables
+had no water to stand in. The water needed no engine work. The pond's
+front surface is a translucent `foreground` band from one waterline down,
+so a swimmer is cut at the line and shows tinted below it, and a fish
+lower down swims wholly under it. One waterline means one swimming depth:
+a band high enough for a far swimmer would sink a near one. A fish leaps
+by moving to a point above the line and back, since `jump` lifts too
+little to clear it. The fish's tail is a hung spring, so it swishes on a
+start and a stop; it does not beat while the fish swims steadily, because
+springs answer changes of speed. The swan's neck stays rigid: hung, it
+would leave the eyes and beak behind, which the rig places on the body.
+The crocodile stands higher than a real one. `lie` lowers every
+quadruped's body by the same 48 units, so a belly drawn lower than the
+rig's sinks into the floor; reading each animal's own belly line would let
+a crocodile, a lizard or a tortoise crouch low. Its tail is not a spring,
+since a heavy tail on one drags into the floor as a walk starts. Left for
+later: ripples and a wake drawn round a swimmer, as moving water belongs
+to the engine.
+
 ### 7.3 Motion with weight
 
 Why: smoothness is not interpolation, it is contact, anticipation and

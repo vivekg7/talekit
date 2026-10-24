@@ -16,15 +16,20 @@ import { TIGER } from './tiger.js';
 import { BEAR } from './bear.js';
 import { FOX } from './fox.js';
 import { JACKAL } from './jackal.js';
+import { CROCODILE } from './crocodile.js';
 import { MOUSE } from './mouse.js';
 import { BIRD } from './bird.js';
 import { CROW } from './crow.js';
+import { SWAN } from './swan.js';
+import { FROG } from './frog.js';
+import { FISH } from './fish.js';
 import { PARK } from './park.js';
 import { HOME } from './home.js';
 import { STREET } from './street.js';
 import { JUNGLE } from './jungle.js';
 import { CAVE } from './cave.js';
 import { HUT } from './hut.js';
+import { POND } from './pond.js';
 
 export const LIBRARY: { characters: Record<string, Character>; scenes: Record<string, Scene> } = {
   characters: Object.fromEntries(
@@ -44,13 +49,17 @@ export const LIBRARY: { characters: Record<string, Character>; scenes: Record<st
       BEAR,
       FOX,
       JACKAL,
+      CROCODILE,
       MOUSE,
       BIRD,
       CROW,
+      SWAN,
+      FROG,
+      FISH,
     ].map((c) => [c.id, CharacterSchema.parse(c)])
   ),
   scenes: Object.fromEntries(
-    [PARK, HOME, STREET, JUNGLE, CAVE, HUT].map((s) => [s.id, SceneSchema.parse(s)])
+    [PARK, HOME, STREET, JUNGLE, CAVE, HUT, POND].map((s) => [s.id, SceneSchema.parse(s)])
   ),
 };
 
