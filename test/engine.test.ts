@@ -117,7 +117,7 @@ describe('timeline', () => {
   });
   it('draws closer actors later', () => {
     const f = resolveFrame(p, shot, 0);
-    expect(f.actors.map((a) => a.id)).toEqual(['dog', 'kid']); // bench y=655 is behind gate y=660
+    expect(f.actors.map((a) => a.id)).toEqual(['kid', 'dog']); // gate y=660 is behind bench y=664
     expect(f.actors[0].y).toBeLessThanOrEqual(f.actors[1].y);
   });
 });

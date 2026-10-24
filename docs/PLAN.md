@@ -418,6 +418,13 @@ was put up on the sofa at once and, getting up, dropped back to the floor
 in a frame. An animal now hops up onto a raised seat before it sits and
 hops down after it stands, with the jump's crouch, arc and landing.
 
+And the rest. The park bench was four equal planks between two posts,
+reading as a fence, its legs reaching 45 below the floor its anchors gave;
+Mia sat on the top rail. It is redrawn as a bench, a backrest behind a lit
+seat plank on legs that stand on the floor line, and its seat anchor is 42
+above that floor: about what a grown-up's shin reaches in this style, so a
+child's feet swing just clear of the ground.
+
 ### 7.3 Motion with weight
 
 Why: smoothness is not interpolation, it is contact, anticipation and
