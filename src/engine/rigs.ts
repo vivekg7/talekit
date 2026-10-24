@@ -63,6 +63,11 @@ export interface Rig {
    */
   belly?: number;
   /**
+   * Hooves rather than paws: lying, the forelegs fold under the chest rather than stretch
+   * out in front. A character says so (`hooves`).
+   */
+  hooves?: boolean;
+  /**
    * Where a person's torso ends, a little under the hips or lower for a kurta or a coat:
    * what `sit` rests on the seat. A character can move it (`hem`).
    */
@@ -251,16 +256,20 @@ const HUNG = new WeakMap<object, Rig>();
  * A hung part may hang from another; one whose chain does not reach a rig part, or loops,
  * is left to the rig's fallback (`validate` reports it).
  */
-export function rigOf(character: Pick<Character, 'rig' | 'hangs' | 'belly' | 'hem'>): Rig {
+export function rigOf(
+  character: Pick<Character, 'rig' | 'hangs' | 'belly' | 'hem' | 'hooves'>
+): Rig {
   const rig = hungRig(character);
-  // A character's own belly line or hem, where the rig has one.
+  // A character's own belly line or hem, and hooves, where the rig has them.
   const belly = rig.belly === undefined ? undefined : character.belly;
   const hem = rig.hem === undefined ? undefined : character.hem;
-  if ((belly ?? rig.belly) === rig.belly && (hem ?? rig.hem) === rig.hem) return rig;
-  const key = `${belly}/${hem}`;
+  const hooves = rig.belly !== undefined && !!character.hooves;
+  if ((belly ?? rig.belly) === rig.belly && (hem ?? rig.hem) === rig.hem && !hooves) return rig;
+  const key = `${belly}/${hem}/${hooves}`;
   let own = MOVED.get(rig);
   if (!own) MOVED.set(rig, (own = new Map()));
-  if (!own.has(key)) own.set(key, { ...rig, belly: belly ?? rig.belly, hem: hem ?? rig.hem });
+  if (!own.has(key))
+    own.set(key, { ...rig, belly: belly ?? rig.belly, hem: hem ?? rig.hem, hooves });
   return own.get(key)!;
 }
 

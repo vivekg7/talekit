@@ -162,6 +162,13 @@ export const CharacterSchema = z.object({
     .describe(
       'Quadruped only: y of the underside of the body in the box (default 152), which lie sets on the floor. Set it when the belly is drawn higher (a slender deer) or lower (a rabbit); the construction check measures it'
     ),
+  /** Quadruped: hooves rather than paws, which `lie` folds under the chest. */
+  hooves: z
+    .boolean()
+    .optional()
+    .describe(
+      'Quadruped only: true for hooves (a deer, a goat, a horse). Lying, the forelegs fold under the chest; without it they stretch out in front, the paws on the floor under the chin'
+    ),
   /** Humanoid: where the torso ends, which `sit` rests on the seat. */
   hem: z
     .number()

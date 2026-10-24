@@ -171,14 +171,17 @@ stroke-width='18' stroke-linecap='round' fill='none'/>` plus a hand circle
 
 Four-legged animals. The library has a dog, cat, rabbit, deer, lion, tiger,
 bear, fox, jackal, crocodile and mouse: copy and recolour one when you can,
-and read `get_library_item("dog")` before drawing a new one (a horse, a
-pig, a sheep). The underside of the body sits near y=152. `lie` lays it
-on the floor, so when you draw it higher (a slender deer) or lower (a
-round rabbit), say where with `"belly"`: the deer has 140, the rabbit 166.
-The construction check measures it between the legs and gives the number
-when it is more than 5 out. A low animal still needs its feet on y=200,
-so the crocodile stands on longer legs than a real one; in water the
-scene hides them.
+and read `get_library_item("dog")` before drawing a new one (a horse, a pig,
+a sheep). The underside of the body sits near y=152. `lie` lays it on the
+floor, so when you draw it higher (a slender deer) or lower (a round
+rabbit), say where with `"belly"`: the deer has 140, the rabbit 166. The
+construction check measures it between the legs and gives the number when it
+is more than 5 out. Lying, the front legs stretch out with the paws on the
+floor in front of the chest; for an animal with hooves (a deer, a goat, a
+horse) set `"hooves": true` and they fold back under the chest, knees
+forward, as a deer's do. A low animal still needs its feet on y=200, so the
+crocodile stands on longer legs than a real one; in water the scene hides
+them.
 
 ```
  y   0 ─┬─ top of box (ear tips, antlers)
@@ -243,7 +246,8 @@ bobbing against the step and the tail swinging; `run` is a gallop between a
 gathered pose and a stretched one; `sit` tips the body back about the hips,
 bends the hind legs at the knee with the paws on the floor and keeps the
 front paws planted on the way down; `lie` brings the body level onto its
-belly with all four legs folded and the head lowered; `wave` and `point`
+belly with the hind legs folded under, the front paws stretched out in
+front (hooves folded under) and the head lowered; `wave` and `point`
 lift the near front paw; `jump` gathers on bent legs, then leaps stretched
 out. Turning round (a `facing` change, or a move back the way it came)
 takes about 0.7 s, where a person swivels in 0.2: the head comes round
@@ -722,16 +726,16 @@ down it faces the viewer, turning at the start of the move and back at its
 end; walk them mostly across the screen to keep the face in profile.
 
 `lie` is for sleeping and resting. A person sits down on the ground (or on
-`to`, a bed or a sofa seat) and lies back with the head behind them, so
-face them the way their feet should point; an animal lies on its belly
-with its head down. A sleeper needs `face: { "eyes": "closed" }` and,
-if you like, a thought bubble (`"Zzz..."`): it comes from the head where it
-lies. `stand` gets up again (sitting up first) and `sit` sits back up. A
-`walk`, `run` or `jump` from sitting or lying gets up first and sets off
-once up, so it ends that much later (0.4 s from sitting, 1.3 s from
-lying); give a `stand` first if the getting up should take longer. To open a
-shot with someone already lying or sat, give the `lie` or `sit` at `t: 0` a
-`duration` of `0.05`.
+`to`, a bed or a sofa seat) and lies back with the head behind them, so face
+them the way their feet should point; an animal lies on its belly with its
+front paws out in front under its chin (hooves fold under the chest). A
+sleeper needs `face: { "eyes": "closed" }` and, if you like, a thought
+bubble (`"Zzz..."`): it comes from the head where it lies. `stand` gets up
+again (sitting up first) and `sit` sits back up. A `walk`, `run` or `jump`
+from sitting or lying gets up first and sets off once up, so it ends that
+much later (0.4 s from sitting, 1.3 s from lying); give a `stand` first if
+the getting up should take longer. To open a shot with someone already lying
+or sat, give the `lie` or `sit` at `t: 0` a `duration` of `0.05`.
 
 On the `simple` rig `wave`, `nod` and `shake` only tilt or nudge the body;
 `point` leans the body toward what it faces, `tremble` shivers it, and

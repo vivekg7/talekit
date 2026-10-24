@@ -293,6 +293,35 @@ const DEG = 180 / Math.PI;
 const BACK_DEPTH = 40;
 /** How far short of the floor a lying animal's folded feet stop (see `lie`). */
 const LIE_TUCK = 10;
+/** How far a lying animal's head sinks into its shoulders. */
+const LIE_HEAD = 10;
+/** How steeply a lying animal's forearm comes down to the paw, at most, degrees. */
+const LIE_PAW = 40;
+
+/**
+ * A front leg stretched out in front of a lying animal, its shoulder `h` above the floor:
+ * the upper leg reaches forward and down, no lower than will let the forearm come down at
+ * `LIE_PAW` (less steeply, when the shoulder is lower than that), and the forearm reaches
+ * on to the paw on the floor. Returns the turn and the elbow's bend, as foldLeg.
+ */
+function reachOut(leg: string, h: number): [number, number] {
+  const upper = QUADRUPED.bends[leg][1] - QUADRUPED.parts[leg].pivot[1];
+  const forearm = QUADRUPED.height - QUADRUPED.bends[leg][1];
+  const elbow = Math.max(0, Math.min(h, forearm * Math.sin(LIE_PAW / DEG)));
+  const turn = -Math.acos(Math.min(1, (h - elbow) / upper)) * DEG;
+  return [turn, -90 + Math.asin(elbow / forearm) * DEG - turn];
+}
+
+/**
+ * A hooved front leg folded under a lying animal, its shoulder `h` above the floor: the
+ * upper leg forward to a knee on the floor in front of the chest, the cannon folded back
+ * under it, the hoof tucked beneath the chest. Returns the turn and the bend, as foldLeg.
+ */
+function tuckUnder(leg: string, h: number): [number, number] {
+  const upper = QUADRUPED.bends[leg][1] - QUADRUPED.parts[leg].pivot[1];
+  const turn = -90 + Math.asin(Math.min(1, Math.max(0, h / upper))) * DEG;
+  return [turn, 80 - turn];
+}
 const mix = (a: number, b: number, u: number): number => a + (b - a) * u;
 /** How far below the hips a person sits: on the seat of the trousers. */
 const SEAT_DEPTH = 12;
@@ -445,17 +474,25 @@ function quadrupedVerb(rig: Rig, pose: Pose, verb: Verb, u: number): boolean {
         // Folded to a floor a little higher than the real one: a hoof across the end of a
         // slanted shin would reach below the belly with its corner.
         const floor = QUADRUPED.height - hip[1] - LIE_TUCK * l;
-        const [turn, bend] = foldLeg(QUADRUPED, leg, floor, 0, -90);
         const hind = leg.startsWith('legB');
-        // The hind legs are already folded; the front ones go from planted to folded.
+        // The hind legs are already folded under; the front ones go from planted to
+        // stretched out in front, the upper leg down to the floor and the paw on it ahead
+        // of the chest, where it shows (folded under, it would be lost in the body). Hooves
+        // fold back under the chest, knees forward.
+        const [turn, bend] = hind
+          ? foldLeg(QUADRUPED, leg, floor, 0, -90)
+          : rig.hooves
+            ? tuckUnder(leg, floor)
+            : reachOut(leg, floor + LIE_TUCK * l);
         pose.rot[leg] = hind
           ? turn - pose.rot.body
           : mix(pose.rot[leg] ?? 0, turn - pose.rot.body, l);
         pose.bend[leg] = hind ? bend : mix(pose.bend[leg] ?? 0, bend, l);
       }
-      // The neck sinks into the shoulders rather than the head tipping onto its face.
-      add('head', 12 * l);
-      nudge(pose, 'head', 4 * l, 26 * l);
+      // The neck sinks into the shoulders rather than the head tipping onto its face, and
+      // the chin stays up off the paws.
+      add('head', 8 * l);
+      nudge(pose, 'head', 4 * l, LIE_HEAD * l);
       add('tail', 30 * l);
       return true;
     }

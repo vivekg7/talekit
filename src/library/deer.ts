@@ -16,6 +16,7 @@ export const DEER: CharacterInput = {
   rig: 'quadruped',
   height: 190,
   belly: 140, // a slender belly, drawn high: where `lie` puts it on the floor
+  hooves: true, // lying, the forelegs fold under the chest
   colors: {
     fur: '#c98a4b',
     furDark: '#a86d35',

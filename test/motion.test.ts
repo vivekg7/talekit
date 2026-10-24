@@ -485,9 +485,24 @@ describe('lying down', () => {
     expect(pose.rot.body ?? 0).toBeCloseTo(0);
     expect(pose.off.body[1]).toBeGreaterThan(40);
     for (const [, y] of Object.values(worldFeet(a, 2))) expect(y).toBeLessThan(662);
-    // The head comes down on its neck rather than tipping onto its face.
-    expect(pose.off.head[1]).toBeGreaterThan(20);
+    // The head comes down on its neck rather than tipping onto its face, and the chin
+    // stays up off the front paws, which reach out in front on the floor where they show.
+    expect(pose.off.head[1]).toBeGreaterThan(5);
     expect(pose.rot.head).toBeLessThan(40);
+    const feet = worldFeet(a, 2);
+    const shoulder = toRoot(RIGS.quadruped, pose, 'body', RIGS.quadruped.parts.legFR.pivot);
+    const k = (a.character.height / RIGS.quadruped.height) * a.scale;
+    const ahead = (x: number) => (x - a.x) / k + RIGS.quadruped.width / 2 - shoulder[0];
+    expect(ahead(feet.legFR[0])).toBeGreaterThan(20);
+    expect(Math.abs(feet.legFR[1] - 660)).toBeLessThan(1.5);
+    // Hooves fold back under the chest instead.
+    const tucked = emptyPose();
+    const deer = rigOf({ rig: 'quadruped', belly: 140, hooves: true });
+    applyVerb(deer, tucked, 'sit', 1);
+    applyVerb(deer, tucked, 'lie', 1);
+    const hoof = footPoint(deer, tucked, 'legFR');
+    expect(hoof[0]).toBeLessThan(toRoot(deer, tucked, 'body', deer.parts.legFR.pivot)[0] + 10);
+    expect(hoof[1]).toBeLessThan(deer.height);
     // A belly drawn higher (a deer's) comes down further, onto the floor.
     const drop = (belly?: number) => {
       const lying = emptyPose();

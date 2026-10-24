@@ -5,6 +5,7 @@
   "rig": "quadruped",
   "height": 190,
   "belly": 140,
+  "hooves": true,
   "colors": {
     "fur": "#c98a4b",
     "furDark": "#a86d36",

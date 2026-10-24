@@ -427,7 +427,16 @@ child's feet swing just clear of the ground. The plait that went behind
 the body at view 0.5 did so in a frame, in the middle of the turn; now it
 is drawn behind the body from view 0.2 and, fading out by 0.8, where it
 was, so the part across the chest dissolves (`Pose.toward` is now how
-far).
+far). And a lying animal showed no paws: lowered onto its belly, the hip
+is 20 above the floor, so a 68-unit leg folded inside the body's own
+outline, and a near leg is fused into the body with no line of its own;
+the head came down over the rest. The front legs now reach forward, the
+forearm coming down at up to 40 degrees to a paw on the floor in front of
+the chest, and the head sinks less, so the paws show under the chin. That
+is wrong for a deer, which folds its forelegs under, and nothing in the
+drawing tells hooves from paws (the jackal's belly is drawn as high as the
+deer's), so a character says so (`hooves`), and hooves fold back under the
+chest with the knees forward.
 
 ### 7.3 Motion with weight
 
