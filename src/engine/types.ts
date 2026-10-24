@@ -552,7 +552,7 @@ export const ActionSchema = z
      * with no `do`, the id of the actor being spoken to.
      */
     to: PositionSchema.optional().describe(
-      'walk/run/move/fly/jump/sit/lie/putdown: where to (anchor, stage shortcut or {x, y}). On a say without do: the id of the actor spoken to, when the engine would guess wrong'
+      'walk/run/move/fly/jump/sit/lie/putdown: where to (anchor, stage shortcut or {x, y}); a sit or lie there walks over first. On a say without do: the id of the actor spoken to, when the engine would guess wrong'
     ),
     /** Dialogue shown in a bubble above the actor's head; also animates the mouth. */
     say: z

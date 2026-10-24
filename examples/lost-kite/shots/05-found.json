@@ -20,8 +20,7 @@
     { "t": 5, "actor": "biscuit", "do": "bounce", "duration": 1.5 },
     { "t": 7, "actor": "dad", "do": "wave" },
     { "t": 7.2, "actor": "dad", "say": "Good dog!" },
-    { "t": 8.5, "actor": "mia", "do": "walk", "to": { "x": 720, "y": 650 }, "duration": 1 },
-    { "t": 9.5, "actor": "mia", "do": "sit", "to": "bench-seat" },
+    { "t": 8.5, "actor": "mia", "do": "sit", "to": "bench-seat" },
     { "t": 10.2, "caption": "The End", "captionStyle": "title", "duration": 2.8 }
   ]
 }

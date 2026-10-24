@@ -298,6 +298,59 @@ describe('knees', () => {
     for (const t of [2.1, 2.3, 2.6, 3]) onFloor(t, off);
   });
 
+  /**
+   * The biggest jump from one frame to the next, over [t0, t1], of where it stands: a
+   * person's feet are `seat` below the seat until sat on it, an animal stands on it.
+   */
+  const biggestStep = (p: Project, id: string, t0: number, t1: number) => {
+    const stand = (a: ActorState) =>
+      [a.x, a.y + (a.character.rig === 'humanoid' ? a.seat * (1 - a.sit) : 0)] as const;
+    let most = 0;
+    for (let t = t0; t < t1; t += 1 / 24) {
+      const [a, b] = [stand(actorAt(p, id, t)), stand(actorAt(p, id, t + 1 / 24))];
+      most = Math.max(most, Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1]));
+    }
+    return most;
+  };
+
+  it('walks across to a seat before sitting on it, rather than jumping there', () => {
+    const p = seated([{ t: 0, actor: 'kid', do: 'sit', to: 'stool' }], {
+      kid: { at: { x: 200, y: 640 } },
+    });
+    const going = actorAt(p, 'kid', 1);
+    expect(going).toMatchObject({ locomotion: 'walk', sit: 0, seat: 0 });
+    expect(going.x).toBeGreaterThan(200);
+    expect(going.x).toBeLessThan(600);
+    expect(actorAt(p, 'kid', 3)).toMatchObject({ x: 600, y: 610, seat: 30, sit: 1 });
+    expect(biggestStep(p, 'kid', 0, 3)).toBeLessThan(15);
+    // Its feet stay on the floor as it gets there and sits.
+    for (const t of [1.8, 1.9, 2.1, 3])
+      for (const y of feetY(actorAt(p, 'kid', t), t)) expect(Math.abs(y - 640)).toBeLessThan(1.5);
+  });
+
+  it('has an animal hop up onto a raised seat and down off it again', () => {
+    const p = seated(
+      [
+        { t: 0, actor: 'dog', do: 'sit', to: 'sofa' },
+        { t: 5, actor: 'dog', do: 'stand' },
+        { t: 6.5, actor: 'dog', do: 'walk', to: { x: 200, y: 660 } },
+      ],
+      {}
+    );
+    p.scenes.park.anchors.sofa = { x: 600, y: 570, scale: 1, floor: 660 };
+    const hopping = (t: number) => actorAt(p, 'dog', t).verbs.some((v) => v.verb === 'jump');
+    // Across the floor, then up: walking at first, hopping before it sits.
+    expect(actorAt(p, 'dog', 1)).toMatchObject({ locomotion: 'walk', y: expect.closeTo(660, 0) });
+    const up = [...Array(80).keys()].map((i) => i / 20).filter(hopping);
+    expect(up.length).toBeGreaterThan(0);
+    expect(actorAt(p, 'dog', up[0]).sit).toBe(0);
+    expect(actorAt(p, 'dog', 4.5)).toMatchObject({ x: 600, y: 570, sit: 1 });
+    // Up on its feet on the seat, then down onto the floor before it walks off.
+    expect(hopping(5.8)).toBe(true);
+    expect(actorAt(p, 'dog', 6.5)).toMatchObject({ x: 600, y: 660, seat: 0 });
+    expect(biggestStep(p, 'dog', 0, 8)).toBeLessThan(20);
+  });
+
   it("sits a long kurta's hem on the ground rather than through it", () => {
     // The kid's dress ends 28 under the hips: on the ground she sits on it.
     const p = project([{ t: 0, actor: 'kid', do: 'sit' }]);

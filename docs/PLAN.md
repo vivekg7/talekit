@@ -407,6 +407,17 @@ reflection was still the old lion's head; it is now the library lion's
 head, ears, eyes and mouth in the water's blues, drawn a little smaller so
 the ears stay on the water.
 
+Two left over from that pass. `sit` with a `to` across the stage moved the
+actor there in one frame: the lost-kite ending walked Mia to x 720 and
+then sat her on a bench at 1010, a jump of 290 px. Now a sit or lie more
+than 24 px from where the actor stands walks it to the foot of the seat
+first and sits once it is there (nearer, it still shifts across, rather
+than shuffle a step for a seat beside it). And the raised-seat fix above
+is a person's pose, bending the knees to keep the feet on the floor; a dog
+was put up on the sofa at once and, getting up, dropped back to the floor
+in a frame. An animal now hops up onto a raised seat before it sits and
+hops down after it stands, with the jump's crouch, arc and landing.
+
 ### 7.3 Motion with weight
 
 Why: smoothness is not interpolation, it is contact, anticipation and

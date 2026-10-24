@@ -251,6 +251,13 @@ export const attachTime = (a: Action): number =>
 const LIFT_TIME = 0.35;
 /** Seconds a prop let go at the bottom of a putdown takes to settle where it goes. */
 const SETTLE_TIME = 0.25;
+/**
+ * Scene pixels from where it stands to the foot of a seat (or a bed) beyond which it walks
+ * there first; nearer, it shifts across as it sits.
+ */
+const APPROACH = 24;
+/** Verbs that sit, lie or stand: one of them cuts short a walk to a seat. */
+const SETTLE_VERBS = new Set<Verb>(['sit', 'lie', 'stand']);
 
 /** Who is carrying `prop` at time t, if anyone. */
 export function holderAt(shot: Shot, prop: string, t: number): string | undefined {
@@ -319,13 +326,35 @@ export function resolveActor(
   let face: Record<string, string> = {};
   let sitting = false;
   let seat = 0;
-  /** Getting up off a raised seat: on it until `at`, then on the floor in front of it. */
-  let rise: { at: number; seat: Point } | undefined;
-  const getUp = (at: number, seated: boolean) => {
-    if (!seated || seat <= 0) return;
-    rise = { at, seat: point };
-    point = { ...point, y: point.y + seat };
+  // A person climbs onto a raised seat and off it on their legs (the pose does it); an
+  // animal hops up and down.
+  const hops = rigOf(character).name !== 'humanoid';
+  const hop = (from: Point, to: Point, at: number): Move => ({
+    verb: 'jump',
+    from,
+    to,
+    t0: at,
+    t1: at + VERB_DURATION.jump!,
+    rest: at,
+  });
+  /**
+   * Getting up off a raised seat: on it until `at`, then on the floor in front of it (an
+   * animal hops down onto it). Gives when it is on the floor.
+   */
+  let rise: { at: number; seat: Point; hop?: Move } | undefined;
+  const getUp = (at: number, seated: boolean): number => {
+    if (!seated || seat <= 0) return at;
+    const floor = { ...point, y: point.y + seat };
+    rise = { at, seat: point, hop: hops ? hop(point, floor, at) : undefined };
+    point = floor;
+    return rise.hop?.t1 ?? at;
   };
+  /**
+   * Going to sit or lie somewhere else: walking there (an animal then hopping up onto a
+   * raised seat) until `at`, then on `point`. `undo` is how it stood before, to go back to
+   * if something else comes first.
+   */
+  let perch: { at: number; point: Point; seat: number; hop?: Move; undo: () => void } | undefined;
   let sitAt = -Infinity;
   let sitFrom = 0;
   let lying = false;
@@ -373,14 +402,39 @@ export function resolveActor(
   // A `duration` on sit, lie or stand is the whole change; going between standing and
   // lying it is shared between the sitting and the lying part as the defaults are.
   const share = (a: Action, parts: number) => (a.duration ?? parts) / parts;
+  // Sat or lying down, it gets up first (sitting up, then standing) and sets off once it is
+  // up; setting off at once would slide it along the floor as it rose. Gives when it can.
+  const setOff = (at: number): number => {
+    const lie = lieAmount(at);
+    lieTo(false, at, Math.max(1e-3, LIE_TIME * lie));
+    const risen = lie > 0 ? lieAt + lieTime : at;
+    const seated = sitting;
+    sitTo(false, risen);
+    return getUp(Math.max(risen, sitAmount(at) > 0 ? sitAt + sitTime : at), seated);
+  };
+  const stance = () => {
+    const s = { sitting, sitFrom, sitAt, sitTime, lying, lieFrom, lieAt, lieTime };
+    return () => ({ sitting, sitFrom, sitAt, sitTime, lying, lieFrom, lieAt, lieTime } = s);
+  };
 
   for (const a of actions) {
     if (a.t > t) break;
     // Where is the actor when this action starts?
     if (move) point = movePoint(move, a.t);
-    if (rise && a.t >= rise.at) {
+    if (rise && a.t >= (rise.hop?.t1 ?? rise.at)) {
       rise = undefined;
       seat = 0;
+    }
+    if (perch && a.t >= perch.at) {
+      point = perch.point;
+      seat = perch.seat;
+      move = undefined;
+      perch = undefined;
+    }
+    // Told to do something else before it got to its seat: it does not sit there after all.
+    if (perch && (a.set?.at || (a.do && (isMoveVerb(a.do) || SETTLE_VERBS.has(a.do))))) {
+      perch.undo();
+      perch = undefined;
     }
 
     // Let go before `set`, so a `set.at` in the same action puts the prop down there.
@@ -464,15 +518,7 @@ export function resolveActor(
       if (isMoveVerb(verb)) {
         const to = a.to ? resolvePosition(project, scene, a.to) : point;
         const d = actionDuration(a, point, to);
-        // Sat or lying down, it gets up first (sitting up, then standing) and sets off once
-        // it is up; setting off at once would slide it along the floor as it rose.
-        const lie = lieAmount(a.t);
-        lieTo(false, a.t, Math.max(1e-3, LIE_TIME * lie));
-        const risen = lie > 0 ? lieAt + lieTime : a.t;
-        const seated = sitting;
-        sitTo(false, risen);
-        const t0 = Math.max(risen, sitAmount(a.t) > 0 ? sitAt + sitTime : a.t);
-        getUp(t0, seated);
+        const t0 = setOff(a.t);
         move = { verb, from: point, to, t0, t1: t0 + d, rest: locoStart };
         locoStart = t0;
         if (Math.abs(to.x - point.x) > 1) turnTo(to.x > point.x ? 'right' : 'left', a.t);
@@ -484,23 +530,48 @@ export function resolveActor(
           rise = undefined;
         }
         const from = point;
+        // When it starts to sit: at once, or once it has got there.
+        let at = a.t;
         if (a.to) {
-          point = resolvePosition(project, scene, a.to);
-          move = undefined;
+          const to = resolvePosition(project, scene, a.to);
+          // Where it stands now, and where it will stand to sit (or lie) there.
+          const ground = sitting ? { ...point, y: point.y + seat } : point;
+          const high = verb === 'sit' ? seatHeight(scene, ground, to) : 0;
+          const foot = { ...to, y: to.y + high };
+          const far = Math.hypot(foot.x - ground.x, foot.y - ground.y) > APPROACH;
+          const on = sitting && Math.hypot(to.x - point.x, to.y - point.y) < 1;
+          const up = hops && high > 0 && !on;
+          if (far || up) {
+            // Up, across to the foot of it and (an animal) up onto it, then down.
+            at = setOff(a.t);
+            if (far) {
+              const d = moveDuration('walk', point, foot);
+              move = { verb: 'walk', from: point, to: foot, t0: at, t1: at + d, rest: locoStart };
+              locoStart = at;
+              if (Math.abs(foot.x - point.x) > 1) turnTo(foot.x > point.x ? 'right' : 'left', a.t);
+              at += d;
+            }
+            const jump = up ? hop(foot, to, at) : undefined;
+            perch = { at: jump?.t1 ?? at, point: to, seat: high, hop: jump, undo: stance() };
+            at = perch.at;
+          } else {
+            point = to;
+            move = undefined;
+          }
         }
         if (verb === 'sit') {
-          if (!sitting) seat = seatHeight(scene, from, point);
+          if (!sitting && !perch) seat = seatHeight(scene, from, point);
           // Already lying: sit back up.
           const k = share(a, lying ? LIE_TIME : SIT_TIME);
-          sitTo(true, a.t, SIT_TIME * k);
-          lieTo(false, a.t, LIE_TIME * k);
+          sitTo(true, at, SIT_TIME * k);
+          lieTo(false, at, LIE_TIME * k);
         } else {
           // Lying is on the surface itself: sit down on it first, then lie back.
           const k = share(a, (sitting ? 0 : SIT_TIME) + LIE_TIME);
           const down = sitting ? 0 : SIT_TIME * k;
-          if (!sitting) seat = 0;
-          sitTo(true, a.t, SIT_TIME * k);
-          lieTo(true, a.t + down, LIE_TIME * k);
+          if (!sitting && !perch) seat = 0;
+          sitTo(true, at, SIT_TIME * k);
+          lieTo(true, at + down, LIE_TIME * k);
         }
       } else if (verb === 'stand') {
         // From lying, sit up first, then get up.
@@ -571,10 +642,24 @@ export function resolveActor(
     turn = held.turn;
     locomotion = 'idle';
   }
+  const hopping = (m: Move | undefined) => {
+    if (!m || t < m.t0 || t >= m.t1 || heldBy) return false;
+    point = movePoint(m, t);
+    verbs.push({ verb: 'jump', u: (t - m.t0) / (m.t1 - m.t0) });
+    return true;
+  };
   // Still getting up off a raised seat: on the seat, which the pose lowers to the floor.
   const rising = rise && t < rise.at && !heldBy;
   if (rising) point = rise!.seat;
-  else if (rise) seat = 0;
+  else if (rise) {
+    seat = 0;
+    hopping(rise.hop);
+  }
+  // Got to the seat it was going to: on it.
+  if (perch && !heldBy && !hopping(perch.hop) && t >= perch.at) {
+    point = perch.point;
+    seat = perch.seat;
+  }
   const holding = Object.keys(shot.cast).some((other) => holderAt(shot, other, t) === id);
   const state: ActorState = {
     id,

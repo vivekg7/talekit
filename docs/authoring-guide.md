@@ -451,7 +451,10 @@ actor stood takes that spot as the floor, and sitting where it stands is
 sitting on the ground: legs out, knees up a little. The sit starts with
 the feet on that floor and rises onto the seat as the knees bend, and
 `stand`, or a walk straight off the seat, gets up onto the floor in front
-of it, so walk the actor to the foot of the seat first.
+of it. An animal hops up onto a raised seat and stands on it before it
+sits, and hops down again when it gets up. A `sit` or `lie` with a `to`
+more than a step away (24 px) walks there first, at walking speed, and
+sits once it arrives: there is no need to walk the actor to the seat.
 
 Keep anchors that two people use at the same time at least a character's
 width apart (about 150 px, more if one stands further back at a smaller
