@@ -11,6 +11,7 @@ import {
   AnchorSchema,
   CharacterSchema,
   SceneSchema,
+  MixSchema,
   MusicSchema,
   ShotSchema,
   VoiceSchema,
@@ -797,21 +798,23 @@ export function buildServer(): McpServer {
   server.registerTool(
     'set_audio',
     {
-      title: 'Set music and narrator',
+      title: 'Set music, narrator and mix',
       description:
-        "Set the project's music (under every shot that does not choose its own) and its narrator voice (who reads the captions); null clears one, leaving it out keeps it. Setting a narrator speaks every caption that has no audio yet. Returns a map of the whole film's sound: a row per speaker, the effects, the ambience and the music, against the clock, with the cuts numbered. A line outlined in red is still being said when its shot cuts.",
+        "Set the project's music (under every shot that does not choose its own), its narrator voice (who reads the captions) and its mix (a volume per layer: voices, music, ambience, effects; only when a listener says one is too loud or too quiet); null clears one, leaving it out keeps it. Setting a narrator speaks every caption that has no audio yet. Returns a map of the whole film's sound: a row per speaker, the effects, the ambience and the music, against the clock, with the cuts numbered. A line outlined in red is still being said when its shot cuts.",
       inputSchema: {
         path: pathArg,
         music: MusicSchema.nullable().optional(),
         narrator: VoiceSchema.nullable().optional(),
+        mix: MixSchema.nullable().optional(),
       },
     },
-    async ({ path: root, music, narrator }) => {
+    async ({ path: root, music, narrator, mix }) => {
       try {
         const project = await loadProject(root);
         const meta = { ...project.meta };
         if (music !== undefined) meta.music = music ?? undefined;
         if (narrator !== undefined) meta.narrator = narrator ?? undefined;
+        if (mix !== undefined) meta.mix = mix ?? undefined;
         const next = { ...project, meta };
         const problems = [
           ...musicProblems('project', meta.music, next),

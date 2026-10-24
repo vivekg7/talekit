@@ -12,8 +12,12 @@ export const RATE = 48000;
 const STEREO: Record<Bus, boolean> = { music: true, ambience: true, sfx: false, voice: false };
 /** Seconds of crossfade where a bed loops back to its start. */
 const LOOP_JOIN = 0.6;
-/** Music and ambience under a voice: how far down, and how fast they go and come back. */
-const DUCK = { music: 0.4, ambience: 0.7, attack: 0.25, release: 0.7 };
+/**
+ * Music and ambience under a voice: how far down, how fast they go and come back, and the
+ * longest gap between two lines they stay down through, so they do not swell up between
+ * every line of a conversation.
+ */
+const DUCK = { music: 0.3, ambience: 0.5, attack: 0.25, release: 0.8, hold: 1.5 };
 
 /** ffmpeg filters a cue's treatment adds as it is decoded. */
 const FX: Record<NonNullable<Cue['fx']>, string> = {
@@ -86,7 +90,13 @@ function duckCurve(spans: [number, number][], total: number): Float32Array {
   const d = new Float32Array(total);
   const attack = DUCK.attack * RATE;
   const release = DUCK.release * RATE;
-  for (const [a, b] of spans) {
+  const held: [number, number][] = [];
+  for (const [a, b] of [...spans].sort((x, y) => x[0] - y[0])) {
+    const last = held.at(-1);
+    if (last && a - last[1] < DUCK.hold * RATE) last[1] = Math.max(last[1], b);
+    else held.push([a, b]);
+  }
+  for (const [a, b] of held) {
     const from = Math.max(0, Math.floor(a - attack));
     const to = Math.min(total, Math.ceil(b + release));
     for (let i = from; i < to; i++) {
@@ -109,6 +119,8 @@ export interface MixOptions {
   ffmpegPath?: string;
   /** Length of the mix in seconds; default the shots' total. */
   seconds?: number;
+  /** Mix only these buses (still ducked under every voice): one layer of the sound on its own. */
+  buses?: Bus[];
 }
 
 /**
@@ -120,8 +132,9 @@ export async function mixAudio(
   shots: Shot[] = project.shots,
   opts: MixOptions = {}
 ): Promise<Float32Array | undefined> {
-  const cues = cueSheet(project, shots);
-  if (!cues.length) return undefined;
+  const all = cueSheet(project, shots);
+  if (!all.length) return undefined;
+  const cues = opts.buses ? all.filter((c) => opts.buses!.includes(c.bus)) : all;
   const ffmpeg = opts.ffmpegPath ?? 'ffmpeg';
   const seconds = opts.seconds ?? shots.reduce((s, x) => s + x.duration, 0);
   const total = Math.round(seconds * RATE);
@@ -136,9 +149,10 @@ export async function mixAudio(
     })
   );
 
-  const spans: [number, number][] = cues
+  // A voice left out of this mix still ducks it, for as long as its clip is.
+  const spans: [number, number][] = all
     .filter((c) => c.bus === 'voice')
-    .map((c) => [c.at * RATE, c.at * RATE + clips.get(key(c))!.length]);
+    .map((c) => [c.at * RATE, c.at * RATE + (clips.get(key(c))?.length ?? c.length! * RATE)]);
   const duck = duckCurve(spans, total);
 
   const out = new Float32Array(total * 2);

@@ -784,8 +784,9 @@ A film has six layers of sound. You choose four; the engine makes the rest.
   A shot's `music` changes it from that shot on: `"tense"`,
   `{ "track": "sad", "volume": 0.7 }`, or `false` for silence. A track that
   carries on into the next shot keeps playing across the cut; a new one
-  crossfades in. It ducks under every voice on its own. Choose music by the
-  story's mood, and change it only where the mood turns.
+  crossfades in. It ducks under every voice on its own, and stays down
+  through the short gaps of a conversation. Choose music by the story's
+  mood, and change it only where the mood turns.
 - **Ambience.** A scene's `ambience` lists looping sounds of the place:
   `["jungle"]`, `["night"]`, `[{ "sound": "village", "volume": 0.6 }]`. The
   library's scenes come with theirs. It carries across cuts between shots in
@@ -801,6 +802,15 @@ A film has six layers of sound. You choose four; the engine makes the rest.
   each foot as it lands), the whoosh into a jump and its landing, a sparkle on
   `appear` and `disappear`, and the tap of a pickup or putdown are the
   engine's: never add them.
+
+- **Mix.** The engine sets every layer's level: music and ambience sit well
+  under the voices and duck further while anyone speaks. When a listener
+  finds a layer too loud or too quiet, `set_audio(path, mix: { "music": 0.5 })`
+  sets a volume per layer (`voices`, `music`, `ambience`, `effects`; 1 as the
+  engine sets it, 0.5 is 6 dB down, 2 is 6 dB up), for the whole film. A
+  person can set it by ear with the sliders in the review app. Leave it out
+  until someone has listened: a per-sound `volume` is for one sound, `mix` is
+  for a whole layer.
 
 A project's own sounds and music go in its `audio/` folder (`.ogg`, `.wav`,
 `.mp3`, `.flac`) and are used by file name without the extension, wherever a

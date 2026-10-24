@@ -65,6 +65,13 @@ Then tell the agent "fix my notes": `list_notes` hands it each open note with a
 picture of exactly what you were looking at, and `resolve_note` closes it. The
 page follows the project directory, so the agent's edits appear as it works.
 
+The film plays with its sound, through a slider for each layer (voices, music,
+ambience, effects): move one while it plays to hear the change. **Save** writes
+the balance to the project's `mix`, which every render after uses; **Save and
+remix video** also puts the new sound under `out/movie.mp4` in a few seconds,
+without drawing a frame (`talekit remix <dir> [-o file.mp4]` does the same
+from the command line).
+
 ## What the agent writes
 
 - **Character** — a rigged puppet: SVG fragments per part (`head`, `torso`,
@@ -121,7 +128,7 @@ my-story/
 | `preview_shot`             | contact sheet of a shot                                                 |
 | `list_voices`              | voices for characters and the narrator, by language                     |
 | `list_sounds`              | bundled music, ambience and sound effects                               |
-| `set_audio`                | sets the music and narrator, returns a **map of the film's sound**      |
+| `set_audio`                | sets the music, narrator and mix, returns a **map of the film's sound** |
 | `render`                   | mp4 of one shot or the whole film, plus a **film sheet** (frame/shot)   |
 | `list_notes`               | review notes left in the app, each with the frame or sheet it points at |
 | `resolve_note`             | marks a note done once the fix is in                                    |
@@ -134,7 +141,7 @@ talekit check <dir>                  talekit frame <dir> <shot> -t 2.5 [--debug]
 talekit library                      talekit contact <dir> <shot> -n 6
 talekit copy <dir> <libraryId>       talekit render <dir> [shot] [--silent]
 talekit serve <dir>                  talekit voice <dir> [shot]
-talekit mcp
+talekit mcp                          talekit remix <dir> [-o file.mp4]
 ```
 
 ## How it works

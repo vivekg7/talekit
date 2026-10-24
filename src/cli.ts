@@ -14,7 +14,7 @@ import {
   contactSheetSvg,
   sceneSheetSvg,
 } from './render/sheets.js';
-import { renderVideo } from './render/video.js';
+import { remixVideo, renderVideo } from './render/video.js';
 import { makeVoices, type VoiceReport } from './project/voices.js';
 
 const USAGE = `talekit — story video generation for AI agents
@@ -28,6 +28,7 @@ const USAGE = `talekit — story video generation for AI agents
   talekit contact <dir> <shotId> [-n 6] [-o file.png]
   talekit voice <dir> [shotId]                 speak the lines that have no audio yet (local TTS)
   talekit render <dir> [shotId] [-o file.mp4] [--silent]
+  talekit remix <dir> [-o file.mp4]            mix the sound again under a rendered film (after a mix change)
   talekit serve <dir> [--port 4848]            review app: film, assets, notes
   talekit mcp                                  start the MCP server on stdio
 `;
@@ -202,6 +203,15 @@ async function main(argv: string[]): Promise<void> {
       console.log(
         `${outPath}  (${r.seconds.toFixed(1)}s, ${r.frames} frames, ${((Date.now() - started) / 1000).toFixed(1)}s wall)`
       );
+      return;
+    }
+    case 'remix': {
+      const [dir] = rest;
+      if (!dir) throw new Error('usage: talekit remix <dir> [-o file.mp4]');
+      const project = await loadProject(dir);
+      const file = values.out ?? path.join(projectPaths(dir).out, 'movie.mp4');
+      const r = await remixVideo(project, file);
+      console.log(`${file}  (new sound under ${r.seconds.toFixed(1)}s)`);
       return;
     }
     case 'serve': {

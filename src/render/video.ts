@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -162,4 +162,68 @@ export async function renderVideo(
     if (audio) await rm(audioPath, { force: true });
   }
   return { frames: plan.length, seconds: plan.length / fps };
+}
+
+/** Run ffmpeg to the end; resolves with what it printed, whatever its exit code. */
+function runFfmpeg(bin: string, args: string[]): Promise<{ code: number; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const ff = spawn(bin, args, { stdio: ['ignore', 'ignore', 'pipe'] });
+    let stderr = '';
+    ff.stderr.on('data', (d) => (stderr += d));
+    ff.on('error', (e) => reject(new Error(`ffmpeg failed to start: ${e.message}`)));
+    ff.on('close', (code) => resolve({ code: code ?? 1, stderr }));
+  });
+}
+
+/**
+ * Put a new mix under a film already rendered, without drawing a frame again: for a change
+ * of balance (the project's `mix`), which only the ears can judge and so takes several goes.
+ * The film must still be these shots: its length is checked against theirs.
+ */
+export async function remixVideo(
+  project: Project,
+  file: string,
+  opts: { shots?: Shot[]; ffmpegPath?: string } = {}
+): Promise<{ seconds: number }> {
+  const bin = opts.ffmpegPath ?? 'ffmpeg';
+  const shots = opts.shots ?? project.shots;
+  const { fps } = project.meta;
+  const frames = shots.reduce((n, s) => n + Math.max(1, Math.round(s.duration * fps)), 0);
+  const seconds = frames / fps;
+  const probe = /Duration: (\d+):(\d+):([\d.]+)/.exec((await runFfmpeg(bin, ['-i', file])).stderr);
+  if (!probe) throw new Error(`${file} is not a film ffmpeg can read`);
+  const length = Number(probe[1]) * 3600 + Number(probe[2]) * 60 + Number(probe[3]);
+  if (Math.abs(length - seconds) > 0.1)
+    throw new Error(
+      `${file} is ${length.toFixed(2)}s and the shots are ${seconds.toFixed(2)}s: render it again`
+    );
+
+  const audio = await mixAudio(project, shots, { ffmpegPath: bin, seconds });
+  const audioPath = `${file}.audio.f32`;
+  const tmp = `${file}.remix.mp4`;
+  if (audio) await writeFile(audioPath, new Uint8Array(audio.buffer));
+  try {
+    const r = await runFfmpeg(bin, [
+      '-y',
+      '-loglevel',
+      'error',
+      '-i',
+      file,
+      ...(audio ? ['-f', 'f32le', '-ar', String(RATE), '-ac', '2', '-i', audioPath] : []),
+      '-map',
+      '0:v',
+      ...(audio ? ['-map', '1:a', '-c:a', 'aac', '-b:a', '160k'] : []),
+      '-c:v',
+      'copy',
+      '-movflags',
+      '+faststart',
+      tmp,
+    ]);
+    if (r.code !== 0) throw new Error(`ffmpeg exited with ${r.code}: ${r.stderr}`);
+    await rename(tmp, file);
+  } finally {
+    await rm(audioPath, { force: true });
+    await rm(tmp, { force: true });
+  }
+  return { seconds };
 }

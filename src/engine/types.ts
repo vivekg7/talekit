@@ -651,6 +651,23 @@ export const ShotSchema = z.object({
 export type Shot = z.infer<typeof ShotSchema>;
 export type ShotInput = z.input<typeof ShotSchema>;
 
+/**
+ * Volume per layer of the film's sound, on top of the engine's own levels. Left out is 1
+ * (no default, which zod would fill in and the project would then save).
+ */
+const MixLevel = z.number().min(0).max(4).optional();
+export const MixSchema = z
+  .object({
+    voices: MixLevel.describe('Every spoken line, narrator included'),
+    music: MixLevel.describe('The music'),
+    ambience: MixLevel.describe("Each place's background sound, rain and wind included"),
+    effects: MixLevel.describe("Sounds, footsteps and the engine's own effects"),
+  })
+  .describe(
+    "The balance of the film's sound: a volume per layer, 1 as the engine sets it, 0.5 half as loud (-6 dB), 2 twice (+6 dB), 0 silent. Music and ambience already sit well under the voices and duck further while anyone speaks; set this only when a listen says a layer is too loud or too quiet. The review app (talekit serve) has sliders for it"
+  );
+export type Mix = z.infer<typeof MixSchema>;
+
 export const ProjectMetaSchema = z.object({
   title: z.string().min(1),
   width: z.number().int().positive().default(1280),
@@ -666,6 +683,7 @@ export const ProjectMetaSchema = z.object({
   narrator: VoiceSchema.optional().describe(
     'The voice that reads the captions, narration and titles (list_voices). Without one they are silent'
   ),
+  mix: MixSchema.optional(),
 });
 export type ProjectMeta = z.infer<typeof ProjectMetaSchema>;
 export type ProjectMetaInput = z.input<typeof ProjectMetaSchema>;

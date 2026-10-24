@@ -86,6 +86,18 @@ describe('cue sheet', () => {
     expect(centre.gain).toBeCloseTo(left.gain / 2);
   });
 
+  it("sets each layer's volume by the project's mix, and only that layer's", () => {
+    const shots = [shot('a', { actions: [{ t: 0.5, sound: 'ping' }] })];
+    const plain = cueSheet(project(shots, 'tune'));
+    const p = project(shots, 'tune');
+    p.meta.mix = { music: 0.5, effects: 0 };
+    const mixed = cueSheet(p);
+    const gain = (cues: typeof plain, bus: string) => cues.find((c) => c.bus === bus)!.gain;
+    expect(gain(mixed, 'music')).toBeCloseTo(gain(plain, 'music') / 2);
+    expect(gain(mixed, 'sfx')).toBe(0);
+    expect(gain(mixed, 'ambience')).toBe(gain(plain, 'ambience'));
+  });
+
   it('hears footsteps as feet land, rain as hard as it falls and thunder after a strike', () => {
     const p = project([
       shot('a', {

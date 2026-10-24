@@ -807,6 +807,33 @@ surprised are 1.2, scared 1.0, sad 0.6, angry and neutral 0.5. A line takes
 about a second to make, five times Kokoro's, which `write_shot` can afford
 for a shot's few lines.
 
+Second listen (2026-10-24, Vivek on a phone, the race and sticks films): the
+music and ambience were too loud against the dialogue. Measured on the race
+film's layers in 0.4 s blocks, the voices were a median 16 dB over music and
+ambience while anyone spoke, but only 7 dB in the loudest tenth (a loud
+passage of the track ducks by the same fixed amount), and between lines the
+music came back to 11 dB under speaking level, swelling in every gap of a
+conversation. Three changes, together worth about 6 dB under speech and 5 dB
+between lines (now 23 dB median and 13 dB at worst while speaking, 15 dB
+between):
+
+- **Lower beds.** Music 0.4 → 0.24, ambience 0.45 → 0.32 of their source level.
+- **Deeper ducking that holds.** Music ducks to 0.3 instead of 0.4, ambience to
+  0.5 instead of 0.7, and stays down through any gap under 1.5 s between two
+  lines, coming back over 0.8 s after the last.
+- **A mix the listener sets.** A per-layer volume (`mix` on the project:
+  voices, music, ambience, effects) on top of the engine's levels, because the
+  right balance depends on where the film is heard and only a listener can
+  judge it. The review app plays each layer as its own audio file (mixed
+  without `mix`, cached in `out/stems/` by a hash of the cue sheet) through a
+  Web Audio gain per slider, so a change is heard while the film plays;
+  mixing is linear, so the four together are the film's sound. Saving writes
+  `mix`; remixing puts a new sound under `out/movie.mp4` with the video
+  stream copied, in seconds rather than a render's minutes. A
+  loudness-following duck (a compressor keyed on the voices) was the other
+  way to tame loud passages; fixed levels with a hold do it without guessing,
+  and keep the mix a plain function of the cue sheet.
+
 ## Render speed
 
 Measured 2026-10-23 on a 12-core M-series Mac, on the race film (273 s, scenery

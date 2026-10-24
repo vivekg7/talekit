@@ -8,7 +8,17 @@ import {
   resolveCamera,
   resolvePosition,
 } from './timeline.js';
-import type { Character, Effect, Music, Project, Scene, Shot, Verb, Weather } from './types.js';
+import type {
+  Character,
+  Effect,
+  Mix,
+  Music,
+  Project,
+  Scene,
+  Shot,
+  Verb,
+  Weather,
+} from './types.js';
 import { actionSalt, resolveSound, soundLength, type Source } from './sources.js';
 import { strikeAt, WEATHER_TURN, weatherAt } from './weather.js';
 import { voiceLines, type Line } from './voice.js';
@@ -48,10 +58,18 @@ export interface Cue {
 /**
  * Each bus's level, so a cue's own volume of 1 means "as loud as that kind of thing is".
  * Sources come in at known loudness (spoken lines at -20 LUFS, bundled music -18, ambience
- * -23, effects peaking at -1 dBFS), which puts dialogue near -17 LUFS, the music about 9 dB
- * under it and the ambience 13 dB under.
+ * -23, effects peaking at -1 dBFS), which puts dialogue near -17 LUFS, the music about 13 dB
+ * under it and the ambience 16 dB under, before they duck under each line. Heard on a phone,
+ * music 9 dB under the voices was too loud between the lines (2026-10-24).
  */
-const LEVEL: Record<Bus, number> = { music: 0.4, ambience: 0.45, sfx: 0.8, voice: 1.5 };
+const LEVEL: Record<Bus, number> = { music: 0.24, ambience: 0.32, sfx: 0.8, voice: 1.5 };
+/** The project's `mix` field names each bus. */
+const MIX_KEY: Record<Bus, keyof Mix> = {
+  music: 'music',
+  ambience: 'ambience',
+  sfx: 'effects',
+  voice: 'voices',
+};
 /** Seconds a new track takes to come in, and the old one to go out after the cut. */
 const MUSIC_IN = 0.4;
 const MUSIC_OUT = 1.2;
@@ -427,6 +445,10 @@ export function cueSheet(project: Project, shots: Shot[] = project.shots): Cue[]
       shot: line.shot,
     });
   }
+
+  // The project's own balance, on top of the levels above.
+  const mix = project.meta.mix;
+  if (mix) for (const c of cues) c.gain *= mix[MIX_KEY[c.bus]] ?? 1;
 
   return cues.sort((x, y) => x.at - y.at);
 }

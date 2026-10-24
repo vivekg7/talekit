@@ -65,6 +65,13 @@ button:disabled{opacity:.4;cursor:default}
 #lightbox.on{display:flex}
 #lightbox img{max-width:none;background:#e9eef3;border-radius:6px}
 .hint{color:var(--dim);font-size:12px;padding:0 14px 8px}
+#mixer{display:flex;gap:6px 16px;align-items:center;padding:0 14px 8px;flex-wrap:wrap}
+#mixer[hidden]{display:none}
+#mixer b{font-weight:600}
+#mixer label{display:flex;gap:6px;align-items:center;color:var(--dim)}
+#mixer input{width:110px}
+#mixer output{min-width:52px;font-variant-numeric:tabular-nums;color:var(--text)}
+#mix-status{color:var(--dim);font-size:12px}
 </style></head><body>
 <header>
   <strong>talekit</strong><span id='title'></span><span id='live' title='watching the project directory'></span>
@@ -85,13 +92,23 @@ button:disabled{opacity:.4;cursor:default}
       <select id='source'><option value='live'>live frames</option><option value='video'>rendered video</option></select>
       <label><input id='debug' type='checkbox'> anchors</label>
     </div>
+    <div id='mixer' hidden><b>Sound</b>
+      <label>Voices <input type='range' data-k='voices' min='-30' max='12' step='0.5' value='0'><output></output></label>
+      <label>Music <input type='range' data-k='music' min='-30' max='12' step='0.5' value='0'><output></output></label>
+      <label>Ambience <input type='range' data-k='ambience' min='-30' max='12' step='0.5' value='0'><output></output></label>
+      <label>Effects <input type='range' data-k='effects' min='-30' max='12' step='0.5' value='0'><output></output></label>
+      <button class='ghost' id='mix-reset' title='Back to the engine levels'>Reset</button>
+      <button class='act' id='mix-save' title='Write the mix to talekit.json; the next render uses it'>Save</button>
+      <button class='act' id='mix-remix' title='Save, then put the new sound under out/movie.mp4 without rendering a frame'>Save and remix video</button>
+      <span id='mix-status'></span>
+    </div>
     <div id='strip'></div>
     <div class='notebox'>
       <span class='where' id='note-where'></span>
       <textarea id='note-text' placeholder='What is wrong at this moment? (Enter to add, Shift+Enter for a new line)'></textarea>
       <button class='act' id='note-add'>Add note</button>
     </div>
-    <div class='hint'>Space plays, arrow keys step one frame, [ and ] change shot. Yellow marks on the scrubber are notes on this shot.</div>
+    <div class='hint'>Space plays, arrow keys step one frame, [ and ] change shot. Yellow marks on the scrubber are notes on this shot. The sound is the film's, played through the sliders: move one while it plays to hear the change.</div>
     <div id='problems'></div>
   </section>
   <section class='view' id='view-characters'><div class='grid' id='characters'></div></section>
@@ -128,7 +145,7 @@ function load() {
     $('source').style.display = info.movie ? '' : 'none';
     $('source').options[1].textContent = info.movie ? 'rendered video' + (info.movie.stale ? ' (older than the shots)' : '') : '';
     if (!info.movie && $('source').value === 'video') $('source').value = 'live';
-    renderStrip(); renderCards('characters'); renderCards('scenes'); renderNotes();
+    renderStrip(); renderCards('characters'); renderCards('scenes'); renderNotes(); setupSound();
     var cur = shot && info.shots.find(function (s) { return s.id === shot.id; });
     shot = cur || info.shots[0] || null;
     if (shot) { t = Math.min(t, shot.duration); $('scrub').max = shot.duration; }
@@ -218,7 +235,7 @@ function jumpTo(id, time) {
   var s = info.shots.find(function (x) { return x.id === id; }); if (!s) return;
   shot = s; t = Math.min(time, s.duration); $('scrub').max = s.duration; markStrip();
   if (video()) video().currentTime = shotStart(s) + t;
-  draw();
+  soundSeek(); draw();
 }
 
 /* ---- the stage: live SVG frames, or the rendered mp4 when it exists ---- */
@@ -226,11 +243,16 @@ function video() { return $('source').value === 'video' ? $('stage').querySelect
 function syncStage() {
   var st = $('stage');
   if ($('source').value === 'video' && info.movie) {
-    if (!st.querySelector('video')) {
-      st.innerHTML = "<video src='/movie.mp4?v=" + info.movie.mtime + "' preload='auto'></video>";
+    var old = st.querySelector('video');
+    if (old && old.dataset.m !== String(info.movie.mtime)) { if (playing) $('play').click(); old = null; }
+    if (!old) {
+      st.innerHTML = "<video src='/movie.mp4?v=" + info.movie.mtime + "' data-m='" + info.movie.mtime + "' preload='auto' muted></video>";
       var v = st.querySelector('video');
-      v.ontimeupdate = function () { if (!shot) return; var tt = v.currentTime; for (var i = 0; i < info.shots.length; i++) { var s = info.shots[i]; if (tt < s.duration || i === info.shots.length - 1) { if (shot.id !== s.id) { shot = s; $('scrub').max = s.duration; markStrip(); } t = Math.max(0, Math.min(tt, s.duration)); break; } tt -= s.duration; } $('scrub').value = t; $('t').textContent = label(); };
-      v.onended = function () { playing = false; $('play').textContent = 'Play'; };
+      v.muted = true;
+      v.ontimeupdate = function () { if (!shot) return; var tt = v.currentTime; for (var i = 0; i < info.shots.length; i++) { var s = info.shots[i]; if (tt < s.duration || i === info.shots.length - 1) { if (shot.id !== s.id) { shot = s; $('scrub').max = s.duration; markStrip(); } t = Math.max(0, Math.min(tt, s.duration)); break; } tt -= s.duration; } $('scrub').value = t; $('t').textContent = label(); soundDrift(); };
+      v.onended = function () { playing = false; $('play').textContent = 'Play'; soundPause(); };
+      // The sound starts when the picture does, not when it was asked to.
+      v.onplaying = function () { if (playing) soundPlay(); };
       v.onloadedmetadata = function () { if (shot) v.currentTime = shotStart(shot) + t; };
     }
   } else if (st.querySelector('video')) st.innerHTML = '';
@@ -255,18 +277,18 @@ function tick(now) {
   if (t >= shot.duration) {
     var i = info.shots.indexOf(shot);
     if (i < info.shots.length - 1) { shot = info.shots[i + 1]; t = 0; $('scrub').max = shot.duration; markStrip(); }
-    else { t = shot.duration - 1 / info.fps; playing = false; $('play').textContent = 'Play'; }
+    else { t = shot.duration - 1 / info.fps; playing = false; $('play').textContent = 'Play'; soundPause(); }
   }
-  draw(); requestAnimationFrame(tick);
+  soundDrift(); draw(); requestAnimationFrame(tick);
 }
 $('play').onclick = function () {
   if (!shot) return;
   playing = !playing; $('play').textContent = playing ? 'Pause' : 'Play';
   var v = video();
-  if (v) { if (playing) { if (t >= shot.duration - 0.02) jumpTo(shot.id, 0); v.play(); } else v.pause(); return; }
-  if (playing) { if (t >= shot.duration - 0.02) t = 0; last = performance.now(); requestAnimationFrame(tick); }
+  if (v) { if (playing) { if (t >= shot.duration - 0.02) jumpTo(shot.id, 0); v.play(); } else { v.pause(); soundPause(); } return; }
+  if (playing) { if (t >= shot.duration - 0.02) t = 0; last = performance.now(); requestAnimationFrame(tick); soundPlay(); } else soundPause();
 };
-$('scrub').oninput = function (e) { t = Number(e.target.value); var v = video(); if (v) v.currentTime = shotStart(shot) + t; draw(); };
+$('scrub').oninput = function (e) { t = Number(e.target.value); var v = video(); if (v) v.currentTime = shotStart(shot) + t; soundSeek(); draw(); };
 $('debug').onchange = draw;
 document.addEventListener('keydown', function (e) {
   if (view !== 'film' || !shot || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
@@ -278,6 +300,97 @@ document.addEventListener('keydown', function (e) {
   else if (e.key === '[' && i > 0) jumpTo(info.shots[i - 1].id, 0);
   else if (e.key === 'n') { $('note-text').focus(); }
 });
+
+/* ---- the sound: each layer of the mix on its own, through a gain per slider ---- */
+var sound = { ctx: null, key: null, els: {}, gains: {}, dirty: false };
+var BUS = { voices: 'voice', music: 'music', ambience: 'ambience', effects: 'sfx' };
+var sliders = function () { return Array.prototype.slice.call(document.querySelectorAll('#mixer input')); };
+var gainOf = function (db) { return db <= -30 ? 0 : Math.pow(10, db / 20); };
+var dbOf = function (g) { return g <= 0 ? -30 : Math.max(-30, Math.min(12, 20 * Math.log10(g))); };
+var filmTime = function () { var v = video(); return v ? v.currentTime : shot ? shotStart(shot) + t : 0; };
+function showLevels() {
+  sliders().forEach(function (el) {
+    var db = Number(el.value);
+    el.nextElementSibling.textContent = db <= -30 ? 'off' : (db > 0 ? '+' : '') + db.toFixed(1) + ' dB';
+    var g = sound.gains[BUS[el.dataset.k]]; if (g) g.gain.value = gainOf(db);
+  });
+}
+function setupSound() {
+  var st = info.stems;
+  $('mixer').hidden = !st.buses.length;
+  $('mix-remix').style.display = info.movie ? '' : 'none';
+  if (!sound.dirty) sliders().forEach(function (el) { var g = info.mix[el.dataset.k]; el.value = dbOf(g === undefined ? 1 : g); });
+  sliders().forEach(function (el) { el.disabled = st.buses.indexOf(BUS[el.dataset.k]) < 0; });
+  if (st.key !== sound.key) {
+    var was = playing;
+    Object.keys(sound.els).forEach(function (b) { sound.els[b].pause(); });
+    sound.els = {}; sound.gains = {}; sound.key = st.key;
+    var waiting = st.buses.length;
+    if (waiting) $('mix-status').textContent = 'preparing the sound…';
+    st.buses.forEach(function (b) {
+      var el = new Audio(); el.preload = 'auto';
+      el.oncanplaythrough = function () { el.oncanplaythrough = null; if (--waiting === 0 && sound.key === st.key) $('mix-status').textContent = ''; };
+      el.onerror = function () { $('mix-status').textContent = 'the ' + b + ' layer could not be mixed'; };
+      el.src = '/api/stem?bus=' + b + '&k=' + st.key;
+      sound.els[b] = el;
+    });
+    if (sound.ctx) connectSound();
+    if (was) soundPlay();
+  }
+  showLevels();
+}
+function connectSound() {
+  Object.keys(sound.els).forEach(function (b) {
+    if (sound.gains[b]) return;
+    var g = sound.ctx.createGain();
+    sound.ctx.createMediaElementSource(sound.els[b]).connect(g).connect(sound.ctx.destination);
+    sound.gains[b] = g;
+  });
+  showLevels();
+}
+function soundPlay() {
+  if (!Object.keys(sound.els).length) return;
+  if (!sound.ctx) { sound.ctx = new AudioContext(); connectSound(); }
+  sound.ctx.resume();
+  Object.keys(sound.els).forEach(function (b) {
+    var el = sound.els[b];
+    var go = function () { el.currentTime = filmTime(); el.play().catch(function () {}); };
+    // A layer still being mixed starts where the film is once it arrives.
+    if (el.readyState >= 1) go(); else el.addEventListener('loadedmetadata', function () { if (playing) go(); }, { once: true });
+  });
+}
+function soundPause() { Object.keys(sound.els).forEach(function (b) { sound.els[b].pause(); }); }
+function soundSeek() { if (playing) soundPlay(); }
+function soundDrift() {
+  if (!playing) return;
+  var ft = filmTime();
+  Object.keys(sound.els).forEach(function (b) { var el = sound.els[b]; if (!el.paused && Math.abs(el.currentTime - ft) > 0.12) el.currentTime = ft; });
+}
+sliders().forEach(function (el) {
+  el.oninput = function () { sound.dirty = true; $('mix-status').textContent = 'not saved'; showLevels(); };
+});
+$('mix-reset').onclick = function () { sliders().forEach(function (el) { el.value = 0; }); sound.dirty = true; $('mix-status').textContent = 'not saved'; showLevels(); };
+function saveMix() {
+  var mix = {};
+  sliders().forEach(function (el) { mix[el.dataset.k] = Math.round(gainOf(Number(el.value)) * 1000) / 1000; });
+  return api('/api/mix', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mix: mix }) }).then(function (r) {
+    if (r.error) throw new Error(r.error);
+    sound.dirty = false;
+  });
+}
+$('mix-save').onclick = function () {
+  saveMix().then(function () { $('mix-status').textContent = 'saved to talekit.json: the next render uses it'; }).catch(function (e) { $('mix-status').textContent = e.message; });
+};
+$('mix-remix').onclick = function () {
+  var b = this; b.disabled = true;
+  saveMix().then(function () {
+    $('mix-status').textContent = 'mixing the sound under out/movie.mp4…';
+    return api('/api/remix', { method: 'POST' });
+  }).then(function (r) {
+    if (r.error) throw new Error(r.error);
+    $('mix-status').textContent = 'saved, and out/movie.mp4 has the new sound';
+  }).catch(function (e) { $('mix-status').textContent = e.message; }).then(function () { b.disabled = false; });
+};
 
 /* ---- follow the agent: reload whenever a project file changes ---- */
 var version = null;
