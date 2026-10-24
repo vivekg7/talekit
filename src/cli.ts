@@ -15,6 +15,7 @@ import {
   sceneSheetSvg,
 } from './render/sheets.js';
 import { renderVideo } from './render/video.js';
+import { makeVoices, type VoiceReport } from './project/voices.js';
 
 const USAGE = `talekit — story video generation for AI agents
 
@@ -25,10 +26,18 @@ const USAGE = `talekit — story video generation for AI agents
   talekit sheet <dir> <id> [-o file.png]       pose + construction sheet (character) or anchor sheet (scene)
   talekit frame <dir> <shotId> [-t 1.5] [-o file.png] [--svg] [--debug]
   talekit contact <dir> <shotId> [-n 6] [-o file.png]
-  talekit render <dir> [shotId] [-o file.mp4]
+  talekit voice <dir> [shotId]                 speak the lines that have no audio yet (local TTS)
+  talekit render <dir> [shotId] [-o file.mp4] [--silent]
   talekit serve <dir> [--port 4848]            review app: film, assets, notes
   talekit mcp                                  start the MCP server on stdio
 `;
+
+function voiceSummary(r: VoiceReport): string {
+  const lines = [`voices: ${r.made} spoken, ${r.kept} already had audio`];
+  for (const f of r.failed)
+    lines.push(`  failed: ${f.line.shot} action ${f.line.action}: ${f.error}`);
+  return lines.join('\n');
+}
 
 async function savePng(file: string, svg: string): Promise<void> {
   await mkdir(path.dirname(file), { recursive: true });
@@ -52,6 +61,7 @@ async function main(argv: string[]): Promise<void> {
       port: { type: 'string' },
       svg: { type: 'boolean' },
       debug: { type: 'boolean' },
+      silent: { type: 'boolean' },
       help: { type: 'boolean', short: 'h' },
     },
   });
@@ -149,6 +159,20 @@ async function main(argv: string[]): Promise<void> {
       );
       return;
     }
+    case 'voice': {
+      const [dir, shotId] = rest;
+      if (!dir) throw new Error('usage: talekit voice <dir> [shotId]');
+      const project = await loadProject(dir);
+      const shots = shotId ? project.shots.filter((s) => s.id === shotId) : project.shots;
+      if (shotId && !shots.length) throw new Error(`no shot '${shotId}'`);
+      const r = await makeVoices(dir, project, shots, (d, total) =>
+        process.stderr.write(`\r${d}/${total} lines`)
+      );
+      process.stderr.write('\n');
+      console.log(voiceSummary(r));
+      if (r.failed.length) process.exitCode = 1;
+      return;
+    }
     case 'render': {
       const [dir, shotId] = rest;
       if (!dir) throw new Error('usage: talekit render <dir> [shotId]');
@@ -160,9 +184,16 @@ async function main(argv: string[]): Promise<void> {
       const p = projectPaths(dir);
       const outPath = values.out ?? path.join(p.out, shotId ? `${shotId}.mp4` : 'movie.mp4');
       const started = Date.now();
+      // Lines written since the last voicing are spoken first; without the sidecar they stay silent.
+      if (!values.silent)
+        await makeVoices(dir, project, shots).then(
+          (r) => r.made + r.failed.length && console.error(voiceSummary(r)),
+          (e) => console.error(`voices: ${(e as Error).message}; unvoiced lines stay silent`)
+        );
       const r = await renderVideo(project, {
         outPath,
         shots,
+        silent: values.silent,
         onProgress: (d, total) => {
           if (d % 48 === 0 || d === total) process.stderr.write(`\r${d}/${total} frames`);
         },

@@ -15,6 +15,8 @@ export const HUT: SceneInput = {
   ground: 650,
   parallax: { far: 0.4 },
   lights: [{ kind: 'sun', x: 520, y: 84 }],
+  ambience: ['village'],
+  surface: 'grass',
   anchors: {
     'path-left': { x: 40, y: 652 },
     platform: { x: 210, y: 616, floor: 650 },

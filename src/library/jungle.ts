@@ -14,6 +14,8 @@ export const JUNGLE: SceneInput = {
   ground: 650,
   parallax: { far: 0.4 },
   lights: [{ kind: 'sun', x: 330, y: 30, strength: 0.75 }],
+  ambience: ['jungle'],
+  surface: 'grass',
   anchors: {
     'path-left': { x: 60, y: 650 },
     mid: { x: 560, y: 652 },

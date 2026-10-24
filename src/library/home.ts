@@ -6,6 +6,8 @@ export const HOME: SceneInput = {
   name: 'Living room',
   description: 'Cosy living room with a sofa (left), a window, a table and the front door (right).',
   ground: 650,
+  ambience: ['room'],
+  surface: 'hard',
   anchors: {
     sofa: { x: 300, y: 650 },
     window: { x: 640, y: 640 },

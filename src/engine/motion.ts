@@ -689,6 +689,8 @@ export interface FaceContext {
   /** Explicit overrides from a `face` action. */
   overrides: Record<string, string>;
   talking: boolean;
+  /** A voiced line's mouth, open or shut with its sound; else talking flaps on a rhythm. */
+  mouth?: boolean;
   /** Absolute shot time, for blink and mouth-flap timing. */
   t: number;
   phase: number;
@@ -716,7 +718,8 @@ export function resolveFace(
     else if (prefs[name]) wanted = [...prefs[name]];
 
     if (name === 'mouth' && ctx.talking && !ctx.overrides.mouth) {
-      const flap = Math.sin(ctx.t * TAU * 4.1) + 0.6 * Math.sin(ctx.t * TAU * 6.7) > 0.15;
+      const flap =
+        ctx.mouth ?? Math.sin(ctx.t * TAU * 4.1) + 0.6 * Math.sin(ctx.t * TAU * 6.7) > 0.15;
       if (flap) wanted = ['open', ...wanted];
     }
     if (name === 'eyes' && !ctx.overrides.eyes) {

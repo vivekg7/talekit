@@ -3,14 +3,22 @@ import { lintCharacter } from './construction.js';
 import { effectLayer } from '../engine/effects.js';
 import { RIGS } from '../engine/rigs.js';
 import { holdPoint, poseFor } from '../engine/actor.js';
-import {
-  attachTime,
-  holderAt,
-  resolveActor,
-  sayDuration,
-  STAGE_SHORTCUTS,
-} from '../engine/timeline.js';
-import type { Character, Effect, Project, Scene, Shot, Weather } from '../engine/types.js';
+import { attachTime, holderAt, resolveActor, STAGE_SHORTCUTS } from '../engine/timeline.js';
+import { resolveSound } from '../engine/sound.js';
+import { lineDuration, voiceLines, voiceSpec } from '../engine/voice.js';
+import { needsShaping } from '../engine/glyphs.js';
+import { VOICES } from '../library/voices.js';
+import type {
+  Character,
+  Effect,
+  Music,
+  Project,
+  Scene,
+  Shot,
+  Voice,
+  Weather,
+} from '../engine/types.js';
+import { SOUNDS } from '../library/sounds.js';
 
 export interface Problem {
   level: 'error' | 'warning';
@@ -28,10 +36,25 @@ function forbiddenMarkup(svg: string): string | undefined {
   return undefined;
 }
 
+/** A voice the sidecar does not list: a warning, since a custom TALEKIT_TTS may have more. */
+export function voiceProblems(where: string, voice: Voice | undefined): Problem[] {
+  if (!voice) return [];
+  const { engine, name } = voiceSpec(voice);
+  if (VOICES[`${engine}:${name}`]) return [];
+  return [
+    {
+      level: 'warning',
+      where,
+      message: `voice '${engine}:${name}' is not one list_voices knows; its lines may fail to speak`,
+    },
+  ];
+}
+
 export function validateCharacter(c: Character): Problem[] {
   const out: Problem[] = [];
   const rig = RIGS[c.rig];
   const where = `character '${c.id}'`;
+  out.push(...voiceProblems(where, c.voice));
   if (!c.parts[rig.required])
     out.push({ level: 'error', where, message: `rig '${c.rig}' needs a '${rig.required}' part` });
   for (const [name, part] of Object.entries(c.parts)) {
@@ -173,9 +196,88 @@ export function validateScene(s: Scene, width: number, height: number): Problem[
   return out;
 }
 
+/** Why a sound name finds nothing, or undefined when it resolves. */
+function unknownSound(project: Project, name: string): string | undefined {
+  if (resolveSound(project, name)) return undefined;
+  const word = name.split('-')[0];
+  const near = Object.keys(SOUNDS)
+    .filter((id) => id.includes(word))
+    .map((id) => id.replace(/-\d+$/, ''))
+    .filter((id, i, all) => all.indexOf(id) === i)
+    .slice(0, 6);
+  return `unknown sound '${name}': not a bundled sound (list_sounds) nor a file in the project's audio/ folder${near.length ? `; bundled names like it: ${near.join(', ')}` : ''}`;
+}
+
+/** A scene's ambience names, which need the project to resolve (its audio/ folder). */
+export function sceneSoundProblems(s: Scene, project: Project): Problem[] {
+  const out: Problem[] = [];
+  for (const b of s.ambience) {
+    const err = unknownSound(project, typeof b === 'string' ? b : b.sound);
+    if (err) out.push({ level: 'error', where: `scene '${s.id}'`, message: `ambience: ${err}` });
+  }
+  return out;
+}
+
+export function musicProblems(
+  where: string,
+  music: Music | undefined,
+  project: Project
+): Problem[] {
+  if (!music) return [];
+  const err = unknownSound(project, typeof music === 'string' ? music : music.track);
+  return err ? [{ level: 'error', where, message: `music: ${err}` }] : [];
+}
+
+/**
+ * Spoken lines that will not sound right: cut off by the end of the shot, run into the
+ * speaker's own next line, or written in a script their voice does not read.
+ */
+function lineProblems(shot: Shot, project: Project): Problem[] {
+  const out: Problem[] = [];
+  const where = `shot '${shot.id}'`;
+  const lines = voiceLines(project, [shot]);
+  const quote = (t: string) => `'${t.length > 30 ? t.slice(0, 29) + '…' : t}'`;
+  for (const line of lines) {
+    const a = shot.actions[line.action];
+    const who = line.actor ?? 'the narrator';
+    const info = VOICES[`${line.voice.engine}:${line.voice.name}`];
+    if (info && info.language !== 'hi' && needsShaping(line.text))
+      out.push({
+        level: 'warning',
+        where,
+        message: `action ${line.action}: ${who}'s voice reads English, but the line is in Devanagari; give ${line.actor ? 'the character' : 'the project'} a Hindi voice (list_voices)`,
+      });
+    const clip = project.audio?.voices[line.key];
+    if (!clip) continue;
+    const over = a.t + clip.duration - shot.duration;
+    if (over > 0.05)
+      out.push({
+        level: 'warning',
+        where,
+        message: `action ${line.action}: ${who}'s line ${quote(line.text)} takes ${clip.duration.toFixed(1)}s to say and is cut off ${over.toFixed(1)}s before it ends; start it earlier or lengthen the shot`,
+      });
+    const next = lines.find((l) => l.actor === line.actor && shot.actions[l.action].t > a.t);
+    if (next && shot.actions[next.action].t < a.t + clip.duration - 0.05)
+      out.push({
+        level: 'warning',
+        where,
+        message: `action ${next.action}: ${who} starts a line at ${shot.actions[next.action].t}s while still saying ${quote(line.text)} (until ${(a.t + clip.duration).toFixed(1)}s)`,
+      });
+  }
+  return out;
+}
+
 export function validateShot(shot: Shot, project: Project): Problem[] {
   const out: Problem[] = [];
   const where = `shot '${shot.id}'`;
+  out.push(...musicProblems(where, shot.music, project));
+  shot.actions.forEach((a, i) => {
+    const err = a.sound && unknownSound(project, a.sound);
+    if (err) out.push({ level: 'error', where, message: `action ${i}: ${err}` });
+    if (a.volume !== undefined && !a.sound)
+      out.push({ level: 'warning', where, message: `action ${i}: volume only applies to a sound` });
+  });
+  out.push(...lineProblems(shot, project));
   const scene = project.scenes[shot.scene];
   if (!scene) {
     out.push({ level: 'error', where, message: `unknown scene '${shot.scene}'` });
@@ -322,7 +424,7 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
   // default `say` duration is longer than it looks. Warn, because it can be intended.
   const bubbles = shot.actions
     .filter((a) => a.say && a.actor)
-    .map((a) => ({ actor: a.actor!, from: a.t, to: a.t + (a.duration ?? sayDuration(a.say!)) }))
+    .map((a) => ({ actor: a.actor!, from: a.t, to: a.t + lineDuration(project, a) }))
     .sort((a, b) => a.from - b.from);
   for (let i = 1; i < bubbles.length; i++) {
     const cur = bubbles[i];
@@ -408,8 +510,12 @@ function carriedAcrossCuts(project: Project): Problem[] {
 export function validateProject(project: Project): Problem[] {
   const out: Problem[] = [];
   for (const c of Object.values(project.characters)) out.push(...validateCharacter(c));
-  for (const s of Object.values(project.scenes))
+  for (const s of Object.values(project.scenes)) {
     out.push(...validateScene(s, project.meta.width, project.meta.height));
+    out.push(...sceneSoundProblems(s, project));
+  }
+  out.push(...musicProblems('project', project.meta.music, project));
+  out.push(...voiceProblems('project narrator', project.meta.narrator));
   for (const shot of project.shots) out.push(...validateShot(shot, project));
   if (!hasErrors(out)) out.push(...carriedAcrossCuts(project));
   if (project.shots.length === 0)

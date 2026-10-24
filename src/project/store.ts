@@ -8,9 +8,11 @@ import {
   ShotSchema,
   type Character,
   type Project,
+  type ProjectAudio,
   type ProjectMeta,
   type Scene,
   type Shot,
+  type VoiceClip,
 } from '../engine/types.js';
 
 export const META_FILE = 'talekit.json';
@@ -21,6 +23,8 @@ export interface ProjectPaths {
   characters: string;
   scenes: string;
   shots: string;
+  /** The project's own sounds and music, named by file name without the extension. */
+  audio: string;
   out: string;
 }
 
@@ -32,6 +36,7 @@ export function projectPaths(root: string): ProjectPaths {
     characters: path.join(root, 'characters'),
     scenes: path.join(root, 'scenes'),
     shots: path.join(root, 'shots'),
+    audio: path.join(root, 'audio'),
     out: path.join(root, 'out'),
   };
 }
@@ -77,6 +82,12 @@ export async function loadMeta(root: string): Promise<ProjectMeta> {
   return ProjectMetaSchema.parse(JSON.parse(await readFile(p.meta, 'utf8')));
 }
 
+export async function saveMeta(root: string, meta: ProjectMeta): Promise<string> {
+  const p = projectPaths(root);
+  await writeFile(p.meta, JSON.stringify(ProjectMetaSchema.parse(meta), null, 2) + '\n');
+  return p.meta;
+}
+
 /** Load every file. Schema errors are collected per file; cross-reference checks live in validate.ts. */
 export async function loadProject(root: string): Promise<Project> {
   const p = projectPaths(root);
@@ -102,7 +113,52 @@ export async function loadProject(root: string): Promise<Project> {
     else shots.push(r.data);
   }
   if (errors.length) throw new Error(errors.join('\n'));
-  return { meta, characters, scenes, shots };
+  return { meta, characters, scenes, shots, audio: await loadAudio(p.audio) };
+}
+
+/** Formats ffmpeg decodes that a project's audio/ folder may hold. */
+const AUDIO_EXT = new Set(['.ogg', '.opus', '.wav', '.mp3', '.flac', '.m4a', '.aac']);
+
+export async function loadAudio(dir: string): Promise<ProjectAudio> {
+  const files: Record<string, string> = {};
+  if (existsSync(dir))
+    for (const f of (await readdir(dir)).sort()) {
+      const ext = path.extname(f).toLowerCase();
+      if (AUDIO_EXT.has(ext)) files[path.basename(f, path.extname(f))] ??= f;
+    }
+  return { dir, files, voices: await loadVoiceIndex(dir) };
+}
+
+/** One spoken line's entry in audio/voices/index.json. */
+export interface VoiceEntry {
+  file: string;
+  voice: string;
+  speed: number;
+  pitch: number;
+  text: string;
+  duration: number;
+  /** Loudness at ENVELOPE_RATE, one byte (0 to 255) a sample, base64. */
+  envelope: string;
+}
+
+export const voiceIndexPath = (audioDir: string) => path.join(audioDir, 'voices', 'index.json');
+
+export async function readVoiceIndex(audioDir: string): Promise<Record<string, VoiceEntry>> {
+  const file = voiceIndexPath(audioDir);
+  if (!existsSync(file)) return {};
+  return JSON.parse(await readFile(file, 'utf8'));
+}
+
+async function loadVoiceIndex(audioDir: string): Promise<Record<string, VoiceClip>> {
+  const out: Record<string, VoiceClip> = {};
+  for (const [key, e] of Object.entries(await readVoiceIndex(audioDir)))
+    if (existsSync(path.join(audioDir, 'voices', e.file)))
+      out[key] = {
+        file: e.file,
+        duration: e.duration,
+        envelope: [...Buffer.from(e.envelope, 'base64')].map((b) => b / 255),
+      };
+  return out;
 }
 
 export function formatIssues(error: {

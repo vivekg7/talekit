@@ -11,18 +11,23 @@ import {
   AnchorSchema,
   CharacterSchema,
   SceneSchema,
+  MusicSchema,
   ShotSchema,
+  VoiceSchema,
   type Character,
   type Project,
   type Scene,
   type Shot,
+  type Voice,
 } from '../engine/types.js';
+import { voiceLines } from '../engine/voice.js';
 import { LIBRARY, nameFromId } from '../library/index.js';
 import {
   createProject,
   loadProject,
   projectPaths,
   saveCharacter,
+  saveMeta,
   saveScene,
   saveShot,
   shotOrder,
@@ -31,7 +36,10 @@ import { listActions, patchShot, SETTABLE } from '../project/patch.js';
 import {
   formatProblems,
   hasErrors,
+  musicProblems,
+  sceneSoundProblems,
   validateCharacter,
+  voiceProblems,
   validateProject,
   validateScene,
   validateShot,
@@ -39,6 +47,7 @@ import {
 } from '../project/validate.js';
 import { rasterize } from '../render/raster.js';
 import {
+  audioMapSvg,
   characterSheetSvg,
   constructionSheetSvg,
   contactSheetSvg,
@@ -47,6 +56,9 @@ import {
 } from '../render/sheets.js';
 import { faceFallbacks } from '../engine/motion.js';
 import { renderVideo } from '../render/video.js';
+import { makeVoices } from '../project/voices.js';
+import { SOUNDS } from '../library/sounds.js';
+import { VOICES } from '../library/voices.js';
 import { describeNote, loadNotes, setNoteStatus, type Note } from '../project/notes.js';
 
 type Content =
@@ -72,6 +84,24 @@ const reduced = (svg: string, width: number): Content => {
   return image(svg, own > width ? width : undefined);
 };
 const ok = (...content: Content[]) => ({ content });
+
+/**
+ * Speak the lines in these shots that have no audio yet, and say what happened in a line
+ * for the tool's text. Never throws: without the sidecar the lines stay silent, on
+ * estimated timings, and the agent is told so once per call.
+ */
+async function voice(root: string, project: Project, shots: Shot[]): Promise<string> {
+  try {
+    const r = await makeVoices(root, project, shots);
+    if (!r.made && !r.failed.length) return '';
+    const failed = r.failed.map(
+      (f) => `\n  failed: ${f.line.shot} action ${f.line.action}: ${f.error}`
+    );
+    return `\nvoices: ${r.made} line${r.made === 1 ? '' : 's'} spoken${failed.join('')}`;
+  } catch (e) {
+    return `\nvoices: not spoken (${(e as Error).message}); lines stay silent and are timed by their words`;
+  }
+}
 /** Validation text plus which emotions will not get the face variant they prefer. */
 const characterReport = (c: Character, problems: Problem[]): string => {
   const fallbacks = faceFallbacks(c.parts);
@@ -111,6 +141,23 @@ function guidePath(): string {
   throw new Error('authoring-guide.md not found');
 }
 
+function soundSummary(project: Project): string {
+  const { music, narrator } = project.meta;
+  const name = (v: Voice) => (typeof v === 'string' ? v : v.id);
+  const lines = voiceLines(project);
+  const spoken = lines.filter((l) => project.audio?.voices[l.key]).length;
+  const silent = Object.values(project.characters)
+    .filter(
+      (c) => !c.voice && project.shots.some((s) => s.actions.some((a) => a.actor === c.id && a.say))
+    )
+    .map((c) => c.id);
+  return [
+    `music: ${music ? (typeof music === 'string' ? music : music.track) : 'none'} · narrator: ${narrator ? name(narrator) : 'none'}`,
+    `voiced lines: ${spoken} of ${lines.length} spoken${spoken < lines.length ? ' (the rest are spoken on the next write or render)' : ''}`,
+    ...(silent.length ? [`speak with no voice (silent): ${silent.join(', ')}`] : []),
+  ].join('\n');
+}
+
 function describeProject(
   root: string,
   project: Project,
@@ -143,6 +190,9 @@ function describeProject(
       (s, i) =>
         `${i + 1}. ${s.id} — scene ${s.scene}, ${s.duration}s, cast: ${Object.keys(s.cast).join(', ') || 'none'}, ${s.actions.length} actions`
     ),
+    '',
+    '## Sound',
+    soundSummary(project),
     '',
     '## Validation',
     formatProblems(problems),
@@ -375,7 +425,7 @@ export function buildServer(): McpServer {
     {
       title: 'Write character',
       description:
-        'Validate and save a character (creates or replaces characters/<id>.json). Returns two pictures. The pose sheet shows every pose and expression the engine can produce, plus one cell per variant of any other part (selected in shots with a `face` action), each standing in its ground shadow when it casts one. The construction sheet shows what the construction linter checked: part boxes and pivots, the silhouette, swing poses that open any gap at a joint, and numbered red boxes matching the numbered warnings in the text (a limb not reaching into the torso or body, an ear not sunk into the head, a leg that only touches the body, feet off the line); parts listed in `springs` (follow-through: a tail, ears) are labelled with ~. Drawing outside the canonical box is an error. The engine adds the outline and the shading itself; do not draw either. Fix and re-write until both sheets look right and the warnings are gone.',
+        'Validate and save a character (creates or replaces characters/<id>.json). Returns two pictures. The pose sheet shows every pose and expression the engine can produce, plus one cell per variant of any other part (selected in shots with a `face` action), each standing in its ground shadow when it casts one. The construction sheet shows what the construction linter checked: part boxes and pivots, the silhouette, swing poses that open any gap at a joint, and numbered red boxes matching the numbered warnings in the text (a limb not reaching into the torso or body, an ear not sunk into the head, a leg that only touches the body, feet off the line); parts listed in `springs` (follow-through: a tail, ears) are labelled with ~. Drawing outside the canonical box is an error. The engine adds the outline and the shading itself; do not draw either. Fix and re-write until both sheets look right and the warnings are gone. A `voice` (list_voices) speaks its lines in every shot that has them.',
       inputSchema: { path: pathArg, character: CharacterSchema },
     },
     async ({ path: root, character }) => {
@@ -383,8 +433,12 @@ export function buildServer(): McpServer {
         const problems = validateCharacter(character);
         if (hasErrors(problems)) return fail(formatProblems(problems));
         const file = await saveCharacter(root, character);
+        // A new or changed voice speaks every line of this character's that has no audio in it.
+        const spoken = character.voice
+          ? await loadProject(root).then((p) => voice(root, p, p.shots))
+          : '';
         return ok(
-          text(`wrote ${file}\n${characterReport(character, problems)}`),
+          text(`wrote ${file}\n${characterReport(character, problems)}${spoken}`),
           reduced(characterSheetSvg(character), POSE_SHEET),
           image(constructionSheetSvg(character))
         );
@@ -405,7 +459,10 @@ export function buildServer(): McpServer {
     async ({ path: root, scene }) => {
       try {
         const project = await loadProject(root);
-        const problems = validateScene(scene, project.meta.width, project.meta.height);
+        const problems = [
+          ...validateScene(scene, project.meta.width, project.meta.height),
+          ...sceneSoundProblems(scene, project),
+        ];
         if (hasErrors(problems)) return fail(formatProblems(problems));
         const file = await saveScene(root, scene);
         return ok(
@@ -423,7 +480,7 @@ export function buildServer(): McpServer {
     {
       title: 'Write shot',
       description:
-        'Validate and save a shot (shots/<NN>-<id>.json; `order` sets NN and therefore playback order). Cross-checks cast, anchors, face variants, who a line is spoken `to`, who carries what (`attach`; a `pickup` the carrier cannot reach says where to stand) and whether a `crossfade` has a shot to dissolve from, and warns when two actors speak at once. The project check also warns when someone ends a shot carrying a prop and starts the next empty-handed. Listeners look at the speaker on their own; do not stage looks. Returns a contact sheet of evenly spaced frames so you can check staging, timing and bubbles; it is drawn smaller than preview_shot draws it, so use that when a detail is hard to make out.',
+        'Validate and save a shot (shots/<NN>-<id>.json; `order` sets NN and therefore playback order). Cross-checks cast, anchors, face variants, who a line is spoken `to`, who carries what (`attach`; a `pickup` the carrier cannot reach says where to stand) and whether a `crossfade` has a shot to dissolve from, and warns when two actors speak at once. The project check also warns when someone ends a shot carrying a prop and starts the next empty-handed. Listeners look at the speaker on their own; do not stage looks. Lines of characters with a `voice`, and captions when the project has a narrator, are spoken now; a spoken line lasts as long as it takes to say, and a warning says when one is cut off by the end of the shot. Returns a contact sheet of evenly spaced frames so you can check staging, timing and bubbles, with the sound under it (a row per speaker, effects, ambience, music; a line outlined in red is cut off); it is drawn smaller than preview_shot draws it, so use that when a detail is hard to make out.',
       inputSchema: {
         path: pathArg,
         shot: ShotSchema,
@@ -450,8 +507,10 @@ export function buildServer(): McpServer {
         const file = await saveShot(root, shot, order);
         const fresh = await loadProject(root);
         const saved = fresh.shots.find((s) => s.id === shot.id)!;
+        // Spoken now, so the warnings and the sheet go by how long each line really takes.
+        const spoken = await voice(root, fresh, [saved]);
         return ok(
-          text(`wrote ${file}\n${formatProblems(problems)}`),
+          text(`wrote ${file}${spoken}\n${formatProblems(validateShot(saved, fresh))}`),
           reduced(contactSheetSvg(fresh, saved, frames ?? 6), SHOT_SHEET)
         );
       } catch (e) {
@@ -523,10 +582,11 @@ export function buildServer(): McpServer {
         const file = await saveShot(root, shot, await shotOrder(root, shotId));
         const fresh = await loadProject(root);
         const saved = fresh.shots.find((s) => s.id === shotId)!;
+        const spoken = await voice(root, fresh, [saved]);
         const whole = from === 0 && to === saved.duration;
         return ok(
           text(
-            `wrote ${file}\n${formatProblems(problems)}\n\nActions now:\n${listActions(saved)}` +
+            `wrote ${file}${spoken}\n${formatProblems(validateShot(saved, fresh))}\n\nActions now:\n${listActions(saved)}` +
               (whole
                 ? ''
                 : `\n\nSheet: ${from.toFixed(2)}s to ${to.toFixed(2)}s of ${saved.duration}s`)
@@ -626,7 +686,7 @@ export function buildServer(): McpServer {
     {
       title: 'Render video',
       description:
-        'Render the whole movie (or one shot) to an H.264 mp4 in <project>/out/. Validation errors block rendering. A minute of 720p takes about ten seconds. Returns a film sheet: one frame from the middle of each rendered shot, so you can confirm the cut without opening the file.',
+        'Render the whole movie (or one shot) to an H.264 mp4 in <project>/out/, with its sound: voices, music, ambience and effects (lines not yet spoken are spoken first). Validation errors block rendering. A minute of 720p takes about ten seconds. Returns a film sheet: one frame from the middle of each rendered shot, so you can confirm the cut without opening the file.',
       inputSchema: { path: pathArg, shotId: z.string().optional() },
     },
     async ({ path: root, shotId }) => {
@@ -638,12 +698,124 @@ export function buildServer(): McpServer {
         if (!shots.length) return fail(shotId ? `no shot '${shotId}'` : 'no shots to render');
         const outPath = path.join(projectPaths(root).out, shotId ? `${shotId}.mp4` : 'movie.mp4');
         const started = Date.now();
+        const spoken = await voice(root, project, shots);
         const r = await renderVideo(project, { outPath, shots });
         return ok(
           text(
-            `rendered ${outPath}: ${r.seconds.toFixed(1)}s, ${r.frames} frames, in ${((Date.now() - started) / 1000).toFixed(1)}s\n${formatProblems(problems)}`
+            `rendered ${outPath}: ${r.seconds.toFixed(1)}s, ${r.frames} frames, in ${((Date.now() - started) / 1000).toFixed(1)}s${spoken}\n${formatProblems(problems)}`
           ),
           image(filmSheetSvg(project, shots))
+        );
+      } catch (e) {
+        return fail((e as Error).message);
+      }
+    }
+  );
+
+  server.registerTool(
+    'list_voices',
+    {
+      title: 'List voices',
+      description:
+        "Voices a character (`voice`) or the project's narrator (set_audio) can speak in, by language. Lines are spoken by a local model when a shot is written, and a voiced line lasts as long as it takes to say.",
+      inputSchema: {},
+    },
+    async () => {
+      const byLang = new Map<string, string[]>();
+      for (const [id, v] of Object.entries(VOICES))
+        byLang.set(v.language, [
+          ...(byLang.get(v.language) ?? []),
+          `- ${id} (${v.gender}): ${v.description}`,
+        ]);
+      const names = { 'en-us': 'English (American)', 'en-gb': 'English (British)', hi: 'Hindi' };
+      return ok(
+        text(
+          [
+            "Write a voice as 'engine:name', or { id, speed, pitch }: pitch in semitones (3 to 5 turns a grown-up into a child or a small animal, -3 a giant), speed 0.85 slow to 1.15 quick.",
+            ...[...byLang].flatMap(([lang, lines]) => [
+              '',
+              `## ${names[lang as keyof typeof names]}`,
+              ...lines,
+            ]),
+          ].join('\n')
+        )
+      );
+    }
+  );
+
+  server.registerTool(
+    'list_sounds',
+    {
+      title: 'List sounds',
+      description:
+        "Bundled music, ambience and sound effects, by name. Music goes in set_audio or a shot's `music`, ambience in a scene's `ambience`, effects in a `sound` action. A project can add its own files to its audio/ folder and use them by file name without the extension. Rain, wind, fire, waterfalls, waves and thunder are heard from weather and effects on their own, and footsteps from walking; do not add them.",
+      inputSchema: {},
+    },
+    async () => {
+      const all = Object.entries(SOUNDS);
+      if (!all.length)
+        return ok(text("No bundled sounds yet; use files in the project's audio/ folder."));
+      const section = (kind: string, title: string) => {
+        // Numbered variants are one name: the bare name picks one of them each time.
+        const seen = new Map<string, { n: number; description: string; duration: number }>();
+        for (const [id, s] of all.filter(([, s]) => s.kind === kind)) {
+          const name = id.replace(/-\d+$/, '');
+          const prev = seen.get(name);
+          seen.set(name, {
+            n: (prev?.n ?? 0) + 1,
+            description: prev?.description ?? s.description,
+            duration: s.duration,
+          });
+        }
+        return [
+          '',
+          `## ${title}`,
+          ...[...seen].map(
+            ([name, s]) => `- ${name}${s.n > 1 ? ` (${s.n} takes)` : ''}: ${s.description}`
+          ),
+        ];
+      };
+      return ok(
+        text(
+          [
+            ...section('music', 'Music'),
+            ...section('ambience', 'Ambience'),
+            ...section('sfx', 'Sound effects'),
+          ].join('\n')
+        )
+      );
+    }
+  );
+
+  server.registerTool(
+    'set_audio',
+    {
+      title: 'Set music and narrator',
+      description:
+        "Set the project's music (under every shot that does not choose its own) and its narrator voice (who reads the captions); null clears one, leaving it out keeps it. Setting a narrator speaks every caption that has no audio yet. Returns a map of the whole film's sound: a row per speaker, the effects, the ambience and the music, against the clock, with the cuts numbered. A line outlined in red is still being said when its shot cuts.",
+      inputSchema: {
+        path: pathArg,
+        music: MusicSchema.nullable().optional(),
+        narrator: VoiceSchema.nullable().optional(),
+      },
+    },
+    async ({ path: root, music, narrator }) => {
+      try {
+        const project = await loadProject(root);
+        const meta = { ...project.meta };
+        if (music !== undefined) meta.music = music ?? undefined;
+        if (narrator !== undefined) meta.narrator = narrator ?? undefined;
+        const next = { ...project, meta };
+        const problems = [
+          ...musicProblems('project', meta.music, next),
+          ...voiceProblems('project narrator', meta.narrator),
+        ];
+        if (hasErrors(problems)) return fail(formatProblems(problems));
+        const file = await saveMeta(root, meta);
+        const spoken = meta.narrator ? await voice(root, next, next.shots) : '';
+        return ok(
+          text(`wrote ${file}${spoken}\n${formatProblems(validateProject(next))}`),
+          image(audioMapSvg(next))
         );
       } catch (e) {
         return fail((e as Error).message);

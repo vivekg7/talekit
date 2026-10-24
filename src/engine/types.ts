@@ -22,6 +22,37 @@ const ShelterSpanSchema = z.object({
     .describe("Only while a part shows this variant (an umbrella's 'open')"),
 });
 
+/** Who a line is spoken by: a voice from list_voices, optionally faster, slower, higher or lower. */
+export const VoiceSchema = z
+  .union([
+    z
+      .string()
+      .regex(/^[a-z0-9]+:[A-Za-z0-9_-]+$/, "a voice is 'engine:name', e.g. 'kokoro:hf_alpha'"),
+    z.object({
+      id: z
+        .string()
+        .regex(/^[a-z0-9]+:[A-Za-z0-9_-]+$/, "a voice is 'engine:name', e.g. 'kokoro:hf_alpha'"),
+      speed: z
+        .number()
+        .min(0.5)
+        .max(2)
+        .optional()
+        .describe('1 as the voice speaks (default); 0.85 slow and old, 1.15 quick'),
+      pitch: z
+        .number()
+        .min(-12)
+        .max(12)
+        .optional()
+        .describe(
+          'Semitones up or down: 3 to 5 makes a grown-up voice a child or a small animal, -3 a giant'
+        ),
+    }),
+  ])
+  .describe(
+    "A voice from list_voices ('kokoro:hf_alpha'), or { id, speed, pitch }. The voice sets the language: a Hindi voice for Devanagari lines"
+  );
+export type Voice = z.infer<typeof VoiceSchema>;
+
 export const CharacterSchema = z.object({
   id: IdSchema,
   name: z.string().min(1),
@@ -91,6 +122,9 @@ export const CharacterSchema = z.object({
     .describe(
       "Keeps rain and snow off what is under it: the span from x to x + width at height y in the character's own box (an umbrella's canopy edge), or a list of them, one per variant. Drops stop on it, the ground below stays dry, and it drips at both ends"
     ),
+  voice: VoiceSchema.optional().describe(
+    'How this character sounds when it says or thinks a line (list_voices). Without one its lines are silent'
+  ),
   parts: z.record(z.string(), PartSchema),
 });
 export type Character = z.infer<typeof CharacterSchema>;
@@ -279,6 +313,41 @@ export const EffectSchema = z
   .refine((e) => e.kind === 'waves' || e.x !== undefined, 'x is required except for waves');
 export type Effect = z.infer<typeof EffectSchema>;
 
+/**
+ * A music track: a bundled one by name (`list_sounds`), or a file in the project's `audio/`
+ * folder named without its extension; `false` is silence.
+ */
+export const MusicSchema = z
+  .union([
+    z.string().min(1),
+    z.object({
+      track: z.string().min(1),
+      volume: z
+        .number()
+        .min(0)
+        .max(2)
+        .default(1)
+        .describe('1 is the usual bed under the voices; 0.5 quieter, 1.5 louder'),
+    }),
+    z.literal(false),
+  ])
+  .describe(
+    "Background music: a track name (a bundled one from list_sounds, or a file in the project's audio/ folder without its extension), { track, volume }, or false for none. A track that carries on into the next shot keeps playing across the cut; a new one crossfades in. It ducks under every voice on its own"
+  );
+export type Music = z.infer<typeof MusicSchema>;
+
+const AmbienceSchema = z
+  .array(
+    z.union([
+      z.string().min(1),
+      z.object({ sound: z.string().min(1), volume: z.number().min(0).max(2).default(1) }),
+    ])
+  )
+  .default([])
+  .describe(
+    "Looping background sound for this place (jungle birds, cave drips, a village): bundled names from list_sounds or files in the project's audio/ folder, or { sound, volume }. It plays under every shot here and carries across cuts between shots in the same place. Rain, wind, fire, waterfalls and waves are heard on their own from weather and effects; do not list them"
+  );
+
 export const SceneSchema = z.object({
   id: IdSchema,
   name: z.string().min(1),
@@ -357,6 +426,13 @@ export const SceneSchema = z.object({
       'Light sources painted into the art (a sun or moon in the far layer, a bulb, a street lamp): every person, animal and grounded prop casts a shadow away from each, along the floor. A `sun` effect and every fire are lights already. A scene with none has only the soft shadow under the feet'
     ),
   anchors: z.record(z.string(), AnchorSchema).default({}),
+  ambience: AmbienceSchema,
+  surface: z
+    .enum(['hard', 'grass'])
+    .default('hard')
+    .describe(
+      "What people's feet land on, for the sound of their steps: hard (a floor, a path, stone; the default) or grass (a lawn, a forest floor, earth)"
+    ),
 });
 export type Scene = z.infer<typeof SceneSchema>;
 export type SceneInput = z.input<typeof SceneSchema>;
@@ -472,6 +548,20 @@ export const ActionSchema = z
       .describe(
         "A lightning strike now: a bolt in the sky (needs the scene's far layer) and a flash"
       ),
+    /** A one-off sound at t, heard from where the actor is. */
+    sound: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        "A sound at t: a bundled name from list_sounds (lion-roar, knock, splash) or a file in the project's audio/ folder without its extension. With actor, it is heard from where the actor is, left or right. Footsteps, rain and the like are the engine's; do not add them"
+      ),
+    volume: z
+      .number()
+      .min(0)
+      .max(2)
+      .optional()
+      .describe("The sound's loudness: 1 as recorded (default), 0.5 distant, 1.5 close"),
     /** Instant state changes. */
     set: z
       .object({
@@ -493,8 +583,9 @@ export const ActionSchema = z
       a.set ||
       a.lightning ||
       a.weather ||
+      a.sound ||
       a.attach !== undefined,
-    'an action needs at least one of: do, say, emotion, face, caption, camera, set, attach, lightning, weather'
+    'an action needs at least one of: do, say, emotion, face, caption, camera, set, attach, lightning, weather, sound'
   )
   .refine(
     (a) => !(a.do || a.say || a.emotion || a.face || a.set || a.attach !== undefined) || a.actor,
@@ -537,6 +628,9 @@ export const ShotSchema = z.object({
   weather: WeatherSchema.optional().describe(
     "This shot's weather instead of the scene's (the rain has stopped, a storm is coming); {} for clear weather in a scene that has some"
   ),
+  music: MusicSchema.optional().describe(
+    "This shot's music instead of the project's: a track name, { track, volume }, or false for silence"
+  ),
   actions: z.array(ActionSchema).default([]),
 });
 export type Shot = z.infer<typeof ShotSchema>;
@@ -551,6 +645,12 @@ export const ProjectMetaSchema = z.object({
   font: z
     .string()
     .default('Chalkboard SE, Comic Neue, Comic Sans MS, Arial Rounded MT Bold, sans-serif'),
+  music: MusicSchema.optional().describe(
+    'The music under every shot that does not choose its own (default: none)'
+  ),
+  narrator: VoiceSchema.optional().describe(
+    'The voice that reads the captions, narration and titles (list_voices). Without one they are silent'
+  ),
 });
 export type ProjectMeta = z.infer<typeof ProjectMetaSchema>;
 export type ProjectMetaInput = z.input<typeof ProjectMetaSchema>;
@@ -562,4 +662,24 @@ export interface Project {
   scenes: Record<string, Scene>;
   /** In playback order. */
   shots: Shot[];
+  /** What the project's audio/ folder holds; absent when the project was not loaded from disk. */
+  audio?: ProjectAudio;
+}
+
+export interface ProjectAudio {
+  /** Absolute path of the audio/ folder. */
+  dir: string;
+  /** Sound name (the file name without its extension) -> file name in the folder. */
+  files: Record<string, string>;
+  /** Spoken lines already made, by line key (see engine/voice.ts), in audio/voices/. */
+  voices: Record<string, VoiceClip>;
+}
+
+export interface VoiceClip {
+  /** File name in audio/voices/. */
+  file: string;
+  /** Seconds. */
+  duration: number;
+  /** Loudness, 0 to 1, ENVELOPE_RATE times a second: what the mouth follows. */
+  envelope: number[];
 }

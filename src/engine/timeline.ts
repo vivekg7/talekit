@@ -3,6 +3,7 @@ import { holdPoint, poseFor } from './actor.js';
 import type { Travel } from './gait.js';
 import { isMoveVerb, JUMP, SPEED, STOOP, VERB_DURATION, type Locomotion } from './motion.js';
 import { RIGS } from './rigs.js';
+import { clipFor, lineDuration, mouthOpen, sayDuration } from './voice.js';
 import type {
   Action,
   Camera,
@@ -79,6 +80,8 @@ export interface ActorState {
   verbs: ActiveVerb[];
   bubble?: Bubble;
   talking: boolean;
+  /** Saying a voiced line: whether its audio is loud enough now to open the mouth. */
+  mouth?: boolean;
   phase: number;
 }
 
@@ -135,11 +138,6 @@ function seatHeight(scene: Scene, from: Point, at: Point): number {
     if (a.floor !== undefined && Math.abs(a.x - at.x) < 1 && Math.abs(a.y - at.y) < 1)
       return Math.max(0, a.floor - a.y);
   return Math.max(0, from.y - at.y);
-}
-
-export function sayDuration(text: string): number {
-  const words = text.trim().split(/\s+/).filter(Boolean).length;
-  return Math.max(1.8, 1.0 + words * 0.4);
 }
 
 export function moveDuration(verb: Verb, from: Point, to: Point, explicit?: number): number {
@@ -333,6 +331,7 @@ export function resolveActor(
   const verbs: ActiveVerb[] = [];
   let bubble: Bubble | undefined;
   let talking = false;
+  let mouth: boolean | undefined;
   let sitTime = SIT_TIME;
   let lieTime = LIE_TIME;
   const sitAmount = (time: number) =>
@@ -424,11 +423,14 @@ export function resolveActor(
     }
 
     if (a.say) {
-      const d = actionDuration(a);
+      const d = lineDuration(project, a);
       if (t < a.t + d) {
         bubble = { text: a.say, style: a.bubble ?? 'speech', age: t - a.t, left: a.t + d - t };
         // A thought is not said out loud: the mouth stays still.
         talking = a.bubble !== 'thought';
+        // A voiced line moves the mouth with its sound, and closes it in the pauses.
+        const clip = clipFor(project, a);
+        mouth = clip && talking ? mouthOpen(clip, t - a.t) : undefined;
       }
     }
 
@@ -563,6 +565,7 @@ export function resolveActor(
     verbs,
     bubble,
     talking,
+    mouth,
     phase: hash01(id),
   };
   // Looks are worked out for the actors on screen, not for the ones resolved to find them.
@@ -676,7 +679,7 @@ const FOLLOW_LAG = 0.9;
 /** Room left ahead of a followed actor, as a share of the frame's width. */
 const FOLLOW_LEAD = 0.12;
 
-function resolveCamera(project: Project, scene: Scene, shot: Shot, t: number): View {
+export function resolveCamera(project: Project, scene: Scene, shot: Shot, t: number): View {
   const { width, height } = project.meta;
   type Aim = View & { follow?: string };
   const base = (c: Partial<Camera>, prev: Aim): Aim => ({
@@ -748,11 +751,11 @@ function resolveCamera(project: Project, scene: Scene, shot: Shot, t: number): V
   return camAt(t);
 }
 
-function resolveCaptions(shot: Shot, t: number): CaptionState[] {
+function resolveCaptions(project: Project, shot: Shot, t: number): CaptionState[] {
   const out: CaptionState[] = [];
   for (const a of shot.actions) {
     if (!a.caption) continue;
-    const d = actionDuration(a);
+    const d = lineDuration(project, a);
     if (t < a.t || t >= a.t + d) continue;
     const fadeLen = Math.min(0.3, d / 3);
     const inU = clamp01((t - a.t) / (fadeLen * 1.5));
@@ -791,7 +794,7 @@ export function resolveFrame(project: Project, shot: Shot, t: number): FrameStat
     scene,
     actors,
     camera: resolveCamera(project, scene, shot, t),
-    captions: resolveCaptions(shot, t),
+    captions: resolveCaptions(project, shot, t),
     fade: clamp01(fade),
   };
 }

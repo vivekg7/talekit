@@ -669,12 +669,99 @@ one style with real shapes, using downloaded art as reference only.
 
 ### 7.8 Audio (last, on purpose)
 
-- Narration and dialogue through TTS, with `say` duration taken from the
-  audio and mouth flaps driven by amplitude instead of a sine wave.
-- A music bed per project, a handful of effects tied to verbs (jump, splash,
-  appear).
-- Only after 7.1 to 7.6, because sound makes a silent film feel finished and
-  would hide what still looks wrong.
+It came after 7.1 to 7.7 because sound makes a silent film feel finished and
+would hide what still looked wrong. Planned 2026-10-23 with Vivek. A film has
+six layers, and each has one owner:
+
+| Layer         | Who writes it                                    | Where it comes from                                                                                                             |
+| ------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| Music         | the agent picks a track per project and per shot | bundled tracks, or a file in the project                                                                                        |
+| Ambience      | the engine, from the scene                       | weather and effects (rain, wind, fire, waves, thunder after each strike), plus a scene's `ambience` bed (jungle, cave, village) |
+| Sound effects | the engine, plus a `sound` action                | footsteps on the gait's planted feet; a sound on appear, jump and pickup; a `sound` action for roars, meows, a knock            |
+| Thoughts      | the agent's `bubble: 'thought'` lines            | the character's voice, quieter and with a little room on it                                                                     |
+| Dialogue      | the agent's `say` lines                          | a local TTS model, in the character's `voice`                                                                                   |
+| Narrator      | the agent's captions                             | the same model, in the project's `narrator` voice                                                                               |
+
+The principle is the visual rule again: **the engine owns sound that follows
+from what is on screen.** The agent never places a raindrop or a footstep, as it
+never draws a frame of rain. It chooses only what a story chooses: who sounds
+like what, which music, and the one-off noises a scene calls for.
+
+Decisions:
+
+- **Sources.** Bundled sounds and music are CC0 or public domain only, with a
+  credits file. They ship in a public MIT repo, which is redistribution, and
+  that rules out CC-BY (every film would owe a credit line) and the Pixabay and
+  Mixkit licences (free to use, not to redistribute as files). A project can
+  also use its own files from `audio/`.
+- **Voices from a local model, not a service.** It runs through a small Python
+  sidecar (`tools/tts/`, run with `uv`) on MLX on this Mac. It is not a Node
+  package because the good models (Kokoro, Chatterbox, rumik-oss, Voxtral) are
+  Python and MLX-only, and one handles Hindi. A voice is `engine:name`
+  (`kokoro:hf_alpha`), with optional `speed` and `pitch`, so a model can be
+  added without a format change. Without the sidecar, everything still works
+  silently on estimated timings.
+- **Voice audio is cached in the project** (`audio/voices/`, keyed by a hash of
+  the voice and the text) and the render reads only the cache. The models are
+  not bit-identical run to run, so this is what keeps a render deterministic.
+  It also means the examples render with sound on a machine with no model.
+- **A voiced line lasts as long as its audio.** The bubble shows while it plays,
+  plus a short beat. The mouth opens on the line's loudness envelope (stored
+  beside the audio) instead of the sine wave. The validator warns when a line
+  runs past the shot's end or into the same actor's next line, and the shot
+  sheet gets an audio lane so the overrun shows in the picture every write
+  returns.
+- **Mixing is in our code, not an ffmpeg filter graph.** ffmpeg decodes each
+  clip to PCM (resampling, pitch shift, the thought's room) and the mixer sums
+  them in JS with known gains. Music ducks under every voice on ramps computed
+  from when each line plays; no compressor is guessing. Voices and footsteps
+  pan with the actor's x. The cue sheet (what plays when, how loud, where) is
+  a pure function of the project in `src/engine/sound.ts`; the decoding and
+  summing is I/O in `src/render/audio.ts`. ffmpeg then muxes the mix as AAC.
+  A film with nothing to hear gets no audio track, so silent films are
+  unchanged.
+
+Steps, each its own commit:
+
+1. Cue sheet, mixer and mux; `sound` actions, `music` on the project and the
+   shot, a scene's `ambience`; project files from `audio/`; the audio lane.
+2. Voices: the sidecar, `voice` on characters and `narrator` on the project,
+   the cache, `talekit voice`, voicing on `write_shot`, durations from the
+   audio, mouths from the envelope, thoughts.
+3. Engine-owned sound: weather and effects ambience, thunder after lightning,
+   footsteps from the gait, verb sounds.
+4. The bundled library (sounds, music, credits); ambience on the library
+   scenes; `list_sounds` and `list_voices` in the MCP.
+5. Re-render lion-mouse-hi and lost-kite with sound for Vivek to listen to.
+   Only a listener can judge voice choice and the mix.
+
+Choosing the voice model (2026-10-23, the same Hindi and English lines through
+each, scored by Whisper large-v3-turbo as characters heard differently):
+
+| Model                      | Hindi | English | Speed on an M4 Pro | Licence    |
+| -------------------------- | ----- | ------- | ------------------ | ---------- |
+| Kokoro 82M                 | 8–12% | 0%      | a line in ~0.2 s   | Apache-2.0 |
+| Chatterbox multilingual v3 | 5–8%  | 14%     | ~0.6× real time    | MIT        |
+| rumik-oss 1                | 5–19% | 4%      | ~2.5× real time    | model card |
+| Voxtral 4B                 | 3–8%  | 0%      | ~2× real time      | CC-BY-NC   |
+
+Kokoro is the default: fast enough to speak a shot's lines inside
+`write_shot`, four Hindi and many English voices, and every one of its
+mistakes is a vowel length or a nasal, not a wrong word. Chatterbox is the
+candidate second engine for Hindi: clearer, and it takes any voice from a
+reference clip (a Kokoro line works) with an emotion dial. rumik-oss is slow
+and has only four women's voices, and Voxtral's licence rules out films that
+are sold. None of them is bit-identical run to run, which is why lines are
+cached. Waiting on Vivek's ear for the choice between Kokoro and Chatterbox.
+
+The bundled library (`sounds/`, 95 files, 20 MB) was gathered from
+BigSoundBank, Freesound, Kenney, the National Park Service and John
+Bartmann's public-domain albums, each licence checked on the file's own page
+(`sounds/CREDITS.md`). Sources are normalised as they come in, so the mix
+can use fixed levels: effects peak at -1 dBFS, ambience is -23 LUFS, music
+-18 LUFS, and spoken lines are levelled to the same speaking loudness when
+they are made. A voiced Hindi film (lion-mouse-hi, 5 min) comes out near -18
+LUFS.
 
 ## Render speed
 

@@ -8,8 +8,10 @@ produces an mp4 of simple 2D animation with comic-style speech bubbles.
 The idea is "Paper for video": the agent writes a language it is already
 fluent in (SVG fragments + JSON), the engine owns everything that is hard to
 get right by hand (rigging, walk cycles with planted feet, follow-through,
-blinking, mouth flaps, bubble layout, camera moves, encoding), and every write returns a picture so the agent can
-see and fix its output.
+blinking, mouth flaps, bubble layout, camera moves, footsteps, rain and thunder,
+mixing, encoding), and every write returns a picture so the agent can see and
+fix its output. Characters speak their lines through a local text-to-speech
+model.
 
 ```
 story ──agent──▶ characters/*.json  scenes/*.json  shots/*.json ──talekit──▶ movie.mp4
@@ -19,8 +21,13 @@ story ──agent──▶ characters/*.json  scenes/*.json  shots/*.json ──
 ## Requirements
 
 - Node 20+
-- `ffmpeg` on the PATH (`brew install ffmpeg`) — only for `render`
+- `ffmpeg` on the PATH (`brew install ffmpeg`) — for `render` and sound
 - No browser needed: frames are rasterised with resvg.
+- For voices: [uv](https://docs.astral.sh/uv/) and an Apple Silicon Mac (the
+  model runs on MLX), plus `brew install espeak-ng` for Hindi. The first
+  voiced line sets up a Python environment in `tools/tts/` (about 1.2 GB)
+  and downloads the Kokoro model and voices (about 700 MB), which takes a few
+  minutes once. Without them, everything works and lines are silent.
 
 ## Quick start
 
@@ -77,17 +84,21 @@ page follows the project directory, so the agent's edits appear as it works.
   (stoop to take or leave a prop on the floor), `say` (speech / thought /
   shout bubble, drives the mouth; listeners look at the speaker on their
   own), `emotion`, `attach` (carry a prop), `caption` (narration or title
-  card), `camera` (zoom and pan), `set`. A shot can `crossfade` in from the
-  one before instead of cutting.
+  card), `camera` (zoom and pan), `set`, `sound` (a roar, a knock). A shot
+  can `crossfade` in from the one before instead of cutting.
+- **Sound** — a `voice` per character and a narrator for the captions,
+  music for the film or a shot, and `ambience` per scene. Footsteps, rain,
+  wind, fire, thunder and the like come from what is on screen.
 
 A project is a plain directory:
 
 ```
 my-story/
-  talekit.json        title, size, fps
+  talekit.json        title, size, fps, music, narrator
   characters/*.json
   scenes/*.json
   shots/NN-*.json     play in filename order
+  audio/              the project's own sound files; voices/ holds spoken lines
   out/                renders and previews (git-ignored)
 ```
 
@@ -108,6 +119,9 @@ my-story/
 | `get_item` / `delete_item` | read back or remove one file                                            |
 | `preview_frame`            | one frame at a time `t`, optional debug markers                         |
 | `preview_shot`             | contact sheet of a shot                                                 |
+| `list_voices`              | voices for characters and the narrator, by language                     |
+| `list_sounds`              | bundled music, ambience and sound effects                               |
+| `set_audio`                | sets the music and narrator, returns a **map of the film's sound**      |
 | `render`                   | mp4 of one shot or the whole film, plus a **film sheet** (frame/shot)   |
 | `list_notes`               | review notes left in the app, each with the frame or sheet it points at |
 | `resolve_note`             | marks a note done once the fix is in                                    |
@@ -118,8 +132,9 @@ my-story/
 talekit init <dir> --title "…"       talekit sheet <dir> <id>
 talekit check <dir>                  talekit frame <dir> <shot> -t 2.5 [--debug] [--svg]
 talekit library                      talekit contact <dir> <shot> -n 6
-talekit copy <dir> <libraryId>       talekit render <dir> [shot]
-talekit serve <dir>                  talekit mcp
+talekit copy <dir> <libraryId>       talekit render <dir> [shot] [--silent]
+talekit serve <dir>                  talekit voice <dir> [shot]
+talekit mcp
 ```
 
 ## How it works
@@ -134,6 +149,12 @@ talekit serve <dir>                  talekit mcp
   threads and streams raw frames into `ffmpeg` (libx264, yuv420p). A minute
   of 720p renders in about ten seconds on an M-series Mac.
 - `src/render/sheets.ts` builds the preview images the MCP returns.
+- Sound: `src/engine/sound.ts` turns a film into a cue sheet (what plays
+  when, how loud, from where), `src/render/audio.ts` decodes the clips with
+  ffmpeg and mixes them, ducking the music under voices, and the encoder
+  muxes the mix as AAC. Lines are spoken by `tools/tts/speak.py`, a Python
+  sidecar on MLX (Kokoro), and cached in the project, so a render is the same
+  every time and needs no model once the lines exist.
 - `src/engine/outline.ts` draws the house outline under every part;
   `src/project/construction.ts` is the construction linter behind
   `write_character` and `check`.

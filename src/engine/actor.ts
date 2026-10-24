@@ -56,6 +56,7 @@ export function poseFor(actor: ActorState, t: number): Pose {
     emotion: actor.emotion,
     overrides: actor.face,
     talking: actor.talking,
+    mouth: actor.mouth,
     t,
     phase: actor.phase,
     // A take starts with a blink.

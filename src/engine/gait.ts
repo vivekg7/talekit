@@ -218,6 +218,22 @@ function plan(rig: Rig, gait: Gait, t: number, travel?: Travel): Plan {
   return { gait, cycle, sinA, phase: start + travel.dist / cycle, env: clamp01(edge) };
 }
 
+/**
+ * Where a walk or run is in its leg cycle, counted in whole cycles from the start of the
+ * move: a foot comes down each time it passes one of `footfalls`. Undefined for a rig with
+ * no such gait (it bobs instead).
+ */
+export function gaitPhase(rig: Rig, loco: 'walk' | 'run', travel: Travel): number | undefined {
+  const gait = GAITS[rig.name]?.[loco];
+  return gait && plan(rig, gait, 0, travel).phase;
+}
+
+/** The points in a cycle where feet land, a pair landing together counted once. */
+export function footfalls(rig: Rig, loco: 'walk' | 'run'): number[] {
+  const gait = GAITS[rig.name]?.[loco];
+  return gait ? [...new Set(Object.values(gait.legs))].sort((a, b) => a - b) : [];
+}
+
 interface Legs {
   rot: Record<string, number>;
   body: number;

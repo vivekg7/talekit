@@ -11,6 +11,8 @@ export const PARK: SceneInput = {
   ground: 650,
   // The sun painted in `far`, so everyone's shadow falls away from it.
   lights: [{ kind: 'sun', x: 1100, y: 120 }],
+  ambience: ['forest'],
+  surface: 'grass',
   anchors: {
     gate: { x: 150, y: 660 },
     tree: { x: 360, y: 640 },

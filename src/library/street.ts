@@ -9,6 +9,8 @@ export const STREET: SceneInput = {
   name: 'Street',
   description: 'Row of houses with a pavement (ground) and a road in front.',
   ground: 610,
+  ambience: ['city'],
+  surface: 'hard',
   anchors: {
     'house-door': { x: 330, y: 600 },
     lamp: { x: 760, y: 605 },

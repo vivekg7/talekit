@@ -14,6 +14,8 @@ export const CAVE: SceneInput = {
   ground: 650,
   parallax: { far: 0.4 },
   effects: [{ kind: 'sun', x: 820, y: 90, size: 0.9 }],
+  ambience: ['cave'],
+  surface: 'hard',
   anchors: {
     cave: { x: 260, y: 630 },
     den: { x: 470, y: 648 },

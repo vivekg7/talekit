@@ -1,10 +1,11 @@
 import { spawn } from 'node:child_process';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import type { Project, Shot } from '../engine/types.js';
+import { mixAudio, RATE } from './audio.js';
 
 export interface RenderOptions {
   outPath: string;
@@ -14,6 +15,8 @@ export interface RenderOptions {
   ffmpegPath?: string;
   /** Worker threads drawing frames. Default: all cores but two (ffmpeg needs them), up to 8, past which the encoder is the bottleneck. */
   workers?: number;
+  /** Leave the sound out. */
+  silent?: boolean;
 }
 
 /** The worker beside this file, as .ts under tsx and .js once built. */
@@ -26,6 +29,8 @@ const WORKER = new URL(
  * Render the shots to an H.264 mp4. Frames are drawn by a pool of worker threads, each
  * composing and rasterising whole frames, and streamed into ffmpeg in order as raw RGBA.
  * At most two frames per worker are in flight, which bounds memory however long the film.
+ * The sound is mixed first, to the frames' exact length, and muxed as AAC; a film with
+ * nothing to hear gets no audio track.
  */
 export async function renderVideo(
   project: Project,
@@ -39,6 +44,14 @@ export async function renderVideo(
     for (let f = 0; f < count; f++) plan.push({ shot: i, t: f / fps });
   });
   await mkdir(path.dirname(opts.outPath), { recursive: true });
+
+  const audio = opts.silent
+    ? undefined
+    : await mixAudio(project, shots, { ffmpegPath: opts.ffmpegPath, seconds: plan.length / fps });
+  const audioPath = `${opts.outPath}.audio.f32`;
+  if (audio) await writeFile(audioPath, new Uint8Array(audio.buffer));
+  const audioIn = audio ? ['-f', 'f32le', '-ar', String(RATE), '-ac', '2', '-i', audioPath] : [];
+  const audioOut = audio ? ['-map', '0:v', '-map', '1:a', '-c:a', 'aac', '-b:a', '160k'] : [];
 
   const ff = spawn(
     opts.ffmpegPath ?? 'ffmpeg',
@@ -56,6 +69,8 @@ export async function renderVideo(
       String(fps),
       '-i',
       '-',
+      ...audioIn,
+      ...audioOut,
       '-c:v',
       'libx264',
       '-preset',
@@ -138,8 +153,13 @@ export async function renderVideo(
     throw e;
   } finally {
     await Promise.all(pool.map((w) => w.terminate()));
+    if (failure && audio) await rm(audioPath, { force: true });
   }
   ff.stdin.end();
-  await done;
+  try {
+    await done;
+  } finally {
+    if (audio) await rm(audioPath, { force: true });
+  }
   return { frames: plan.length, seconds: plan.length / fps };
 }

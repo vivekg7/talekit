@@ -11,6 +11,7 @@ import { composeFrame, layerTransform, PARALLAX } from '../engine/compose.js';
 import { CAST_DEFS, castLights, floorMap, throwOf } from '../engine/cast.js';
 import { effectsSvg, fireLights, type EffectLayer } from '../engine/effects.js';
 import { strikeAt } from '../engine/weather.js';
+import { cueSheet, shotStarts, type Bus, type Cue } from '../engine/sound.js';
 import {
   applyVerb,
   basePose,
@@ -344,14 +345,17 @@ function tileFrames(
   project: Project,
   frames: { label: string; svg: string }[],
   cols = 2,
-  cellW = 630
+  cellW = 630,
+  footer?: (width: number) => { svg: string; height: number }
 ): string {
   const { width: W, height: H } = project.meta;
   const cellH = Math.round((cellW * H) / W);
   const gap = 10;
   const rows = Math.ceil(frames.length / cols);
   const SW = cols * (cellW + gap) + gap;
-  const SH = rows * (cellH + gap + 22) + gap;
+  const foot = footer?.(SW - 2 * gap);
+  const top = rows * (cellH + gap + 22) + gap;
+  const SH = top + (foot ? foot.height + gap : 0);
   let out = `<svg xmlns='http://www.w3.org/2000/svg' width='${SW}' height='${SH}' viewBox='0 0 ${SW} ${SH}'><rect width='${SW}' height='${SH}' fill='#222'/>`;
   frames.forEach((f, i) => {
     const x = gap + (i % cols) * (cellW + gap);
@@ -359,7 +363,112 @@ function tileFrames(
     out += `<svg x='${x}' y='${y}' width='${cellW}' height='${cellH}' viewBox='0 0 ${W} ${H}'>${f.svg.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '')}</svg>`;
     out += `<text x='${x + 4}' y='${y + cellH + 17}' font-family='${LABEL_FONT}' font-size='14' fill='#ddd'>${escapeXml(f.label)}</text>`;
   });
+  if (foot) out += `<g transform='translate(${gap} ${top})'>${foot.svg}</g>`;
   return out + '</svg>';
+}
+
+const LANE_COLORS: Record<Bus, string> = {
+  music: '#8338ec',
+  ambience: '#2a9d8f',
+  sfx: '#e9c46a',
+  voice: '#3a86ff',
+};
+
+/**
+ * What these shots sound like, against their clock: a row for each speaker, then the
+ * effects, the ambience and the music. `marks` are dashed lines (the sampled frames, or the
+ * cuts); `detail` writes each line's length and each sound's name, which a whole film has
+ * no room for. Undefined when nothing sounds.
+ */
+function audioLane(
+  project: Project,
+  shots: Shot[],
+  marks: { t: number; label?: string }[],
+  from: number,
+  to: number,
+  detail: boolean
+): ((width: number) => { svg: string; height: number }) | undefined {
+  const cues = cueSheet(project, shots);
+  if (!cues.length) return undefined;
+  const ends = new Map<string, number>();
+  shotStarts(shots).forEach((at, i) => ends.set(shots[i].id, at + shots[i].duration));
+  const rows: { name: string; bus: Bus; cues: Cue[] }[] = [];
+  // A row for each speaker, so who talks over whom shows.
+  for (const name of [...new Set(cues.filter((c) => c.bus === 'voice').map((c) => c.label))])
+    rows.push({
+      name,
+      bus: 'voice',
+      cues: cues.filter((c) => c.bus === 'voice' && c.label === name),
+    });
+  for (const bus of ['sfx', 'ambience', 'music'] as Bus[]) {
+    const mine = cues.filter((c) => c.bus === bus);
+    if (mine.length) rows.push({ name: bus === 'sfx' ? 'sounds' : bus, bus, cues: mine });
+  }
+  return (width) => {
+    const label = 90;
+    const rowH = 24;
+    const height = rows.length * rowH + 22;
+    const span = Math.max(1e-6, to - from);
+    const x = (t: number) => label + ((t - from) / span) * (width - label);
+    let svg = `<rect width='${width}' height='${height}' rx='6' fill='#2c2c2c'/>`;
+    for (const m of marks) {
+      svg += `<path d='M${x(m.t)} 0 v${height}' stroke='#555' stroke-dasharray='3 3'/>`;
+      if (m.label)
+        svg += `<text x='${x(m.t) + 3}' y='14' font-family='${LABEL_FONT}' font-size='11' fill='#bbb'>${escapeXml(m.label)}</text>`;
+    }
+    if (detail)
+      for (let s = Math.ceil(from); s <= to; s++)
+        svg += `<text x='${x(s)}' y='14' font-family='${LABEL_FONT}' font-size='11' fill='#999' text-anchor='middle'>${s}s</text>`;
+    rows.forEach((row, i) => {
+      const y = 20 + i * rowH;
+      const color = LANE_COLORS[row.bus];
+      svg += `<text x='6' y='${y + 16}' font-family='${LABEL_FONT}' font-size='13' fill='#ccc'>${escapeXml(row.name)}</text>`;
+      // Where the last label in this row ends: one that would run over it is left out (a walk's steps).
+      let labelEnd = -Infinity;
+      for (const c of row.cues) {
+        if (c.at > to) continue;
+        const a = Math.max(from, c.at);
+        const length = c.until !== undefined ? c.until - c.at : (c.length ?? 0);
+        const b = Math.min(to, c.at + length);
+        // A line still speaking when its shot cuts is cut off with it: outlined in red.
+        const over = c.bus === 'voice' && c.at + length > ends.get(c.shot)! + 0.01;
+        const outline = over ? ` stroke='#ff4d4d' stroke-width='3'` : '';
+        if (b - a > 0.05)
+          svg += `<rect x='${x(a)}' y='${y + 3}' width='${x(b) - x(a)}' height='${rowH - 6}' rx='4' fill='${color}' opacity='0.55'${outline}/>`;
+        else svg += `<path d='M${x(a)} ${y + 3} v${rowH - 6}' stroke='${color}' stroke-width='3'/>`;
+        const text =
+          c.bus === 'voice' ? `${length.toFixed(1)}s${over ? ' · cut off' : ''}` : c.label;
+        if ((detail || c.bus === 'music' || c.bus === 'ambience') && x(a) >= labelEnd) {
+          labelEnd = x(a) + 10 + text.length * 7;
+          svg += `<text x='${x(a) + 5}' y='${y + 16}' font-family='${LABEL_FONT}' font-size='12' fill='#fff'>${escapeXml(text)}</text>`;
+        }
+      }
+    });
+    return { svg, height };
+  };
+}
+
+/**
+ * The whole film's sound on one clock, a row per speaker and per kind of sound, with the
+ * cuts marked and numbered: returned by set_audio, where the music and narrator change.
+ */
+export function audioMapSvg(project: Project, shots: Shot[] = project.shots): string {
+  const starts = shotStarts(shots);
+  const total = shots.reduce((s, x) => s + x.duration, 0);
+  const width = 1200;
+  const marks = starts.map((t, i) => ({ t, label: String(i + 1) }));
+  const lane = audioLane(project, shots, marks, 0, total, false)?.(width - 20);
+  const body = lane
+    ? `<g transform='translate(10 34)'>${lane.svg}</g>`
+    : `<text x='20' y='60' font-family='${LABEL_FONT}' font-size='14' fill='#ccc'>Nothing sounds yet: no music, ambience, sounds or voiced lines.</text>`;
+  const height = 44 + (lane?.height ?? 40);
+  return (
+    `<svg xmlns='http://www.w3.org/2000/svg' width='${width}' height='${height}' viewBox='0 0 ${width} ${height}'>` +
+    `<rect width='${width}' height='${height}' fill='#222'/>` +
+    `<text x='12' y='22' font-family='${LABEL_FONT}' font-size='15' fill='#eee'>${escapeXml(project.meta.title)} · ${total.toFixed(0)}s · ${shots.length} shots (numbered at each cut)</text>` +
+    body +
+    '</svg>'
+  );
 }
 
 /** Evenly spaced frames from a shot (or from `from` to `to` in it), tiled with time stamps. */
@@ -371,11 +480,13 @@ export function contactSheetSvg(
   from = 0,
   to = shot.duration
 ): string {
-  const frames = Array.from({ length: count }, (_, i) => {
-    const t = from + ((i + 0.5) / count) * (to - from);
-    return { label: `${shot.id} · t=${t.toFixed(2)}s`, svg: composeFrame(project, shot, t) };
-  });
-  return tileFrames(project, frames, cols);
+  const times = Array.from({ length: count }, (_, i) => from + ((i + 0.5) / count) * (to - from));
+  const frames = times.map((t) => ({
+    label: `${shot.id} · t=${t.toFixed(2)}s`,
+    svg: composeFrame(project, shot, t),
+  }));
+  const marks = times.map((t) => ({ t }));
+  return tileFrames(project, frames, cols, 630, audioLane(project, [shot], marks, from, to, true));
 }
 
 /** One frame from the middle of each shot: the whole film at a glance, returned by `render`. */

@@ -11,7 +11,8 @@ write. Fix what looks wrong before moving on.
    5–20 seconds each. A shot is one location with one bit of action.
 2. **`create_project(path, title)`** once; `path` is the absolute project
    directory and every later tool takes the same `path`. Then
-   **`list_library()`**.
+   **`list_library()`**, and `set_audio(path, narrator, music)` for the
+   film's narrator voice and music (see [Sound](#sound)).
 3. **Characters.** Prefer `copy_from_library(path, libraryId, asId, name,
 colors)` (colour tokens: hair, skin, dress, shirt…); without `name` the
    copy is named from `asId` (`old-man` is "Old man"). Draw from scratch with
@@ -26,6 +27,7 @@ colors)` (colour tokens: hair, skin, dress, shirt…); without `name` the
    right and the construction warnings are gone. A library copy returns only
    the pose sheet: its construction is already right, and if you redraw it,
    `write_character` shows the construction sheet as for any new drawing.
+   Give every character that speaks a `voice` from `list_voices`.
 4. **Scenes.** `copy_from_library` or `write_scene(path, scene)`. Look at the
    anchor sheet: every place a character will stand or sit needs an anchor on
    the floor. The library's jungle, cave and village hut are painted in
@@ -682,9 +684,11 @@ when it has a `shelter` (see Weather and moving nature).
 
 ### Dialogue
 
-`say` draws a bubble above the head and flaps the mouth. Duration defaults to
-1 s plus 0.4 s per word (min 1.8 s), so a six-word line stays up for 3.4 s;
-set it explicitly for pacing. `bubble` can be `speech` (default), `thought` or
+`say` draws a bubble above the head and moves the mouth. A line in a voiced
+character's mouth is spoken (see [Sound](#sound)) and stays up as long as it
+takes to say plus half a second, the mouth opening on the sound. An unvoiced
+line stays up 1 s plus 0.4 s per word (min 1.8 s), so a six-word line takes
+3.4 s. A `duration` on the action overrides either. `bubble` can be `speech` (default), `thought` or
 `shout`; a thought keeps the mouth still and nobody turns to look. Keep lines
 short (≤ 12 words) and sequence speakers so bubbles do not overlap:
 `write_shot` warns when one actor starts speaking before another has finished. A bubble pops out of the speaker's head and shrinks back into it.
@@ -714,7 +718,8 @@ to look, so set `facing` so that people who talk face each other.
   forces specific variants for the rest of the shot, which also stops that
   part blinking or talking; `face: { "mouth": "" }` hands it back.
 - `caption`: narrator text at the bottom (`captionStyle: "narration"`, the
-  default) or a big centred card (`"title"`). Default 3 s. Captions are a
+  default) or a big centred card (`"title"`). Default 3 s, or as long as
+  the narrator takes to read it. Captions are a
   layer above everything and do not follow the camera (narration rises into
   place as it fades in): a narration strip can run under a
   speech bubble without touching it, but a title card sits in the middle of
@@ -739,6 +744,57 @@ to look, so set `facing` so that people who talk face each other.
 - `lightning: true` (no actor) strikes at `t`: a bolt in the sky and a flash.
 - `weather: { … }` (no actor) turns the weather into that over `duration`
   (default 2 s); see Weather and moving nature.
+
+## Sound
+
+A film has six layers of sound. You choose four; the engine makes the rest.
+
+- **Voices.** Give each character that speaks a `voice` from `list_voices`:
+  `"voice": "kokoro:hm_omega"`, or `{ "id": "kokoro:hm_psi", "pitch": 4 }`
+  for a mouse. Pitch is in semitones: 3 to 5 up turns a grown-up's voice into
+  a child's or a small animal's, -3 a giant's; `speed` 0.85 is slow and old,
+  1.15 quick. Lines are spoken by a local model when a shot is written (and
+  before a render) and kept in the project's `audio/voices/`. The voice sets
+  the language: Devanagari lines need a Hindi voice, and `write_shot` warns
+  when an English voice would read one. `shout` is the same voice louder.
+  `thought` is the same voice heard from inside: quieter, with a little room
+  on it, from the middle, and the mouth stays still. A character with no
+  voice is silent.
+- **Narrator.** `set_audio(path, narrator: "kokoro:hf_alpha")` reads every
+  caption, narration and title cards alike.
+- **Music.** `set_audio(path, music: "playful")` plays under the whole film.
+  A shot's `music` changes it from that shot on: `"tense"`,
+  `{ "track": "sad", "volume": 0.7 }`, or `false` for silence. A track that
+  carries on into the next shot keeps playing across the cut; a new one
+  crossfades in. It ducks under every voice on its own. Choose music by the
+  story's mood, and change it only where the mood turns.
+- **Ambience.** A scene's `ambience` lists looping sounds of the place:
+  `["jungle"]`, `["night"]`, `[{ "sound": "village", "volume": 0.6 }]`. The
+  library's scenes come with theirs. It carries across cuts between shots in
+  the same place. A scene's `surface` (`hard`, the default, or `grass`) is
+  what feet land on, for the sound of the steps. Do not list rain, wind,
+  fire, waterfalls or waves: weather
+  and effects are heard on their own (rain as hard as it falls, a fire from
+  where it burns, thunder after each strike).
+- **Effects.** `{ "t": 3, "actor": "lion", "sound": "lion-roar" }` plays a
+  sound at `t`, heard from the actor's side of the frame; `volume` 0.5 for far
+  off, 1.5 close. A name with several takes picks one each time, so a repeated
+  sound does not repeat exactly. `list_sounds` has the names. Footsteps (from
+  each foot as it lands), the whoosh into a jump and its landing, a sparkle on
+  `appear` and `disappear`, and the tap of a pickup or putdown are the
+  engine's: never add them.
+
+A project's own sounds and music go in its `audio/` folder (`.ogg`, `.wav`,
+`.mp3`, `.flac`) and are used by file name without the extension, wherever a
+sound name goes. A file named like a bundled sound replaces it.
+
+Every shot sheet shows the sound under the frames: a row for each speaker,
+then effects, ambience and music, against the shot's clock, each line marked
+with how long it takes to say. A line outlined in red is cut off by the end of
+the shot. `set_audio` returns the same for the whole film, with the cuts
+numbered. To pace a shot with voices, write it, read the lane, then start each
+line about 0.3 s after the one before it ends and end the shot about half a
+second after its last line, with `patch_shot`.
 
 ## Pacing a children's story
 
@@ -769,6 +825,8 @@ to look, so set `facing` so that people who talk face each other.
   prop put down stays down in the shots that follow in the same place.
 - A scene with a sun, moon or lamp painted in names it in `lights`, so the
   shadows fall away from it.
+- Everyone who speaks has a `voice` and the project has a narrator and music;
+  no line is outlined in red on a sheet.
 - Total duration matches what was asked for: a short fable is 60–120 s, a
   full picture-book story 5–10 minutes.
 - The film sheet returned by `render` shows every shot the way you intended.
