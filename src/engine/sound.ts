@@ -1,4 +1,3 @@
-import { SOUNDS } from '../library/sounds.js';
 import { clamp01, hash01 } from './easing.js';
 import { footfalls, gaitPhase } from './gait.js';
 import { RIGS } from './rigs.js';
@@ -10,6 +9,7 @@ import {
   resolvePosition,
 } from './timeline.js';
 import type { Character, Effect, Music, Project, Scene, Shot, Verb, Weather } from './types.js';
+import { actionSalt, resolveSound, soundLength, type Source } from './sources.js';
 import { strikeAt, WEATHER_TURN, weatherAt } from './weather.js';
 import { voiceLines, type Line } from './voice.js';
 
@@ -19,9 +19,6 @@ import { voiceLines, type Line } from './voice.js';
  */
 
 export type Bus = 'music' | 'ambience' | 'sfx' | 'voice';
-
-/** Where a cue's audio comes from: a bundled sound, a file in the project's audio/, or a spoken line in audio/voices/. */
-export type Source = { lib: string } | { file: string } | { voice: string };
 
 export interface Cue {
   bus: Bus;
@@ -71,21 +68,6 @@ const STYLE_GAIN: Record<Line['style'], number> = {
 };
 /** How far a sound at the frame's edge sits toward that side. */
 const PAN_WIDTH = 0.6;
-
-/**
- * Look up a sound by name: a file in the project's audio/ first (so a project can replace a
- * bundled sound), then a bundled one, then a bundled name with numbered variants, of which
- * `salt` picks one.
- */
-export function resolveSound(project: Project, name: string, salt = ''): Source | undefined {
-  if (project.audio?.files[name]) return { file: project.audio.files[name] };
-  if (SOUNDS[name]) return { lib: name };
-  const variants = Object.keys(SOUNDS)
-    .filter((id) => id.startsWith(`${name}-`) && /^\d+$/.test(id.slice(name.length + 1)))
-    .sort();
-  if (!variants.length) return undefined;
-  return { lib: variants[Math.floor(hash01(`${name}:${salt}`) * variants.length)] };
-}
 
 /** Film seconds each shot starts at. A crossfade overlaps nothing: the old shot's end shows under the new one's start. */
 export function shotStarts(shots: Shot[]): number[] {
@@ -331,8 +313,6 @@ function thunder(project: Project, shot: Shot, at0: number): Cue[] {
   return out;
 }
 
-const soundLength = (src: Source) => ('lib' in src ? SOUNDS[src.lib].duration : undefined);
-
 /** Every cue in these shots, played one after another. Names that resolve to nothing are left out (the validator reports them). */
 export function cueSheet(project: Project, shots: Shot[] = project.shots): Cue[] {
   const starts = shotStarts(shots);
@@ -406,9 +386,9 @@ export function cueSheet(project: Project, shots: Shot[] = project.shots): Cue[]
 
   shots.forEach((shot, i) => {
     // One-off sounds from actions.
-    shot.actions.forEach((a, k) => {
+    shot.actions.forEach((a) => {
       if (!a.sound) return;
-      const src = resolveSound(project, a.sound, `${shot.id}:${k}`);
+      const src = resolveSound(project, a.sound, actionSalt(shot, a));
       if (!src) return;
       cues.push({
         bus: 'sfx',
@@ -438,7 +418,7 @@ export function cueSheet(project: Project, shots: Shot[] = project.shots): Cue[]
     cues.push({
       bus: 'voice',
       src: { voice: clip.file },
-      at: starts[i] + a.t,
+      at: starts[i] + a.t + line.lead,
       length: clip.duration,
       fx: line.style === 'thought' ? 'thought' : undefined,
       gain: LEVEL.voice * STYLE_GAIN[line.style],

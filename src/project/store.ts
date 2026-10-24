@@ -135,6 +135,8 @@ export interface VoiceEntry {
   voice: string;
   speed: number;
   pitch: number;
+  emotion: string;
+  style: string;
   text: string;
   duration: number;
   /** Loudness at ENVELOPE_RATE, one byte (0 to 255) a sample, base64. */

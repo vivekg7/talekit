@@ -176,6 +176,8 @@ export async function makeVoices(
           voice: line.voice.name,
           text: line.text.trim(),
           speed: line.voice.speed,
+          emotion: line.emotion,
+          style: line.style,
           out: raw(line),
         }) + '\n'
       );
@@ -199,6 +201,8 @@ export async function makeVoices(
         voice: `${line.voice.engine}:${line.voice.name}`,
         speed: line.voice.speed,
         pitch: line.voice.pitch,
+        emotion: line.emotion,
+        style: line.style,
         text: line.text.trim(),
         duration: Math.round((samples.length / RATE) * 1000) / 1000,
         envelope: envelope(samples).toString('base64'),

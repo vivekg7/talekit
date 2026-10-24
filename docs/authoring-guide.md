@@ -688,7 +688,9 @@ when it has a `shelter` (see Weather and moving nature).
 character's mouth is spoken (see [Sound](#sound)) and stays up as long as it
 takes to say plus half a second, the mouth opening on the sound. An unvoiced
 line stays up 1 s plus 0.4 s per word (min 1.8 s), so a six-word line takes
-3.4 s. A `duration` on the action overrides either. `bubble` can be `speech` (default), `thought` or
+3.4 s. A `duration` on the action keeps a voiced line up longer (never shorter
+than its voice) and sets an unvoiced one's. A growl or a laugh in a
+line goes between asterisks (see [Sound](#sound)). `bubble` can be `speech` (default), `thought` or
 `shout`; a thought keeps the mouth still and nobody turns to look. Keep lines
 short (≤ 12 words) and sequence speakers so bubbles do not overlap:
 `write_shot` warns when one actor starts speaking before another has finished. A bubble pops out of the speaker's head and shrinks back into it.
@@ -759,7 +761,20 @@ A film has six layers of sound. You choose four; the engine makes the rest.
   when an English voice would read one. `shout` is the same voice louder.
   `thought` is the same voice heard from inside: quieter, with a little room
   on it, from the middle, and the mouth stays still. A character with no
-  voice is silent.
+  voice is silent. A line is said with the emotion the character has when it
+  starts, the same one its face shows, so set `emotion` on or before every
+  line that is not said calmly: a line said in anger needs `angry` set, or it
+  is said evenly.
+- **Sounds inside a line.** A growl, a giggle, a snore or a gnawing is not
+  words, and a voice reads it out as if it were. Put it between asterisks and
+  give the action the `sound`:
+  `{ "t": 3, "actor": "lion", "say": "*गुर्रर!* कौन है?", "sound": "lion-growl", "bubble": "shout" }`.
+  The bubble shows `गुर्रर! कौन है?`; the growl is heard, the mouth open
+  through it, and the voice says `कौन है?` once the growl is over (after 2 s
+  at most: a long growl rumbles on under the first words). A line that
+  is only a sound (`"*हि हि!*"` with `"sound": "laugh-child"`) is not spoken at
+  all. `write_shot` warns about growls, laughs and snores written out
+  unmarked, and about a marked sound with no `sound` to be heard.
 - **Narrator.** `set_audio(path, narrator: "kokoro:hf_alpha")` reads every
   caption, narration and title cards alike.
 - **Music.** `set_audio(path, music: "playful")` plays under the whole film.
@@ -794,7 +809,9 @@ with how long it takes to say. A line outlined in red is cut off by the end of
 the shot. `set_audio` returns the same for the whole film, with the cuts
 numbered. To pace a shot with voices, write it, read the lane, then start each
 line about 0.3 s after the one before it ends and end the shot about half a
-second after its last line, with `patch_shot`.
+second after its last line, with `patch_shot`. Nobody should talk over the
+narrator: `write_shot` warns when a line starts while a caption is still being
+read, and when a character starts a line before finishing their last.
 
 ## Pacing a children's story
 
@@ -826,7 +843,9 @@ second after its last line, with `patch_shot`.
 - A scene with a sun, moon or lamp painted in names it in `lights`, so the
   shadows fall away from it.
 - Everyone who speaks has a `voice` and the project has a narrator and music;
-  no line is outlined in red on a sheet.
+  no line is outlined in red on a sheet, and nobody talks over the narrator.
+- Every line not said calmly has its `emotion` set, and every growl, laugh
+  or snore in a line is `*marked*` with a `sound`.
 - Total duration matches what was asked for: a short fable is 60–120 s, a
   full picture-book story 5–10 minutes.
 - The film sheet returned by `render` shows every shot the way you intended.

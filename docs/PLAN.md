@@ -763,6 +763,32 @@ can use fixed levels: effects peak at -1 dBFS, ambience is -23 LUFS, music
 they are made. A voiced Hindi film (lion-mouse-hi, 5 min) comes out near -18
 LUFS.
 
+First listen (2026-10-24, Vivek on the voiced lion-mouse-hi): the music and
+the narrator (hf_alpha) are right; the dialogue is not. Three things followed.
+
+- **A line is said with its speaker's emotion**, the one its face has then. It
+  is in the line's cache key and goes to the sidecar, so any engine can act on
+  it; no new field, because a face and a voice that disagree is a mistake.
+  Kokoro cannot act, but it predicts a pitch curve before it makes the sound,
+  so `speak.py` bends that per emotion (wider and higher for happy, angry,
+  surprised and scared, narrower and lower for sad) and changes the pace.
+  Measured on the film's lines, a happy Chintu's pitch now spans 17 semitones
+  instead of 14. Whether that is enough is for the ear.
+- **A sound is not a word.** Agents write गुर्रर, हा हा हा and खर्र… in lines,
+  and a voice reads them out. Text between asterisks is shown in the bubble
+  and never spoken, and a `sound` on the same action is what is heard; a line
+  that opens with a marked sound waits for it (2 s at most, so a long growl
+  rumbles under the first words). The validator flags growls, laughs and
+  snores left unmarked.
+- **Nobody talks over the narrator.** The validator compared only characters'
+  bubbles; it now warns when any line starts while the narrator is reading,
+  or the narrator starts while anyone is. A voiced line is "talking" until its
+  voice stops, not until its bubble fades, and a `duration` written before a
+  line had a voice can lengthen its bubble but never cut the voice short.
+
+Two espeak-ng slips in Hindi were also fixed in the sidecar: the flap in ड़ came
+out as `r.`, whose dot Kokoro read as a full stop, and ऊँ as "un".
+
 ## Render speed
 
 Measured 2026-10-23 on a 12-core M-series Mac, on the race film (273 s, scenery

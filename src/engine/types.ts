@@ -508,13 +508,20 @@ export const ActionSchema = z
       'walk/run/move/fly/jump/sit/lie/putdown: where to (anchor, stage shortcut or {x, y}). On a say without do: the id of the actor spoken to, when the engine would guess wrong'
     ),
     /** Dialogue shown in a bubble above the actor's head; also animates the mouth. */
-    say: z.string().optional(),
+    say: z
+      .string()
+      .optional()
+      .describe(
+        "A line in a bubble, spoken in the character's voice with the emotion it has then. Put a sound that is not words between asterisks, '*गुर्रर!* कौन है?' or '*Grrr!* Who is there?': it is shown, never read out, and a `sound` on the same action is what is heard; the voice waits for that sound when the line opens with it"
+      ),
     bubble: z
       .enum(['speech', 'thought', 'shout'])
       .optional()
       .describe('speech (default), thought (the mouth stays still, nobody looks) or shout'),
     /** Persistent facial expression until the next emotion action. */
-    emotion: EmotionSchema.optional(),
+    emotion: EmotionSchema.optional().describe(
+      "The actor's face from now on, and how its lines are said: set it before or on the line that needs it"
+    ),
     /** Explicit part variants, e.g. { mouth: 'grin' }; persists like emotion. */
     face: z
       .record(z.string(), z.string())
@@ -523,7 +530,12 @@ export const ActionSchema = z
         "Force part variants, e.g. { mouth: 'grin' }, until the shot ends (a forced part does not blink or talk); '' hands a part back to the emotion"
       ),
     /** On-screen text that belongs to no actor: a title card or a narrator line. */
-    caption: z.string().optional(),
+    caption: z
+      .string()
+      .optional()
+      .describe(
+        "Narration at the bottom or a title card, read by the project's narrator. As in `say`, *marked* text is shown and not read"
+      ),
     captionStyle: z.enum(['title', 'narration']).optional(),
     /** Camera target, tweened over `duration` (default 1s; 0.05 for a cut). */
     camera: CameraSchema.partial().optional(),

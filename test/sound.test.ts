@@ -6,7 +6,17 @@ import { describe, expect, it } from 'vitest';
 import { cueSheet } from '../src/engine/sound.js';
 import { SceneSchema, ShotSchema, type Project } from '../src/engine/types.js';
 import { LIBRARY } from '../src/library/index.js';
-import { clipFor, lineDuration, LINGER, mouthOpen } from '../src/engine/voice.js';
+import {
+  clipFor,
+  lineDuration,
+  LINGER,
+  mouthOpen,
+  shownText,
+  spokenText,
+  voiceLines,
+} from '../src/engine/voice.js';
+import { resolveFrame } from '../src/engine/timeline.js';
+import { SOUNDS } from '../src/library/sounds.js';
 import { validateProject, validateShot } from '../src/project/validate.js';
 import { makeVoices } from '../src/project/voices.js';
 import { mixAudio, RATE } from '../src/render/audio.js';
@@ -185,10 +195,10 @@ describe('voices', () => {
       expect(report.failed.map((f) => f.error)).toEqual(['could not say it']);
       // Six words at a third of a second each, and half a second more on screen.
       const say = p.shots[0].actions[1];
-      expect(clipFor(p, say)!.duration).toBeCloseTo(2, 1);
-      expect(lineDuration(p, say)).toBeCloseTo(2 + LINGER, 1);
-      expect(mouthOpen(clipFor(p, say)!, 1)).toBe(true);
-      expect(mouthOpen(clipFor(p, say)!, 2.3)).toBe(false);
+      expect(clipFor(p, p.shots[0], say)!.duration).toBeCloseTo(2, 1);
+      expect(lineDuration(p, p.shots[0], say)).toBeCloseTo(2 + LINGER, 1);
+      expect(mouthOpen(clipFor(p, p.shots[0], say)!, 1)).toBe(true);
+      expect(mouthOpen(clipFor(p, p.shots[0], say)!, 2.3)).toBe(false);
       // Spoken again, nothing is made twice.
       expect((await makeVoices(r, p)).made).toBe(0);
       // The line runs past the shot's end.
@@ -219,5 +229,125 @@ describe('voices', () => {
         .map((m) => m.message)
         .join('\n')
     ).toMatch(/Hindi voice/);
+  });
+
+  it('speaks the words of a line and not the sounds marked in it, after the sound plays', async () => {
+    expect(shownText('*Grrr!* Who is there?')).toBe('Grrr! Who is there?');
+    expect(spokenText('*Grrr!* Who is there?')).toBe('Who is there?');
+    expect(spokenText('*हि हि!*')).toBe('');
+    process.env.TALEKIT_TTS = fake;
+    try {
+      const r = root();
+      const p = voiced(
+        [
+          shot('a', {
+            duration: 9,
+            cast: { kid: { at: 'center' } },
+            actions: [
+              { t: 1, actor: 'kid', say: '*Grrr!* who is there', sound: 'lion-growl' },
+              { t: 8, actor: 'kid', say: '*hee hee*', sound: 'laugh-child' },
+            ],
+          }),
+        ],
+        path.join(r, 'audio')
+      );
+      const lines = voiceLines(p);
+      // The giggle alone has no words, so it is heard only as its sound.
+      expect(lines.map((l) => l.text)).toEqual(['who is there']);
+      // A growl longer than two seconds rumbles on under the first words.
+      expect(SOUNDS['lion-growl'].duration).toBeGreaterThan(2);
+      const growl = 2;
+      expect(lines[0].lead).toBeCloseTo(growl, 5);
+      await makeVoices(r, p);
+      const voice = cueSheet(p).find((c) => c.bus === 'voice')!;
+      expect(voice.at).toBeCloseTo(1 + growl, 5);
+      const say = p.shots[0].actions[0];
+      expect(lineDuration(p, p.shots[0], say)).toBeCloseTo(growl + 1 + LINGER, 1);
+      // A duration written for the bubble never cuts its voice short.
+      expect(lineDuration(p, p.shots[0], { ...say, duration: 1 })).toBeCloseTo(
+        growl + 1 + LINGER,
+        1
+      );
+      // The bubble shows the growl, and the mouth is open through it.
+      const kid = resolveFrame(p, p.shots[0], 1.5).actors.find((a) => a.id === 'kid')!;
+      expect(kid.bubble?.text).toBe('Grrr! who is there');
+      expect(kid.mouth).toBe(true);
+    } finally {
+      delete process.env.TALEKIT_TTS;
+    }
+  });
+
+  it('warns about sounds written out as words, and marked sounds nobody hears', () => {
+    const p = voiced(
+      [
+        shot('a', {
+          duration: 20,
+          cast: { kid: { at: 'center' } },
+          actions: [
+            { t: 0, actor: 'kid', say: 'Grrr! Who is there?' },
+            { t: 3, actor: 'kid', say: 'हा हा हा! तुम?' },
+            { t: 6, actor: 'kid', say: 'जल्दी जल्दी चलो!' },
+            { t: 9, actor: 'kid', say: '*हि हि!* चलो' },
+          ],
+        }),
+      ],
+      dir
+    );
+    const messages = validateShot(p.shots[0], p).map((m) => m.message);
+    expect(messages.filter((m) => /is a sound/.test(m)).map((m) => m.slice(0, 9))).toEqual([
+      'action 0:',
+      'action 1:',
+    ]);
+    expect(messages.join('\n')).toMatch(/action 3: the marked sound .* nothing is heard/);
+  });
+
+  it('gives each line the emotion its speaker has as they say it', () => {
+    const p = voiced(
+      [
+        shot('a', {
+          duration: 8,
+          cast: { kid: { at: 'center' } },
+          actions: [
+            { t: 0, actor: 'kid', say: 'hello' },
+            { t: 2, actor: 'kid', emotion: 'angry', say: 'go away' },
+            { t: 4, actor: 'kid', say: 'hello' },
+          ],
+        }),
+      ],
+      dir
+    );
+    const lines = voiceLines(p);
+    expect(lines.map((l) => l.emotion)).toEqual(['neutral', 'angry', 'angry']);
+    // The same words said angrily are another recording.
+    expect(lines[0].key).not.toBe(lines[2].key);
+  });
+
+  it('warns when the narrator and a character talk over each other', async () => {
+    process.env.TALEKIT_TTS = fake;
+    try {
+      const r = root();
+      const p = voiced(
+        [
+          shot('a', {
+            duration: 6,
+            cast: { kid: { at: 'center' } },
+            actions: [
+              { t: 0, caption: 'one two three four five six' },
+              { t: 1, actor: 'kid', say: 'hello there' },
+              { t: 4, actor: 'kid', say: 'bye' },
+            ],
+          }),
+        ],
+        path.join(r, 'audio')
+      );
+      await makeVoices(r, p);
+      const over = validateShot(p.shots[0], p)
+        .map((m) => m.message)
+        .filter((m) => /talk over each other/.test(m));
+      expect(over).toHaveLength(1);
+      expect(over[0]).toMatch(/^action 1: kid starts speaking at 1\.0s while the narrator/);
+    } finally {
+      delete process.env.TALEKIT_TTS;
+    }
   });
 });

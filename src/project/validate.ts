@@ -4,8 +4,15 @@ import { effectLayer } from '../engine/effects.js';
 import { RIGS } from '../engine/rigs.js';
 import { holdPoint, poseFor } from '../engine/actor.js';
 import { attachTime, holderAt, resolveActor, STAGE_SHORTCUTS } from '../engine/timeline.js';
-import { resolveSound } from '../engine/sound.js';
-import { lineDuration, voiceLines, voiceSpec } from '../engine/voice.js';
+import { resolveSound } from '../engine/sources.js';
+import {
+  clipFor,
+  lineDuration,
+  lineLead,
+  spokenText,
+  voiceLines,
+  voiceSpec,
+} from '../engine/voice.js';
 import { needsShaping } from '../engine/glyphs.js';
 import { VOICES } from '../library/voices.js';
 import type {
@@ -229,16 +236,61 @@ export function musicProblems(
 }
 
 /**
- * Spoken lines that will not sound right: cut off by the end of the shot, run into the
- * speaker's own next line, or written in a script their voice does not read.
+ * Words that are a sound, not speech: a growl, a snore, a laugh, a gnawing. A voice reads
+ * them out as words, so they are marked `*…*` (shown, not spoken) and heard as a `sound`.
+ */
+const SOUND_WORDS = [
+  /(?<![\p{L}\p{M}])(?:गु|घु|ग्)?र्र[\p{L}\p{M}]*/u,
+  /(?<![\p{L}\p{M}])खर्र[\p{L}\p{M}]*/u,
+  /(?<![\p{L}\p{M}])म्याऊ[\p{L}\p{M}]*/u,
+  /(?<![\p{L}\p{M}])(हा|हि|ही|हे|हो|ची|चीं|चूँ|भौं|कुतर|टक)(?:[\s.,!…-]+\1)+(?![\p{L}\p{M}])/u,
+  /\b(?:g?r{3,}h*|gr{2,}|z{3,}|brr+|achoo|(ha|he|hee|ho|hi)(?:[\s,!.-]+\1)+)\b/iu,
+];
+
+function soundWord(text: string): string | undefined {
+  const plain = text.replace(/\*[^*]*\*/g, ' ');
+  for (const re of SOUND_WORDS) {
+    const m = plain.match(re);
+    if (m) return m[0];
+  }
+  return undefined;
+}
+
+/**
+ * Spoken lines that will not sound right: cut off by the end of the shot, talked over by
+ * the narrator or run into the speaker's own next line, written in a script their voice
+ * does not read, or with a growl or a laugh written out for the voice to read as words.
  */
 function lineProblems(shot: Shot, project: Project): Problem[] {
   const out: Problem[] = [];
   const where = `shot '${shot.id}'`;
-  const lines = voiceLines(project, [shot]);
   const quote = (t: string) => `'${t.length > 30 ? t.slice(0, 29) + '…' : t}'`;
-  for (const line of lines) {
+
+  shot.actions.forEach((a, i) => {
+    const text = a.say ?? a.caption;
+    if (!text) return;
+    const word = soundWord(text);
+    if (word)
+      out.push({
+        level: 'warning',
+        where,
+        message: `action ${i}: '${word}' is a sound, and a voice would read it out as a word: mark it *${word}* to keep it in the bubble only, and add a \`sound\` (list_sounds) for what is heard`,
+      });
+    if (a.say && /\*[^*]*\*/.test(a.say) && !a.sound && spokenText(a.say) !== a.say.trim())
+      out.push({
+        level: 'warning',
+        where,
+        message: `action ${i}: the marked sound in ${quote(a.say)} is shown but nothing is heard; add a \`sound\` (list_sounds) to the action`,
+      });
+  });
+
+  const spans = voiceLines(project, [shot]).map((line) => {
     const a = shot.actions[line.action];
+    const clip = project.audio?.voices[line.key];
+    const from = a.t + line.lead;
+    return { line, from, to: clip ? from + clip.duration : undefined };
+  });
+  for (const { line, from, to } of spans) {
     const who = line.actor ?? 'the narrator';
     const info = VOICES[`${line.voice.engine}:${line.voice.name}`];
     if (info && info.language !== 'hi' && needsShaping(line.text))
@@ -247,22 +299,28 @@ function lineProblems(shot: Shot, project: Project): Problem[] {
         where,
         message: `action ${line.action}: ${who}'s voice reads English, but the line is in Devanagari; give ${line.actor ? 'the character' : 'the project'} a Hindi voice (list_voices)`,
       });
-    const clip = project.audio?.voices[line.key];
-    if (!clip) continue;
-    const over = a.t + clip.duration - shot.duration;
+    if (to === undefined) continue;
+    const over = to - shot.duration;
     if (over > 0.05)
       out.push({
         level: 'warning',
         where,
-        message: `action ${line.action}: ${who}'s line ${quote(line.text)} takes ${clip.duration.toFixed(1)}s to say and is cut off ${over.toFixed(1)}s before it ends; start it earlier or lengthen the shot`,
+        message: `action ${line.action}: ${who}'s line ${quote(line.text)} takes ${(to - from).toFixed(1)}s to say and is cut off ${over.toFixed(1)}s before it ends; start it earlier or lengthen the shot`,
       });
-    const next = lines.find((l) => l.actor === line.actor && shot.actions[l.action].t > a.t);
-    if (next && shot.actions[next.action].t < a.t + clip.duration - 0.05)
+    // A line starting while this one is still heard: the speaker's own next line, or any
+    // line when the narrator is one of the two (two characters at once is the bubble check).
+    for (const next of spans) {
+      if (next.from <= from || next.from >= to - 0.05) continue;
+      const same = next.line.actor === line.actor;
+      if (!same && next.line.actor && line.actor) continue;
       out.push({
         level: 'warning',
         where,
-        message: `action ${next.action}: ${who} starts a line at ${shot.actions[next.action].t}s while still saying ${quote(line.text)} (until ${(a.t + clip.duration).toFixed(1)}s)`,
+        message: same
+          ? `action ${next.line.action}: ${who} starts a line at ${next.from.toFixed(1)}s while still saying ${quote(line.text)} (until ${to.toFixed(1)}s)`
+          : `action ${next.line.action}: ${next.line.actor ?? 'the narrator'} starts speaking at ${next.from.toFixed(1)}s while ${who} is still saying ${quote(line.text)} (until ${to.toFixed(1)}s); the voices talk over each other`,
       });
+    }
   }
   return out;
 }
@@ -421,10 +479,18 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
     }
   });
   // Two people talking at once is nearly always a pacing slip: the bubbles collide and the
-  // default `say` duration is longer than it looks. Warn, because it can be intended.
+  // default `say` duration is longer than it looks. Warn, because it can be intended. A
+  // voiced line is talking until its voice stops; its bubble staying up after that (a beat,
+  // or a longer `duration`) may overlap the next one, as bubbles do in a comic.
   const bubbles = shot.actions
     .filter((a) => a.say && a.actor)
-    .map((a) => ({ actor: a.actor!, from: a.t, to: a.t + lineDuration(project, a) }))
+    .map((a) => {
+      const clip = clipFor(project, shot, a);
+      const to = clip
+        ? a.t + lineLead(project, shot, a) + clip.duration
+        : a.t + lineDuration(project, shot, a);
+      return { actor: a.actor!, from: a.t, to };
+    })
     .sort((a, b) => a.from - b.from);
   for (let i = 1; i < bubbles.length; i++) {
     const cur = bubbles[i];

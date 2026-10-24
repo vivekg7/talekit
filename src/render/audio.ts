@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
-import { cueSheet, type Bus, type Cue, type Source } from '../engine/sound.js';
+import { cueSheet, type Bus, type Cue } from '../engine/sound.js';
+import type { Source } from '../engine/sources.js';
 import type { Project, Shot } from '../engine/types.js';
 import { SOUNDS, SOUNDS_DIR } from '../library/sounds.js';
 

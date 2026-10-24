@@ -3,7 +3,7 @@ import { holdPoint, poseFor } from './actor.js';
 import type { Travel } from './gait.js';
 import { isMoveVerb, JUMP, SPEED, STOOP, VERB_DURATION, type Locomotion } from './motion.js';
 import { RIGS } from './rigs.js';
-import { clipFor, lineDuration, mouthOpen, sayDuration } from './voice.js';
+import { clipFor, lineDuration, lineLead, mouthOpen, sayDuration, shownText } from './voice.js';
 import type {
   Action,
   Camera,
@@ -423,14 +423,21 @@ export function resolveActor(
     }
 
     if (a.say) {
-      const d = lineDuration(project, a);
+      const d = lineDuration(project, shot, a);
       if (t < a.t + d) {
-        bubble = { text: a.say, style: a.bubble ?? 'speech', age: t - a.t, left: a.t + d - t };
+        bubble = {
+          text: shownText(a.say),
+          style: a.bubble ?? 'speech',
+          age: t - a.t,
+          left: a.t + d - t,
+        };
         // A thought is not said out loud: the mouth stays still.
         talking = a.bubble !== 'thought';
-        // A voiced line moves the mouth with its sound, and closes it in the pauses.
-        const clip = clipFor(project, a);
-        mouth = clip && talking ? mouthOpen(clip, t - a.t) : undefined;
+        // A voiced line moves the mouth with its sound, and closes it in the pauses; it is
+        // open through a growl or a laugh the line starts with.
+        const clip = clipFor(project, shot, a);
+        const u = t - a.t - lineLead(project, shot, a);
+        mouth = !talking ? undefined : u < 0 ? true : clip ? mouthOpen(clip, u) : undefined;
       }
     }
 
@@ -755,14 +762,14 @@ function resolveCaptions(project: Project, shot: Shot, t: number): CaptionState[
   const out: CaptionState[] = [];
   for (const a of shot.actions) {
     if (!a.caption) continue;
-    const d = lineDuration(project, a);
+    const d = lineDuration(project, shot, a);
     if (t < a.t || t >= a.t + d) continue;
     const fadeLen = Math.min(0.3, d / 3);
     const inU = clamp01((t - a.t) / (fadeLen * 1.5));
     const outU = clamp01((a.t + d - t) / fadeLen);
     const opacity = Math.min(1, (t - a.t) / fadeLen, outU);
     const slide = 1 - easeOut(inU) + 0.5 * (1 - outU);
-    out.push({ text: a.caption, style: a.captionStyle ?? 'narration', opacity, slide });
+    out.push({ text: shownText(a.caption), style: a.captionStyle ?? 'narration', opacity, slide });
   }
   return out;
 }
