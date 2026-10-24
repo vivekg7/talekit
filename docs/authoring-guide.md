@@ -88,6 +88,11 @@ extra parts), `head`, `face`, `eyes`, `mouth`, `armR`; a part placed with
 `facing: "left"`. `armR` is the near arm (waves, points), `armL` is the far
 arm.
 
+The library has a girl (`kid`), a `boy`, a man (`grownup`), a `woman` in a
+kurta with a plait, a `farmer` in a pagdi and dhoti, and a bald `grandpa`
+in glasses and a waistcoat. Copy and recolour the nearest one before drawing
+a person from scratch.
+
 **Draw the face front-on and let the engine turn it.** `face` (the nose,
 cheeks, freckles, glasses: anything on the face that is not the eyes or the
 mouth), `eyes` and `mouth` are drawn looking straight out, centred on x=100.
@@ -149,8 +154,8 @@ stroke-width='18' stroke-linecap='round' fill='none'/>` plus a hand circle
 
 ### `quadruped` rig — 260 wide × 200 tall, feet on y=200
 
-Four-legged animals. The library has a dog, cat, rabbit, deer, lion, bear,
-fox and mouse: copy and recolour one when you can, and read
+Four-legged animals. The library has a dog, cat, rabbit, deer, lion, tiger,
+bear, fox, jackal and mouse: copy and recolour one when you can, and read
 `get_library_item("dog")` before drawing a new one (a horse, a pig, a sheep).
 
 ```
@@ -251,8 +256,8 @@ tail and head drawn in; `eyes` has `open`, `closed`, `wide`, `happy`; `mouth`
 has `closed`, `open`, `smile`, `sad` (a bird's beak is its mouth). Bubbles
 hang from the top of the box, so keep the head near the top.
 `get_library_item("bird")` is a complete worked example to copy the layout
-from; `height` on screen is typically 50–80 for a bird and 80–140 for a
-prop or a small creature.
+from (the library also has a `crow`); `height` on screen is typically 50–80
+for a bird and 80–140 for a prop or a small creature.
 
 ### Variants
 

@@ -3,15 +3,22 @@ import { CharacterSchema, SceneSchema } from '../engine/types.js';
 import { saveCharacter, saveScene } from '../project/store.js';
 import { KID } from './kid.js';
 import { GROWNUP } from './grownup.js';
+import { BOY } from './boy.js';
+import { WOMAN } from './woman.js';
+import { FARMER } from './farmer.js';
+import { GRANDPA } from './grandpa.js';
 import { DOG } from './dog.js';
 import { CAT } from './cat.js';
 import { RABBIT } from './rabbit.js';
 import { DEER } from './deer.js';
 import { LION } from './lion.js';
+import { TIGER } from './tiger.js';
 import { BEAR } from './bear.js';
 import { FOX } from './fox.js';
+import { JACKAL } from './jackal.js';
 import { MOUSE } from './mouse.js';
 import { BIRD } from './bird.js';
+import { CROW } from './crow.js';
 import { PARK } from './park.js';
 import { HOME } from './home.js';
 import { STREET } from './street.js';
@@ -21,10 +28,26 @@ import { HUT } from './hut.js';
 
 export const LIBRARY: { characters: Record<string, Character>; scenes: Record<string, Scene> } = {
   characters: Object.fromEntries(
-    [KID, GROWNUP, DOG, CAT, RABBIT, DEER, LION, BEAR, FOX, MOUSE, BIRD].map((c) => [
-      c.id,
-      CharacterSchema.parse(c),
-    ])
+    [
+      KID,
+      BOY,
+      GROWNUP,
+      WOMAN,
+      FARMER,
+      GRANDPA,
+      DOG,
+      CAT,
+      RABBIT,
+      DEER,
+      LION,
+      TIGER,
+      BEAR,
+      FOX,
+      JACKAL,
+      MOUSE,
+      BIRD,
+      CROW,
+    ].map((c) => [c.id, CharacterSchema.parse(c)])
   ),
   scenes: Object.fromEntries(
     [PARK, HOME, STREET, JUNGLE, CAVE, HUT].map((s) => [s.id, SceneSchema.parse(s)])

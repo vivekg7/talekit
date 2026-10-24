@@ -316,6 +316,24 @@ half size they read as scratches. The detail went where cloth folds
 instead (behind the grown-up's knee, the break over the shoe, the shirt
 bloused over the belt) plus a line where the fingers curl.
 
+**Library, first batch (2026-10-24).** A boy, a woman, a farmer, a grandpa,
+a tiger, a jackal and a crow: the cast of the Indian folk tales the films
+have been telling, which had to make do with the girl, recoloured grown-ups
+and hand-drawn villagers. Each is its own silhouette and costume; a
+recolour is not a new character. On the people, a kurta stops above the
+knee bend (the torso is rigid and the legs swing out from under it). Hair
+and cloth that should swing (the woman's plait, the farmer's gamchha and
+the tail of his pagdi) are hung parts. The pagdi's wraps cross high on the
+forehead, since anything lower reads to the linter as face that will not
+turn. The crow's beak is slate grey, not black, so it stays readable
+against a black head. Left for later: a pond scene with a crocodile, fish,
+frog and swan; a pirate with a peg leg (a leg drawn in wood walks like any
+other), a parrot, a grandma and a coiled cobra. Not planned as drawings: a
+crane, which needs a two-legged bird rig to walk; a snake that slithers,
+which needs a body that bends along its length; and a one-legged person,
+which needs crutches and a gait for them. That and a wheelchair are engine
+work, not drawings.
+
 ### 7.3 Motion with weight
 
 Why: smoothness is not interpolation, it is contact, anticipation and
