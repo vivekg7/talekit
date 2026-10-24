@@ -366,8 +366,9 @@ export function stride(
 
 /**
  * Raise a leg's foot straight up by `by` by bending the knee: the thigh comes forward and
- * the shin folds back, the way a leg gives under weight or lifts to clear the ground. The
- * foot ends exactly where sliding the leg up would have put it.
+ * the shin folds back, the way a leg gives under weight or lifts to clear the ground (on
+ * a hock, `Rig.hocks`, the other way round). The foot ends exactly where sliding the leg
+ * up would have put it.
  */
 export function raiseFoot(rig: Rig, pose: Pose, leg: string, by: number): void {
   const knee = rig.bends[leg];
@@ -385,7 +386,8 @@ export function raiseFoot(rig: Rig, pose: Pose, leg: string, by: number): void {
   // Angles from straight down, positive turning the foot back, as for `rot`.
   const toFoot = Math.atan2(-vx, vy);
   const open = Math.acos((thigh * thigh + d * d - shin * shin) / (2 * thigh * d));
-  const up = toFoot - open;
+  // A knee comes forward of the line to the foot; a hock goes behind it.
+  const up = rig.hocks?.includes(leg) ? toFoot + open : toFoot - open;
   const kx = hip[0] - thigh * Math.sin(up);
   const ky = hip[1] + thigh * Math.cos(up);
   const down = Math.atan2(-(hip[0] + vx - kx), hip[1] + vy - ky);

@@ -17,12 +17,41 @@ describe('quadruped motion', () => {
   it('walks in diagonal pairs with the feet on the ground staying on the line', () => {
     for (let t = 0; t < 0.7; t += 0.05) {
       const pose = basePose(QUADRUPED, 'walk', t, 0);
-      expect(pose.rot.legFR).toBeCloseTo(pose.rot.legBL!);
-      expect(pose.rot.legFL).toBeCloseTo(pose.rot.legBR!);
+      // A pair's feet move together, though a hind leg bends the other way to lift its.
+      for (const [a, b] of [
+        ['legFR', 'legBL'],
+        ['legFL', 'legBR'],
+      ] as const) {
+        const [ax, ay] = foot(pose, a);
+        const [bx, by] = foot(pose, b);
+        expect(ax - QUADRUPED.parts[a].pivot[0]).toBeCloseTo(bx - QUADRUPED.parts[b].pivot[0]);
+        expect(ay).toBeCloseTo(by);
+      }
       const ys = LEGS.map((leg) => foot(pose, leg)[1]);
       // Every foot is on or above the line, and the pair carrying the body is on it.
       for (const y of ys) expect(y).toBeLessThanOrEqual(200.01);
       expect(Math.max(...ys)).toBeCloseTo(200, 1);
+    }
+  });
+
+  it('lifts a hind paw by folding at a hock that points back, a front one at the wrist', () => {
+    // Early in the walk the near front and far hind feet are up.
+    const pose = basePose(QUADRUPED, 'walk', 0.6, 0);
+    // Where the joint is against the line from hip to foot: + in front of it, - behind.
+    // The walk does not rock the body, so the leg's angle is its angle on screen.
+    const side = (leg: string) => {
+      const [hx, hy] = QUADRUPED.parts[leg].pivot;
+      const ky = QUADRUPED.bends[leg][1];
+      const [fx, fy] = foot(pose, leg);
+      const joint = hx - (ky - hy) * Math.sin(((pose.rot[leg] ?? 0) * Math.PI) / 180);
+      return joint - (hx + ((fx - hx) * (ky - hy)) / (fy - hy));
+    };
+    const lifted = LEGS.filter((leg) => foot(pose, leg)[1] < 199);
+    expect(lifted.length).toBeGreaterThan(0);
+    for (const leg of lifted) {
+      expect(pose.bend[leg]).toBeTruthy();
+      if (leg.startsWith('legB')) expect(side(leg)).toBeLessThan(0);
+      else expect(side(leg)).toBeGreaterThan(0);
     }
   });
 

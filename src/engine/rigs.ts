@@ -51,6 +51,12 @@ export interface Rig {
    */
   bends: Record<string, [number, number]>;
   /**
+   * Limbs whose joint points back, not forward: an animal's hind legs, which bend at the
+   * hock. Lifting such a foot swings the joint back and tucks the foot forward under it,
+   * where a knee or a wrist comes forward and lets the foot trail.
+   */
+  hocks?: string[];
+  /**
    * The turn: `parts` (the face) are drawn front-on, centred on x = `centre`, and the
    * engine slides them `shift` units toward the way the character faces and narrows them to
    * `narrow`, which turns a round head to three-quarters (`Pose.yaw`); a turning character's
@@ -210,6 +216,7 @@ export const QUADRUPED: Rig = {
     legBR: [82, 166],
     legFR: [194, 166],
   },
+  hocks: ['legBL', 'legBR'],
 };
 
 export const RIGS: Record<RigName, Rig> = {

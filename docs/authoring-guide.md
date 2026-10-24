@@ -201,7 +201,8 @@ stroke-linecap='round' fill='none'/>`) with a paw or hoof shape at the
   the muzzle, with the same variants as every other rig.
 
 The engine walks it in diagonal pairs (near front with far hind), with the
-feet planted while they are down, a lifted paw bending at the knee, the head
+feet planted while they are down, a lifted front paw folding back at the
+wrist and a hind one tucking forward under a hock that points back, the head
 bobbing against the step and the tail swinging; `run` is a gallop between a
 gathered pose and a stretched one; `sit` tips the body back about the hips,
 bends the hind legs at the knee with the paws on the floor and keeps the

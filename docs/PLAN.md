@@ -284,6 +284,13 @@ each drawn after the leg's stroke (drawn before it, the stroke covers
 them; drawn higher, the mane does). The lion also got a slight belly tuck
 and a faint rib line.
 
+In motion, every leg used to lift its foot by bending the same way, knee
+forward and foot trailing, which is right for a foreleg's wrist and wrong
+for a hind leg: an animal's hock points back. The quadruped rig now names
+its hind legs as hocks (`Rig.hocks`), and lifting one swings the joint back
+and tucks the paw forward under it. The foot lands where it did before,
+with the joint bent the other way, so nothing else in the gait changed.
+
 ### 7.3 Motion with weight
 
 Why: smoothness is not interpolation, it is contact, anticipation and
