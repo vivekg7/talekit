@@ -10,7 +10,7 @@ import type { CharacterInput } from '../engine/types.js';
  * head, over the hair); a neck that grows into a Peter Pan collar; an A-line dress with a
  * sash, two pleats and a hem band that flares at the hem (a bow on the sash from behind);
  * puff sleeves round the shoulder pivot so they look the same at every swing; mitten hands
- * with the thumb forward; socks with a turned cuff and
+ * with the thumb forward and a line where the fingers curl; socks with a turned cuff and
  * shoes with a pale sole and a toe. Limbs are round-capped strokes from their pivots, the
  * neck reaches 30 units into the head and the hem hangs 20 below the hips, so nothing
  * opens up in motion.
@@ -46,7 +46,7 @@ export const KID: CharacterInput = {
   parts: {
     pigtailL: `<path d='M58 94 C44 84 20 86 12 104 C6 120 14 138 28 148 C24 134 30 122 42 118 C48 116 54 117 60 118 Z' fill='{hair}'/>`,
     pigtailR: `<path d='M142 94 C156 84 180 86 188 104 C194 120 186 138 172 148 C176 134 170 122 158 118 C152 116 146 117 140 118 Z' fill='{hair}'/>`,
-    armL: `<path d='M76 178 L71 274' stroke='{skin}' stroke-width='16' stroke-linecap='round' fill='none'/><path d='M61 278 C59 288 63 297 71 297 C79 297 82 290 81 280 C79 272 63 271 61 278 Z' fill='{skin}'/><path d='M77 277 C82 272 87 275 86 281 C85 286 81 289 77 288 Z' fill='{skin}'/><path d='M62 176 C59 192 64 204 76 205 C89 205 94 193 91 176 Z' fill='{dressDark}'/><circle cx='76' cy='173' r='16' fill='{dress}'/><path d='M60 174 C58 188 64 198 76 198 C88 198 94 188 92 174 Z' fill='{dress}'/>`,
+    armL: `<path d='M76 178 L71 274' stroke='{skin}' stroke-width='16' stroke-linecap='round' fill='none'/><path d='M61 278 C59 288 63 297 71 297 C79 297 82 290 81 280 C79 272 63 271 61 278 Z' fill='{skin}'/><path d='M77 277 C82 272 87 275 86 281 C85 286 81 289 77 288 Z' fill='{skin}'/><path d='M62 176 C59 192 64 204 76 205 C89 205 94 193 91 176 Z' fill='{dressDark}'/><circle cx='76' cy='173' r='16' fill='{dress}'/><path d='M60 174 C58 188 64 198 76 198 C88 198 94 188 92 174 Z' fill='{dress}'/><path d='M64 287 Q68.9 292.7 74 288 Q69.1 290.3 64 287 Z' fill='{line}'/>`,
     legL: `<path d='M86 274 L85 384' stroke='{legs}' stroke-width='18' stroke-linecap='round' fill='none'/><path d='M85 356 L85 386' stroke='{socks}' stroke-width='18' stroke-linecap='butt' fill='none'/><rect x='74' y='350' width='22' height='10' rx='4' fill='{socks}'/><path d='M74 392 C73 383 78 377 87 377 C95 377 99 381 103 384 C110 386 114 390 114 396 L74 396 Z' fill='{shoes}'/><path d='M72 393 L115 393 Q116 400 110 400 L77 400 Q72 400 72 393 Z' fill='{sole}'/><path d='M86 378 L94 389' stroke='{socks}' stroke-width='4' fill='none' stroke-linecap='round'/>`,
     legR: `<path d='M114 274 L115 384' stroke='{legs}' stroke-width='18' stroke-linecap='round' fill='none'/><path d='M115 356 L115 386' stroke='{socks}' stroke-width='18' stroke-linecap='butt' fill='none'/><rect x='104' y='350' width='22' height='10' rx='4' fill='{socks}'/><path d='M104 392 C103 383 108 377 117 377 C125 377 129 381 133 384 C140 386 144 390 144 396 L104 396 Z' fill='{shoes}'/><path d='M102 393 L145 393 Q146 400 140 400 L107 400 Q102 400 102 393 Z' fill='{sole}'/><path d='M116 378 L124 389' stroke='{socks}' stroke-width='4' fill='none' stroke-linecap='round'/>`,
     torso: {
@@ -74,6 +74,6 @@ export const KID: CharacterInput = {
       angry: `<path d='M91 129 Q102 122 113 129' stroke='{line}' stroke-width='4' fill='none' stroke-linecap='round'/>`,
       scared: `<path d='M89 128 Q95 121 101 128 Q107 135 113 128' stroke='{line}' stroke-width='3.5' fill='none' stroke-linecap='round'/>`,
     },
-    armR: `<path d='M124 178 L129 274' stroke='{skin}' stroke-width='16' stroke-linecap='round' fill='none'/><path d='M119 278 C117 288 121 297 129 297 C137 297 140 290 139 280 C137 272 121 271 119 278 Z' fill='{skin}'/><path d='M135 277 C140 272 145 275 144 281 C143 286 139 289 135 288 Z' fill='{skin}'/><path d='M110 176 C107 192 112 204 124 205 C137 205 142 193 139 176 Z' fill='{dressDark}'/><circle cx='124' cy='173' r='16' fill='{dress}'/><path d='M108 174 C106 188 112 198 124 198 C136 198 142 188 140 174 Z' fill='{dress}'/>`,
+    armR: `<path d='M124 178 L129 274' stroke='{skin}' stroke-width='16' stroke-linecap='round' fill='none'/><path d='M119 278 C117 288 121 297 129 297 C137 297 140 290 139 280 C137 272 121 271 119 278 Z' fill='{skin}'/><path d='M135 277 C140 272 145 275 144 281 C143 286 139 289 135 288 Z' fill='{skin}'/><path d='M110 176 C107 192 112 204 124 205 C137 205 142 193 139 176 Z' fill='{dressDark}'/><circle cx='124' cy='173' r='16' fill='{dress}'/><path d='M108 174 C106 188 112 198 124 198 C136 198 142 188 140 174 Z' fill='{dress}'/><path d='M122 287 Q126.9 292.7 132 288 Q127.1 290.3 122 287 Z' fill='{line}'/>`,
   },
 };

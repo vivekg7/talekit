@@ -132,6 +132,10 @@ stroke-width='18' stroke-linecap='round' fill='none'/>` plus a hand circle
   straight stroke with the hand at the end; a sleeve may cross the elbow.
 - `face`, `eyes` and `mouth` rotate with the head. Give the eyes and mouth
   variants (below).
+- **Put detail where cloth folds**: a fold above and below the back of the
+  knee, trousers breaking over the shoe, a shirt bloused over its belt, a
+  line where the fingers curl on a hand. Leave thin bare arms and legs
+  plain: at half size a crease on a 16-unit stroke reads as a scratch.
 - **Hair that swings is a part of its own.** Draw a pigtail or a ponytail
   as its own part, hung from the head where it is tied (`hangs`, under
   Springs below), and list it in `springs`; keep the bobble or the band on

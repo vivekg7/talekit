@@ -311,6 +311,11 @@ the rig's own. A per-character pivot was preferred to new humanoid parts
 with fixed pivots, which would have fitted the kid's head and no one
 else's.
 
+Creases on the people's thin bare arms and legs were tried and dropped: at
+half size they read as scratches. The detail went where cloth folds
+instead (behind the grown-up's knee, the break over the shoe, the shirt
+bloused over the belt) plus a line where the fingers curl.
+
 ### 7.3 Motion with weight
 
 Why: smoothness is not interpolation, it is contact, anticipation and
