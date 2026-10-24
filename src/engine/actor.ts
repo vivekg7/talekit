@@ -161,7 +161,7 @@ function bentLimb(
 ): string {
   const [kx, ky] = joint;
   // A limb drawn as a filled shape has no stroke to measure: assume a typical one.
-  const r = limbWidth(svg) / 2 || 9;
+  const r = (limbWidth(svg) / 2 || 9) + 1.5;
   const clip = (key: string, lower: boolean, radius: number) =>
     `<clipPath id='${id}-${key}'><rect x='-1000' y='${lower ? ky : -1000}' width='3000' height='${lower ? 2000 : ky + 1000}'/><circle cx='${kx}' cy='${ky}' r='${n(radius)}'/></clipPath>`;
   const half = (key: string, inner: string) => `<g clip-path='url(#${id}-${key})'>${inner}</g>`;
@@ -238,7 +238,7 @@ export function characterBody(
     const rot = turnOf(rig, pose, name);
     const shade = (frag: string, extra = 0) =>
       light && character.shade && !FACE_PARTS.has(name)
-        ? shadePart(frag, rot + extra, side, light, rig, line, joined)
+        ? shadePart(frag, rot + extra, side, light, rig, line, joined, name in rig.bends)
         : '';
     drawn.push({ name, tf, svg: coloured, under, shade });
   }

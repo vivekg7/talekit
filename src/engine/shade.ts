@@ -48,7 +48,9 @@ function unturn([x, y]: [number, number], deg: number): [number, number] {
 
 /**
  * The silhouette of `svg` painted `color`, under the part where the light misses it: what
- * is left of it once a copy nudged `by` toward the light has been taken away.
+ * is left of it once a copy nudged `by` toward the light has been taken away. With
+ * `across`, the copy is taken away only where a second copy nudged that way also covers
+ * the part (see `shadePart`).
  */
 function crescent(
   sil: string,
@@ -56,13 +58,21 @@ function crescent(
   color: string,
   opacity: number,
   box: Box,
-  joined = ''
+  joined = '',
+  across?: [number, number]
 ) {
-  const id = `tk-shade-${hashId(`${sil}|${joined}|${n(by[0])}|${n(by[1])}`)}`;
+  const key = `${sil}|${joined}|${n(by[0])}|${n(by[1])}`;
+  const id = `tk-shade-${hashId(across ? `${key}|${n(across[0])}|${n(across[1])}` : key)}`;
   const region = `x='${box.x}' y='${box.y}' width='${box.w}' height='${box.h}'`;
+  const copy = (v: [number, number], color: string) =>
+    `<g transform='translate(${n(v[0])} ${n(v[1])})'>${paint(sil + joined, color)}</g>`;
+  const taken = across
+    ? `<mask id='${id}-x' maskUnits='userSpaceOnUse' ${region}>${copy(across, '#fff')}</mask>` +
+      `<g mask='url(#${id}-x)'>${copy(by, '#000')}</g>`
+    : copy(by, '#000');
   return (
     `<mask id='${id}' maskUnits='userSpaceOnUse' ${region}>` +
-    `<rect ${region} fill='#fff'/><g transform='translate(${n(by[0])} ${n(by[1])})'>${paint(sil + joined, '#000')}</g></mask>` +
+    `<rect ${region} fill='#fff'/>${taken}</mask>` +
     `<g mask='url(#${id})' opacity='${n(opacity)}'>${paint(sil, color)}</g>`
   );
 }
@@ -87,6 +97,13 @@ export const silhouette = (svg: string, line: string): string =>
  * world and mirrored when `side` is -1. Empty when the part has nothing solid to shade.
  * `joined` is the silhouette of the part this one is fused into (`Rig.fuse`), already in
  * this part's frame: the two shade as one shape, so no shaded edge runs where they meet.
+ *
+ * A `limb` hangs down its own y axis with a hand, a cuff or a shoe at the end, wider than
+ * the limb. The copy nudged up toward the light would lay that wider end over the limb
+ * above it and light a bump on the shaded side at the knee or the elbow, and the whole shin
+ * once the knee bends. So on a limb the light is taken away only where a copy nudged
+ * straight across the limb lights it too: a strip down the far side, and the end still
+ * shaded underneath like any round thing.
  */
 export function shadePart(
   svg: string,
@@ -95,7 +112,8 @@ export function shadePart(
   light: Light,
   rig: { width: number; height: number },
   line: string,
-  joined = ''
+  joined = '',
+  limb = false
 ): string {
   if (light.shade <= 0 && !light.rim) return '';
   const sil = silhouette(svg, line);
@@ -106,12 +124,17 @@ export function shadePart(
     return [x * depth * rig.height, y * depth * rig.height];
   };
   let out = '';
-  if (light.shade > 0)
-    out += crescent(sil, local(light.toward, SHADE_DEPTH), SHADE_COLOR, light.shade, box, joined);
+  const across = (v: [number, number]): [number, number] | undefined =>
+    limb ? [v[0], 0] : undefined;
+  if (light.shade > 0) {
+    const by = local(light.toward, SHADE_DEPTH);
+    out += crescent(sil, by, SHADE_COLOR, light.shade, box, joined, across(by));
+  }
   if (light.rim && light.rim.amount > 0.02) {
     // The rim is the lit edge: what is left once a copy nudged away from the fire is taken.
     const [x, y] = local(light.rim.toward, RIM_DEPTH);
-    out += crescent(sil, [-x, -y], light.rim.color, light.rim.amount, box, joined);
+    const by: [number, number] = [-x, -y];
+    out += crescent(sil, by, light.rim.color, light.rim.amount, box, joined, across(by));
   }
   return out;
 }

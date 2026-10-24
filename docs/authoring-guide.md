@@ -317,8 +317,10 @@ false` only for something that should not look drawn: a glow, a ghost.
   high to the left when it has none, so a head gets a darker crescent on
   the side away from it and a leg a strip down its far side,
   turning with the part as it swings and staying put when the character
-  faces left. By a `fire` the shadow swings round and the side toward the
-  flames gets a warm rim. A four-legged animal's head and body shade as one
+  faces left. An arm or a leg shades as a limb: a strip down its length
+  and the hand or the shoe at its end shaded underneath, so a wide shoe
+  or cuff never lights a bump on the shin above it. By a `fire` the shadow
+  swings round and the side toward the flames gets a warm rim. A four-legged animal's head and body shade as one
   shape. Set `"shade": false` only for something with no form or that gives
   light itself: a glow, a ghost, a flat sign.
 - **Flat fills.** One base colour per area plus one darker shade of it for

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { characterBody } from '../src/engine/actor.js';
 import { emptyPose } from '../src/engine/motion.js';
 import { DAYLIGHT } from '../src/engine/shade.js';
+import { rasterizePixels } from '../src/render/raster.js';
 import { CharacterSchema } from '../src/engine/types.js';
 import { LIBRARY } from '../src/library/index.js';
 
@@ -15,11 +16,11 @@ const blob = CharacterSchema.parse({
   },
 });
 
-/** The nudge of each shade mask's lit copy, in the part's frame. */
+/** The nudge of each shade mask's lit copy, in the part's frame (a limb's as well). */
 const nudges = (svg: string) =>
   [
     ...svg.matchAll(
-      /<mask id='tk-shade-[^']+'[^>]*><rect[^>]*\/><g transform='translate\(([-\d.]+) ([-\d.]+)\)'>/g
+      /<mask id='tk-shade-[^'-]+'[^>]*><rect[^>]*\/>(?:<mask id='[^']+-x'.*?<\/mask><g mask='[^']+'>)?<g transform='translate\(([-\d.]+) ([-\d.]+)\)'>/g
     ),
   ].map((m) => [Number(m[1]), Number(m[2])]);
 
@@ -43,6 +44,25 @@ describe('shading', () => {
     const spun = { ...emptyPose(), spin: 180 };
     const [[, y]] = nudges(characterBody(blob, spun));
     expect(y).toBeGreaterThan(0);
+  });
+
+  it('lights no bump on a limb from the wide shoe at its end', () => {
+    const leg = CharacterSchema.parse({
+      id: 'l',
+      name: 'L',
+      parts: {
+        torso: `<rect x='0' y='0' width='1' height='1' fill='#fff' opacity='0'/>`,
+        legR: `<path d='M114 274 L114 380' stroke='#c84' stroke-width='18' stroke-linecap='round' fill='none'/><rect x='94' y='378' width='60' height='22' fill='#c84'/>`,
+      },
+      outline: false,
+    });
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='800' height='1600' viewBox='0 0 200 400'><rect width='200' height='400' fill='#fff'/>${characterBody(leg, emptyPose())}</svg>`;
+    const { pixels, width } = rasterizePixels(svg);
+    const at = (x: number, y: number) => pixels[(y * 4 * width + x * 4) * 4];
+    // Down the far side of the shin, just above the shoe, as dark as up by the hip: the
+    // shoe, nudged toward the light, would otherwise lay its lit copy over the shin.
+    expect(at(120, 368)).toBe(at(120, 300));
+    expect(at(120, 300)).toBeLessThan(at(108, 300));
   });
 
   it('can be turned off, and draws nothing with no light', () => {

@@ -291,6 +291,16 @@ its hind legs as hocks (`Rig.hocks`), and lifting one swings the joint back
 and tucks the paw forward under it. The foot lands where it did before,
 with the joint bent the other way, so nothing else in the gait changed.
 
+Then the people. Close up, the shading was wrong at every elbow and knee: a
+pale bump on the shaded side, and a bent shin with no shade at all. The
+shade is a part's silhouette less a copy nudged toward the light, and the
+nudge is mostly upward, so the wide end of a limb (a hand, a sock cuff, a
+shoe) laid its lit copy over the limb above it. A limb now loses its shade
+only where a copy nudged straight across it is lit too: a strip down the
+far side, and the end still shaded underneath. The joint disc of a bent
+limb also got 1.5 units of slack, which closes a notch in the outline where
+the art is drawn a little off the knee.
+
 ### 7.3 Motion with weight
 
 Why: smoothness is not interpolation, it is contact, anticipation and
