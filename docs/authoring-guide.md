@@ -176,7 +176,18 @@ stroke-linecap='round' fill='none'/>`) with a paw or hoof shape at the
   (y=166), so keep each leg one straight stroke and the paw below the knee.
   Below the knee the leg must run down the knee's own x (the pivot's), or
   the bend shows a notch; a haunch drawn on a hind leg ends a few units
-  above the knee.
+  above the knee. The near legs (`legBR`, `legFR`) join the body the way
+  the head does: their outline shows only where they leave it, so a haunch
+  grows out of the rump instead of sitting on the flank like a drumstick.
+  Give the haunch its form with a crease instead: a tapered `{line}` shape
+  along the front of the thigh down to the stifle, open at the top so it
+  fades into the back. A small bump at the back of the leg just above the
+  knee reads as the hock; a short tapered line down the back of the heel,
+  drawn after the leg's stroke, marks it. The near front leg gets the same
+  at the elbow: a bump behind the top of the leg where it leaves the chest,
+  with a line down the back of it, both after the stroke or the stroke
+  covers them. Keep them below the head's neck and mane, which hide
+  anything higher on the shoulder.
 - **Head** includes the neck: a thick stroke from inside the chest up to the
   head, so a nod lowers the whole neck. The head's outline is drawn with the
   body's, so no line crosses where the neck sinks into the chest and the head
@@ -292,8 +303,8 @@ around them. The library characters are the bar; read one before drawing.
   the same width on screen for the whole cast, thinner on `eyes` and `mouth`.
   Shapes inside one part merge into one silhouette; a part in front of
   another (the near arm over the torso) gets its own line where they cross.
-  The exception is a four-legged animal's head, which joins its body
-  without a line.
+  The exception is a four-legged animal's head and near legs, which join
+  its body without a line.
   It uses `colors.line` (default `#2e2633`, near-black plum). Set `"outline":
 false` only for something that should not look drawn: a glow, a ghost.
 - **Do not draw shading either.** The engine shades every part on the side

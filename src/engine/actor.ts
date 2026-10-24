@@ -145,7 +145,8 @@ function bentLimb(
   svg: string,
   under: string,
   line: number,
-  shade: (frag: string, extra?: number) => string
+  shade: (frag: string, extra?: number) => string,
+  draw: 'all' | 'lines' | 'fills' = 'all'
 ): string {
   const [kx, ky] = joint;
   // A limb drawn as a filled shape has no stroke to measure: assume a typical one.
@@ -167,12 +168,17 @@ function bentLimb(
   // Each half is shaded as it lies: the lower one turned by the bend as well.
   const upper = side(svg, false);
   const lower = side(svg, true);
-  return (
-    `<defs>${clip('ul', false, r + line)}${clip('ll', true, r + line)}${clip('uf', false, r)}${clip('lf', true, r)}</defs>` +
-    (under ? half('ul', side(under, false)) + turned(half('ll', side(under, true))) : '') +
+  const lines =
+    `<defs>${clip('ul', false, r + line)}${clip('ll', true, r + line)}</defs>` +
+    half('ul', side(under, false)) +
+    turned(half('ll', side(under, true)));
+  const fills =
+    `<defs>${clip('uf', false, r)}${clip('lf', true, r)}</defs>` +
     half('uf', upper + shade(upper)) +
-    turned(half('lf', lower + shade(lower, bend)))
-  );
+    turned(half('lf', lower + shade(lower, bend)));
+  if (draw === 'lines') return under ? lines : '';
+  if (draw === 'fills') return fills;
+  return (under ? lines : '') + fills;
 }
 
 /**
@@ -232,15 +238,19 @@ export function characterBody(
   const joined = new Set(drawn.map((d) => d.name));
   let out = '';
   for (const d of drawn) {
+    const limb = (f: (typeof drawn)[number], draw: 'all' | 'lines' | 'fills') => {
+      const joint = rig.bends[f.name];
+      const bend = pose.bend[f.name];
+      if (!joint || !bend) return '';
+      const id = `tk-bend-${character.id}-${f.name}`;
+      return bentLimb(id, joint, bend, f.svg, f.under, width, f.shade, draw);
+    };
     for (const f of drawn)
-      if (f.under && rig.fuse[f.name] === d.name) out += group(`${f.name}-line`, f.tf, f.under);
+      if (f.under && rig.fuse[f.name] === d.name)
+        out += group(`${f.name}-line`, f.tf, limb(f, 'lines') || f.under);
     const fused = rig.fuse[d.name] && joined.has(rig.fuse[d.name]);
-    const joint = rig.bends[d.name];
-    const bend = pose.bend[d.name];
     const inner =
-      joint && bend
-        ? bentLimb(`tk-bend-${character.id}-${d.name}`, joint, bend, d.svg, d.under, width, d.shade)
-        : (fused ? '' : d.under) + d.svg + d.shade(d.svg);
+      limb(d, fused ? 'fills' : 'all') || (fused ? '' : d.under) + d.svg + d.shade(d.svg);
     out += group(d.name, d.tf, inner);
   }
   let body = out;

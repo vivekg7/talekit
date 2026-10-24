@@ -198,8 +198,11 @@ export const QUADRUPED: Rig = {
   // In the mouth, under the muzzle.
   hold: { part: 'head', point: [240, 100] },
   shadow: 200,
-  // The head is drawn with its neck, which sinks into the shoulders.
-  fuse: { head: 'body' },
+  // The head is drawn with its neck, which sinks into the shoulders. The near legs grow out
+  // of the body the same way: a haunch or a shoulder with a line all round it reads as a
+  // drumstick stuck on the side, so the line shows only where the leg leaves the body.
+  // The far legs are behind the body, which already hides their tops.
+  fuse: { head: 'body', legBR: 'body', legFR: 'body' },
   // Stifle on the hind legs, elbow on the front ones: halfway down.
   bends: {
     legBL: [66, 166],

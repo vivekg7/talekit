@@ -70,13 +70,28 @@ describe('bent limbs', () => {
   /** The content of one clipped half, by its clip id suffix. */
   const half = (svg: string, key: string) =>
     svg.split(`clip-path='url(#tk-bend-cat-legFR-${key})'>`)[1].split('</g>')[0];
+  const whole = (deg: number) => {
+    const pose = emptyPose();
+    pose.bend.legFR = deg;
+    return characterBody(cat, pose);
+  };
 
   it('keeps the paw out of the upper half, so no sliver of it shows by the knee', () => {
-    const svg = bent(50);
+    const svg = whole(50);
     expect(half(svg, 'uf')).not.toContain('<ellipse');
     expect(half(svg, 'lf')).toContain('<ellipse');
     // Nor the paw's outline in the upper outline half.
     expect(half(svg, 'ul')).not.toContain('<ellipse');
+  });
+
+  it("bends a near leg's outline with it, drawn under the body it grows out of", () => {
+    const svg = whole(50);
+    const line = svg.indexOf("class='part-legFR-line'");
+    expect(line).toBeGreaterThan(-1);
+    expect(line).toBeLessThan(svg.indexOf("class='part-body'"));
+    // The outline halves sit in the line group, the fills in the leg's own.
+    expect(svg.slice(line, svg.indexOf("class='part-body'"))).toContain('tk-bend-cat-legFR-ll');
+    expect(bent(50)).not.toContain('tk-bend-cat-legFR-ul');
   });
 
   it('shades the lower half as it lies, turned by the bend', () => {

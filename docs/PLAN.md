@@ -257,6 +257,25 @@ Biscuit and the clever-rabbit lion, deer and rabbit were recopied from the
 library with their colours, and the lion's reflection was rebuilt from the
 new lion's head; the monkey only bounces, so it stays on the simple rig.
 
+**Later, 2026-10-24.** Watching the films, the hind legs read as drumsticks
+pressed onto the body: the near haunch carried its own outline all the way
+round, so it sat on the flank instead of growing out of the rump. The near
+legs are now fused into the body like the head (`Rig.fuse`), which needed
+the bend to split a fused limb's outline from its fill: the outline halves
+go down before the body, bent with the leg, and the fills draw in the leg's
+turn. Fusing alone left the thigh with no form and lost the folded leg in
+`sit`, so every library animal's near hind leg got a tapered crease along
+the front of the thigh, open at the top, and the ones with a visible hock
+a small heel above the knee. Studies in a more lifelike direction (longer
+muzzle, almond eye, a mane of swept locks, a zig-zag hind leg) were drawn
+and rejected for now: the cast keeps its round cartoon look and big eyes.
+
+A detail pass after that, still in the cartoon style: a heavier thigh
+crease, a hock line behind the heel and an elbow behind the near foreleg,
+each drawn after the leg's stroke (drawn before it, the stroke covers
+them; drawn higher, the mane does). The lion also got a slight belly tuck
+and a faint rib line.
+
 ### 7.3 Motion with weight
 
 Why: smoothness is not interpolation, it is contact, anticipation and
