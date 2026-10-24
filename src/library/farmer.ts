@@ -49,13 +49,13 @@ export const FARMER: CharacterInput = {
     line: '#2e2633',
   },
   hangs: {
-    pagdiTail: { from: 'head', at: [48, 88] },
+    pagdiTail: { from: 'head', at: [40, 80] },
     gamchha: { from: 'torso', at: [100, 160], front: true },
   },
   springs: ['pagdiTail', 'gamchha'],
   parts: {
     pagdiTail: {
-      default: `<path d='M38 70 L56 74 L54 126 Q48 131 42 126 Z' fill='{pagdiDark}'/><path d='M41 114 L55 114 L54 128 Q48 133 42 128 Z' fill='{pagdi}'/>`,
+      default: `<path d='M30 64 L52 70 L44 96 L40 132 Q33 138 25 131 L27 96 Z' fill='{pagdiDark}'/><path d='M26 118 L41 118 L40 133 Q33 139 25 132 Z' fill='{pagdi}'/>`,
       back: `<path d='M46 84 L56 84 L56 96 L46 96 Z' fill='{pagdiDark}'/>`,
     },
     gamchha: {

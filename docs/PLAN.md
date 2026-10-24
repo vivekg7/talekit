@@ -400,7 +400,9 @@ backwards and then puts the actor on the floor in front of the seat,
 before any walk sets off. A plait hung behind the head lay across the
 chest of a person walking toward the viewer, since a part hung from the
 head is drawn just behind the head, in front of the torso: facing out of
-the screen, it now goes just behind the torso (`Pose.toward`).
+the screen, it now goes just behind the torso (`Pose.toward`). The
+farmer's pagdi tail hung inside the outline of his head and ear, so only a
+sliver showed; it hangs clear behind the ear now.
 
 ### 7.3 Motion with weight
 
