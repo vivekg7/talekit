@@ -607,7 +607,13 @@ export function applyVerb(rig: Rig, pose: Pose, verb: Verb, u: number, seat = 0)
         const fall = rig.height - rig.parts.legR.pivot[1] - depth;
         for (const leg of ['legL', 'legR']) {
           // Folded for how high the hips are now: on the way down the feet stay on the floor.
-          const [turn, bend] = foldLeg(rig, leg, fall * (1 - k) + depth + seat, 20, -90 * (1 - k));
+          const [turn, bend] = foldLeg(
+            rig,
+            leg,
+            fall * (1 - k) + depth + seat * k,
+            20,
+            -90 * (1 - k)
+          );
           pose.rot[leg] = turn;
           pose.bend[leg] = bend;
         }
@@ -615,7 +621,8 @@ export function applyVerb(rig: Rig, pose: Pose, verb: Verb, u: number, seat = 0)
         pose.rot.armL = -10 * k;
         pose.rot.armR = -10 * k;
         pose.bend.armL = pose.bend.armR = mix(-8, -25, k);
-        pose.dy += fall * k;
+        // Standing, the feet are on the floor `seat` below the anchor; sat, the hips are on it.
+        pose.dy += fall * k + seat * (1 - k);
         pose.rot.torso = 0;
       }
       break;

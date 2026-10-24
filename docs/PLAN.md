@@ -390,6 +390,15 @@ fields the construction check measures the drawing (the body between the
 legs, the torso across the middle) and gives the number when it is more
 than 5 out.
 
+More found on the same pass. Sitting onto a raised seat (`to` a sofa's
+seat anchor) moved the actor up onto the anchor at once with the legs
+still straight, so for an instant it stood on the cushion; and `stand`
+left it standing there, from where a walk set off across the air. Now the
+pose starts the sit with the body lowered by the seat's height, feet on
+the floor, and rises onto the seat as the knees bend. Getting up runs that
+backwards and then puts the actor on the floor in front of the seat,
+before any walk sets off.
+
 ### 7.3 Motion with weight
 
 Why: smoothness is not interpolation, it is contact, anticipation and

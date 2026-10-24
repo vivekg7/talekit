@@ -268,6 +268,36 @@ describe('knees', () => {
     expect(actorAt(box, 'kid', 1).seat).toBe(40);
   });
 
+  it('sits onto a raised seat from the floor, and gets up onto the floor again', () => {
+    const p = seated(
+      [
+        { t: 0, actor: 'kid', do: 'sit', to: 'stool' },
+        { t: 2, actor: 'kid', do: 'stand' },
+        { t: 3, actor: 'kid', do: 'walk', to: { x: 300, y: 640 } },
+      ],
+      { kid: { at: { x: 600, y: 640 } } }
+    );
+    // A foot on the floor and none through it (walking, the other one swings).
+    const onFloor = (t: number, q = p) => {
+      const feet = feetY(actorAt(q, 'kid', t), t);
+      expect(Math.abs(Math.max(...feet) - 640)).toBeLessThan(1.5);
+    };
+    // Never standing on the stool: from the first frame of the sit, and all through it.
+    for (const t of [0, 0.1, 0.2, 0.3, 1]) onFloor(t);
+    // Up again, it stands on the floor in front of the stool and walks off from there.
+    for (const t of [2.1, 2.3, 2.6, 3.5]) onFloor(t);
+    expect(actorAt(p, 'kid', 2.6)).toMatchObject({ y: 640, seat: 0 });
+    // Setting off straight from the stool, it gets up first, then walks along the floor.
+    const off = seated(
+      [
+        { t: 0, actor: 'kid', do: 'sit', to: 'stool' },
+        { t: 2, actor: 'kid', do: 'walk', to: { x: 300, y: 640 } },
+      ],
+      { kid: { at: { x: 600, y: 640 } } }
+    );
+    for (const t of [2.1, 2.3, 2.6, 3]) onFloor(t, off);
+  });
+
   it("sits a long kurta's hem on the ground rather than through it", () => {
     // The kid's dress ends 28 under the hips: on the ground she sits on it.
     const p = project([{ t: 0, actor: 'kid', do: 'sit' }]);

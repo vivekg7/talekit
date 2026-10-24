@@ -27,7 +27,8 @@ export function poseFor(actor: ActorState, t: number): Pose {
   const pose = basePose(rig, loco, actor.locoT, actor.phase, actor.travel);
   // The floor under the seat, in the character's own units.
   const seat = actor.seat / ((actor.character.height / rig.height) * actor.scale);
-  if (sat) applyVerb(rig, pose, 'sit', actor.sit, seat);
+  // On a raised seat even before sitting has begun: the pose puts the feet on the floor.
+  if (sat || seat > 0) applyVerb(rig, pose, 'sit', actor.sit, seat);
   if (actor.lie > 0) applyVerb(rig, pose, 'lie', actor.lie, seat);
   // Carrying: the near arm hangs a little forward and swings less, under the weight.
   if (actor.holding && rig.name === 'humanoid') {
@@ -372,7 +373,8 @@ export function renderShadow(actor: ActorState, pose: Pose): string {
     actor.character,
     pose,
     actor.x,
-    actor.y,
+    // Under the feet: on the floor below a raised seat until sat on it.
+    actor.y + actor.seat * (1 - actor.sit),
     actor.scale,
     sideOf(actor),
     actor.opacity

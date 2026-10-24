@@ -319,6 +319,13 @@ export function resolveActor(
   let face: Record<string, string> = {};
   let sitting = false;
   let seat = 0;
+  /** Getting up off a raised seat: on it until `at`, then on the floor in front of it. */
+  let rise: { at: number; seat: Point } | undefined;
+  const getUp = (at: number, seated: boolean) => {
+    if (!seated || seat <= 0) return;
+    rise = { at, seat: point };
+    point = { ...point, y: point.y + seat };
+  };
   let sitAt = -Infinity;
   let sitFrom = 0;
   let lying = false;
@@ -371,6 +378,10 @@ export function resolveActor(
     if (a.t > t) break;
     // Where is the actor when this action starts?
     if (move) point = movePoint(move, a.t);
+    if (rise && a.t >= rise.at) {
+      rise = undefined;
+      seat = 0;
+    }
 
     // Let go before `set`, so a `set.at` in the same action puts the prop down there.
     // A pickup takes hold, and a putdown lets go, only once the stooping hand is down.
@@ -412,6 +423,7 @@ export function resolveActor(
       if (a.set.at) {
         point = resolvePosition(project, scene, a.set.at);
         move = undefined;
+        rise = undefined;
       }
       if (a.set.facing) turnTo(a.set.facing, a.t);
       if (a.set.scale) scale = a.set.scale;
@@ -457,13 +469,20 @@ export function resolveActor(
         const lie = lieAmount(a.t);
         lieTo(false, a.t, Math.max(1e-3, LIE_TIME * lie));
         const risen = lie > 0 ? lieAt + lieTime : a.t;
+        const seated = sitting;
         sitTo(false, risen);
         const t0 = Math.max(risen, sitAmount(a.t) > 0 ? sitAt + sitTime : a.t);
+        getUp(t0, seated);
         move = { verb, from: point, to, t0, t1: t0 + d, rest: locoStart };
         locoStart = t0;
         if (Math.abs(to.x - point.x) > 1) turnTo(to.x > point.x ? 'right' : 'left', a.t);
         if (verb === 'jump' && t >= t0 && t < t0 + d) verbs.push({ verb, u: (t - t0) / d });
       } else if (verb === 'sit' || verb === 'lie') {
+        // Sitting again before it was up: still on the seat.
+        if (rise) {
+          point = rise.seat;
+          rise = undefined;
+        }
         const from = point;
         if (a.to) {
           point = resolvePosition(project, scene, a.to);
@@ -486,7 +505,9 @@ export function resolveActor(
       } else if (verb === 'stand') {
         // From lying, sit up first, then get up.
         const k = share(a, (lying ? LIE_TIME : 0) + SIT_TIME);
-        sitTo(false, a.t + (lying ? LIE_TIME * k : 0), SIT_TIME * k);
+        const up = a.t + (lying ? LIE_TIME * k : 0);
+        getUp(up + SIT_TIME * k, sitting);
+        sitTo(false, up, SIT_TIME * k);
         lieTo(false, a.t, LIE_TIME * k);
       } else if (verb === 'appear' || verb === 'disappear') {
         const d = actionDuration(a);
@@ -550,6 +571,10 @@ export function resolveActor(
     turn = held.turn;
     locomotion = 'idle';
   }
+  // Still getting up off a raised seat: on the seat, which the pose lowers to the floor.
+  const rising = rise && t < rise.at && !heldBy;
+  if (rising) point = rise!.seat;
+  else if (rise) seat = 0;
   const holding = Object.keys(shot.cast).some((other) => holderAt(shot, other, t) === id);
   const state: ActorState = {
     id,
