@@ -590,6 +590,29 @@ function carriedAcrossCuts(project: Project): Problem[] {
   return out;
 }
 
+/** A language some lines are translated into and others are not: their subtitles have gaps. */
+function translationGaps(project: Project): Problem[] {
+  const lines = project.shots.flatMap((s) =>
+    s.actions.flatMap((a, i) => (a.say || a.caption ? [{ shot: s.id, i, a }] : []))
+  );
+  const langs = new Set(lines.flatMap((l) => Object.keys(l.a.translation ?? {})));
+  return [...langs].flatMap((lang) => {
+    const missing = lines.filter((l) => !l.a.translation?.[lang]);
+    if (!missing.length) return [];
+    const some = missing
+      .slice(0, 4)
+      .map((l) => `'${l.shot}' action ${l.i}`)
+      .join(', ');
+    return [
+      {
+        level: 'warning' as const,
+        where: 'project',
+        message: `${missing.length} of ${lines.length} lines have no '${lang}' translation, so the ${lang} subtitles skip them: ${some}${missing.length > 4 ? ', …' : ''}`,
+      },
+    ];
+  });
+}
+
 export function validateProject(project: Project): Problem[] {
   const out: Problem[] = [];
   for (const c of Object.values(project.characters)) out.push(...validateCharacter(c));
@@ -601,6 +624,7 @@ export function validateProject(project: Project): Problem[] {
   out.push(...voiceProblems('project narrator', project.meta.narrator));
   for (const shot of project.shots) out.push(...validateShot(shot, project));
   if (!hasErrors(out)) out.push(...carriedAcrossCuts(project));
+  out.push(...translationGaps(project));
   if (project.shots.length === 0)
     out.push({ level: 'warning', where: 'project', message: 'no shots yet' });
   return out;

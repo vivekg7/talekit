@@ -4,6 +4,7 @@ import { writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { composeFrame } from './engine/compose.js';
 import { movieDuration } from './engine/timeline.js';
+import type { Project } from './engine/types.js';
 import { LIBRARY, copyFromLibrary } from './library/index.js';
 import { createProject, loadProject, projectPaths } from './project/store.js';
 import { formatProblems, hasErrors, validateProject } from './project/validate.js';
@@ -14,6 +15,7 @@ import {
   contactSheetSvg,
   sceneSheetSvg,
 } from './render/sheets.js';
+import { writeMkv } from './render/mkv.js';
 import { remixVideo, renderVideo } from './render/video.js';
 import { makeVoices, type VoiceReport } from './project/voices.js';
 
@@ -27,11 +29,19 @@ const USAGE = `talekit — story video generation for AI agents
   talekit frame <dir> <shotId> [-t 1.5] [-o file.png] [--svg] [--debug]
   talekit contact <dir> <shotId> [-n 6] [-o file.png]
   talekit voice <dir> [shotId]                 speak the lines that have no audio yet (local TTS)
-  talekit render <dir> [shotId] [-o file.mp4] [--silent]
+  talekit render <dir> [shotId] [-o file.mp4] [--silent]   the whole film also writes a .mkv beside it
   talekit remix <dir> [-o file.mp4]            mix the sound again under a rendered film (after a mix change)
+  talekit mkv <dir> [-o file.mp4]              build the .mkv again from the rendered mp4 (after a translation)
   talekit serve <dir> [--port 4848]            review app: film, assets, notes
   talekit mcp                                  start the MCP server on stdio
 `;
+
+/** Write the film's .mkv next to its mp4 and say what is in it. */
+async function mkvBeside(project: Project, mp4: string, silent?: boolean): Promise<string> {
+  const file = mp4.replace(/\.mp4$/i, '') + '.mkv';
+  const r = await writeMkv(project, mp4, file, { silent });
+  return `${file}  (sound: ${r.audio.join(', ') || 'none'}; subtitles: ${r.subtitles.join(', ') || 'none'})`;
+}
 
 function voiceSummary(r: VoiceReport): string {
   const lines = [`voices: ${r.made} spoken, ${r.kept} already had audio`];
@@ -203,6 +213,7 @@ async function main(argv: string[]): Promise<void> {
       console.log(
         `${outPath}  (${r.seconds.toFixed(1)}s, ${r.frames} frames, ${((Date.now() - started) / 1000).toFixed(1)}s wall)`
       );
+      if (!shotId) console.log(await mkvBeside(project, outPath, values.silent));
       return;
     }
     case 'remix': {
@@ -212,6 +223,18 @@ async function main(argv: string[]): Promise<void> {
       const file = values.out ?? path.join(projectPaths(dir).out, 'movie.mp4');
       const r = await remixVideo(project, file);
       console.log(`${file}  (new sound under ${r.seconds.toFixed(1)}s)`);
+      console.log(await mkvBeside(project, file));
+      return;
+    }
+    case 'mkv': {
+      const [dir] = rest;
+      if (!dir) throw new Error('usage: talekit mkv <dir> [-o file.mp4]');
+      const project = await loadProject(dir);
+      const problems = validateProject(project);
+      if (hasErrors(problems)) throw new Error(formatProblems(problems));
+      console.log(
+        await mkvBeside(project, values.out ?? path.join(projectPaths(dir).out, 'movie.mp4'))
+      );
       return;
     }
     case 'serve': {

@@ -52,6 +52,8 @@ colors)` (colour tokens: hair, skin, dress, shirt…); without `name` the
    that changed. Restaging a shot from the beginning is still `write_shot`.
 6. **`render(path, shotId?)`** a single shot early to check motion, then the
    whole film. It returns a film sheet, one frame per shot, to confirm the cut.
+   The whole film also comes as `out/movie.mkv`, with more sound tracks and
+   subtitles (see Subtitles and the .mkv).
 7. **Review notes.** The person watches the result in the review app
    (`talekit serve <path>`) and leaves notes on a character, a scene, or one
    moment of a shot. When `project_info` reports open notes, or you are asked
@@ -922,6 +924,46 @@ second after its last line, with `patch_shot`. Nobody should talk over the
 narrator: `write_shot` warns when a line starts while a caption is still being
 read, and when a character starts a line before finishing their last.
 
+## Subtitles and the .mkv
+
+Rendering the whole film writes `out/movie.mkv` beside `out/movie.mp4`: the
+same picture, with tracks a player lets the viewer choose between.
+
+- **Three sound tracks.** The full mix (played by default); music and effects
+  without the dialogue, for telling the story yourself or voicing it again;
+  and the same with the narrator, so the story is still told while the
+  characters keep quiet. Sounds marked in a line (`*गुर्रर!*`) are effects,
+  so the growl stays in all three. A film with no narrator has no third
+  track, and one with nobody speaking has only the first.
+- **Subtitles**, off until chosen: one track in the language the lines are
+  written in (Hindi when they are in Devanagari, else English), and one for
+  each language in their `translation`. A subtitle is up exactly as long as
+  its bubble or caption, at the bottom, or at the top when it is a
+  narration caption's or starts while one is on screen. They are drawn in the bundled Baloo 2, which the
+  .mkv carries, so a phone shows Devanagari without a font of its own.
+- **A chapter per shot**, named by its id, to skip to a scene.
+
+Write the subtitles in another language as you write each line, in the same
+action, with `translation` keyed by language code:
+
+```json
+{
+  "t": 2,
+  "actor": "lion",
+  "say": "*गुर्रर!* कौन है?",
+  "sound": "lion-growl",
+  "translation": { "en": "*Grrr!* Who's there?" }
+}
+```
+
+Translate the meaning, in words a child would hear, not word for word: `अरे
+कछुए भाई` is "Hey there, tortoise", not "Oh tortoise brother". Mark the
+sounds as the line does. Give it to every `say` and `caption` or to none:
+`project_info` warns about lines left out, since their subtitle would be
+missing. A translation changes no picture and no sound, so after adding
+them to a rendered film, `talekit mkv <path>` builds the .mkv again in
+seconds instead of rendering.
+
 ## Pacing a children's story
 
 - Open with a title card over the first scene (`fadeIn`, `caption` style
@@ -955,6 +997,8 @@ read, and when a character starts a line before finishing their last.
   no line is outlined in red on a sheet, and nobody talks over the narrator.
 - Every line not said calmly has its `emotion` set, and every growl, laugh
   or snore in a line is `*marked*` with a `sound`.
+- If the film is in Hindi (or anything but English), every `say` and
+  `caption` has an English `translation`, unless you were told otherwise.
 - Total duration matches what was asked for: a short fable is 60–120 s, a
   full picture-book story 5–10 minutes.
 - The film sheet returned by `render` shows every shot the way you intended.

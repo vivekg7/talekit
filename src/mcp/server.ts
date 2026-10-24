@@ -56,6 +56,7 @@ import {
   sceneSheetSvg,
 } from '../render/sheets.js';
 import { faceFallbacks } from '../engine/motion.js';
+import { writeMkv } from '../render/mkv.js';
 import { renderVideo } from '../render/video.js';
 import { makeVoices } from '../project/voices.js';
 import { SOUNDS } from '../library/sounds.js';
@@ -687,7 +688,7 @@ export function buildServer(): McpServer {
     {
       title: 'Render video',
       description:
-        'Render the whole movie (or one shot) to an H.264 mp4 in <project>/out/, with its sound: voices, music, ambience and effects (lines not yet spoken are spoken first). Validation errors block rendering. A minute of 720p takes about ten seconds. Returns a film sheet: one frame from the middle of each rendered shot, so you can confirm the cut without opening the file.',
+        "Render the whole movie (or one shot) to an H.264 mp4 in <project>/out/, with its sound: voices, music, ambience and effects (lines not yet spoken are spoken first). The whole movie also gets a movie.mkv: the same picture with three sound tracks (the full mix, music and effects without the dialogue, and that with the narrator), a subtitle track in the film's language and one per language the lines' `translation` gives (off until chosen), and a chapter per shot. Validation errors block rendering. A minute of 720p takes about ten seconds. Returns a film sheet: one frame from the middle of each rendered shot, so you can confirm the cut without opening the file.",
       inputSchema: { path: pathArg, shotId: z.string().optional() },
     },
     async ({ path: root, shotId }) => {
@@ -701,9 +702,15 @@ export function buildServer(): McpServer {
         const started = Date.now();
         const spoken = await voice(root, project, shots);
         const r = await renderVideo(project, { outPath, shots });
+        let mkv = '';
+        if (!shotId) {
+          const file = outPath.replace(/\.mp4$/, '.mkv');
+          const m = await writeMkv(project, outPath, file);
+          mkv = `\n${file}: sound ${m.audio.join(', ') || 'none'}; subtitles ${m.subtitles.join(', ') || 'none'}`;
+        }
         return ok(
           text(
-            `rendered ${outPath}: ${r.seconds.toFixed(1)}s, ${r.frames} frames, in ${((Date.now() - started) / 1000).toFixed(1)}s${spoken}\n${formatProblems(problems)}`
+            `rendered ${outPath}: ${r.seconds.toFixed(1)}s, ${r.frames} frames, in ${((Date.now() - started) / 1000).toFixed(1)}s${spoken}${mkv}\n${formatProblems(problems)}`
           ),
           image(filmSheetSvg(project, shots))
         );

@@ -51,6 +51,8 @@ export interface Cue {
   fx?: 'thought';
   /** What it is, for the audio lane: a sound's name, a speaker. */
   label: string;
+  /** A line the narrator reads, not one a character says. */
+  narrator?: boolean;
   /** The shot it starts in. */
   shot: string;
 }
@@ -442,6 +444,7 @@ export function cueSheet(project: Project, shots: Shot[] = project.shots): Cue[]
       gain: LEVEL.voice * STYLE_GAIN[line.style],
       pan: line.style === 'thought' ? 0 : panOf(project, shots[i], line.actor, a.t),
       label: line.actor ?? 'narrator',
+      narrator: !line.actor,
       shot: line.shot,
     });
   }

@@ -121,6 +121,11 @@ export interface MixOptions {
   seconds?: number;
   /** Mix only these buses (still ducked under every voice): one layer of the sound on its own. */
   buses?: Bus[];
+  /**
+   * Leave spoken lines out: 'none' every one, 'narrator' all but the narrator's. Unlike a
+   * bus left out, a line left out does not duck the rest: there is nothing to make room for.
+   */
+  voices?: 'none' | 'narrator';
 }
 
 /**
@@ -132,7 +137,13 @@ export async function mixAudio(
   shots: Shot[] = project.shots,
   opts: MixOptions = {}
 ): Promise<Float32Array | undefined> {
-  const all = cueSheet(project, shots);
+  const sheet = cueSheet(project, shots);
+  const all =
+    opts.voices === 'none'
+      ? sheet.filter((c) => c.bus !== 'voice')
+      : opts.voices === 'narrator'
+        ? sheet.filter((c) => c.bus !== 'voice' || c.narrator)
+        : sheet;
   if (!all.length) return undefined;
   const cues = opts.buses ? all.filter((c) => opts.buses!.includes(c.bus)) : all;
   const ffmpeg = opts.ffmpegPath ?? 'ffmpeg';

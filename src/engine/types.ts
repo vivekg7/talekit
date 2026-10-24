@@ -591,6 +591,13 @@ export const ActionSchema = z
         "Narration at the bottom or a title card, read by the project's narrator. As in `say`, *marked* text is shown and not read"
       ),
     captionStyle: z.enum(['title', 'narration']).optional(),
+    /** The say or caption in other languages, by language code, for the film's subtitles. */
+    translation: z
+      .record(z.string().regex(/^[a-z]{2,3}$/), z.string().min(1))
+      .optional()
+      .describe(
+        "This action's say or caption in other languages, for the subtitles in the .mkv the render writes: { en: 'Who is there?' }, keyed by language code. Translate the meaning, not word for word; *marked* sounds are shown as in the bubble. Give every line one or none: a line without it has no subtitle in that language"
+      ),
     /** Camera target, tweened over `duration` (default 1s; 0.05 for a cut). */
     camera: CameraSchema.partial().optional(),
     /**
@@ -653,6 +660,7 @@ export const ActionSchema = z
       a.attach !== undefined,
     'an action needs at least one of: do, say, emotion, face, caption, camera, set, attach, lightning, weather, sound'
   )
+  .refine((a) => !a.translation || a.say || a.caption, 'translation needs a say or caption')
   .refine(
     (a) => !(a.do || a.say || a.emotion || a.face || a.set || a.attach !== undefined) || a.actor,
     'actor is required for do/say/emotion/face/set/attach'

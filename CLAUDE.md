@@ -16,13 +16,16 @@ reasoning are in `docs/PLAN.md`. Read both before changing the data model.
   actor state at time t), `actor.ts` + `compose.ts` (state → SVG), `cull.ts`
   (leaves out shapes far off the frame, which resvg would panic on),
   `outline.ts` (the engine-drawn outline under every part),
+  `sound.ts` (the cue sheet: what is heard when), `subtitles.ts` (subtitle
+  tracks from the lines and their `translation`),
   `bubble.ts` (text wrap and bubble geometry), `glyphs.ts` (Devanagari
   shaped with HarfBuzz into outlines, in the bundled `fonts/Baloo2.ttf`).
 - `src/project/` — load/save/validate a project directory; `construction.ts`
   is the character linter (rasterises parts, checks box, feet, joints);
   `notes.ts` is the review-note store shared by the viewer and the MCP.
 - `src/render/` — resvg rasteriser, ffmpeg encoder (frames drawn on worker
-  threads, `frame-worker.ts`), preview sheets.
+  threads, `frame-worker.ts`), the sound mixer (`audio.ts`), the .mkv with
+  its extra sound and subtitle tracks (`mkv.ts`), preview sheets.
 - `src/library/` — built-in characters and scenes (TypeScript modules holding
   SVG). They are the quality bar and the templates agents copy.
 - `src/mcp/server.ts`, `src/cli.ts`, `src/viewer/` — thin interfaces over

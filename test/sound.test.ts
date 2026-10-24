@@ -20,6 +20,8 @@ import { SOUNDS } from '../src/library/sounds.js';
 import { validateProject, validateShot, voiceProblems } from '../src/project/validate.js';
 import { makeVoices } from '../src/project/voices.js';
 import { mixAudio, RATE } from '../src/render/audio.js';
+import { writeMkv } from '../src/render/mkv.js';
+import { assScript, subtitleLanguages, subtitles } from '../src/engine/subtitles.js';
 
 /** A project with a few clips of its own in audio/, made with ffmpeg. */
 const dir = mkdtempSync(path.join(os.tmpdir(), 'talekit-sound-'));
@@ -364,6 +366,144 @@ describe('voices', () => {
         .filter((m) => /talk over each other/.test(m));
       expect(over).toHaveLength(1);
       expect(over[0]).toMatch(/^action 1: kid starts speaking at 1\.0s while the narrator/);
+    } finally {
+      delete process.env.TALEKIT_TTS;
+    }
+  });
+
+  // A narrator's caption, then a line in Hindi with its English, and one without.
+  const bilingual = (r: string) =>
+    voiced(
+      [
+        shot('a', {
+          duration: 6,
+          cast: { kid: { at: 'center' } },
+          actions: [
+            { t: 0, caption: 'एक दिन', translation: { en: 'One day' } },
+            {
+              t: 2.5,
+              actor: 'kid',
+              say: '*हि हि!* चलो!',
+              translation: { en: "*Hee hee!* Let's go!" },
+            },
+            { t: 4.5, actor: 'kid', say: 'अरे वाह, कितना सुंदर दिन है' },
+          ],
+        }),
+      ],
+      path.join(r, 'audio')
+    );
+
+  it('subtitles every line in its own language and in the ones it is translated into', async () => {
+    process.env.TALEKIT_TTS = fake;
+    try {
+      const r = root();
+      const p = bilingual(r);
+      await makeVoices(r, p);
+      expect(subtitleLanguages(p)).toEqual(['hi', 'en']);
+      const hi = subtitles(p, 'hi');
+      expect(hi.map((s) => s.text)).toEqual([
+        'एक दिन',
+        'हि हि! चलो!',
+        'अरे वाह, कितना सुंदर दिन है',
+      ]);
+      // Up as long as its bubble, and cut off with the shot.
+      const [, line, last] = hi;
+      expect(line.start).toBe(2.5);
+      expect(line.end).toBeCloseTo(2.5 + lineDuration(p, p.shots[0], p.shots[0].actions[1]), 5);
+      expect(last.end).toBe(6);
+      // The narration's own subtitle sits at the top, over its caption, and so does a line
+      // spoken while the caption is still up.
+      const caption = 0 + lineDuration(p, p.shots[0], p.shots[0].actions[0]);
+      expect(hi.map((s) => s.top)).toEqual([true, caption > 2.5, false]);
+      expect(subtitles(p, 'en').map((s) => s.text)).toEqual(['One day', "Hee hee! Let's go!"]);
+      // The untranslated line is a gap in the English, and the check says so.
+      const gaps = validateProject(p).filter((m) => /translation/.test(m.message));
+      expect(gaps.map((m) => m.message)).toEqual([
+        "1 of 3 lines have no 'en' translation, so the en subtitles skip them: 'a' action 2",
+      ]);
+      const ass = assScript(p, subtitles(p, 'en'));
+      expect(ass).toMatch(/PlayResY: 720/);
+      expect(ass).toMatch(/^Dialogue: 0,0:00:00\.00,.*,Top,,0,0,0,,One\{\\fsp4\} \{\\fsp0\}day$/m);
+    } finally {
+      delete process.env.TALEKIT_TTS;
+    }
+  });
+
+  it('mixes the film again without the dialogue, and with only the narrator', async () => {
+    process.env.TALEKIT_TTS = fake;
+    try {
+      const r = root();
+      const p = bilingual(r);
+      await makeVoices(r, p);
+      // Nothing else sounds in home: what is left is the voices.
+      p.shots[0].scene = 'home';
+      expect(await mixAudio(p, p.shots, { voices: 'none' })).toBeUndefined();
+      const narrator = (await mixAudio(p, p.shots, { voices: 'narrator' }))!;
+      const full = (await mixAudio(p, p.shots))!;
+      const loud = (m: Float32Array, a: number, b: number) => {
+        let peak = 0;
+        for (let i = Math.round(a * RATE) * 2; i < Math.round(b * RATE) * 2; i++)
+          peak = Math.max(peak, Math.abs(m[i]));
+        return peak;
+      };
+      const caption = lineDuration(p, p.shots[0], p.shots[0].actions[0]) - LINGER;
+      expect(loud(narrator, 0, caption)).toBeGreaterThan(0.01);
+      expect(loud(narrator, 4.6, 6)).toBe(0);
+      expect(loud(full, 4.6, 6)).toBeGreaterThan(0.01);
+    } finally {
+      delete process.env.TALEKIT_TTS;
+    }
+  });
+
+  it('writes an mkv with three sound tracks, subtitles off and a chapter per shot', async () => {
+    process.env.TALEKIT_TTS = fake;
+    try {
+      const r = root();
+      const p = bilingual(r);
+      p.shots.push(ShotSchema.parse(shot('b', { duration: 1 })));
+      p.meta.music = 'playful';
+      await makeVoices(r, p);
+      const mp4 = path.join(r, 'movie.mp4');
+      const mkv = path.join(r, 'movie.mkv');
+      // Seven seconds of film with a sound track, as the render would leave it.
+      execFileSync('ffmpeg', [
+        ...['-v', 'error', '-f', 'lavfi', '-i', 'color=size=320x180:rate=24:duration=7'],
+        ...['-f', 'lavfi', '-i', 'sine=duration=7', '-shortest', mp4],
+      ]);
+      const made = await writeMkv(p, mp4, mkv);
+      expect(made).toEqual({
+        audio: ['Full mix', 'Music and effects', 'Music, effects and narrator'],
+        subtitles: ['Hindi', 'English'],
+      });
+      const probe = JSON.parse(
+        execFileSync(
+          'ffprobe',
+          ['-v', 'error', '-show_streams', '-show_chapters', '-of', 'json', mkv],
+          {
+            encoding: 'utf8',
+          }
+        )
+      );
+      const streams = probe.streams.map(
+        (s: {
+          codec_type: string;
+          tags: { language?: string };
+          disposition: { default: number };
+        }) => [s.codec_type, s.tags.language, s.disposition.default]
+      );
+      expect(streams).toEqual([
+        ['video', undefined, 1],
+        ['audio', 'hin', 1],
+        ['audio', 'zxx', 0],
+        ['audio', 'hin', 0],
+        ['subtitle', 'hin', 0],
+        ['subtitle', 'eng', 0],
+        ['attachment', undefined, 0],
+      ]);
+      expect(probe.chapters.map((c: { tags: { title: string } }) => c.tags.title)).toEqual([
+        'a',
+        'b',
+      ]);
     } finally {
       delete process.env.TALEKIT_TTS;
     }

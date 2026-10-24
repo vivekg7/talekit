@@ -1025,6 +1025,24 @@ between):
   way to tame loud passages; fixed levels with a hold do it without guessing,
   and keep the mix a plain function of the cue sheet.
 
+Then an .mkv beside the mp4 (2026-10-24), at Vivek's asking, for the
+family's phone: the full mix, music and effects with no dialogue, the same
+with only the narrator, subtitles in Hindi and English (off by default), and
+a chapter per shot. MKV, because it carries several sound and subtitle
+tracks with names and languages, styled ASS subtitles and the font they
+need; the mp4 stays, since a phone's own gallery may not play an .mkv. It
+is built from the rendered mp4 with the picture copied, so it costs two
+more mixes and a mux, not a render. The dialogue-free tracks leave the
+lines out of the ducking too: music that dips for a voice nobody hears
+sounds like a fault. English comes from the agent writing the film, a
+`translation` on each line, not from a translation model at render time:
+the agent knows the story and the characters, and the render stays
+deterministic and offline. Track names are in English. Two things found
+by burning the subtitles in with libass: Baloo 2's space is a fifth of an
+em, which the outline round each word all but closes, so each space is
+drawn a tenth of an em wider (`\fsp`); and a narration caption sits where
+subtitles go, so a subtitle over one moves to the top.
+
 ## Render speed
 
 Measured 2026-10-23 on a 12-core M-series Mac, on the race film (273 s, scenery

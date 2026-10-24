@@ -165,7 +165,7 @@ export async function renderVideo(
 }
 
 /** Run ffmpeg to the end; resolves with what it printed, whatever its exit code. */
-function runFfmpeg(bin: string, args: string[]): Promise<{ code: number; stderr: string }> {
+export function runFfmpeg(bin: string, args: string[]): Promise<{ code: number; stderr: string }> {
   return new Promise((resolve, reject) => {
     const ff = spawn(bin, args, { stdio: ['ignore', 'ignore', 'pipe'] });
     let stderr = '';
@@ -173,6 +173,29 @@ function runFfmpeg(bin: string, args: string[]): Promise<{ code: number; stderr:
     ff.on('error', (e) => reject(new Error(`ffmpeg failed to start: ${e.message}`)));
     ff.on('close', (code) => resolve({ code: code ?? 1, stderr }));
   });
+}
+
+/**
+ * The seconds these shots last as frames, checked against a film already rendered from
+ * them: anything built on that film (a new mix, the .mkv) must still be these shots.
+ */
+export async function checkLength(
+  project: Project,
+  shots: Shot[],
+  file: string,
+  bin: string
+): Promise<number> {
+  const { fps } = project.meta;
+  const frames = shots.reduce((n, s) => n + Math.max(1, Math.round(s.duration * fps)), 0);
+  const seconds = frames / fps;
+  const probe = /Duration: (\d+):(\d+):([\d.]+)/.exec((await runFfmpeg(bin, ['-i', file])).stderr);
+  if (!probe) throw new Error(`${file} is not a film ffmpeg can read`);
+  const length = Number(probe[1]) * 3600 + Number(probe[2]) * 60 + Number(probe[3]);
+  if (Math.abs(length - seconds) > 0.1)
+    throw new Error(
+      `${file} is ${length.toFixed(2)}s and the shots are ${seconds.toFixed(2)}s: render it again`
+    );
+  return seconds;
 }
 
 /**
@@ -187,16 +210,7 @@ export async function remixVideo(
 ): Promise<{ seconds: number }> {
   const bin = opts.ffmpegPath ?? 'ffmpeg';
   const shots = opts.shots ?? project.shots;
-  const { fps } = project.meta;
-  const frames = shots.reduce((n, s) => n + Math.max(1, Math.round(s.duration * fps)), 0);
-  const seconds = frames / fps;
-  const probe = /Duration: (\d+):(\d+):([\d.]+)/.exec((await runFfmpeg(bin, ['-i', file])).stderr);
-  if (!probe) throw new Error(`${file} is not a film ffmpeg can read`);
-  const length = Number(probe[1]) * 3600 + Number(probe[2]) * 60 + Number(probe[3]);
-  if (Math.abs(length - seconds) > 0.1)
-    throw new Error(
-      `${file} is ${length.toFixed(2)}s and the shots are ${seconds.toFixed(2)}s: render it again`
-    );
+  const seconds = await checkLength(project, shots, file, bin);
 
   const audio = await mixAudio(project, shots, { ffmpegPath: bin, seconds });
   const audioPath = `${file}.audio.f32`;

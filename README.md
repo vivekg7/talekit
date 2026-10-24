@@ -36,7 +36,7 @@ npm install
 npm run build
 
 # render the bundled one-minute example
-node dist/cli.js render examples/lost-kite          # → examples/lost-kite/out/movie.mp4
+node dist/cli.js render examples/lost-kite          # → examples/lost-kite/out/movie.mp4 and .mkv
 node dist/cli.js serve  examples/lost-kite          # review app at http://127.0.0.1:4848
 ```
 
@@ -71,6 +71,12 @@ the balance to the project's `mix`, which every render after uses; **Save and
 remix video** also puts the new sound under `out/movie.mp4` in a few seconds,
 without drawing a frame (`talekit remix <dir> [-o file.mp4]` does the same
 from the command line).
+
+Next to the mp4 the render writes `out/movie.mkv`: the same film with
+three sound tracks to choose from (the full mix, music and effects without
+the dialogue, and that with the narrator), subtitles in the film's language
+and in each language the agent translated its lines into (off until
+chosen), and a chapter per shot. VLC or MX Player on a phone shows them all.
 
 ## What the agent writes
 
@@ -142,6 +148,7 @@ talekit library                      talekit contact <dir> <shot> -n 6
 talekit copy <dir> <libraryId>       talekit render <dir> [shot] [--silent]
 talekit serve <dir>                  talekit voice <dir> [shot]
 talekit mcp                          talekit remix <dir> [-o file.mp4]
+                                     talekit mkv <dir> [-o file.mp4]
 ```
 
 ## How it works
