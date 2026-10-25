@@ -1077,6 +1077,16 @@ A frame is portrait when it is taller than it is wide; there is no format
 field, since the size already says it. The first reel is lion-mouse's,
 cut from 5½ minutes to under 3 with its scenes drawn again.
 
+The first three reels kept the films' dialogue and cut events to fit, and
+they told too little: the race reel lost the hare stopping to boast and
+eat, which is why he sleeps, while its opening and closing conversations
+took most of the time (Vivek, 2026-10-25). A reel is told by the narrator
+instead, a sentence or two a shot over the cast acting it out, with a
+character speaking only where the words turn the story. Narration says in
+one sentence what a conversation takes four lines to, so the whole plot
+fits in three minutes. That is a rule for the agent writing the reel, in
+the authoring guide; the engine needs nothing new for it.
+
 ## Render speed
 
 Measured 2026-10-23 on a 12-core M-series Mac, on the race film (273 s, scenery

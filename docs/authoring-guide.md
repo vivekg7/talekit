@@ -9,8 +9,8 @@ write. Fix what looks wrong before moving on.
 
 1. **Read the story and plan.** List characters, locations and 6–40 shots of
    5–20 seconds each. A shot is one location with one bit of action. A reel
-   for a phone held upright is a project of its own, shorter and drawn tall
-   (see [A reel](#a-reel-the-portrait-version)).
+   for a phone held upright is a project of its own, shorter, drawn tall and
+   told mostly by the narrator (see [A reel](#a-reel-the-portrait-version)).
 2. **`create_project(path, title)`** once; `path` is the absolute project
    directory and every later tool takes the same `path`. Then
    **`list_library()`**, and `set_audio(path, narrator, music)` for the
@@ -978,9 +978,23 @@ tall and staged for the narrow frame. Characters and voices can be the
 film's (copy their files); the scenes and the shots are new.
 
 - **Three minutes at most**, which is the longest the apps take, and
-  `project_info` warns past it. Keep the turns of the plot and drop the
-  rest: the walk there, the second line that says the first again, the
-  side character. 90 s to 170 s is a good length.
+  `project_info` warns past it. 90 s to 170 s is a good length.
+- **The narrator tells a reel.** A spoken line takes 3 to 4 s, and the
+  film's conversations alone would fill the three minutes with a quarter
+  of the story told. So in a reel the narrator carries the plot: a
+  sentence or two a shot, read over the picture of it happening (the hare
+  at the carrots while the narrator says he ate one after another), with
+  the cast acting it out (a `walk`, a `pickup`, a `sound` of munching, an
+  `emotion`) rather than saying it. A character speaks only where the
+  words themselves turn the story (the challenge, the cry for help, the
+  promise kept), one or two short lines in a scene, and never to say what
+  the narrator just said.
+  Keep every event the plot needs, above all the ones that explain the
+  ending: the hare stops to boast and eats until he is too full to keep
+  awake, which is why he sleeps through the race. Cut what only decorates
+  it: the greetings, the walk there, the second line that says the first
+  again. Write the reel's narration afresh; it is not the film's lines cut
+  down.
 - **The app draws over the edges.** The account name, caption and sound
   along the bottom fifth, the like and share buttons down the right, the
   camera and search icons across the top. The engine keeps bubbles and
@@ -998,7 +1012,10 @@ film's (copy their files); the scenes and the shots are new.
   72% of the width). Draw the scene so that the wide shot already holds the
   cast large: anchor `scale` 1.3 to 1.6 for the library's people and
   animals, and camera zoom 1.3 to 1.8 for a face. Text is the size a film's
-  is beside the same width of screen.
+  is beside the same width of screen. For a closer view of someone (a mouse
+  bouncing on a sleeping lion's back), zoom the camera onto the character
+  itself; do not paint a part of the character large into a scene, which
+  in the narrow frame comes out cropped and out of drawing.
 - **One file to post.** `render` writes `out/movie.mp4`, one picture and one
   sound track, which is what the apps take; a reel gets no .mkv, since the
   apps play neither a second sound track nor a subtitle track. Its bubbles

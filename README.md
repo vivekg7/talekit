@@ -80,7 +80,8 @@ chosen), and a chapter per shot. VLC or MX Player on a phone shows them all.
 
 A **reel** for Instagram or YouTube Shorts is a project of its own at
 720 × 1280 (`talekit init <dir> --width 720 --height 1280`): the story told
-again in at most three minutes, in scenes drawn tall. Text and bubbles keep
+again in at most three minutes, mostly by the narrator so that the whole
+story fits, in scenes drawn tall. Text and bubbles keep
 clear of what the apps draw over the frame's edges, and the render is the
 one mp4 the apps take, with no .mkv.
 
