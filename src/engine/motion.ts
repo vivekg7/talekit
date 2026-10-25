@@ -74,9 +74,6 @@ function nudge(pose: Pose, part: string, x: number, y: number): void {
   pose.off[part] = [ox + x, oy + y];
 }
 
-const MOVE_VERBS: ReadonlySet<Verb> = new Set(['walk', 'run', 'move', 'fly', 'jump']);
-export const isMoveVerb = (v: Verb): boolean => MOVE_VERBS.has(v);
-
 /** Pixels per second in scene space for locomotion verbs. */
 export const SPEED: Record<string, number> = {
   walk: 220,

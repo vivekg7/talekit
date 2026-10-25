@@ -1,7 +1,7 @@
 import { clamp01, easeInOut, easeOut, hash01, lerp, ramp } from './easing.js';
 import { holdPoint, poseFor } from './actor.js';
 import type { Travel } from './gait.js';
-import { isMoveVerb, JUMP, SPEED, STOOP, VERB_DURATION, type Locomotion } from './motion.js';
+import { JUMP, SPEED, STOOP, VERB_DURATION, type Locomotion } from './motion.js';
 import { defaultGround, stageSides } from './format.js';
 import { rigOf } from './rigs.js';
 import { clipFor, lineDuration, lineLead, mouthOpen, sayDuration, shownText } from './voice.js';
@@ -18,6 +18,7 @@ import type {
   Verb,
   View,
 } from './types.js';
+import { isMoveVerb } from './types.js';
 
 export interface Point {
   x: number;

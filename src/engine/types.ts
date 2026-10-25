@@ -526,6 +526,10 @@ export const VerbSchema = z.enum([
 ]);
 export type Verb = z.infer<typeof VerbSchema>;
 
+/** The verbs that take an actor somewhere (`to`). */
+const MOVE_VERBS: ReadonlySet<Verb> = new Set(['walk', 'run', 'move', 'fly', 'jump']);
+export const isMoveVerb = (v: Verb): boolean => MOVE_VERBS.has(v);
+
 export const EmotionSchema = z.enum(['neutral', 'happy', 'sad', 'surprised', 'angry', 'scared']);
 export type Emotion = z.infer<typeof EmotionSchema>;
 
@@ -640,7 +644,7 @@ export const ActionSchema = z
       .describe("The sound's loudness: 1 as recorded (default), 0.5 distant, 1.5 close"),
     /** Standing on another actor: drawn in front of it while on it. */
     on: IdSchema.optional().describe(
-      "With a walk, run, move, fly or jump that has a `to`, or with set.at: the id of the actor this one ends up standing on (a mouse on a sleeping lion's back), so it is drawn in front of that actor from when it sets off until a later move without `on` lands somewhere else. Put `to` on the top of that actor (preview_frame with debug shows where). It does not ride along: to be carried, use attach"
+      "With a walk, run, move, fly or jump that has a `to`, or with set.at: the id of the actor this one ends up standing on (a mouse on a sleeping lion's back), so it is drawn in front of that actor from when it sets off until a later move without `on` lands somewhere else. Put `to` on the top of that actor (read where it is off a preview_frame). It does not ride along: to be carried, use attach"
     ),
     /** Instant state changes. */
     set: z
@@ -672,7 +676,7 @@ export const ActionSchema = z
     (a) =>
       !a.on ||
       a.set?.at !== undefined ||
-      (a.to !== undefined && ['walk', 'run', 'move', 'fly', 'jump'].includes(a.do ?? '')),
+      (a.to !== undefined && a.do !== undefined && isMoveVerb(a.do)),
     'on needs a walk, run, move, fly or jump with a `to`, or set.at: how the actor gets up there'
   )
   .refine(
