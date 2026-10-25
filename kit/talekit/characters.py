@@ -5,11 +5,12 @@
 the routine ones so a spec names only the colours that make the character:
 
 - `BASE` gives line, cheek, mouth, tongue, the golds, gems, pearl, a tilak's white and
-  red, a gamchha's red and white, a leather belt and scabbard, a white plume, jasmine.
+  red, sandal paste (chandan), a gamchha's red and white, a leather belt and scabbard, a
+  white plume, jasmine, rudraksha brown and a janeu's white.
 - `FALLBACK` points a token at another: `iris` to `line`, `brow` to `hair`, `cuff` to
   `shirtDark`, `button`, `sash`, `border`, `trim`, `earring` and `bangle` to `gold`,
-  `bangle2`, `tie` and `ribbon` to `ruby`, `sole` to `shoesDark`, `veil` to `sari`, `bindi`
-  to `tilakRed`, `lip` to `mouth`, `glasses` to `line`.
+  `bangle2`, `tie`, `ribbon` and `tassel` to `ruby`, `sole` to `shoesDark`, `veil` to
+  `sari`, `bindi` to `tilakRed`, `lip` to `mouth`, `glasses` to `line`.
 - A missing `<x>Dark` or `<x>Light` is shaded from `<x>` (svg.darker, svg.lighter).
 
 Anything still missing raises, naming the token and the part, before talekit sees it."""
@@ -40,6 +41,9 @@ BASE = {
     "scabbard": "#3b2622",
     "plume": "#fbfaf5",
     "gajra": "#fbf8ef",
+    "chandan": "#efb85a",
+    "rudraksha": "#7a3b22",
+    "janeu": "#fffdf4",
 }
 
 FALLBACK = {
@@ -58,6 +62,7 @@ FALLBACK = {
     "bangle2": "ruby",
     "tie": "ruby",
     "ribbon": "ruby",
+    "tassel": "ruby",
     "veil": "sari",
     "bindi": "tilakRed",
     "lip": "mouth",

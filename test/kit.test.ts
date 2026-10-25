@@ -44,6 +44,16 @@ for i, head in enumerate(heads):
         legs=legs[i % len(legs)], face=faces[i % len(faces)], eyes=p.eyes(looks[i % len(looks)]),
         mouth=p.mouth(dy=i % 9, closed=list(p.CLOSED_MOUTHS)[i % 4], angry=('teeth', 'line')[i % 2]),
         colors=colors))
+# A sage and a temple student: the shaven heads, a long beard, a mala, a janeu, khadau.
+write(sys.argv[1], p.person(
+    'w10', 'W10', 235, head=p.shaven_head(beard=True), torso=p.kurta(long=330, extras=[p.angavastram(), p.mala()]),
+    arms=p.sleeves(), legs=p.dhoti(p.khadau), face=p.face('full', tilak='tripundra', beard='long'),
+    eyes=p.eyes('plain'), mouth=p.mouth(dy=8), colors=colors))
+write(sys.argv[1], p.person(
+    'w11', 'W11', 225, head=p.shaven_head(fringe=False, stubble=True),
+    torso=p.kurta(k=0.9, extras=[p.janeu(), p.angavastram(over='shoulder')]), arms=p.sleeves(),
+    legs=p.dhoti(p.khadau), face=p.face('thin', tilak='chandan'), eyes=p.eyes('sly'), mouth=p.mouth(dy=4),
+    colors=colors))
 `;
 
 // Every woman's head, torso, arms and skirt, the face options with them; g2 a girl.
@@ -94,7 +104,7 @@ describe.skipIf(!python)('python kit', () => {
       /character 'w\d+'/.test(p.where + p.message)
     );
     expect(problems).toEqual([]);
-    expect(Object.keys(project.characters).filter((id) => /^w\d+$/.test(id))).toHaveLength(10);
+    expect(Object.keys(project.characters).filter((id) => /^w\d+$/.test(id))).toHaveLength(12);
   }, 60_000);
 
   it("builds every piece of the women's wardrobe, plaits swinging, a child's head grown", async () => {

@@ -15,14 +15,14 @@ faces are drawn front-on round x=100, every head and torso has a back.
 
 The kinds of part:
   heads   -> (front, back) SVG:  short_hair side_part spiky_hair curly_hair head_band
-             pagdi tall_pagdi safa plumed_turban crown bun
+             pagdi tall_pagdi safa plumed_turban crown bun shaven_head
              (front, back, hung) with plaits that swing:  plait two_plaits
   torsos  -> Torso(front, back, hem):  kurta banyan tunic angrakha, sari choli kameez
-  extras  -> (front, back) laid over a torso:  gamchha angavastram dupatta
+  extras  -> (front, back) laid over a torso:  gamchha angavastram dupatta mala janeu
   arms    -> fn(px, hx, near):  sleeves royal_sleeves bare_arms blouse_sleeves
   legs    -> fn(px, fx):  dhoti pyjama churidar sari_skirt ghagra, each standing on a foot
-  feet    -> fn(fx):  bare_foot chappal jutti royal_jutti boot
-  face(moustache, ...), eyes(look, ...), mouth(dy, ...) -> the face parts
+  feet    -> fn(fx):  bare_foot chappal jutti royal_jutti boot khadau
+  face(moustache, beard, ...), eyes(look, ...), mouth(dy, ...) -> the face parts
 
 Colour tokens the pieces use: skin, hair, shirt (kurta, banyan, tunic, kameez), coat
 (angrakha), pants (dhoti, pyjama, churidar), sari and blouse (sari), blouse and skirt
@@ -289,6 +289,28 @@ def boot(fx):
         )
         + fill(f"M{fx - 13} 344 L{fx + 13} 344 L{fx + 13} 353 L{fx - 13} 353 Z", "{shoesDark}")
         + line(f"M{x + 18} 383 Q{x + 32} 383 {x + 46} 389", 2.5, "{shoesLight}")
+    )
+
+
+def khadau(fx):
+    """A wooden khadau: a bare foot on a raised plank sole, held on by the round-topped peg
+    between the first two toes: a sage, a temple student, a pilgrim. Tokens: skin, skinDark,
+    shoes, shoesDark."""
+    x = fx - 14
+    foot = shift_y(
+        f"M{x} 396 C{x - 1} 387 {x + 4} 380 {x + 13} 379 L{x + 22} 381 C{x + 31} 384 {x + 41} 388 {x + 47} 392 "
+        f"C{x + 51} 395 {x + 50} 400 {x + 45} 400 L{x + 3} 400 Q{x} 400 {x} 396 Z",
+        -7,
+    )
+    return (
+        fill(foot, "{skin}")
+        + line(f"M{x + 8} 379 Q{x + 12} 381 {x + 16} 379", 2.2, "{skinDark}")
+        + fill(
+            f"M{x - 3} 389 L{x + 51} 389 Q{x + 54} 400 {x + 46} 400 L{x + 1} 400 Q{x - 3} 400 {x - 3} 389 Z", "{shoes}"
+        )
+        + line(f"M{x} 394.5 L{x + 49} 394.5", 2.2, "{shoesDark}")
+        + stroke(f"M{x + 38} 392 L{x + 38} 383", "{shoesDark}", 4.5)
+        + circle(x + 38, 382, 4.4, "{shoes}")
     )
 
 
@@ -803,6 +825,66 @@ def plumed_turban(beard=True):
     return front, back
 
 
+def _shikha(x, y, lean):
+    """The tuft left long on a shaven crown, rooted at (x, y): a small knot with a short
+    flick of hair curling `lean` units back from it."""
+    tip = (x - lean, y - 12)
+    return (
+        fill(taper((x, y - 2), (x - lean * 0.3, y - 10), (tip[0] + 4, tip[1] - 4), tip, 9, 2.5), "{hair}")
+        + circle(x, y, 6.5, "{hair}")
+        + line(f"M{x - 4.5} {y - 1} Q{x} {y + 3.5} {x + 4.5} {y - 1}", 2, "{hairDark}")
+    )
+
+
+def shaven_head(fringe=True, shikha=True, stubble=False, beard=False):
+    """A head shaved for a sage or a temple student: the crown bare with a shine. `fringe`
+    leaves an old man's ring of hair round the sides and back; `shikha` the tuft left long at
+    the back of the crown, knotted at its root; `stubble` a faint shadow of regrowth over the
+    scalp (a young man freshly shaved); `beard` whiskers along the far jaw from the ear, to
+    join a long beard drawn by face(beard='long') (the beard turns with the face, so it lives
+    there). Tokens: skin, skinLight, skinDark, hair, hairDark."""
+    dome = (
+        "M53 100 C50 72 70 49 100 48 C127 48 146 64 149 82 "
+        "C132 74 108 72 88 76 C79 80 74 88 72 98 L67 102 C61 98 57 98 53 100 Z"
+    )
+    shine = fill("M76 62 C80 50 92 43 106 42 C95 47 87 54 83 66 Z", "{skinLight}")
+    front = (_shikha(70, 49, 16) if shikha else "") + SKIN
+    if stubble:
+        front += fill(dome, "{hair}", " opacity='0.2'")
+    if fringe:
+        front += fill(
+            "M68 84 C56 86 47 97 46 112 C45 128 52 142 63 150 C69 146 73 140 75 132 "
+            "C67 124 63 112 64 101 C65 93 67 88 71 86 Z",
+            "{hair}",
+        ) + fill("M146 86 C153 93 155 104 151 115 C148 108 145 100 141 93 Z", "{hair}")
+    if beard:
+        front += fill(
+            "M55 110 C55 128 61 143 72 153 C81 161 92 166 103 168 L105 150 "
+            "C92 148 80 142 73 132 C67 124 64 116 64 108 Z",
+            "{hair}",
+        )
+    front += EAR + shine
+    back = SKIN + EARS_BACK
+    if stubble:
+        back += fill(
+            "M54 108 C48 66 72 48 100 48 C128 48 152 66 146 108 C142 124 122 130 100 130 C78 130 58 124 54 108 Z",
+            "{hair}",
+            " opacity='0.2'",
+        )
+    back += fill("M66 54 C76 46 90 43 102 44 C90 49 80 56 73 66 Z", "{skinLight}")
+    if fringe:
+        back += fill(
+            "M50 96 C66 110 134 110 150 96 C152 118 138 138 114 144 Q100 147 86 144 C62 138 48 118 50 96 Z", "{hair}"
+        ) + line("M62 116 Q100 132 138 116", 2.2, "{hairDark}")
+    if beard:
+        back += fill("M54 120 C52 140 58 158 70 172 L80 146 Z", "{hair}") + fill(
+            "M146 120 C148 140 142 158 130 172 L120 146 Z", "{hair}"
+        )
+    if shikha:
+        back += _shikha(100, 44, 4)
+    return front, back
+
+
 def _kundala(x, y):
     """A gold ear-stud with a hanging gold drop."""
     return (
@@ -1139,6 +1221,30 @@ MOUSTACHES = {
     )
     + line("M86 124 Q92 122 98 124", 2, "{hairDark}")
     + line("M102 124 Q108 122 114 124", 2, "{hairDark}"),
+    # A thin moustache with its ends drooping past the corners of the mouth: a sly man.
+    "thin": fill(
+        "M100 122 C108 120.5 118 121 123.5 124.5 C126.5 127 127.5 131 126.5 135 C124 130.5 118 126.5 110 125.8 "
+        "C106 125.6 102 126 100 126.6 C98 126 94 125.6 90 125.8 C82 126.5 76 130.5 73.5 135 C72.5 131 73.5 127 "
+        "76.5 124.5 C82 121 92 120.5 100 122 Z",
+        "{hair}",
+    ),
+}
+
+BEARDS = {
+    # A long beard from the cheeks to a point at mid-chest, combed in strands: a sage, a
+    # rishi. Wear it with a full moustache and shaven_head(beard=True) or a turban; the mouth
+    # draws over it (mouth dy 7 to 9).
+    "long": fill(
+        "M64 106 C61 124 63 144 71 162 C78 180 86 198 92 212 C95 219 98 224 100 228 C102 224 105 219 108 212 "
+        "C114 198 122 180 129 162 C137 144 139 124 136 106 C130 116 122 121 112 122 Q100 124 88 122 "
+        "C78 121 70 116 64 106 Z",
+        "{hair}",
+    )
+    + line("M84 146 Q86 176 95 206", 2.2, "{hairDark}")
+    + line("M116 146 Q114 176 105 206", 2.2, "{hairDark}")
+    + line("M100 150 L100 214", 2.2, "{hairDark}")
+    + line("M72 136 Q74 158 82 176", 2.2, "{hairDark}")
+    + line("M128 136 Q126 158 118 176", 2.2, "{hairDark}"),
 }
 
 TILAK = {
@@ -1152,6 +1258,9 @@ TILAK = {
     + circle(100, 80, 2.6, "{tilakRed}"),
     # A woman's small bindi. Token: bindi (defaults to tilakRed).
     "bindi": circle(100, 80, 3.2, "{bindi}"),
+    # A line of sandal paste up the forehead with a red dot at its foot: a temple student, a
+    # priest. Tokens: chandan, tilakRed.
+    "chandan": stroke("M100 68 L100 87", "{chandan}", 6) + circle(100, 87, 2.8, "{tilakRed}"),
 }
 
 # Round wire spectacles. Token: glasses (defaults to line).
@@ -1168,12 +1277,21 @@ NATH = "<circle cx='107.5' cy='118.5' r='3.6' fill='none' stroke='{gold}' stroke
 
 
 def face(
-    moustache=None, tilak=None, nose="plain", crease=False, wrinkles=False, cheeks=True, nath=False, glasses=False
+    moustache=None,
+    tilak=None,
+    nose="plain",
+    crease=False,
+    wrinkles=False,
+    cheeks=True,
+    nath=False,
+    glasses=False,
+    beard=None,
 ):
     """The face part: cheeks, a nose, and what makes the face (a moustache from MOUSTACHES,
-    a tilak or bindi from TILAK, smile creases for a stern man, wrinkles for an old one, a
-    nose ring, glasses). Tokens: cheek, hair (moustache), skinDark (crease, wrinkles)."""
-    out = ""
+    a beard from BEARDS, a tilak or bindi from TILAK, smile creases for a stern man, wrinkles
+    for an old one, a nose ring, glasses). Tokens: cheek, hair (moustache, beard), hairDark
+    (beard), skinDark (crease, wrinkles)."""
+    out = BEARDS[beard] if beard else ""
     if wrinkles:
         out += (
             line("M68 108 Q65 104 67 99", 2.2, "{skinDark}")
@@ -1193,6 +1311,10 @@ def face(
         out += NATH
     if moustache:
         out += MOUSTACHES[moustache]
+        if beard:
+            # Hair on hair: an edge in the darker shade keeps the moustache apart from the beard.
+            d = re.search(r"d='([^']+)'", MOUSTACHES[moustache]).group(1)
+            out += f"<path d='{d}' stroke='{{hairDark}}' stroke-width='2.4' fill='none' stroke-linejoin='round'/>"
     if glasses:
         out += GLASSES
     return out
@@ -1250,6 +1372,14 @@ LOOKS = {
         "happy": ("M73 86 Q83 79 94 82", "M106 82 Q117 79 127 86"),
         "closed": ("M73 88 Q83 81 94 85", "M106 85 Q117 81 127 88"),
         "eye": {},
+    },
+    # Half-lidded eyes glancing aside under one cocked brow: a sly man, a trickster, who
+    # can still look meek when he smiles.
+    "sly": {
+        "rest": ("M73 89 Q83 85 94 88", "M106 85 Q117 77 127 82"),
+        "happy": ("M74 85 Q83 80 93 83", "M107 82 Q117 77 126 82"),
+        "closed": ("M73 89 Q83 85 94 88", "M106 85 Q117 77 127 82"),
+        "eye": {"cut": 7, "idx": 3, "idy": 2.5, "ir": 5, "hl": 1.8},
     },
     # Fine high arches and a softer eye: a woman, a girl.
     "gentle": {
@@ -1364,19 +1494,27 @@ def _with(front, back, extras):
 
 
 def kurta(long=False, k=1.0, extras=()):
-    """A kurta with a band collar, a placket and buttons, side slits: to the hip, or with
-    `long` to the upper thigh. `k` narrows (0.92) or broadens the build. Tokens: shirt,
+    """A kurta with a band collar, a placket and buttons, side slits: to the hip, with `long`
+    to the upper thigh, or with `long` a number to that hem line (330 to the knee: a sage's),
+    flaring a little as it goes. `k` narrows (0.92) or broadens the build. Tokens: shirt,
     shirtDark, shirtLight, skin, button (defaults to gold)."""
     if long:
+        h = 306 if long is True else long
+        f = (h - 306) * 0.3
         body = (
-            "M74 160 Q100 152 126 160 Q140 164 142 180 L140 250 Q142 280 146 302 "
-            "Q123 308 100 306 Q77 308 54 302 Q58 280 60 250 L58 180 Q60 164 74 160 Z"
+            f"M74 160 Q100 152 126 160 Q140 164 142 180 L140 250 Q{f1(142 + f / 2)} {h - 26} {f1(146 + f)} {h - 4} "
+            f"Q123 {h + 2} 100 {h} Q77 {h + 2} {f1(54 - f)} {h - 4} Q{f1(58 - f / 2)} {h - 26} 60 250 "
+            "L58 180 Q60 164 74 160 Z"
         )
-        hem = "M54 302 Q77 308 100 306 Q123 308 146 302 L145 293 Q123 299 100 297 Q77 299 55 293 Z"
-        slits = line(sx("M61 270 L58 296", k), 2.5, "{shirtDark}") + line(
-            sx("M139 270 L142 296", k), 2.5, "{shirtDark}"
+        hem = (
+            f"M{f1(54 - f)} {h - 4} Q77 {h + 2} 100 {h} Q123 {h + 2} {f1(146 + f)} {h - 4} "
+            f"L{f1(145 + f * 0.95)} {h - 13} Q123 {h - 7} 100 {h - 9} Q77 {h - 7} {f1(55 - f * 0.95)} {h - 13} Z"
+        )
+        slits = line(sx(f"M{f1(61 - f * 0.6)} {h - 36} L{f1(58 - f)} {h - 10}", k), 2.5, "{shirtDark}") + line(
+            sx(f"M{f1(139 + f * 0.6)} {h - 36} L{f1(142 + f)} {h - 10}", k), 2.5, "{shirtDark}"
         )
     else:
+        h = 298
         body = (
             "M74 160 Q100 152 126 160 Q140 164 142 180 L140 250 Q141 274 145 293 "
             "Q123 299 100 297 Q77 299 55 293 Q59 274 60 250 L58 180 Q60 164 74 160 Z"
@@ -1398,7 +1536,7 @@ def kurta(long=False, k=1.0, extras=()):
         + fill("M86 154 Q100 160 114 154 L115 162 Q100 168 85 162 Z", "{shirtDark}")
         + line("M100 190 L100 280", 2.5, "{shirtDark}")
     )
-    return Torso(*_with(front, back, extras), 306 if long else 298)
+    return Torso(*_with(front, back, extras), h)
 
 
 def banyan(k=0.9, extras=()):
@@ -1697,16 +1835,12 @@ def gamchha():
     return strip(True), strip(False)
 
 
-def angavastram():
-    """An angavastram: a shawl over the far shoulder, across the chest to the near hip, edged
-    in gold; from behind its other end hangs straight down with a fringe. Tokens: shawl,
-    shawlDark, gold."""
-    front = fill(ribbon((70, 158), (86, 196), (112, 238), (146, 268), 30, 30), "{shawl}")
-    front += fill(ribbon((58, 168), (60, 152), (76, 146), (90, 162), 18, 24), "{shawl}")
-    front += fill(ribbon((56, 164), (72, 202), (98, 246), (134, 280), 4, 4), "{gold}") + fill(
-        ribbon((84, 154), (100, 190), (126, 230), (158, 258), 4, 4), "{gold}"
-    )
-    front += line("M80 190 Q96 214 112 228", 2.5, "{shawlDark}") + line("M90 176 Q108 204 126 220", 2.5, "{shawlDark}")
+def angavastram(over="chest"):
+    """An angavastram: a shawl edged in gold. `over='chest'` lays it over the far shoulder and
+    across the chest to the near hip, its other end hanging down the back with a fringe;
+    `over='shoulder'` drapes it over the far shoulder only, both ends hanging straight down
+    front and back (a priest's or a student's, leaving the chest open for a janeu or a mala).
+    Tokens: shawl, shawlDark, gold."""
     back = fill(ribbon((70, 154), (68, 190), (66, 226), (66, 262), 30, 32), "{shawl}")
     back += (
         fill(ribbon((55, 156), (53, 190), (51, 226), (50, 262), 4, 4), "{gold}")
@@ -1715,7 +1849,63 @@ def angavastram():
     )
     back += "".join(line(f"M{x} 270 L{x} 278", 2.5, "{shawl}") for x in (55, 61, 67, 73, 79))
     back += line("M66 180 L66 250", 2.5, "{shawlDark}")
+    if over == "shoulder":
+        front = fill(ribbon((58, 168), (60, 152), (76, 146), (90, 162), 18, 24), "{shawl}")
+        front += fill(ribbon((74, 156), (73, 194), (71, 230), (72, 268), 28, 30), "{shawl}")
+        front += fill(ribbon((63.5, 166), (62.5, 200), (61, 234), (61, 268), 4, 4), "{gold}") + fill(
+            ribbon((88, 158), (86, 196), (85, 232), (86, 268), 4, 4), "{gold}"
+        )
+        front += fill(ribbon((57, 271), (66, 273), (78, 273), (87, 271), 5, 5), "{gold}")
+        front += "".join(line(f"M{x} 275 L{x} 283", 2.5, "{shawl}") for x in (61, 67, 73, 79, 85))
+        front += line("M73 176 L72 256", 2.5, "{shawlDark}")
+        return front, back
+    front = fill(ribbon((70, 158), (86, 196), (112, 238), (146, 268), 30, 30), "{shawl}")
+    front += fill(ribbon((58, 168), (60, 152), (76, 146), (90, 162), 18, 24), "{shawl}")
+    front += fill(ribbon((56, 164), (72, 202), (98, 246), (134, 280), 4, 4), "{gold}") + fill(
+        ribbon((84, 154), (100, 190), (126, 230), (158, 258), 4, 4), "{gold}"
+    )
+    front += line("M80 190 Q96 214 112 228", 2.5, "{shawlDark}") + line("M90 176 Q108 204 126 220", 2.5, "{shawlDark}")
     return front, back
+
+
+def mala(low=256):
+    """A rudraksha mala: a string of round brown seeds from the neck to a loop at `low` over
+    the chest, a bigger guru bead and a little tassel at the bottom; from behind, the string
+    over the back of the neck. Lay it over the angavastram, as the last extra. Tokens:
+    rudraksha, rudrakshaDark, tassel (defaults to ruby)."""
+
+    def bead(x, y, r=4.4):
+        return circle(x, y, r, "{rudraksha}") + line(
+            f"M{f1(x - r * 0.55)} {f1(y - r * 0.2)} Q{f1(x)} {f1(y + r * 0.5)} {f1(x + r * 0.55)} {f1(y - r * 0.2)}",
+            1.6,
+            "{rudrakshaDark}",
+        )
+
+    pts = qpts((84, 158), (76, low - 30), (100, low), 8.6)[1:]
+    pts += qpts((100, low), (124, low - 30), (116, 158), 8.6)[1:-1]
+    front = "".join(bead(x, y) for x, y in pts if abs(x - 100) > 4)
+    front += fill(f"M96 {low + 6} L104 {low + 6} L107 {low + 24} Q100 {low + 28} 93 {low + 24} Z", "{tassel}")
+    front += line(f"M100 {low + 10} L100 {low + 24}", 1.6, "{tasselDark}")
+    front += circle(100, low + 2, 6.5, "{rudraksha}") + line(
+        f"M95 {low + 1} Q100 {low + 6} 105 {low + 1}", 1.8, "{rudrakshaDark}"
+    )
+    back = "".join(bead(x, y, 4) for x, y in qpts((78, 160), (100, 176), (122, 160), 8.4))
+    return front, back
+
+
+def janeu():
+    """The sacred thread (janeu): fine white strands over the far shoulder, across the chest
+    to the near hip, and down the back the same way; an edge line each side so it reads on a
+    pale kurta. Wear it under an angavastram(over='shoulder'). Tokens: janeu, janeuDark."""
+
+    def cord(p0, c1, c2, p1):
+        return (
+            fill(ribbon(p0, c1, c2, p1, 5.5), "{janeu}")
+            + line(f"M{p0[0]} {p0[1]} C{c1[0]} {c1[1]} {c2[0]} {c2[1]} {p1[0]} {p1[1]}", 1.4, "{janeuDark}")
+            + f"<path d='{ribbon(p0, c1, c2, p1, 5.5)}' stroke='{{line}}' stroke-width='1.6' fill='none'/>"
+        )
+
+    return cord((78, 156), (96, 196), (118, 236), (139, 262)), cord((72, 156), (92, 196), (116, 236), (138, 264))
 
 
 def dupatta():
