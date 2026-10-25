@@ -1,6 +1,6 @@
 import { clamp01, easeInOut, easeOut, hash01, lerp, ramp } from './easing.js';
 import { holdPoint, partToScene, poseFor, sceneToPart } from './actor.js';
-import type { Travel } from './gait.js';
+import type { Pt, Travel } from './gait.js';
 import { JUMP, SPEED, STOOP, VERB_DURATION, type Locomotion } from './motion.js';
 import { defaultGround, stageSides } from './format.js';
 import { rigOf } from './rigs.js';
@@ -32,6 +32,13 @@ export interface ActiveVerb {
   verb: Verb;
   /** Progress 0..1. */
   u: number;
+  /** How long it lasts, seconds. */
+  span?: number;
+  /**
+   * Where the near hand goes, in the actor's box (as it faces): what a `wipe` wipes, or the
+   * grip of a prop a `pickup` takes off a table (from the floor it stoops, without one).
+   */
+  to?: Pt;
 }
 
 export interface Bubble {
@@ -299,6 +306,20 @@ export function holderAt(shot: Shot, prop: string, t: number): string | undefine
   return holder;
 }
 
+/** Where a prop's grip is with its feet at `at`, at this (final) scale, facing this way. */
+export function gripAt(
+  prop: Character,
+  at: { x: number; y: number },
+  scale: number,
+  facing: Facing
+): { x: number; y: number } {
+  const rig = rigOf(prop);
+  const k = (prop.height / rig.height) * scale;
+  const [gx, gy] = prop.grip ?? [rig.width / 2, rig.height / 2];
+  const side = facing === 'left' ? -1 : 1;
+  return { x: at.x + k * side * (gx - rig.width / 2), y: at.y + k * (gy - rig.height) };
+}
+
 /** Who stoops for a pickup or putdown: the one taking the prop, or the one holding it. */
 export function stooper(shot: Shot, a: Action): string | undefined {
   if (!a.actor || !isStoop(a)) return undefined;
@@ -409,6 +430,12 @@ export function resolveActor(
   let locoStart = 0;
   let locomotion: Locomotion = 'idle';
   const verbs: ActiveVerb[] = [];
+  /**
+   * Verbs whose hand goes somewhere in the scene, worked out into the box once it is known
+   * where the actor stands. `stands` is where a prop taken or set down stands: the hand
+   * goes to it only when that is up off the floor.
+   */
+  const aims: { v: ActiveVerb; spot: () => { x: number; y: number; stands?: number } }[] = [];
   let bubble: Bubble | undefined;
   let talking = false;
   let mouth: boolean | undefined;
@@ -646,7 +673,13 @@ export function resolveActor(
         else if (verb === 'disappear') visible = false;
       } else {
         const d = actionDuration(a);
-        if (t < a.t + d) verbs.push({ verb, u: (t - a.t) / d });
+        if (t < a.t + d) {
+          const v: ActiveVerb = { verb, u: (t - a.t) / d, span: d };
+          verbs.push(v);
+          const to = a.to;
+          if (verb === 'wipe' && to && depth < MAX_DEPTH)
+            aims.push({ v, spot: () => wipeSpot(project, scene, shot, to, t, depth) });
+        }
       }
     }
   }
@@ -655,7 +688,32 @@ export function resolveActor(
   for (const a of shot.actions) {
     if (a.t > t || stooper(shot, a) !== id) continue;
     const d = actionDuration(a);
-    if (t < a.t + d) verbs.push({ verb: a.do!, u: (t - a.t) / d });
+    if (t >= a.t + d) continue;
+    const v: ActiveVerb = { verb: a.do!, u: (t - a.t) / d, span: d };
+    verbs.push(v);
+    // Off a table or into a hand the hand goes to the grip; onto a table, to where the grip
+    // will be once it is set down there.
+    const prop = a.actor!;
+    const to = a.to;
+    if (depth >= MAX_DEPTH) continue;
+    if (a.do === 'pickup')
+      aims.push({
+        v,
+        spot: () => {
+          const p = resolveActor(project, scene, shot, prop, attachTime(a) - 1e-6, depth + 1);
+          return { ...gripAt(p.character, p, p.scale, p.facing), stands: p.y };
+        },
+      });
+    else if (to)
+      aims.push({
+        v,
+        spot: () => {
+          const p = resolveActor(project, scene, shot, prop, a.t, depth + 1);
+          const at = resolvePosition(project, scene, to);
+          const k = (p.scale / p.perspective) * at.scale;
+          return { ...gripAt(p.character, at, k, p.facing), stands: at.y };
+        },
+      });
   }
 
   let travel: Travel | undefined;
@@ -751,9 +809,38 @@ export function resolveActor(
     mouth,
     phase: hash01(id),
   };
+  const rig = rigOf(character);
+  const s = (character.height / rig.height) * state.scale;
+  const side = facing === 'left' ? -1 : 1;
+  for (const { v, spot } of aims) {
+    const at = spot();
+    // From the floor a person stoops for a prop; one standing knee high or more (on a
+    // table, a shelf) is reached for.
+    const knee = rig.bends.legR?.[1] ?? 0;
+    if (at.stands !== undefined && rig.height + (at.stands - state.y) / s > knee) continue;
+    v.to = [(at.x - state.x) / (s * side) + rig.width / 2, (at.y - state.y) / s + rig.height];
+  }
   // Looks are worked out for the actors on screen, not for the ones resolved to find them.
   if (depth === 0 && !heldBy) state.look = lookPitch(project, scene, shot, state, t, depth);
   return state;
+}
+
+/**
+ * What a `wipe` wipes, in the scene: the middle of an actor named in `to`, or the spot.
+ */
+function wipeSpot(
+  project: Project,
+  scene: Scene,
+  shot: Shot,
+  to: Position,
+  t: number,
+  depth: number
+): { x: number; y: number } {
+  if (typeof to === 'string' && shot.cast[to] && project.characters[to]) {
+    const o = resolveActor(project, scene, shot, to, t, depth + 1);
+    return { x: o.x, y: o.y - (o.character.height * o.scale) / 2 };
+  }
+  return resolvePosition(project, scene, to);
 }
 
 /** Between the eyes, in the scene, ignoring the pose: what others look toward. */

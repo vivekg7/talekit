@@ -103,7 +103,7 @@ const GAITS: Partial<Record<Rig['name'], Partial<Record<'walk' | 'run', Gait>>>>
 const RAD = Math.PI / 180;
 const frac = (v: number): number => v - Math.floor(v);
 
-type Pt = [number, number];
+export type Pt = [number, number];
 const rotate = ([x, y]: Pt, deg: number, [cx, cy]: Pt): Pt => {
   const a = deg * RAD;
   const dx = x - cx;
@@ -175,7 +175,7 @@ export function footPoint(rig: Rig, pose: Pose, leg: string): Pt {
 }
 
 /** Summed rotation of everything a part hangs from. */
-function parentTurn(rig: Rig, pose: Pose, part: string): number {
+export function parentTurn(rig: Rig, pose: Pose, part: string): number {
   let r = 0;
   for (let cur = rigPart(rig, part).parent; cur; cur = rigPart(rig, cur).parent)
     r += pose.rot[cur] ?? 0;

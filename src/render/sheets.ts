@@ -106,6 +106,14 @@ export function characterSheetSvg(character: Character): string {
     { ...make('pickup', withVerb('pickup', 0.5)), zoom: 0.8, shift: 30 },
     ...(rig.name === 'humanoid'
       ? [
+          // Hands out to a table at waist height in front, and to the dusting in front of
+          // the chest.
+          make('pickup: table', () => {
+            const p = base('idle', 0);
+            applyVerb(rig, p, 'pickup', 0.5, 0, [222, 250]);
+            return p;
+          }),
+          make('wipe', withVerb('wipe', 0.4)),
           // On a seat as high as a shin, the dashed line, with the floor below it.
           { ...make('sit', withVerb('sit', 1, 'idle', 70)), lift: 70 },
           { ...make('sit: ground', withVerb('sit', 1)), shift: 55 },

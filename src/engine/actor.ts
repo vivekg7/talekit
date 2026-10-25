@@ -39,7 +39,7 @@ export function poseFor(actor: ActorState, t: number): Pose {
   const head = rig.name === 'simple' ? 'body' : 'head';
   if (actor.look) pose.rot[head] = (pose.rot[head] ?? 0) + actor.look;
   if (actor.take) applyTake(rig, pose, actor.take.emotion, actor.take.u);
-  for (const v of actor.verbs) applyVerb(rig, pose, v.verb, v.u);
+  for (const v of actor.verbs) applyVerb(rig, pose, v.verb, v.u, 0, v.to, v.span);
   // Turning round: the body narrows through the mirror and stretches a touch as it does,
   // and the face comes round through front-on.
   if (actor.turn) {

@@ -1,5 +1,5 @@
 import { clamp01, easeInOut, hash01, TAU } from './easing.js';
-import { plantFeet, raiseFoot, stride, toRoot, type Travel } from './gait.js';
+import { parentTurn, plantFeet, raiseFoot, stride, toRoot, type Pt, type Travel } from './gait.js';
 import { QUADRUPED, type Rig } from './rigs.js';
 import type { Emotion, Verb } from './types.js';
 
@@ -97,6 +97,7 @@ export const VERB_DURATION: Partial<Record<Verb, number>> = {
   disappear: 0.4,
   pickup: 1.2,
   putdown: 1.2,
+  wipe: 2.4,
 };
 
 /**
@@ -513,11 +514,85 @@ function quadrupedVerb(rig: Rig, pose: Pose, verb: Verb, u: number): boolean {
 }
 
 /**
+ * The stoop's lean, by `l` (0 upright, 1 with the near hand down at the floor): the knees
+ * bend with the feet planted, the back leans over from the hips and the head keeps half an
+ * eye on what is down there.
+ */
+function lean(rig: Rig, pose: Pose, l: number): void {
+  pose.dy += 58 * l;
+  pose.rot.torso = (pose.rot.torso ?? 0) + 44 * l;
+  pose.rot.head = (pose.rot.head ?? 0) - 16 * l;
+  plantFeet(rig, pose, ['legL', 'legR']);
+}
+
+/** Where a `wipe` with nothing named goes: in front of the chest (box units). */
+const WIPE_AT: Pt = [206, 214];
+
+/**
+ * The near hand out to `to` (box units with the body offset, the actor facing right) by
+ * `k`, 0 at rest and 1 there. The body leans over as for a stoop, but only as far as it
+ * must to bring the shoulder within an arm's length of it; then the arm swings from the
+ * shoulder and folds forward at the elbow to put the hand on it. Out of reach, the hand
+ * gets as near as it can.
+ */
+export function reachTo(rig: Rig, pose: Pose, to: Pt, k: number): void {
+  const arm = rig.parts.armR;
+  const elbow = rig.bends.armR;
+  if (!arm || !elbow) return;
+  const hand = rig.hold.point;
+  const upper = Math.hypot(elbow[0] - arm.pivot[0], elbow[1] - arm.pivot[1]);
+  const fore = Math.hypot(hand[0] - elbow[0], hand[1] - elbow[1]);
+  const leaned = (l: number): Pose => {
+    const p = { ...pose, rot: { ...pose.rot }, bend: { ...pose.bend }, off: { ...pose.off } };
+    lean(rig, p, l);
+    return p;
+  };
+  const gap = (p: Pose): [number, number] => {
+    const [x, y] = toRoot(rig, p, 'armR', arm.pivot);
+    return [to[0] - x - p.dx, to[1] - y - p.dy];
+  };
+  // The first lean in reach; out of reach, the one that comes nearest (none, for a shelf
+  // above the shoulder).
+  let l = 0;
+  let best = Infinity;
+  for (let step = 0; step <= 20; step++) {
+    const miss = Math.hypot(...gap(leaned(step / 20))) - 0.96 * (upper + fore);
+    if (miss < best) [l, best] = [step / 20, miss];
+    if (miss <= 0) break;
+  }
+  const [gx, gy] = gap(leaned(l));
+  const d = Math.min(
+    Math.max(Math.hypot(gx, gy), Math.abs(upper - fore) + 1),
+    0.999 * (upper + fore)
+  );
+  // The upper arm turns past the line to the target, so the elbow drops under it, and the
+  // forearm folds back up to it (law of cosines).
+  const up = Math.atan2(gy, gx) + Math.acos((upper ** 2 + d ** 2 - fore ** 2) / (2 * upper * d));
+  const folded = Math.PI - Math.acos((upper ** 2 + fore ** 2 - d ** 2) / (2 * upper * fore));
+  const swing = (up - Math.atan2(elbow[1] - arm.pivot[1], elbow[0] - arm.pivot[0])) * DEG;
+  const forearm = (up - folded - Math.atan2(hand[1] - elbow[1], hand[0] - elbow[0])) * DEG;
+  const wrap = (deg: number) => ((((deg + 180) % 360) + 360) % 360) - 180;
+  const rot = wrap(swing - parentTurn(rig, leaned(l), 'armR'));
+  const bend = wrap(forearm - swing);
+  lean(rig, pose, l * k);
+  pose.rot.armR = mix(pose.rot.armR ?? 0, rot, k);
+  pose.bend.armR = mix(pose.bend.armR ?? 0, bend, k);
+}
+
+/**
  * Layer a timed verb over the base pose. `u` is progress 0..1 through the action; for
  * `sit` it is how far down the actor is, so sitting and standing can ease, and `seat` is
  * how far below the hips the floor is (canonical units; 0 sits on the ground).
  */
-export function applyVerb(rig: Rig, pose: Pose, verb: Verb, u: number, seat = 0): void {
+export function applyVerb(
+  rig: Rig,
+  pose: Pose,
+  verb: Verb,
+  u: number,
+  seat = 0,
+  to?: Pt,
+  span = 1
+): void {
   const humanoid = rig.name === 'humanoid';
   u = clamp01(u);
   if (verb === 'appear' || verb === 'disappear') {
@@ -617,20 +692,35 @@ export function applyVerb(rig: Rig, pose: Pose, verb: Verb, u: number, seat = 0)
       // A stoop: the knees bend with the feet planted, the back leans over from the hips and
       // the near arm hangs down from the shoulder to the floor in front, where the hand
       // takes the prop or leaves it; the head keeps half an eye on it.
+      // Off a table or a shelf (`to`, where the prop is held), the hand goes out to it and
+      // the body leans over only as far as it must.
       const k = stoopDepth(u);
-      if (humanoid) {
-        pose.dy += 58 * k;
-        pose.rot.torso = (pose.rot.torso ?? 0) + 44 * k;
-        pose.rot.head = (pose.rot.head ?? 0) - 16 * k;
+      if (humanoid && to) reachTo(rig, pose, to, k);
+      else if (humanoid) {
         pose.rot.armR = mix(pose.rot.armR ?? 0, -54, k);
         pose.bend.armR = mix(pose.bend.armR ?? 0, -6, k);
         pose.rot.armL = mix(pose.rot.armL ?? 0, -34, k);
         pose.bend.armL = mix(pose.bend.armL ?? 0, -30, k);
-        plantFeet(rig, pose, ['legL', 'legR']);
+        lean(rig, pose, k);
       } else {
         pose.rot.body = (pose.rot.body ?? 0) + 22 * k;
         pose.dx += 8 * k;
         pose.sy *= 1 - 0.08 * k;
+      }
+      break;
+    }
+    case 'wipe': {
+      // The near hand out to what it wipes (`to`; else in front of the chest) and round in
+      // small circles on it, two a second or so.
+      const k = u < 0.2 ? easeInOut(u / 0.2) : u > 0.82 ? 1 - easeInOut((u - 0.82) / 0.18) : 1;
+      const turns = Math.max(2, Math.round(span / 0.5)) * TAU * u;
+      if (humanoid) {
+        const [x, y] = to ?? WIPE_AT;
+        reachTo(rig, pose, [x + 7 * Math.cos(turns), y + 5 * Math.sin(turns)], k);
+      } else {
+        // No arm: the body rubs back and forth against it.
+        pose.rot.body = (pose.rot.body ?? 0) + k * (6 + 4 * Math.sin(turns));
+        pose.dx += k * (6 + 4 * Math.cos(turns));
       }
       break;
     }

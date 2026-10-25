@@ -90,7 +90,7 @@ elsewhere run them with `PYTHONPATH=<talekit>/kit`.
   `F.after` to know where the shot ends. The helpers `say`, `cap` (the English
   as their fourth argument, left out in a reel), `do`, `at`, `cam` and the
   others build actions. So do the stock pieces: `seated`, `attach`,
-  `release`, `smash` (a held prop falls, breaks and makes a sound) and
+  `pickup`, `putdown`, `release`, `smash` (a held prop falls, breaks and makes a sound) and
   `keep` (a variant carried into the next shot).
 - **`talekit.scenes`** and **`talekit.svg`**: painting helpers (`blob`,
   `canopy`, `tufts`, `ribbon`, `taper`, `gem`) and the scene writer.
@@ -620,7 +620,8 @@ falling the same way.
 | `lie`                 | persistent: sits, then lies back on the floor (four legs: on the belly)    | 1.3s ease            |
 | `bounce`, `spin`      | squashy hop / full rotation (best on the simple rig)                       | 1s / 0.8s            |
 | `appear`, `disappear` | pop in past full size and settle / swell a touch and shrink away           | 0.4s                 |
-| `pickup`, `putdown`   | on a prop, with `attach`: its carrier stoops to the floor for it (below)   | 1.2s                 |
+| `pickup`, `putdown`   | on a prop, with `attach`: its carrier stoops or reaches for it (below)     | 1.2s                 |
+| `wipe`                | near hand out to `to` (an actor or a spot), going round on it: dusting     | 2.4s                 |
 
 Crossing the frame on foot takes 4–5 s. `duration` overrides any default,
 and every walk needs enough of it or the character sprints; the engine
@@ -658,6 +659,16 @@ is drawn just in front; its own moves are ignored.
   when the hand would miss. `"attach": false, "do": "putdown", "to":
 "table-end"` is the reverse (without `to`, onto the floor under the
   hand).
+- **Off a table or a shelf**: the same `pickup`, on a prop standing knee
+  high or more, has the hand go out to its grip, leaning over only as far
+  as it must; a `putdown` with `to` up there reaches out to set it down.
+  The arm is about a quarter of the person's height long, so stand them
+  close: a vase whose grip is up by their shoulder needs them about a
+  fifth of their height from it. Never attach a prop off a table without
+  `pickup`: it would fly to a hand that has not moved.
+- **Dusting, polishing, scrubbing**: `{ "do": "wipe", "to": "vase" }`
+  puts the near hand on the middle of the named actor (or on a spot) and
+  rubs round in small circles; stand them as close as for a pickup.
 - **Hand to hand**: attaching a prop already held passes it over. One
   attached from more than the carrier's height away is taken at once.
 - `grip` is the point in the prop's box the hand holds (`[100, 22]` for a

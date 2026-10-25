@@ -45,8 +45,10 @@ __all__ = [
     "do",
     "feel",
     "keep",
+    "pickup",
     "project_dir",
     "pt",
+    "putdown",
     "release",
     "row",
     "say",
@@ -191,7 +193,8 @@ def cap(t, text, en=None, style="narration", **more):
 
 
 def do(t, actor, verb, duration=None, **more):
-    """A verb (walk, run, sit, stand, nod, shake, point, tremble, ...). `more`: to."""
+    """A verb (walk, run, sit, stand, nod, shake, point, tremble, wipe, ...). `more`: to,
+    which for a wipe names what is dusted (an actor, whose middle the hand goes round on)."""
     a = {**_when(t), "actor": actor, "do": verb, **more}
     if duration is not None:
         a["duration"] = duration
@@ -230,6 +233,22 @@ def cam(t, duration, zoom, x, y):
 def attach(t, prop, holder):
     """The holder takes the prop in hand; it moves with them until released."""
     return {**_when(t), "actor": prop, "attach": holder}
+
+
+def pickup(t, prop, holder, duration=None):
+    """The holder takes the prop up from where it is: stooping to the floor for it, or
+    reaching out to it on a table or a shelf. The hand closes on it halfway through."""
+    return {**_when(t), "actor": prop, "attach": holder, "do": "pickup", **_dur(duration)}
+
+
+def putdown(t, prop, to=None, duration=None):
+    """The holder sets the prop down at `to` (a table top: the hand reaches out to it), or
+    without one on the floor under the hand."""
+    return {**_when(t), "actor": prop, "attach": False, "do": "putdown", **({"to": to} if to else {}), **_dur(duration)}
+
+
+def _dur(duration):
+    return {} if duration is None else {"duration": duration}
 
 
 def release(t, prop, to, duration=0.35):

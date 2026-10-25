@@ -5,6 +5,7 @@ import { RIGS, rigOf } from '../engine/rigs.js';
 import { holdPoint, poseFor } from '../engine/actor.js';
 import {
   attachTime,
+  gripAt,
   holderAt,
   movieDuration,
   resolveActor,
@@ -433,7 +434,11 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
       });
     else if (listener && a.to === a.actor)
       out.push({ level: 'warning', where: w, message: `'${a.actor}' is speaking to itself` });
-    else if (a.to && !listener) {
+    else if (
+      a.to &&
+      !listener &&
+      !(a.do === 'wipe' && typeof a.to === 'string' && shot.cast[a.to])
+    ) {
       const err = positionOk(a.to);
       if (err) out.push({ level: 'error', where: w, message: err });
     }
@@ -493,7 +498,7 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
     if (
       a.to &&
       a.do &&
-      !['walk', 'run', 'move', 'fly', 'jump', 'sit', 'lie', 'putdown'].includes(a.do)
+      !['walk', 'run', 'move', 'fly', 'jump', 'sit', 'lie', 'putdown', 'wipe'].includes(a.do)
     )
       out.push({ level: 'warning', where: w, message: `'to' is ignored for '${a.do}'` });
     if (a.face && a.actor && shot.cast[a.actor] && project.characters[a.actor]) {
@@ -541,7 +546,8 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
 }
 
 /**
- * A pickup the hand cannot reach: where the stooping carrier's hand comes down, against
+ * A pickup the hand cannot reach: where the carrier's hand gets to, stooping or reaching
+ * out to a table, against
  * where the prop's grip lies. The engine eases the prop into the hand whatever the gap,
  * but a wide one shows as the prop sliding across the floor to it.
  */
@@ -556,18 +562,14 @@ function pickupReach(shot: Shot, project: Project): Problem[] {
     const carrier = resolveActor(project, scene, shot, a.attach, at);
     const prop = resolveActor(project, scene, shot, a.actor, at - 1e-3);
     const hand = holdPoint(carrier, poseFor(carrier, at));
-    const rig = rigOf(prop.character);
-    const k = (prop.character.height / rig.height) * prop.scale;
-    const [gx, gy] = prop.character.grip ?? [rig.width / 2, rig.height / 2];
-    const side = prop.facing === 'left' ? -1 : 1;
-    const grip = { x: prop.x + k * side * (gx - rig.width / 2), y: prop.y + k * (gy - rig.height) };
+    const grip = gripAt(prop.character, prop, prop.scale, prop.facing);
     const gap = Math.hypot(grip.x - hand.x, grip.y - hand.y);
     if (gap > 0.25 * carrier.character.height * carrier.scale) {
       const x = Math.round(carrier.x + grip.x - hand.x);
       out.push({
         level: 'warning',
         where: `shot '${shot.id}' action[${i}] (t=${a.t})`,
-        message: `'${a.attach}' reaches down ${Math.round(gap)}px from where '${a.actor}' lies; stand them at x ≈ ${x}, facing it, before the pickup`,
+        message: `'${a.attach}' reaches ${Math.round(gap)}px short of where '${a.actor}' is; stand them at x ≈ ${x}, facing it, before the pickup`,
       });
     }
   });

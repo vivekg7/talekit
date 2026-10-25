@@ -210,8 +210,44 @@ describe('picking up and putting down', () => {
     expect(messages).toMatch(/pickup needs attach/);
     expect(messages).toMatch(/putdown needs attach: false/);
     expect(messages).toMatch(
-      /'kid' reaches down \d+px from where 'lantern' lies; stand them at x ≈ 8\d\d/
+      /'kid' reaches \d+px short of where 'lantern' is; stand them at x ≈ 8\d\d/
     );
+  });
+
+  // Up on a table, 90 px off the floor the kid stands on.
+  const table = { ...cast, lantern: { at: { x: 345, y: 550 } } };
+  const grip = (p: Project, t: number) => {
+    const l = at(p, 'lantern', t);
+    return { x: l.x, y: l.y - (LANTERN.height * l.scale * (200 - 20)) / 200 };
+  };
+
+  it('reaches out for a prop on a table rather than stooping to the floor', () => {
+    const p = project(table, [{ t: 1, actor: 'lantern', attach: 'kid', do: 'pickup' }]);
+    const g = grip(p, 1.5);
+    const h = hand(p, 'kid', 1.6);
+    expect(Math.hypot(h.x - g.x, h.y - g.y)).toBeLessThan(4);
+    const before = at(p, 'lantern', 1.599);
+    const after = at(p, 'lantern', 1.601);
+    expect(Math.hypot(after.x - before.x, after.y - before.y)).toBeLessThan(4);
+    expect(validateShot(p.shots[0], p)).toEqual([]);
+    // Onto the table again: the hand goes to where the grip will be, and lets go there.
+    const back = project(table, [
+      { t: 0, actor: 'lantern', attach: 'kid' },
+      { t: 1, actor: 'lantern', attach: false, do: 'putdown', to: { x: 350, y: 550 } },
+    ]);
+    const down = hand(back, 'kid', 1.6);
+    expect(Math.hypot(down.x - 350, down.y - (550 - (LANTERN.height * 180) / 200))).toBeLessThan(4);
+  });
+
+  it('wipes what `to` names, the hand going round on it', () => {
+    const p = project(table, [{ t: 1, actor: 'kid', do: 'wipe', to: 'lantern', duration: 2 }]);
+    const l = at(p, 'lantern', 2);
+    const middle = { x: l.x, y: l.y - (LANTERN.height * l.scale) / 2 };
+    const spots = [1.8, 2, 2.2].map((t) => hand(p, 'kid', t));
+    for (const h of spots) expect(Math.hypot(h.x - middle.x, h.y - middle.y)).toBeLessThan(8);
+    expect(Math.hypot(spots[0].x - spots[1].x, spots[0].y - spots[1].y)).toBeGreaterThan(1);
+    expect(hand(p, 'kid', 3.5).y).toBeGreaterThan(middle.y + 20);
+    expect(validateShot(p.shots[0], p)).toEqual([]);
   });
 
   it('warns when a carried prop vanishes at a cut', () => {

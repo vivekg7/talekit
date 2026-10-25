@@ -523,6 +523,7 @@ export const VerbSchema = z.enum([
   'disappear',
   'pickup',
   'putdown',
+  'wipe',
 ]);
 export type Verb = z.infer<typeof VerbSchema>;
 
@@ -574,11 +575,12 @@ export const ActionSchema = z
     actor: IdSchema.optional(),
     do: VerbSchema.optional(),
     /**
-     * Target for walk/run/move/fly: an anchor name, a stage shortcut, or {x, y}. On a `say`
-     * with no `do`, the id of the actor being spoken to.
+     * Target for walk/run/move/fly: an anchor name, a stage shortcut, or {x, y}. For a wipe,
+     * what is wiped: an actor in the cast or a spot. On a `say` with no `do`, the id of the
+     * actor being spoken to.
      */
     to: PositionSchema.optional().describe(
-      'walk/run/move/fly/jump/sit/lie/putdown: where to (anchor, stage shortcut or {x, y}); a sit or lie there walks over first. On a say without do: the id of the actor spoken to, when the engine would guess wrong'
+      'walk/run/move/fly/jump/sit/lie/putdown: where to (anchor, stage shortcut or {x, y}); a sit or lie there walks over first. wipe: what the hand goes round on, an actor in the cast (its middle) or a spot. On a say without do: the id of the actor spoken to, when the engine would guess wrong'
     ),
     /** Dialogue shown in a bubble above the actor's head; also animates the mouth. */
     say: z
@@ -627,7 +629,7 @@ export const ActionSchema = z
       .union([IdSchema, z.literal(false)])
       .optional()
       .describe(
-        "Carry this actor (a prop): the id of the carrier, whose near hand (or a four-legged animal's mouth) holds it at the prop's grip; false lets go, leaving it where it is. With do: 'pickup' the carrier stoops and takes it from where it lies; with attach false and do: 'putdown' the carrier stoops and sets it down (at `to`, else on the floor under the hand)"
+        "Carry this actor (a prop): the id of the carrier, whose near hand (or a four-legged animal's mouth) holds it at the prop's grip; false lets go, leaving it where it is. With do: 'pickup' the carrier takes it from where it is, stooping to the floor for it or reaching out to it on a table or a shelf; with attach false and do: 'putdown' the carrier sets it down (at `to`, a table top reached out to, else on the floor under the hand)"
       ),
     /** The weather changes, over `duration`, to this. */
     weather: WeatherSchema.optional().describe(
