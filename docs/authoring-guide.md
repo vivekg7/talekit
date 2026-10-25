@@ -66,12 +66,17 @@ elsewhere run them with `PYTHONPATH=<talekit>/kit`.
 
 - **`talekit.people`**, a wardrobe on the humanoid rig: heads (`short_hair`,
   `side_part`, `spiky_hair`, `curly_hair`, `head_band`, `pagdi`,
-  `tall_pagdi`, `safa`, `plumed_turban`, `crown`), torsos (`kurta`,
-  `banyan`, `tunic`, `angrakha`, with `gamchha` and `angavastram` laid
-  over), arms, legs (`dhoti`, `pyjama`, `churidar`) on feet, and
-  `face`/`eyes`/`mouth` with every variant. `person()` puts them together
-  and sets `hem`. Draw only what the wardrobe lacks, and add it there when
-  it is not a one-off.
+  `tall_pagdi`, `safa`, `plumed_turban`, `crown`; for women `bun`, with a
+  gajra or the sari drawn over it, and `plait` and `two_plaits`, which
+  bring their plaits as parts that swing), torsos (`kurta`, `banyan`,
+  `tunic`, `angrakha`, `sari`, `choli`, `kameez`, with `gamchha`,
+  `angavastram` or `dupatta` laid over), arms (`blouse_sleeves` with
+  bangles for women), legs (`dhoti`, `pyjama`, `churidar`, and the skirts
+  `sari_skirt` and `ghagra`, half on each leg) on feet, and
+  `face`/`eyes`/`mouth` with every variant (a bindi, a nose ring, glasses,
+  lashes, lips). `person()` puts them together and sets `hem`;
+  `head_scale=1.18` draws a child's big head. Draw only what the wardrobe
+  lacks, and add it there when it is not a one-off.
 - **`talekit.characters`**: `character()` and `prop()` (the simple rig,
   `body` variants such as `broken`). They fill the routine colours: a
   missing `<x>Dark`/`<x>Light` is shaded from `<x>`. A token nobody gave
@@ -79,7 +84,10 @@ elsewhere run them with `PYTHONPATH=<talekit>/kit`.
 - **`talekit.shots`**: `Film` writes `shots/NN-<id>.json` in order. It also
   paces lines: `F.after(t, line)` is when the next line can start, from the
   line's real voice once `talekit voice` has spoken it, else an estimate. So
-  run the script, voice, run it again. The helpers `say`, `cap` (the English
+  run the script, voice, run it again. A reply written with `after(0.4)`
+  in place of its time is written as the format's `after`, so the engine
+  starts it when the line before has been said; the script still uses
+  `F.after` to know where the shot ends. The helpers `say`, `cap` (the English
   as their fourth argument, left out in a reel), `do`, `at`, `cam` and the
   others build actions. So do the stock pieces: `seated`, `attach`,
   `release`, `smash` (a held prop falls, breaks and makes a sound) and

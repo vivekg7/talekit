@@ -15,21 +15,24 @@ faces are drawn front-on round x=100, every head and torso has a back.
 
 The kinds of part:
   heads   -> (front, back) SVG:  short_hair side_part spiky_hair curly_hair head_band
-             pagdi tall_pagdi safa plumed_turban crown
-  torsos  -> Torso(front, back, hem):  kurta banyan tunic angrakha
-  extras  -> (front, back) laid over a torso:  gamchha angavastram
-  arms    -> fn(px, hx, near):  sleeves royal_sleeves bare_arms
-  legs    -> fn(px, fx):  dhoti pyjama churidar, each standing on a foot
+             pagdi tall_pagdi safa plumed_turban crown bun
+             (front, back, hung) with plaits that swing:  plait two_plaits
+  torsos  -> Torso(front, back, hem):  kurta banyan tunic angrakha, sari choli kameez
+  extras  -> (front, back) laid over a torso:  gamchha angavastram dupatta
+  arms    -> fn(px, hx, near):  sleeves royal_sleeves bare_arms blouse_sleeves
+  legs    -> fn(px, fx):  dhoti pyjama churidar sari_skirt ghagra, each standing on a foot
   feet    -> fn(fx):  bare_foot chappal jutti royal_jutti boot
   face(moustache, ...), eyes(look, ...), mouth(dy, ...) -> the face parts
 
-Colour tokens the pieces use: skin, hair, shirt (kurta, banyan, tunic), coat (angrakha),
-pants (dhoti, pyjama, churidar), shoes, turban, and per piece the ones its docstring
-names. Shades (<x>Dark, <x>Light) and the routine colours are filled in by characters.py.
+Colour tokens the pieces use: skin, hair, shirt (kurta, banyan, tunic, kameez), coat
+(angrakha), pants (dhoti, pyjama, churidar), sari and blouse (sari), blouse and skirt
+(choli, ghagra), shoes, turban, and per piece the ones its docstring names. A woman wears
+a sari over sari_skirt, a choli over a ghagra, or a kameez over pyjama or churidar. Shades (<x>Dark, <x>Light) and the routine colours are filled in by characters.py.
 Everything here is the same on every run: no randomness."""
 
 import itertools
 import math
+import re
 from collections import namedtuple
 
 from .characters import character
@@ -172,6 +175,28 @@ def bare_arms():
                 "{skinDark}",
             )
         )
+
+    return arm
+
+
+def blouse_sleeves(cloth="blouse", trim="border", end=210, bangles=3):
+    """A woman's sleeve round the shoulder to a trimmed edge at `end` (210 a blouse's short
+    sleeve, 236 a kameez's to below the elbow), the bare forearm with `bangles` (0 to 3) in
+    alternating colours, the hand. Tokens: skin, skinDark, <cloth>, <trim> (default border,
+    gold), bangle (gold), bangle2 (ruby)."""
+
+    def arm(px, hx, near=False):
+        def at(y):
+            return px + (hx - px) * (y - 178) / 110
+
+        out = stroke(f"M{px} 178 L{hx} 284", "{skin}", 14) + hand(hx, 292)
+        for i, cy in enumerate((264, 269.5, 275)[:bangles]):
+            out += _band_across(px, hx, cy, 4, 9, "{bangle}" if i % 2 == 0 else "{bangle2}", at)
+        out += circle(px, 174, 14, f"{{{cloth}}}") + stroke(
+            f"M{px} 178 L{f1(at(end))} {end}", f"{{{cloth}}}", 27, "butt"
+        )
+        out += _band_across(px, hx, end - 1, 8, 13.5, f"{{{trim}}}", at)
+        return out
 
     return arm
 
@@ -330,6 +355,62 @@ def churidar(foot=royal_jutti, gather="ankle"):
             )
             + line(f"M{fx + 5} 304 L{fx + 4} 344", 2.5, "{pantsDark}")
         )
+
+    return leg
+
+
+def _skirt_half(px, fx, w, flare, bottom):
+    """The lower half of a skirt on one leg, from the knee (y 300) to `bottom`: straight on
+    the inside, where it runs past the middle under the other half, and flaring on the
+    outside, so the two halves stand as one A-line skirt and part in a stride."""
+    out = 1 if px > 100 else -1
+    inner, outer = fx - out * w, fx + out * w
+    return [(inner, 300), (outer, 300), (outer + out * flare, bottom), (inner, bottom)]
+
+
+def _hem_band(pts, h):
+    """The band along the bottom h units of a _skirt_half: a border."""
+    (ix, _), (ox, _), (bx, by), _ = pts
+    k = (by - h - 300) / (by - 300)
+    return poly([(ix, by - h), (ox + (bx - ox) * k, by - h), (bx, by), (ix, by)])
+
+
+def sari_skirt(foot=chappal, flare=7):
+    """The skirt of a sari, half on each leg: cloth from the hip to the ankle, a little
+    flared, with a border at the hem and the pleats down the near leg, so the knees bend
+    inside it and it parts in a stride. Wear it under `sari()`. Tokens: sari, sariDark,
+    border, borderDark."""
+
+    def leg(px, fx):
+        half = _skirt_half(px, fx, 22, flare, 388)
+        out = foot(fx) + stroke(f"M{px} 274 L{fx} 330", "{sari}", 44) + fill(poly(half), "{sari}")
+        if px > 100:
+            for x0, x1 in ((-13, -15), (-5, -5.5), (3, 4), (11, 15)):
+                out += line(f"M{fx + x0} 294 L{fx + x1} 370", 2.5, "{sariDark}")
+        else:
+            out += line(f"M{fx - 10} 292 L{fx - 13} 368", 2.5, "{sariDark}")
+        out += fill(_hem_band(half, 14), "{border}")
+        return out + line(
+            f"M{f1(half[0][0])} 379 L{f1(half[2][0] - (1 if px > 100 else -1) * 3)} 379", 2, "{borderDark}"
+        )
+
+    return leg
+
+
+def ghagra(foot=bare_foot, bottom=384, flare=16):
+    """A ghagra (lehenga): a gathered skirt flaring from the hips to `bottom` with a border,
+    half on each leg, scattered buti and gathers. Wear it under `choli()`. Tokens: skirt,
+    skirtDark, skirtLight, border."""
+
+    def leg(px, fx):
+        half = _skirt_half(px, fx, 21, flare, bottom)
+        out = foot(fx) + stroke(f"M{px} 274 L{fx} 330", "{skirt}", 42) + fill(poly(half), "{skirt}")
+        side = 1 if px > 100 else -1
+        for o in (-12, 0, 12):
+            out += line(f"M{fx + o} 306 L{f1(fx + o + side * (o * side + 12) * 0.4)} {bottom - 16}", 2.5, "{skirtDark}")
+        for dx, y in ((-7, 318), (7, 340), (-9, 356)):
+            out += circle(fx + dx, y, 2.6, "{skirtLight}")
+        return out + fill(_hem_band(half, 13), "{border}")
 
     return leg
 
@@ -814,11 +895,202 @@ def crown():
     return front, back
 
 
+# ---------------------------------------------------------------- women's hair
+# Parted in the middle and combed back smooth over the ear. A plait is a part of its own,
+# hung from the head (`hangs`) so it swings; such a head returns (front, back, hung), and
+# person() adds the hung parts with their hangs and springs.
+
+_LONG_BACK = fill("M64 142 C46 132 40 102 46 76 C54 50 80 38 104 40 L100 110 Z", "{hair}")
+_PARTED = fill(
+    "M48 104 C42 74 58 46 86 38 C112 32 140 38 150 58 C156 70 156 84 152 98 Q149 102 147 97 "
+    "C144 78 130 62 106 56 C90 60 78 72 74 90 C73 96 72 100 70 104 L64 100 C58 98 52 100 48 104 Z",
+    "{hair}",
+)
+_PARTING = line("M106 56 Q100 47 92 41", 2.5, "{skin}")
+_SHEEN = fill("M60 64 C70 50 84 43 98 42 C86 48 74 56 66 70 Z", "{hairLight}") + fill(
+    "M118 45 C132 47 142 55 146 66 C138 60 128 54 118 50 Z", "{hairLight}"
+)
+_DOME = fill(
+    "M52 112 C44 66 70 40 100 40 C130 40 156 66 148 112 C144 130 124 142 100 144 C76 142 56 130 52 112 Z", "{hair}"
+)
+
+
+def _jhumka(x, y):
+    """An earring: a stud and a little bell-shaped drop. Token: earring (gold)."""
+    return circle(x, y, 2.5, "{earring}") + fill(f"M{x - 5.5} {y + 10} Q{x} {y - 1} {x + 5.5} {y + 10} Z", "{earring}")
+
+
+def _woman_front(earrings):
+    return SKIN + _PARTED + _PARTING + _SHEEN + EAR + (_jhumka(57, 122) if earrings else "")
+
+
+def _woman_back(earrings, dome=_DOME):
+    ears = _jhumka(54, 120) + _jhumka(146, 120) if earrings else ""
+    return SKIN + EARS_BACK + ears + dome + fill("M64 62 C74 50 88 44 100 44 C88 50 78 58 70 70 Z", "{hairLight}")
+
+
+def _braid(top, bottom, w0, w1, n):
+    """A plait from `top` to `bottom`, w0 wide narrowing to w1: the edges bulge a little at
+    each crossing, a strand line runs across each one, alternately."""
+    (x0, y0), (x1, y1) = top, bottom
+
+    def c(k):
+        u = k / n
+        return x0 + (x1 - x0) * u, y0 + (y1 - y0) * u, (w0 + (w1 - w0) * u) / 2
+
+    R = [(x + hw, y) for x, y, hw in map(c, range(n + 1))]
+    L = [(x - hw, y) for x, y, hw in map(c, range(n + 1))]
+    d = f"M{f1(L[0][0])} {f1(L[0][1])} L{f1(R[0][0])} {f1(R[0][1])}"
+    for k in range(1, n + 1):
+        out = 1.0 + (k % 2) * 1.5
+        d += f" Q{f1((R[k - 1][0] + R[k][0]) / 2 + out)} {f1((R[k - 1][1] + R[k][1]) / 2)} {f1(R[k][0])} {f1(R[k][1])}"
+    d += f" L{f1(L[n][0])} {f1(L[n][1])}"
+    for k in range(n, 0, -1):
+        out = 1.0 + (k % 2) * 1.5
+        d += f" Q{f1((L[k - 1][0] + L[k][0]) / 2 - out)} {f1((L[k - 1][1] + L[k][1]) / 2)} {f1(L[k - 1][0])} {f1(L[k - 1][1])}"
+    s = fill(d + " Z", "{hair}")
+    seg = (y1 - y0) / n
+    for k in range(1, n):
+        x, y, hw = c(k)
+        if k % 2:
+            s += line(
+                f"M{f1(x - hw)} {f1(y)} Q{f1(x + hw * 0.05)} {f1(y + seg * 0.55)} {f1(x + hw * 0.25)} {f1(y + seg * 0.9)}",
+                2.5,
+                "{hairDark}",
+            )
+        else:
+            s += line(
+                f"M{f1(x + hw)} {f1(y)} Q{f1(x - hw * 0.05)} {f1(y + seg * 0.55)} {f1(x - hw * 0.25)} {f1(y + seg * 0.9)}",
+                2.5,
+                "{hairDark}",
+            )
+    return s
+
+
+def _tassel(x, y):
+    """A plait's end: a tie, a tuft of hair and a tasselled parandi. Tokens: tie (ruby),
+    trim (gold)."""
+    return (
+        fill(f"M{x - 7} {y + 4} Q{x} {y + 26} {x + 7} {y + 4} Z", "{hair}")
+        + f"<rect x='{f1(x - 8)}' y='{f1(y - 7)}' width='16' height='10' rx='3' fill='{{tie}}'/>"
+        + fill(f"M{x - 3} {y + 4} L{x + 3} {y + 4} L{x + 6} {y + 26} Q{x} {y + 30} {x - 6} {y + 26} Z", "{tie}")
+        + circle(x, y + 27, 3.5, "{trim}")
+    )
+
+
+def _bow(x, y):
+    """A ribbon bow at a plait's end: two loops and the knot. Token: ribbon (ruby)."""
+    return (
+        fill(
+            f"M{x} {y} C{x - 6} {y - 10} {x - 16} {y - 6} {x - 13} {y + 2} C{x - 11} {y + 8} {x - 4} {y + 4} {x} {y} Z",
+            "{ribbon}",
+        )
+        + fill(
+            f"M{x} {y} C{x + 6} {y - 10} {x + 16} {y - 6} {x + 13} {y + 2} C{x + 11} {y + 8} {x + 4} {y + 4} {x} {y} Z",
+            "{ribbon}",
+        )
+        + fill(f"M{x - 4} {y - 4} L{x - 7} {y + 14} L{x} {y + 11} Z", "{ribbon}")
+        + fill(f"M{x + 4} {y - 4} L{x + 7} {y + 14} L{x} {y + 11} Z", "{ribbon}")
+        + circle(x, y, 3.2, "{ribbonDark}")
+    )
+
+
+def bun(gajra=True, veil=False, earrings=True):
+    """Hair parted in the middle, combed back to a low bun at the nape, with `gajra` a string
+    of jasmine round it; with `veil` the pallu of the sari drawn over the head (ghunghat) with
+    its border framing the face. Tokens: hair, hairLight, hairDark, gajra (white), earring
+    (gold); with a veil also veil (defaults to sari), veilDark, border (gold)."""
+    knot = circle(47, 122, 18, "{hair}") + line("M47 110 Q60 116 52 128 Q42 134 36 124", 2.5, "{hairDark}")
+    if gajra:
+        knot += "".join(
+            circle(x, y, 3.2, "{gajra}") for x, y in ((31, 122), (32, 115), (35, 109), (40.5, 105), (47, 103.5))
+        )
+    # Under a veil the cloth hides the bun from the front.
+    front = ("" if veil else knot) + _LONG_BACK + _woman_front(earrings)
+    knot_b = circle(100, 126, 20, "{hair}") + line("M100 112 Q114 118 108 132 Q98 140 88 130", 2.5, "{hairDark}")
+    if gajra:
+        knot_b += "".join(
+            circle(x, y, 3.2, "{gajra}")
+            for x, y in ((81, 120), (85, 112), (92, 107), (100, 105.5), (108, 107), (115, 112), (119, 120))
+        )
+    back = (
+        _woman_back(earrings)
+        + line("M72 54 Q84 92 92 116", 2.5, "{hairDark}")
+        + line("M128 54 Q116 92 108 116", 2.5, "{hairDark}")
+        + line("M100 46 L100 108", 2.5, "{hairDark}")
+        + knot_b
+    )
+    if veil:
+        # The border as filled bands, not a stroke: it is the cloth's edge, not a line on the face.
+        edge = "".join(
+            fill(ribbon(*seg, 5), "{border}")
+            for seg in (
+                ((158, 74), (150, 60), (130, 50), (104, 50)),
+                ((104, 50), (84, 52), (70, 62), (64, 82)),
+                ((64, 82), (60, 98), (61, 122), (70, 152)),
+            )
+        )
+        front += fill(
+            "M38 152 C30 120 34 72 60 48 C84 30 126 30 147 44 C157 52 161 62 158 74 "
+            "C150 60 130 50 104 50 C84 52 70 62 64 82 C60 98 61 122 70 152 Z",
+            "{veil}",
+        )
+        front += line("M48 140 Q42 104 56 72", 2.5, "{veilDark}") + edge
+        back += fill("M44 164 C34 120 42 52 100 38 C158 52 166 120 156 164 Q100 176 44 164 Z", "{veil}")
+        back += line("M72 62 Q66 110 70 158", 2.5, "{veilDark}") + line("M128 62 Q134 110 130 158", 2.5, "{veilDark}")
+        back += stroke("M44 162 Q100 174 156 162", "{border}", 5)
+    return front, back
+
+
+def plait(earrings=True):
+    """Hair parted in the middle into one long plait down the back with a tasselled tie: it
+    swings as she walks, hangs over the far shoulder from in front and down the middle of
+    the back from behind. Tokens: hair, hairLight, hairDark, earring (gold), tie (ruby),
+    trim (gold)."""
+    front = _LONG_BACK + _woman_front(earrings)
+    back = (
+        _woman_back(earrings)
+        + line("M72 54 Q82 100 96 138", 2.5, "{hairDark}")
+        + line("M128 54 Q118 100 104 138", 2.5, "{hairDark}")
+    )
+    hung = {
+        "parts": {
+            "plait": {
+                "default": _braid((60, 112), (50, 236), 22, 12, 9) + _tassel(50, 236),
+                "back": stroke("M62 118 L94 150", "{hair}", 20)
+                + _braid((100, 138), (100, 238), 22, 12, 7)
+                + _tassel(100, 238),
+            }
+        },
+        "hangs": {"plait": {"from": "head", "at": [60, 124]}},
+        "springs": ["plait"],
+    }
+    return front, back, hung
+
+
+def two_plaits(earrings=False):
+    """A girl's two plaits, one each side from behind the ears to the shoulders, each tied
+    with a ribbon bow; both swing. Tokens: hair, hairLight, hairDark, ribbon (ruby), earring
+    (gold) when `earrings`."""
+    front = _LONG_BACK + _woman_front(earrings)
+    back = _woman_back(earrings) + line("M100 44 L100 132", 2.5, "{hairDark}")
+    hung = {
+        "parts": {
+            "plaitL": _braid((54, 114), (44, 200), 18, 11, 6) + _bow(44, 200),
+            "plaitR": _braid((144, 114), (154, 200), 18, 11, 6) + _bow(154, 200),
+        },
+        "hangs": {"plaitL": {"from": "head", "at": [54, 120]}, "plaitR": {"from": "head", "at": [144, 120]}},
+        "springs": ["plaitL", "plaitR"],
+    }
+    return front, back, hung
+
+
 # ================================================================ face, eyes, mouth
 CHEEKS = "<circle cx='78' cy='119' r='7' fill='{cheek}' opacity='0.35'/><circle cx='122' cy='119' r='7' fill='{cheek}' opacity='0.35'/>"
 NOSES = {
     "plain": line("M103 103 Q116 112 105 119", 3.5) + line("M98 118 Q100 120 104 119", 3),
     "big": line("M103 101 Q118 112 106 120", 3.8) + line("M97 118 Q100 121 105 120", 3),
+    "small": line("M103 105 Q113 112 104 117", 3) + line("M99 117 Q101 118.5 104 117", 2.5),
 }
 
 MOUSTACHES = {
@@ -878,13 +1150,29 @@ TILAK = {
     # Three horizontal lines of ash with a red dot (tripundra). Tokens: tilak, tilakRed.
     "tripundra": "".join(stroke(f"M86 {y} Q100 {y - 2} 114 {y}", "{tilak}", 3) for y in (74, 80, 86))
     + circle(100, 80, 2.6, "{tilakRed}"),
+    # A woman's small bindi. Token: bindi (defaults to tilakRed).
+    "bindi": circle(100, 80, 3.2, "{bindi}"),
 }
 
+# Round wire spectacles. Token: glasses (defaults to line).
+GLASSES = (
+    "<circle cx='84' cy='100' r='13' fill='none' stroke='{glasses}' stroke-width='2.5'/>"
+    "<circle cx='116' cy='100' r='13' fill='none' stroke='{glasses}' stroke-width='2.5'/>"
+    + line("M97 99 Q100 96 103 99", 2.5, "{glasses}")
+    + line("M71 98 L62 96", 2.5, "{glasses}")
+)
+# A nose ring (nath) at the near nostril with a pearl. Tokens: gold, pearl.
+NATH = "<circle cx='107.5' cy='118.5' r='3.6' fill='none' stroke='{gold}' stroke-width='1.6'/>" + circle(
+    105, 121.5, 1.4, "{pearl}"
+)
 
-def face(moustache=None, tilak=None, nose="plain", crease=False, wrinkles=False, cheeks=True):
+
+def face(
+    moustache=None, tilak=None, nose="plain", crease=False, wrinkles=False, cheeks=True, nath=False, glasses=False
+):
     """The face part: cheeks, a nose, and what makes the face (a moustache from MOUSTACHES,
-    a tilak from TILAK, smile creases for a stern man, wrinkles for an old one). Tokens:
-    cheek, hair (moustache), skinDark (crease, wrinkles)."""
+    a tilak or bindi from TILAK, smile creases for a stern man, wrinkles for an old one, a
+    nose ring, glasses). Tokens: cheek, hair (moustache), skinDark (crease, wrinkles)."""
     out = ""
     if wrinkles:
         out += (
@@ -901,8 +1189,12 @@ def face(moustache=None, tilak=None, nose="plain", crease=False, wrinkles=False,
     if tilak:
         out += TILAK[tilak]
     out += NOSES[nose]
+    if nath:
+        out += NATH
     if moustache:
         out += MOUSTACHES[moustache]
+    if glasses:
+        out += GLASSES
     return out
 
 
@@ -959,6 +1251,13 @@ LOOKS = {
         "closed": ("M73 88 Q83 81 94 85", "M106 85 Q117 81 127 88"),
         "eye": {},
     },
+    # Fine high arches and a softer eye: a woman, a girl.
+    "gentle": {
+        "rest": ("M75 86 Q84 80 93 83", "M107 83 Q116 80 125 86"),
+        "happy": ("M75 83 Q84 77 93 80", "M107 80 Q116 77 125 83"),
+        "closed": ("M75 86 Q84 80 93 83", "M107 83 Q116 80 125 86"),
+        "eye": {"rx": 7.5, "ry": 9},
+    },
     # Lids a little heavy, brows low at the outside: an old man.
     "old": {
         "rest": ("M72 90 Q80 81 94 84", "M106 84 Q120 81 128 90"),
@@ -969,10 +1268,11 @@ LOOKS = {
 }
 
 
-def eyes(look="plain", brow=6.5, twinkle=False):
+def eyes(look="plain", brow=6.5, twinkle=False, lashes=False):
     """The six eye variants the engine picks from (open, closed, wide, happy, sad, angry) for
-    a look in LOOKS; `brow` is the brows' stroke width (5 young, 7.5 heavy), `twinkle` a
-    second glint. Tokens: iris (defaults to line), brow (defaults to hair), skin."""
+    a look in LOOKS; `brow` is the brows' stroke width (4.5 a woman's, 5 young, 7.5 heavy),
+    `twinkle` a second glint, `lashes` a flick at each outer corner. Tokens: iris (defaults
+    to line), brow (defaults to hair), skin."""
     lk = LOOKS[look]
 
     def brows(pair, w=brow):
@@ -987,12 +1287,18 @@ def eyes(look="plain", brow=6.5, twinkle=False):
         return s
 
     sad_lid = {"cut": lk["eye"]["cut"] + 1} if "cut" in lk["eye"] and look == "old" else {}
+
+    def flick(dy=0):
+        return line(f"M77 {95 + dy} L71 {91 + dy}", 2.5) + line(f"M123 {95 + dy} L129 {91 + dy}", 2.5) if lashes else ""
+
     return {
-        "open": pair(**lk["eye"]) + brows(lk["rest"]),
+        "open": pair(**lk["eye"]) + flick() + brows(lk["rest"]),
         "closed": line("M76 102 Q84 108 92 102") + line("M108 102 Q116 108 124 102") + brows(lk["closed"]),
         "happy": line("M76 104 Q84 94 92 104") + line("M108 104 Q116 94 124 104") + brows(lk["happy"]),
-        "wide": pair(-1, 10, 12.5, 1, 1, 4, 1.6) + brows(("M74 80 Q83 73 93 77", "M107 77 Q117 73 126 80")),
-        "sad": pair(1, 8, 9, 1, 3, 5.5, 1.8, **sad_lid) + brows(("M74 89 Q84 88 93 81", "M107 81 Q116 88 126 89")),
+        "wide": pair(-1, 10, 12.5, 1, 1, 4, 1.6) + flick(-3) + brows(("M74 80 Q83 73 93 77", "M107 77 Q117 73 126 80")),
+        "sad": pair(1, 8, 9, 1, 3, 5.5, 1.8, **sad_lid)
+        + flick(2)
+        + brows(("M74 89 Q84 88 93 81", "M107 81 Q116 88 126 89")),
         "angry": (
             fill("M75 95 L93 100 C94 107 90 111 84 111 C78 111 75 106 75 95 Z", "#fff")
             + fill("M125 95 L107 100 C106 107 110 111 116 111 C122 111 125 106 125 95 Z", "#fff")
@@ -1013,11 +1319,13 @@ CLOSED_MOUTHS = {
 }
 
 
-def mouth(dy=0, closed="plain", angry="teeth"):
+def mouth(dy=0, closed="plain", angry="teeth", lips=False):
     """The six mouth variants (closed, open, smile, sad, angry, scared), moved down by `dy`
     to clear a moustache (2 for a small one, 7-9 for a big one). `closed` names the resting
-    line in CLOSED_MOUTHS; `angry` is 'teeth' (bared) or 'line' (a hard set line). Tokens:
-    mouth, tongue."""
+    line in CLOSED_MOUTHS; `angry` is 'teeth' (bared) or 'line' (a hard set line); `lips`
+    draws the lines in the lip colour, not the line colour. Tokens: mouth, tongue, lip
+    (defaults to mouth)."""
+    lc = "{lip}" if lips else "{line}"
 
     def p(d):
         return shift_y(d, dy)
@@ -1029,16 +1337,16 @@ def mouth(dy=0, closed="plain", angry="teeth"):
         fill(p("M90 128 Q102 124 114 128 Q112 138 102 138 Q92 138 90 128 Z"), "{mouth}")
         + fill(p("M92 128 Q102 125 112 128 L111 131 Q102 129 93 131 Z"), "#fff")
         if angry == "teeth"
-        else line(p("M91 133 Q102 128 113 133"), 4)
+        else line(p("M91 133 Q102 128 113 133"), 4, lc)
     )
     return {
-        "closed": line(p(CLOSED_MOUTHS[closed])),
+        "closed": line(p(CLOSED_MOUTHS[closed]), 3.5, lc),
         "smile": fill(p("M88 126 Q102 146 116 126 Q102 131 88 126 Z"), "{mouth}")
         + fill(p("M95 136 Q102 132 109 136 Q102 140 95 136 Z"), "{tongue}"),
         "open": e(102, 132, 9, 10, "{mouth}") + e(102, 137, 5, 3.5, "{tongue}"),
-        "sad": line(p("M92 135 Q102 127 112 135")),
+        "sad": line(p("M92 135 Q102 127 112 135"), 3.5, lc),
         "angry": mad,
-        "scared": line(p("M90 133 Q96 127 102 133 Q108 139 114 133")),
+        "scared": line(p("M90 133 Q96 127 102 133 Q108 139 114 133"), 3.5, lc),
     }
 
 
@@ -1246,6 +1554,111 @@ def angrakha(build="slim", extras=()):
     return Torso(*_with(front, back, extras), 330)
 
 
+def sari(extras=()):
+    """A sari's upper half: an elbow-length blouse with a round neck, the pallu across the
+    chest from the near hip to the far shoulder with a border, falling down the back (it
+    shows past the far side in profile, and down the middle from behind), the pleats tucked
+    at the waist. The skirt is `sari_skirt()` on the legs. Tokens: sari, sariDark, border,
+    blouse, blouseDark, skin."""
+    body = "M74 160 Q100 153 124 160 Q137 164 139 178 L141 246 L139 285 Q120 292 100 290 Q80 292 61 285 L59 246 L59 196 Q56 170 74 160 Z"
+    blouse = "M74 160 Q100 153 124 160 Q137 164 139 178 L140 214 Q100 222 59 214 L59 196 Q56 170 74 160 Z"
+    front = (
+        NECK
+        + fill("M62 166 Q50 200 49 284 L70 288 L72 200 Z", "{sari}")
+        + stroke("M62 172 Q53 205 52.5 282", "{border}", 5)
+        + fill(body, "{sari}")
+        + fill(blouse, "{blouse}")
+        + fill("M88 157 Q100 184 112 157 Z", "{skin}")
+        + line("M86 156 Q100 188 114 156", 3, "{blouseDark}")
+        + fill("M57 214 Q54 168 76 157 L95 156 Q118 196 141 232 L141 264 Q130 266 122 262 Q90 236 57 214 Z", "{sari}")
+        + stroke("M95 156 Q118 196 141 232", "{border}", 5)
+        + line("M78 164 Q102 202 131 250", 2.5, "{sariDark}")
+        + line("M62 194 Q92 222 118 254", 2.5, "{sariDark}")
+        + "".join(circle(x, y, 2.4, "{border}") for x, y in ((88, 188), (104, 210), (120, 234)))
+        + line("M60 252 Q100 262 140 252", 2.5, "{sariDark}")
+        + "".join(
+            line(f"M{x} {y0} L{x} {y0 + 23}", 2.5, "{sariDark}")
+            for x, y0 in ((101, 266), (109, 266), (117, 265), (125, 264))
+        )
+    )
+    back = (
+        NECK
+        + fill(body, "{sari}")
+        + fill(blouse, "{blouse}")
+        + fill("M88 157 Q100 168 112 157 Z", "{skin}")
+        + line("M86 156 Q100 172 114 156", 3, "{blouseDark}")
+        + fill("M66 160 Q82 155 96 158 L98 287 Q80 291 62 287 Q60 220 66 160 Z", "{sari}")
+        + stroke("M96 158 L98 286", "{border}", 5)
+        + line("M76 164 L76 286", 2.5, "{sariDark}")
+        + "".join(circle(86, y, 2.4, "{border}") for y in (196, 236, 272))
+        + line("M100 252 Q120 258 140 252", 2.5, "{sariDark}")
+    )
+    return Torso(*_with(front, back, extras), 292)
+
+
+def choli(extras=()):
+    """A short blouse (choli) with a round neck over the gathered top of a ghagra, its
+    waistband at the waist: a village girl, a dancer. The skirt is `ghagra()` on the legs.
+    Tokens: blouse, blouseDark, border, skirt, skirtDark, skin."""
+    blouse = "M74 160 Q100 153 124 160 Q137 164 139 178 L140 212 Q100 220 59 212 L59 196 Q56 170 74 160 Z"
+    skirt = (
+        NECK
+        + fill("M58 206 Q100 214 142 206 L146 292 Q100 300 54 292 Z", "{skirt}")
+        + "".join(
+            line(f"M{x} 226 L{f1(100 + (x - 100) * 1.1)} 288", 2.5, "{skirtDark}") for x in (72, 86, 100, 114, 128)
+        )
+    )
+    band = fill("M58 206 Q100 214 142 206 L142 220 Q100 228 58 220 Z", "{border}")
+    front = (
+        skirt
+        + band
+        + fill(blouse, "{blouse}")
+        + stroke("M60 212 Q100 220 139 212", "{border}", 4)
+        + fill("M88 157 Q100 182 112 157 Z", "{skin}")
+        + line("M86 156 Q100 186 114 156", 3, "{blouseDark}")
+    )
+    back = (
+        skirt
+        + band
+        + fill(blouse, "{blouse}")
+        + stroke("M60 212 Q100 220 139 212", "{border}", 4)
+        + line("M100 166 L100 210", 2.5, "{blouseDark}")
+    )
+    return Torso(*_with(front, back, extras), 292)
+
+
+def kameez(extras=()):
+    """A woman's kameez to mid-thigh with a round neck trimmed in gold, small buti, side slits
+    and a hem band; wear it with `pyjama` (salwar) or `churidar`, and `blouse_sleeves(
+    'shirt', 'trim', 236)`. Tokens: shirt, shirtDark, shirtLight, trim (gold), skin."""
+    body = "M76 160 Q100 153 124 160 Q137 164 139 178 L141 246 L146 298 Q124 307 100 305 Q76 307 54 298 L59 246 L61 178 Q63 164 76 160 Z"
+    hem = fill("M55.5 286 Q100 296 144.5 286 L146 298 Q124 307 100 305 Q76 307 54 298 Z", "{trim}")
+    slits = line("M66 258 L63.5 301", 3, "{shirtDark}") + line("M134 258 L136.5 301", 3, "{shirtDark}")
+    spots = ((78, 200), (122, 200), (86, 236), (114, 236), (72, 262), (128, 262), (86, 276), (114, 276))
+    butis = "".join(circle(x, y, 2.6, "{shirtLight}") for x, y in spots)
+    front = (
+        NECK
+        + fill(body, "{shirt}")
+        + fill("M88 157 Q100 190 112 157 Z", "{skin}")
+        + stroke("M86 156 Q100 194 114 156", "{trim}", 5)
+        + butis
+        + circle(100, 214, 2.6, "{shirtLight}")
+        + circle(100, 260, 2.6, "{shirtLight}")
+        + hem
+        + slits
+    )
+    back = (
+        NECK
+        + fill(body, "{shirt}")
+        + fill("M88 157 Q100 168 112 157 Z", "{skin}")
+        + stroke("M86 156 Q100 172 114 156", "{trim}", 5)
+        + butis
+        + hem
+        + slits
+    )
+    return Torso(*_with(front, back, extras), 305)
+
+
 # ================================================================ extras over a torso
 
 
@@ -1305,28 +1718,66 @@ def angavastram():
     return front, back
 
 
+def dupatta():
+    """A dupatta across the front of the neck with both ends thrown back over the shoulders,
+    hanging down the back. Tokens: dupatta, dupattaDark, border (gold)."""
+    front = fill(ribbon((62, 162), (72, 222), (128, 222), (138, 162), 15), "{dupatta}")
+    front += stroke("M66 176 Q100 232 134 176", "{border}", 3) + line("M74 186 Q100 214 126 186", 2.2, "{dupattaDark}")
+    back = ""
+    for x0, x1 in ((70, 66), (130, 134)):
+        back += fill(ribbon((x0, 158), (x0, 200), (x1, 240), (x1, 282), 20), "{dupatta}")
+        back += stroke(f"M{x1 - 10} 280 L{x1 + 10} 280", "{border}", 4)
+    return front, back
+
+
 # ================================================================ the person
+
+
+def _grown(svg, k, apart=True):
+    """A head part drawn k times as large about the neck (100, 152): a child's big head.
+    `apart` puts each shape in a group of its own, so the construction check still sees the
+    head's shapes one by one; a plait is grown whole."""
+    if k == 1:
+        return svg
+    if isinstance(svg, dict):
+        return {v: _grown(x, k, apart) for v, x in svg.items()}
+    g = f"<g transform='translate(100 152) scale({k}) translate(-100 -152)'>"
+    if not apart:
+        return g + svg + "</g>"
+    return "".join(g + el + "</g>" for el in re.findall(r"<[^<>]+/>", svg))
 
 
 def person(
     id, name, height, *, head, torso, arms, legs, colors, face="", eyes=None, mouth=None,
-    description="", voice=None, reach=(70, 130), hem=None, **more,
+    description="", voice=None, reach=(70, 130), hem=None, head_scale=1, **more,
 ):  # fmt: skip
     """A humanoid character from wardrobe pieces. `reach` is where the far and near hands
-    hang (x at the wrist): (64, 136) for a broad build. `hem` defaults to the torso's. `more`
-    passes other fields through: hold, hangs, springs, shadow."""
-    hf, hb = head
+    hang (x at the wrist): (64, 136) for a broad build. `hem` defaults to the torso's.
+    `head_scale` draws the head and face larger about the neck: 1.15 to 1.2 for a child. A
+    head with a plait brings its hung parts, hangs and springs. `more` passes other fields
+    through: hold, hangs, springs, shadow."""
+    hf, hb, *rest = head
+    hung = rest[0] if rest else {"parts": {}, "hangs": {}, "springs": []}
+    k = head_scale
     parts = {
         "armL": arms(76, reach[0], False),
         "legL": legs(86, 85),
         "legR": legs(114, 115),
         "torso": {"default": torso.front, "back": torso.back},
-        "head": {"default": hf, "back": hb},
-        "face": face,
-        "eyes": eyes if eyes is not None else _EYES(),
-        "mouth": mouth if mouth is not None else _MOUTH(),
+        **{n: _grown(v, k, apart=False) for n, v in hung["parts"].items()},
+        "head": _grown({"default": hf, "back": hb}, k),
+        "face": _grown(face, k),
+        "eyes": _grown(eyes if eyes is not None else _EYES(), k),
+        "mouth": _grown(mouth if mouth is not None else _MOUTH(), k),
         "armR": arms(124, reach[1], True),
     }
+    if hung["hangs"]:
+        grow = lambda x, y: [round(100 + (x - 100) * k, 1), round(152 + (y - 152) * k, 1)]
+        more["hangs"] = {
+            **{n: {**h, "at": grow(*h["at"])} for n, h in hung["hangs"].items()},
+            **more.get("hangs", {}),
+        }
+        more["springs"] = [*hung["springs"], *more.get("springs", [])]
     return character(
         id, name, "humanoid", height, parts, colors, description, voice,
         hem=hem if hem is not None else torso.hem, **more,

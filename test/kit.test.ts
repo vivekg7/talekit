@@ -46,6 +46,27 @@ for i, head in enumerate(heads):
         colors=colors))
 `;
 
+// Every woman's head, torso, arms and skirt, the face options with them; g2 a girl.
+const WOMEN = `
+import sys
+from talekit import people as p
+from talekit.characters import write
+looks = [p.bun(), p.plait(), p.two_plaits(), p.bun(gajra=False, veil=True)]
+dress = [(p.sari(), p.sari_skirt(p.chappal)), (p.kameez(extras=[p.dupatta()]), p.churidar(p.jutti)),
+         (p.choli(), p.ghagra()), (p.sari(), p.sari_skirt(p.bare_foot))]
+arms = [p.blouse_sleeves(), p.blouse_sleeves('shirt', 'trim', 236), p.blouse_sleeves(bangles=2), p.blouse_sleeves(bangles=0)]
+faces = [p.face(tilak='bindi', nose='small', nath=True), p.face(tilak='bindi'), p.face(nose='small'),
+         p.face(tilak='bindi', wrinkles=True, glasses=True)]
+colors = dict(skin='#b97a4e', hair='#1f1815', sari='#2f8a4e', blouse='#c0392b', shirt='#3f7fbf', dupatta='#f2c230',
+              skirt='#e0457b', pants='#f4efe4', shoes='#7a4a26')
+for i, head in enumerate(looks):
+    torso, legs = dress[i]
+    write(sys.argv[1], p.person(
+        f'g{i}', f'G{i}', 165 if i == 2 else 230, head=head, torso=torso, arms=arms[i], legs=legs, face=faces[i],
+        eyes=p.eyes(('gentle', 'gentle', 'gentle', 'old')[i], brow=4.5, lashes=i < 3), mouth=p.mouth(lips=i != 2),
+        head_scale=1.18 if i == 2 else 1, colors=colors))
+`;
+
 describe.skipIf(!python)('python kit', () => {
   let root: string;
   beforeAll(async () => {
@@ -75,6 +96,30 @@ describe.skipIf(!python)('python kit', () => {
     expect(problems).toEqual([]);
     expect(Object.keys(project.characters).filter((id) => /^w\d+$/.test(id))).toHaveLength(10);
   }, 60_000);
+
+  it("builds every piece of the women's wardrobe, plaits swinging, a child's head grown", async () => {
+    run(['-', root], WOMEN);
+    const project = await loadProject(root);
+    const problems = validateProject(project).filter((p) =>
+      /character 'g\d+'/.test(p.where + p.message)
+    );
+    expect(problems).toEqual([]);
+    expect(project.characters.g1.springs).toEqual(['plait']);
+    expect(project.characters.g2.springs).toEqual(['plaitL', 'plaitR']);
+    expect(project.characters.g2.hangs!.plaitL.at).toEqual([45.7, 114.2]);
+  }, 60_000);
+
+  it('places a reply after() the line before it, in the order written', () => {
+    const out = run([
+      '-c',
+      "import json; from talekit.shots import *; print(json.dumps([say(1, 'a', 'x'), say(after(0.4), 'b', 'y'), do(0.5, 'a', 'nod')]))",
+    ]);
+    expect(JSON.parse(out)).toEqual([
+      { t: 1, actor: 'a', say: 'x' },
+      { after: 0.4, actor: 'b', say: 'y' },
+      { t: 0.5, actor: 'a', do: 'nod' },
+    ]);
+  });
 
   it('names a colour the parts use but nobody gave', () => {
     const r = spawnSync(

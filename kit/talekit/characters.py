@@ -5,9 +5,11 @@
 the routine ones so a spec names only the colours that make the character:
 
 - `BASE` gives line, cheek, mouth, tongue, the golds, gems, pearl, a tilak's white and
-  red, a gamchha's red and white, a leather belt and scabbard, a white plume.
+  red, a gamchha's red and white, a leather belt and scabbard, a white plume, jasmine.
 - `FALLBACK` points a token at another: `iris` to `line`, `brow` to `hair`, `cuff` to
-  `shirtDark`, `button` and `sash` to `gold`, `sole` to `shoesDark`.
+  `shirtDark`, `button`, `sash`, `border`, `trim`, `earring` and `bangle` to `gold`,
+  `bangle2`, `tie` and `ribbon` to `ruby`, `sole` to `shoesDark`, `veil` to `sari`, `bindi`
+  to `tilakRed`, `lip` to `mouth`, `glasses` to `line`.
 - A missing `<x>Dark` or `<x>Light` is shaded from `<x>` (svg.darker, svg.lighter).
 
 Anything still missing raises, naming the token and the part, before talekit sees it."""
@@ -37,6 +39,7 @@ BASE = {
     "belt": "#6b3f22",
     "scabbard": "#3b2622",
     "plume": "#fbfaf5",
+    "gajra": "#fbf8ef",
 }
 
 FALLBACK = {
@@ -48,6 +51,17 @@ FALLBACK = {
     "sash": "gold",
     "gem": "emerald",
     "turbanEdge": "turbanDark",
+    "border": "gold",
+    "trim": "gold",
+    "earring": "gold",
+    "bangle": "gold",
+    "bangle2": "ruby",
+    "tie": "ruby",
+    "ribbon": "ruby",
+    "veil": "sari",
+    "bindi": "tilakRed",
+    "lip": "mouth",
+    "glasses": "line",
 }
 
 TOKEN = re.compile(r"\{([A-Za-z][A-Za-z0-9]*)\}")

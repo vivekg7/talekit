@@ -18,6 +18,10 @@ its voice's real length once `talekit voice` has spoken it (audio/voices/index.j
 an estimate from its length, plus a linger and a gap. So the loop is: run the script,
 `talekit voice <project>`, run it again, and every shot fits its voices.
 
+**Replies.** `say(after(0.4), ...)` in place of a time writes the format's `after`: the
+engine starts the reply 0.4 s after the line before it has been said, so it holds whatever
+the voices do. Keep pacing the shot's end with `F.after`.
+
 **Translations.** `say` and `cap` take the English as their fourth argument (the film's
 subtitle track, see the guide's "Subtitles and the .mkv"); leave it out in a reel, which
 has no .mkv.
@@ -33,6 +37,7 @@ from .characters import project_dir
 
 __all__ = [
     "Film",
+    "after",
     "at",
     "attach",
     "cam",
@@ -114,7 +119,8 @@ class Film:
                 "duration": round(end + tail, 2),
                 "cast": cast,
                 "camera": camera or {"zoom": 1},
-                "actions": sorted(actions, key=lambda a: a["t"]),
+                # In time order, unless some are placed after a line: then as written.
+                "actions": actions if any("after" in a for a in actions) else sorted(actions, key=lambda a: a["t"]),
                 **more,
             }
         )
@@ -157,14 +163,23 @@ def row(actors, anchor):
 # ---------------------------------------------------------------- what happens
 
 
-def _t(t):
-    return round(t, 2)
+class after(float):
+    """In place of a time: start this many seconds after the line listed before it in the
+    shot stops being spoken, as the engine works it out from the real voices (the format's
+    `after`). For a reply that must follow its line whatever the voices do; the script still
+    paces the shot's end with `F.after`. Keep a shot's actions in the order they happen: a
+    shot with any such action is written in the order given."""
+
+
+def _when(t):
+    """The action's time: {'t': ...}, or {'after': ...} for an after()."""
+    return {"after": float(t)} if isinstance(t, after) else {"t": round(t, 2)}
 
 
 def say(t, actor, text, en=None, **more):
     """A spoken line. `more`: to (who they say it to), bubble ('shout', 'thought',
     'whisper'), emotion, duration."""
-    return {"t": _t(t), "actor": actor, "say": text, **({"translation": {"en": en}} if en else {}), **more}
+    return {**_when(t), "actor": actor, "say": text, **({"translation": {"en": en}} if en else {}), **more}
 
 
 def cap(t, text, en=None, style="narration", **more):
@@ -172,33 +187,33 @@ def cap(t, text, en=None, style="narration", **more):
     if en in ("title", "narration"):
         raise ValueError(f"cap({text!r}): the third argument is the English; write style={en!r}")
     tr = {"translation": {"en": en}} if en else {}
-    return {"t": _t(t), "caption": text, "captionStyle": style, **tr, **more}
+    return {**_when(t), "caption": text, "captionStyle": style, **tr, **more}
 
 
 def do(t, actor, verb, duration=None, **more):
     """A verb (walk, run, sit, stand, nod, shake, point, tremble, ...). `more`: to."""
-    a = {"t": _t(t), "actor": actor, "do": verb, **more}
+    a = {**_when(t), "actor": actor, "do": verb, **more}
     if duration is not None:
         a["duration"] = duration
     return a
 
 
 def feel(t, actor, emotion):
-    return {"t": _t(t), "actor": actor, "emotion": emotion}
+    return {**_when(t), "actor": actor, "emotion": emotion}
 
 
 def turn(t, actor, facing):
-    return {"t": _t(t), "actor": actor, "set": {"facing": facing}}
+    return {**_when(t), "actor": actor, "set": {"facing": facing}}
 
 
 def variant(t, actor, **parts):
     """Switch a part's variant: variant(t, 'vase', body='broken')."""
-    return {"t": _t(t), "actor": actor, "face": parts}
+    return {**_when(t), "actor": actor, "face": parts}
 
 
 def sound(t, name, actor=None, **more):
     """A sound effect, placed at the actor when one is given. `more`: volume."""
-    a = {"t": _t(t), "sound": name, **more}
+    a = {**_when(t), "sound": name, **more}
     if actor:
         a["actor"] = actor
     return a
@@ -206,7 +221,7 @@ def sound(t, name, actor=None, **more):
 
 def cam(t, duration, zoom, x, y):
     """Move the camera to look at (x, y) at `zoom` over `duration` seconds."""
-    return {"t": _t(t), "duration": duration, "camera": {"zoom": zoom, "x": x, "y": y}}
+    return {**_when(t), "duration": duration, "camera": {"zoom": zoom, "x": x, "y": y}}
 
 
 # ---------------------------------------------------------------- stock staging
@@ -214,19 +229,22 @@ def cam(t, duration, zoom, x, y):
 
 def attach(t, prop, holder):
     """The holder takes the prop in hand; it moves with them until released."""
-    return {"t": _t(t), "actor": prop, "attach": holder}
+    return {**_when(t), "actor": prop, "attach": holder}
 
 
 def release(t, prop, to, duration=0.35):
     """The prop leaves the hand and drops to an anchor or pt() over `duration`."""
-    return {"t": _t(t), "actor": prop, "attach": False, "do": "move", "to": to, "duration": duration}
+    return {**_when(t), "actor": prop, "attach": False, "do": "move", "to": to, "duration": duration}
 
 
 def smash(t, prop, to, noise=None, broken="broken", part="body", duration=0.3, volume=1.3):
     """A held prop falls to `to` and breaks on landing: release, switch `part` to its
-    `broken` variant, and the `noise` sound at the moment it lands."""
+    `broken` variant, and the `noise` sound at the moment it lands. Takes a time, not an
+    after(): the landing is counted from it."""
+    if isinstance(t, after):
+        raise TypeError("smash() needs a time, not after(): the landing is counted from it")
     land = t + duration
-    out = [release(t, prop, to, duration), {"t": _t(land), "actor": prop, "face": {part: broken}}]
+    out = [release(t, prop, to, duration), variant(land, prop, **{part: broken})]
     if noise:
         out.append(sound(land, noise, prop, volume=volume))
     return out
