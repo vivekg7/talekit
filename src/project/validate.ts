@@ -375,11 +375,22 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
       if (w) out.push(...needsFar(where, w, []));
   if (!scene.far && shot.actions.some((a) => a.lightning))
     out.push(...needsFar(where, { lightning: { every: 8 } }, []));
+  /** What is wrong with `on` (who an actor stands on), if anything. */
+  const onError = (id: string, on: string | undefined): string | undefined =>
+    on === undefined
+      ? undefined
+      : !shot.cast[on]
+        ? `on: '${on}' is not in the cast`
+        : on === id
+          ? `on: '${id}' cannot stand on itself`
+          : undefined;
   for (const [id, member] of Object.entries(shot.cast)) {
     if (!project.characters[id])
       out.push({ level: 'error', where, message: `cast member '${id}' is not a character` });
     const err = positionOk(member.at);
     if (err) out.push({ level: 'error', where, message: `cast '${id}': ${err}` });
+    const on = onError(id, member.on);
+    if (on) out.push({ level: 'error', where, message: `cast '${id}': ${on}` });
   }
   if (shot.crossfade > 0) {
     const i = project.shots.findIndex((s) => s.id === shot.id);
@@ -431,6 +442,8 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
       const err = positionOk(a.to);
       if (err) out.push({ level: 'error', where: w, message: err });
     }
+    const on = a.actor && onError(a.actor, a.on);
+    if (on) out.push({ level: 'error', where: w, message: on });
     if (a.attach) {
       if (!shot.cast[a.attach])
         out.push({

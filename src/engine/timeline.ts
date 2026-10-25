@@ -69,6 +69,8 @@ export interface ActorState {
   lie: number;
   /** The anchor's perspective scale under the actor (already folded into `scale`). */
   perspective: number;
+  /** Standing on this actor (`on`): drawn just in front of it. */
+  on?: string;
   /** Carried by this actor (`attach`), and whether this actor is carrying something. */
   heldBy?: string;
   holding: boolean;
@@ -328,6 +330,9 @@ export function resolveActor(
   let face: Record<string, string> = {};
   let sitting = false;
   let seat = 0;
+  // Standing on another actor, and when a move that takes it off lands.
+  let on = cast.on;
+  let offAt = Infinity;
   // A person climbs onto a raised seat and off it on their legs (the pose does it); an
   // animal hops up and down.
   const hops = rigOf(character).name !== 'humanoid';
@@ -475,11 +480,17 @@ export function resolveActor(
       } else holder = undefined;
       if (a.do !== 'putdown') move = undefined;
     }
+    if (offAt <= a.t) {
+      on = undefined;
+      offAt = Infinity;
+    }
     if (a.set) {
       if (a.set.at) {
         point = resolvePosition(project, scene, a.set.at);
         move = undefined;
         rise = undefined;
+        on = a.on;
+        offAt = Infinity;
       }
       if (a.set.facing) turnTo(a.set.facing, a.t);
       if (a.set.scale) scale = a.set.scale;
@@ -523,6 +534,11 @@ export function resolveActor(
         const t0 = setOff(a.t);
         move = { verb, from: point, to, t0, t1: t0 + d, rest: locoStart };
         locoStart = t0;
+        // Up onto someone from when it sets off; off them once it lands somewhere else.
+        if (a.on) {
+          on = a.on;
+          offAt = Infinity;
+        } else if (on && a.to) offAt = t0 + d;
         if (Math.abs(to.x - point.x) > 1) turnTo(to.x > point.x ? 'right' : 'left', a.t);
         if (verb === 'jump' && t >= t0 && t < t0 + d) verbs.push({ verb, u: (t - t0) / d });
       } else if (verb === 'sit' || verb === 'lie') {
@@ -662,6 +678,7 @@ export function resolveActor(
     point = perch.point;
     seat = perch.seat;
   }
+  if (offAt <= t) on = undefined;
   const holding = Object.keys(shot.cast).some((other) => holderAt(shot, other, t) === id);
   const state: ActorState = {
     id,
@@ -681,6 +698,7 @@ export function resolveActor(
     seat,
     lie: lieAmount(t),
     perspective: point.scale,
+    on: heldBy ? undefined : on,
     heldBy,
     holding,
     look: 0,
@@ -901,10 +919,14 @@ export function resolveFrame(project: Project, shot: Shot, t: number): FrameStat
       throw new Error(`shot '${shot.id}' casts unknown character '${id}'`);
     return resolveActor(project, scene, shot, id, t);
   });
-  // Lower on screen = closer to camera = drawn later; a carried prop just after its carrier.
-  const depthY = (a: ActorState) => {
+  // Lower on screen = closer to camera = drawn later; a carried prop just after its carrier,
+  // and someone standing on another actor just after them (so before what they carry).
+  const depthY = (a: ActorState, hops = 0): number => {
     const h = a.heldBy && actors.find((o) => o.id === a.heldBy);
-    return h ? h.y + 0.01 : a.y;
+    if (h && hops < MAX_DEPTH) return depthY(h, hops + 1) + 0.01;
+    const under = a.on && actors.find((o) => o.id === a.on);
+    if (under && hops < MAX_DEPTH) return depthY(under, hops + 1) + 0.005;
+    return a.y;
   };
   actors.sort((a, b) => depthY(a) - depthY(b));
 

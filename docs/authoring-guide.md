@@ -783,6 +783,25 @@ character's `hold` point and a prop's `grip`. Carry one thing at a time, and
 do not carry a carrier. An umbrella keeps the rain off whoever carries it
 when it has a `shelter` (see Weather and moving nature).
 
+### Standing on someone (`on`)
+
+Who is in front is worked out from the feet: the lower on the screen, the
+nearer. A mouse on a sleeping lion's back has its feet higher than the
+lion's, so it would be drawn behind it. Say whom it stands on:
+
+```json
+{ "t": 1.6, "actor": "chintu", "do": "jump", "to": { "x": 250, "y": 905 }, "on": "lion" }
+```
+
+with `to` on the top of the lion (`preview_frame` with `debug` shows where
+its back is). It is drawn in front of the lion from when it sets off,
+through hops and jumps in place up there, until a move without `on` lands it
+somewhere else. A shot that opens with it up there says so in the cast:
+`"chintu": { "at": { "x": 250, "y": 905 }, "on": "lion" }`. It does not ride
+along: if the lion gets up, the mouse stays where it was, so move it too, or
+carry it with `attach`. Paint nobody into a scene to get round this; the
+real character breathes, blinks and wakes.
+
 ### Dialogue
 
 `say` draws a bubble above the head and moves the mouth. A line in a voiced

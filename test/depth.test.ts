@@ -246,3 +246,52 @@ describe('culling', () => {
     expect(png.subarray(1, 4).toString()).toBe('PNG');
   });
 });
+
+describe('standing on someone', () => {
+  const order = (p: Project, t: number) => resolveFrame(p, p.shots[0], t).actors.map((a) => a.id);
+  const shot = (mouse: object, actions: unknown[]) =>
+    project(
+      [
+        {
+          id: 's',
+          scene: 'park',
+          duration: 6,
+          cast: { lion: { at: { x: 600, y: 650 } }, mouse: { at: { x: 400, y: 660 }, ...mouse } },
+          actions,
+        },
+      ],
+      { lion: LIBRARY.characters.lion, mouse: LIBRARY.characters.mouse }
+    );
+
+  it('draws the one on top in front, though its feet are higher', () => {
+    const up = { t: 0.5, actor: 'mouse', do: 'jump', to: { x: 590, y: 560 }, duration: 1 };
+    // Without `on` its feet higher on the screen put it behind the lion once it is there.
+    expect(order(shot({}, [up]), 3)).toEqual(['mouse', 'lion']);
+    expect(order(shot({}, [{ ...up, on: 'lion' }]), 3)).toEqual(['lion', 'mouse']);
+    // Starting the shot up there.
+    expect(order(shot({ at: { x: 590, y: 560 }, on: 'lion' }, []), 0)).toEqual(['lion', 'mouse']);
+  });
+
+  it('is off once a move without it lands somewhere else, not when it sets off', () => {
+    const p = shot({ at: { x: 590, y: 560 }, on: 'lion' }, [
+      { t: 1, actor: 'mouse', do: 'jump', to: { x: 700, y: 600 }, duration: 1 },
+    ]);
+    expect(order(p, 1.5)).toEqual(['lion', 'mouse']);
+    expect(order(p, 2.5)).toEqual(['mouse', 'lion']);
+  });
+
+  it('needs a way up and someone in the cast to stand on', () => {
+    expect(() =>
+      ShotSchema.parse({
+        id: 's',
+        scene: 'park',
+        duration: 1,
+        actions: [{ t: 0, actor: 'mouse', do: 'nod', on: 'lion' }],
+      })
+    ).toThrow(/on needs/);
+    const p = shot({ on: 'tiger' }, [{ t: 0, actor: 'mouse', set: { at: 'center' }, on: 'mouse' }]);
+    const msgs = validateShot(p.shots[0], p).map((w) => w.message);
+    expect(msgs).toContain("cast 'mouse': on: 'tiger' is not in the cast");
+    expect(msgs).toContain("on: 'mouse' cannot stand on itself");
+  });
+});

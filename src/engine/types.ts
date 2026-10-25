@@ -638,6 +638,10 @@ export const ActionSchema = z
       .max(2)
       .optional()
       .describe("The sound's loudness: 1 as recorded (default), 0.5 distant, 1.5 close"),
+    /** Standing on another actor: drawn in front of it while on it. */
+    on: IdSchema.optional().describe(
+      "With a walk, run, move, fly or jump that has a `to`, or with set.at: the id of the actor this one ends up standing on (a mouse on a sleeping lion's back), so it is drawn in front of that actor from when it sets off until a later move without `on` lands somewhere else. Put `to` on the top of that actor (preview_frame with debug shows where). It does not ride along: to be carried, use attach"
+    ),
     /** Instant state changes. */
     set: z
       .object({
@@ -665,6 +669,13 @@ export const ActionSchema = z
   )
   .refine((a) => !a.translation || a.say || a.caption, 'translation needs a say or caption')
   .refine(
+    (a) =>
+      !a.on ||
+      a.set?.at !== undefined ||
+      (a.to !== undefined && ['walk', 'run', 'move', 'fly', 'jump'].includes(a.do ?? '')),
+    'on needs a walk, run, move, fly or jump with a `to`, or set.at: how the actor gets up there'
+  )
+  .refine(
     (a) => !(a.do || a.say || a.emotion || a.face || a.set || a.attach !== undefined) || a.actor,
     'actor is required for do/say/emotion/face/set/attach'
   );
@@ -676,6 +687,9 @@ export const CastMemberSchema = z.object({
   scale: z.number().positive().default(1),
   visible: z.boolean().default(true),
   emotion: EmotionSchema.default('neutral'),
+  on: IdSchema.optional().describe(
+    "The id of the actor this one starts the shot standing on (a mouse already on a sleeping lion's back), so it is drawn in front of it; `at` is the spot on its top"
+  ),
 });
 export type CastMember = z.infer<typeof CastMemberSchema>;
 
