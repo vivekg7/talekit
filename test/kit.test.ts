@@ -44,9 +44,9 @@ for i, head in enumerate(heads):
         legs=legs[i % len(legs)], face=faces[i % len(faces)], eyes=p.eyes(looks[i % len(looks)]),
         mouth=p.mouth(dy=i % 9, closed=list(p.CLOSED_MOUTHS)[i % 4], angry=('teeth', 'line')[i % 2]),
         colors=colors))
-# A sage and a temple student: the shaven heads, a long beard, a mala, a janeu, khadau.
+# A sage and a temple student: the shaven heads, long locks, a long beard, a mala, a janeu, khadau.
 write(sys.argv[1], p.person(
-    'w10', 'W10', 235, head=p.shaven_head(beard=True), torso=p.kurta(long=330, extras=[p.angavastram(), p.mala()]),
+    'w10', 'W10', 235, head=p.shaven_head(beard=True, locks=True), torso=p.kurta(long=330, extras=[p.angavastram(), p.mala()]),
     arms=p.sleeves(), legs=p.dhoti(p.khadau), face=p.face('full', tilak='tripundra', beard='long'),
     eyes=p.eyes('plain'), mouth=p.mouth(dy=8), colors=colors))
 write(sys.argv[1], p.person(

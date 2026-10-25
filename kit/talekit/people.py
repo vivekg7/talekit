@@ -836,13 +836,14 @@ def _shikha(x, y, lean):
     )
 
 
-def shaven_head(fringe=True, shikha=True, stubble=False, beard=False):
+def shaven_head(fringe=True, shikha=True, stubble=False, beard=False, locks=False):
     """A head shaved for a sage or a temple student: the crown bare with a shine. `fringe`
     leaves an old man's ring of hair round the sides and back; `shikha` the tuft left long at
     the back of the crown, knotted at its root; `stubble` a faint shadow of regrowth over the
     scalp (a young man freshly shaved); `beard` whiskers along the far jaw from the ear, to
     join a long beard drawn by face(beard='long') (the beard turns with the face, so it lives
-    there). Tokens: skin, skinLight, skinDark, hair, hairDark."""
+    there); `locks` lets the fringe grow long, down past the ear to the shoulders in waves:
+    an old sadhu or rishi. Tokens: skin, skinLight, skinDark, hair, hairDark."""
     dome = (
         "M53 100 C50 72 70 49 100 48 C127 48 146 64 149 82 "
         "C132 74 108 72 88 76 C79 80 74 88 72 98 L67 102 C61 98 57 98 53 100 Z"
@@ -857,6 +858,16 @@ def shaven_head(fringe=True, shikha=True, stubble=False, beard=False):
             "C67 124 63 112 64 101 C65 93 67 88 71 86 Z",
             "{hair}",
         ) + fill("M146 86 C153 93 155 104 151 115 C148 108 145 100 141 93 Z", "{hair}")
+    if locks:
+        front += (
+            fill(
+                "M70 84 C56 84 44 96 42 114 C39 136 42 160 47 182 Q51 190 57 184 Q62 192 68 185 "
+                "Q73 190 77 180 C75 162 73 146 75 132 C67 124 63 112 64 101 C65 93 67 88 71 86 Z",
+                "{hair}",
+            )
+            + line("M52 120 Q50 150 56 176", 2.2, "{hairDark}")
+            + line("M62 132 Q61 156 66 178", 2.2, "{hairDark}")
+        )
     if beard:
         front += fill(
             "M55 110 C55 128 61 143 72 153 C81 161 92 166 103 168 L105 150 "
@@ -876,6 +887,14 @@ def shaven_head(fringe=True, shikha=True, stubble=False, beard=False):
         back += fill(
             "M50 96 C66 110 134 110 150 96 C152 118 138 138 114 144 Q100 147 86 144 C62 138 48 118 50 96 Z", "{hair}"
         ) + line("M62 116 Q100 132 138 116", 2.2, "{hairDark}")
+    if locks:
+        back += fill(
+            "M50 96 C66 110 134 110 150 96 C155 128 152 160 146 184 Q138 194 128 186 Q118 196 108 187 "
+            "Q100 196 92 187 Q82 196 72 186 Q62 194 54 184 C48 160 45 128 50 96 Z",
+            "{hair}",
+        ) + "".join(
+            line(f"M{x} 124 Q{x + d} 156 {x} 182", 2.2, "{hairDark}") for x, d in ((72, -3), (100, 0), (128, 3))
+        )
     if beard:
         back += fill("M54 120 C52 140 58 158 70 172 L80 146 Z", "{hair}") + fill(
             "M146 120 C148 140 142 158 130 172 L120 146 Z", "{hair}"
@@ -1231,20 +1250,21 @@ MOUSTACHES = {
 }
 
 BEARDS = {
-    # A long beard from the cheeks to a point at mid-chest, combed in strands: a sage, a
-    # rishi. Wear it with a full moustache and shaven_head(beard=True) or a turban; the mouth
+    # A long full beard from the cheeks to mid-chest, broad and bushy with a wavy end, combed
+    # in strands: a sage, a rishi (a narrow pointed one reads as a Chinese sage, not an Indian
+    # one). Wear it with a full moustache and shaven_head(beard=True) or a turban; the mouth
     # draws over it (mouth dy 7 to 9).
     "long": fill(
-        "M64 106 C61 124 63 144 71 162 C78 180 86 198 92 212 C95 219 98 224 100 228 C102 224 105 219 108 212 "
-        "C114 198 122 180 129 162 C137 144 139 124 136 106 C130 116 122 121 112 122 Q100 124 88 122 "
-        "C78 121 70 116 64 106 Z",
+        "M62 104 C55 124 51 148 55 170 C57 182 61 190 67 194 Q72 203 81 204 Q88 215 100 214 "
+        "Q112 215 119 204 Q128 203 133 194 C139 190 143 182 145 170 C149 148 145 124 138 104 "
+        "C132 116 122 121 112 122 Q100 124 88 122 C78 121 68 116 62 104 Z",
         "{hair}",
     )
-    + line("M84 146 Q86 176 95 206", 2.2, "{hairDark}")
-    + line("M116 146 Q114 176 105 206", 2.2, "{hairDark}")
-    + line("M100 150 L100 214", 2.2, "{hairDark}")
-    + line("M72 136 Q74 158 82 176", 2.2, "{hairDark}")
-    + line("M128 136 Q126 158 118 176", 2.2, "{hairDark}"),
+    + line("M84 146 Q83 176 88 200", 2.2, "{hairDark}")
+    + line("M116 146 Q117 176 112 200", 2.2, "{hairDark}")
+    + line("M100 152 L100 206", 2.2, "{hairDark}")
+    + line("M68 136 Q66 160 72 184", 2.2, "{hairDark}")
+    + line("M132 136 Q134 160 128 184", 2.2, "{hairDark}"),
 }
 
 TILAK = {
@@ -1253,9 +1273,12 @@ TILAK = {
     + stroke("M100 73 L100 90", "{tilakRed}", 4),
     # A round red dot (a bindi or a tilak). Token: tilakRed.
     "dot": circle(100, 84, 4, "{tilakRed}"),
-    # Three horizontal lines of ash with a red dot (tripundra). Tokens: tilak, tilakRed.
-    "tripundra": "".join(stroke(f"M86 {y} Q100 {y - 2} 114 {y}", "{tilak}", 3) for y in (74, 80, 86))
-    + circle(100, 80, 2.6, "{tilakRed}"),
+    # Three bold lines of ash across the whole forehead with a red dot (tripundra), the way a
+    # Shaiva sadhu wears it. Tokens: tilak, tilakRed.
+    "tripundra": "".join(
+        stroke(f"M{x} {y} Q100 {y - 4} {200 - x} {y}", "{tilak}", 3.8) for x, y in ((74, 58), (72, 64.5), (72, 71))
+    )
+    + circle(100, 64, 3.6, "{tilakRed}"),
     # A woman's small bindi. Token: bindi (defaults to tilakRed).
     "bindi": circle(100, 80, 3.2, "{bindi}"),
     # A line of sandal paste up the forehead with a red dot at its foot: a temple student, a

@@ -74,14 +74,15 @@ elsewhere run them with `PYTHONPATH=<talekit>/kit`.
 - **`talekit.people`**, a wardrobe on the humanoid rig: heads (`short_hair`,
   `side_part`, `spiky_hair`, `curly_hair`, `head_band`, `pagdi`,
   `tall_pagdi`, `safa`, `plumed_turban`, `crown`, `shaven_head` with a
-  shikha, a sage's fringe or a student's stubble; for women `bun`, with a
-  gajra or the sari drawn over it, and `plait` and `two_plaits`, which
-  bring their plaits as parts that swing), torsos (`kurta`, to the knee
-  with `long=330`, `banyan`, `tunic`, `angrakha`, `sari`, `choli`,
-  `kameez`, with `gamchha`, `angavastram`, `dupatta`, a rudraksha `mala`
-  or a `janeu` laid over), arms (`blouse_sleeves` with bangles for women),
-  legs (`dhoti`, `pyjama`, `churidar`, and the skirts `sari_skirt` and
-  `ghagra`, half on each leg) on feet (`khadau` among them), and
+  shikha, a sage's fringe (or `locks` to his shoulders) or a student's
+  stubble; for women `bun`, with a gajra or the sari drawn over it, and
+  `plait` and `two_plaits`, which bring their plaits as parts that swing),
+  torsos (`kurta`, to the knee with `long=330`, `banyan`, `tunic`,
+  `angrakha`, `sari`, `choli`, `kameez`, with `gamchha`, `angavastram`,
+  `dupatta`, a rudraksha `mala` or a `janeu` laid over), arms
+  (`blouse_sleeves` with bangles for women), legs (`dhoti`, `pyjama`,
+  `churidar`, and the skirts `sari_skirt` and `ghagra`, half on each leg)
+  on feet (`khadau` among them), and
   `face`/`eyes`/`mouth` with every variant (a long beard, which turns with
   the face, a bindi, a nose ring, glasses, lashes, lips). `person()` puts
   them together and sets `hem`; `head_scale=1.18` draws a child's big head.
