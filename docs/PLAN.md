@@ -600,6 +600,13 @@ as a person adapting it would. The engine's part is small:
 A frame is portrait when it is taller than wide; there is no format field,
 since the size already says it.
 
+Four of the reels' tall scenes went into the library (2026-10-25) as
+`cave-tall`, `courtyard-tall`, `forest-tall` and `fields-tall`, with their
+story-bound anchors renamed (`son1` became `front-left`): every reel had
+painted its own scenes from nothing, which is the slowest and least
+reliable part of making one. The suffix, not a field, marks them, for the
+same reason there is no format field.
+
 The first reels kept the films' dialogue and cut events to fit, and told too
 little: the race reel lost the hare stopping to eat, which is why he sleeps,
 while two conversations took most of its time (Vivek, 2026-10-25). A reel is

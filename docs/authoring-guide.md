@@ -27,10 +27,11 @@ colors)` (tokens such as hair, skin, dress); without `name` the copy is
    character that speaks a `voice` from `list_voices`.
 4. **Scenes.** `copy_from_library` or `write_scene(path, scene)`, then read
    the anchor sheet: every place a character stands or sits needs an anchor
-   on the floor. The library's jungle, cave, village hut and pond are
-   painted in detail: copy one and add the places the story needs with
-   `anchors` (`{ "well": { "x": 420, "y": 660 } }`, which also moves an
-   anchor of that name) rather than painting a new scene.
+   on the floor. The library's jungle, cave, village hut and pond (and,
+   drawn tall for a reel, `cave-tall`, `courtyard-tall`, `forest-tall` and
+   `fields-tall`) are painted in detail: copy one and add the places the
+   story needs with `anchors` (`{ "well": { "x": 420, "y": 660 } }`, which
+   also moves an anchor of that name) rather than painting a new scene.
 5. **Shots.** `write_shot(path, shot, order)` one at a time, in order.
    Study the contact sheet: people where you expect, facing each other,
    bubbles readable, timing sensible. Write sheets are drawn small;
@@ -812,7 +813,9 @@ copied; the scenes and shots are new.
   below.
 - **Draw scenes tall.** `far` fills 720 × 1280 on its own. Use the height:
   a trunk rising into its canopy, rock above a cave, sky. The library's
-  1280 × 720 scenes do not fit; draw tall ones in the same style.
+  1280 × 720 scenes do not fit; start from its `-tall` ones (a cave, a
+  village courtyard, a forest edge, a path through fields) or draw tall
+  ones in the same style.
 - **Stage close.** Two people side by side, 150 to 250 px apart (a reel's
   `left` and `right` are at 26% and 72% of the width). Draw the scene so
   the wide shot holds the cast large: anchor `scale` 1.3 to 1.6 for the

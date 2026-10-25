@@ -107,7 +107,9 @@ describe('layers', () => {
   });
 
   it.each(Object.keys(LIBRARY.scenes))('passes library scene %s without a warning', (id) => {
-    expect(validateScene(LIBRARY.scenes[id], W, H)).toEqual([]);
+    // The tall ones are drawn for a portrait reel.
+    const [w, h] = id.endsWith('-tall') ? [H, W] : [W, H];
+    expect(validateScene(LIBRARY.scenes[id], w, h)).toEqual([]);
   });
 });
 

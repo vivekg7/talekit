@@ -34,6 +34,10 @@ import { JUNGLE } from './jungle.js';
 import { CAVE } from './cave.js';
 import { HUT } from './hut.js';
 import { POND } from './pond.js';
+import { CAVE_TALL } from './cave-tall.js';
+import { COURTYARD_TALL } from './courtyard-tall.js';
+import { FOREST_TALL } from './forest-tall.js';
+import { FIELDS_TALL } from './fields-tall.js';
 
 export const LIBRARY: { characters: Record<string, Character>; scenes: Record<string, Scene> } = {
   characters: Object.fromEntries(
@@ -67,7 +71,20 @@ export const LIBRARY: { characters: Record<string, Character>; scenes: Record<st
     ].map((c) => [c.id, CharacterSchema.parse(c)])
   ),
   scenes: Object.fromEntries(
-    [PARK, HOME, STREET, JUNGLE, CAVE, HUT, POND].map((s) => [s.id, SceneSchema.parse(s)])
+    [
+      PARK,
+      HOME,
+      STREET,
+      JUNGLE,
+      CAVE,
+      HUT,
+      POND,
+      // Drawn tall, for a portrait reel.
+      CAVE_TALL,
+      COURTYARD_TALL,
+      FOREST_TALL,
+      FIELDS_TALL,
+    ].map((s) => [s.id, SceneSchema.parse(s)])
   ),
 };
 

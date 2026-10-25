@@ -314,7 +314,7 @@ export function buildServer(): McpServer {
     {
       title: 'List built-in library',
       description:
-        'Built-in characters and scenes that can be copied into a project (and recoloured) as starting points. Copying is much more reliable than drawing from scratch.',
+        'Built-in characters and scenes that can be copied into a project (and recoloured) as starting points. Copying is much more reliable than drawing from scratch. Scenes ending in -tall are drawn 720 x 1280 for a portrait reel; the rest are 1280 x 720.',
       inputSchema: {},
     },
     async () =>
