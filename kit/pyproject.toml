@@ -1,0 +1,13 @@
+[project]
+name = "talekit-kit"
+version = "0.1.0"
+description = "Helpers for the Python scripts that write a talekit story's characters, scenes and shots"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+# SVG path data reads best on one line; wrapping it at 88 scatters a shape over many.
+line-length = 120

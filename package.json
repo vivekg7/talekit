@@ -15,6 +15,9 @@
     "tools/tts/pyproject.toml",
     "tools/tts/uv.lock",
     "tools/tts/speak.py",
+    "kit/pyproject.toml",
+    "kit/talekit/*.py",
+    "kit/templates/*.py",
     "docs/authoring-guide.md"
   ],
   "scripts": {

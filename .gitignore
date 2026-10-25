@@ -6,3 +6,4 @@ examples/*/out/
 storage/
 stories/
 tools/tts/.venv/
+__pycache__/

@@ -100,6 +100,11 @@ my-story/
   out/                renders and previews (git-ignored)
 ```
 
+An agent can also write a film from scripts kept in the project's `src/`.
+The Python kit in `kit/` (a wardrobe of Indian dress, voice-paced shot
+helpers and templates) is the code those scripts share. See "Writing it from
+scripts" in the guide.
+
 ## MCP tools
 
 | tool                       | returns                                                                 |

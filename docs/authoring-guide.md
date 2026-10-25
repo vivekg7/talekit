@@ -55,6 +55,41 @@ frames)` are full size. To fix a shot, `patch_shot(path, shotId, …)`:
    Fix it, check the new picture, then `resolve_note(path, id)`. Do not
    resolve a note you did not act on; say why instead.
 
+### Writing it from scripts: the Python kit
+
+A whole film is easier to keep right as scripts in the project's `src/`
+that write the JSON: change a line or a colour, run it again. The repo's
+`kit/` has the code those scripts kept rewriting. It uses only the standard
+library. Copy `kit/templates/cast.py` and `kit/templates/shots.py` into
+`src/` and edit them. Inside the repo they find the kit themselves;
+elsewhere run them with `PYTHONPATH=<talekit>/kit`.
+
+- **`talekit.people`**, a wardrobe on the humanoid rig: heads (`short_hair`,
+  `side_part`, `spiky_hair`, `curly_hair`, `head_band`, `pagdi`,
+  `tall_pagdi`, `safa`, `plumed_turban`, `crown`), torsos (`kurta`,
+  `banyan`, `tunic`, `angrakha`, with `gamchha` and `angavastram` laid
+  over), arms, legs (`dhoti`, `pyjama`, `churidar`) on feet, and
+  `face`/`eyes`/`mouth` with every variant. `person()` puts them together
+  and sets `hem`. Draw only what the wardrobe lacks, and add it there when
+  it is not a one-off.
+- **`talekit.characters`**: `character()` and `prop()` (the simple rig,
+  `body` variants such as `broken`). They fill the routine colours: a
+  missing `<x>Dark`/`<x>Light` is shaded from `<x>`. A token nobody gave
+  stops the script with its name before talekit sees it.
+- **`talekit.shots`**: `Film` writes `shots/NN-<id>.json` in order. It also
+  paces lines: `F.after(t, line)` is when the next line can start, from the
+  line's real voice once `talekit voice` has spoken it, else an estimate. So
+  run the script, voice, run it again. The helpers `say`, `cap` (the English
+  as their fourth argument, left out in a reel), `do`, `at`, `cam` and the
+  others build actions. So do the stock pieces: `seated`, `attach`,
+  `release`, `smash` (a held prop falls, breaks and makes a sound) and
+  `keep` (a variant carried into the next shot).
+- **`talekit.scenes`** and **`talekit.svg`**: painting helpers (`blob`,
+  `canopy`, `tufts`, `ribbon`, `taper`, `gem`) and the scene writer.
+
+The kit writes the same JSON the tools do, so the checks are unchanged: look
+at every sheet and run `talekit check`.
+
 ## Coordinate boxes
 
 Characters are drawn into a fixed canonical box, facing **right**. The
