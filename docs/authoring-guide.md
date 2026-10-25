@@ -1,74 +1,65 @@
 # talekit authoring guide
 
 You are turning a story into a short 2D animated film. talekit owns the
-animation; you own the design and the staging. You write three kinds of files
-(all JSON, all validated) and look at the picture that comes back after every
-write. Fix what looks wrong before moving on.
+animation; you own the design and the staging. You write characters,
+scenes and shots (all JSON, all validated) and look at the picture that
+comes back after every write. Fix what looks wrong before moving on.
 
 ## Workflow
 
-1. **Read the story and plan.** List characters, locations and 6–40 shots of
-   5–20 seconds each. A shot is one location with one bit of action. A reel
-   for a phone held upright is a project of its own, shorter, drawn tall and
-   told mostly by the narrator (see [A reel](#a-reel-the-portrait-version)).
+1. **Plan.** List characters, locations and 6–40 shots of 5–20 s each. A
+   shot is one location with one bit of action. A reel for a phone held
+   upright is a project of its own (see
+   [A reel](#a-reel-the-portrait-version)).
 2. **`create_project(path, title)`** once; `path` is the absolute project
-   directory and every later tool takes the same `path`. Then
-   **`list_library()`**, and `set_audio(path, narrator, music)` for the
-   film's narrator voice and music (see [Sound](#sound)).
+   directory and every later tool takes it. Then `list_library()`, and
+   `set_audio(path, narrator, music)` (see [Sound](#sound)).
 3. **Characters.** Prefer `copy_from_library(path, libraryId, asId, name,
-colors)` (colour tokens: hair, skin, dress, shirt…); without `name` the
-   copy is named from `asId` (`old-man` is "Old man"). Draw from scratch with
-   `write_character(path, character)` only for something the library lacks
-   (an animal it does not have, a dragon, a robot, a prop like a kite); read
-   `get_library_item(libraryId)` first to see how a character on that rig is
-   laid out, and follow [Drawing style](#drawing-style) and
-   [Construction](#construction). Two pictures come back: the pose sheet
-   (proportions, expressions, the fallback list in the text) and the
-   construction sheet (part boxes, pivots, silhouette, joints in a swing,
-   numbered red boxes for each numbered warning). Rewrite until it looks
-   right and the construction warnings are gone. A library copy returns only
-   the pose sheet: its construction is already right, and if you redraw it,
-   `write_character` shows the construction sheet as for any new drawing.
-   Give every character that speaks a `voice` from `list_voices`.
-4. **Scenes.** `copy_from_library` or `write_scene(path, scene)`. Look at the
-   anchor sheet: every place a character will stand or sit needs an anchor on
-   the floor. The library's jungle, cave, village hut and pond are painted
-   in detail; when the story happens in one, copy it and add the places the
-   story needs with `anchors` (`{ "well": { "x": 420, "y": 660 } }`, which
-   also moves an anchor of the same name) instead of painting a new scene or
-   writing it out again.
-5. **Shots.** `write_shot(path, shot, order)` one at a time, in order. Study
-   the contact sheet: are people where you expect, facing each other, bubbles
-   readable, timing sensible? Use `preview_frame(path, shotId, t)` for an
-   exact moment and `preview_shot(path, shotId, frames)` for more frames. The
-   sheets a write returns are drawn smaller to save tokens; `preview_shot` and
-   `preview_frame` are full size, for when a face or a line is hard to read.
-   To fix a written shot, `patch_shot(path, shotId, …)` rather than writing
-   it all again: `edit` merges fields into an action by its index (`{ index:
-3, fields: { t: 4.5 } }`; null removes a field), `remove` takes actions
-   out, `add` puts new ones in, `set` replaces top-level fields such as
-   `duration` or `camera`, and `cast` replaces, adds or (null) removes cast
-   members. Indices are the actions before the patch, as `get_item` lists
-   them; the result lists them renumbered. It is validated as `write_shot`
-   is, keeps the shot's place in the film, and returns a sheet of the stretch
-   that changed. Restaging a shot from the beginning is still `write_shot`.
-6. **`render(path, shotId?)`** a single shot early to check motion, then the
-   whole film. It returns a film sheet, one frame per shot, to confirm the cut.
-   The whole film, unless it is a reel, also comes as `out/movie.mkv`, with
-   more sound tracks and subtitles (see Subtitles and the .mkv).
-7. **Review notes.** The person watches the result in the review app
-   (`talekit serve <path>`) and leaves notes on a character, a scene, or one
-   moment of a shot. When `project_info` reports open notes, or you are asked
-   to "fix my notes", call `list_notes(path)`: each note comes with the frame
-   or sheet the person was looking at. Fix what it asks, check the new
-   picture, then `resolve_note(path, id)`. Do not resolve a note you did not
-   act on; say why instead.
+colors)` (tokens such as hair, skin, dress); without `name` the copy is
+   named from `asId` (`old-man` is "Old man"). Draw with
+   `write_character(path, character)` only what the library lacks (a
+   dragon, a robot, a kite), after reading `get_library_item` for a
+   character on the same rig. It returns the pose
+   sheet (proportions, expressions, variant fallbacks) and the construction
+   sheet (part boxes, pivots, silhouette, joints in a swing, a numbered red
+   box per numbered warning). Rewrite until it looks right and the warnings
+   are gone. A library copy returns only the pose sheet. Give every
+   character that speaks a `voice` from `list_voices`.
+4. **Scenes.** `copy_from_library` or `write_scene(path, scene)`, then read
+   the anchor sheet: every place a character stands or sits needs an anchor
+   on the floor. The library's jungle, cave, village hut and pond are
+   painted in detail: copy one and add the places the story needs with
+   `anchors` (`{ "well": { "x": 420, "y": 660 } }`, which also moves an
+   anchor of that name) rather than painting a new scene.
+5. **Shots.** `write_shot(path, shot, order)` one at a time, in order.
+   Study the contact sheet: people where you expect, facing each other,
+   bubbles readable, timing sensible. Write sheets are drawn small;
+   `preview_frame(path, shotId, t)` and `preview_shot(path, shotId,
+frames)` are full size. To fix a shot, `patch_shot(path, shotId, …)`:
+   `edit` merges fields into an action by index (`{ index: 3, fields: { t:
+4.5 } }`, null removes a field), `remove` takes actions out, `add` puts
+   new ones in, `set` replaces top-level fields (`duration`, `camera`), and
+   `cast` replaces, adds or (null) removes cast members. Indices are the
+   actions before the patch, as `get_item` lists them. It validates like
+   `write_shot`, keeps the shot's place and returns a sheet of the stretch
+   that changed. Restaging from the beginning is `write_shot`.
+6. **`render(path, shotId?)`** one shot early to check motion, then the
+   whole film, which returns a film sheet (one frame per shot) and, unless
+   it is a reel, `out/movie.mkv` (see
+   [Subtitles and the .mkv](#subtitles-and-the-mkv)).
+7. **Review notes.** The person watches in the review app (`talekit serve
+<path>`) and leaves notes on a character, a scene or a moment of a shot.
+   When `project_info` reports open notes, or you are asked to "fix my
+   notes", `list_notes(path)` gives each with the picture the person saw.
+   Fix it, check the new picture, then `resolve_note(path, id)`. Do not
+   resolve a note you did not act on; say why instead.
 
 ## Coordinate boxes
 
-Characters are drawn into a fixed canonical box. The engine scales the box to
-`height` pixels on screen and places the bottom-centre of the box at the
-anchor (the feet point).
+Characters are drawn into a fixed canonical box, facing **right**. The
+engine scales the box to `height` pixels, puts its bottom-centre on the
+anchor (the feet point) and mirrors it for `facing: "left"`. On every rig
+L is the far side and R the near side.
 
 ### `humanoid` rig — 200 wide × 400 tall, feet on y=400
 
@@ -85,107 +76,62 @@ anchor (the feet point).
  y 400 ─┴─ FEET LINE (anchor point is (100,400))
 ```
 
-Parts and draw order (back → front): `armL`, `legL`, `legR`, `torso`, (any
-extra parts), `head`, `face`, `eyes`, `mouth`, `armR`; a part placed with
-`hangs` is drawn next to the part it hangs from, except that one hung behind
-the head (a plait) goes behind the torso while the character walks toward
-the viewer, fading from one place to the other as they turn. The character
-faces **right**, three-quarters to the viewer; the engine mirrors it for
-`facing: "left"`. `armR` is the near arm (waves, points), `armL` is the far
-arm.
+Draw order (back → front): `armL`, `legL`, `legR`, `torso` (required),
+extra parts, `head`, `face`, `eyes`, `mouth`, `armR`. `armR` is the near
+arm (waves, points). A part placed with `hangs` is drawn next to the part
+it hangs from; one hung behind the head (a plait) goes behind the torso
+while the character walks toward the viewer, fading across as they turn.
 
 The library has a girl (`kid`), a `boy`, a man (`grownup`), a `woman` in a
-kurta with a plait, a `farmer` in a pagdi and dhoti, a bald `grandpa`
-in glasses and a waistcoat, a `grandma` in a sari, and a `pirate` with an
-eye patch and a peg leg. Copy and recolour the nearest one before drawing
-a person from scratch.
+kurta with a plait, a `farmer` in a pagdi and dhoti, a bald `grandpa` in
+glasses and a waistcoat, a `grandma` in a sari, and a `pirate` with an eye
+patch and a peg leg. Copy and recolour the nearest before drawing a person.
 
-The torso ends a little under the hips, at about y=292. A kurta, a coat
-or a dress drawn on the torso can go lower: say where with `"hem"` (the
-grandpa's kurta ends at 324). Sitting on the ground then rests the hem on
-the floor instead of pushing it through; on a seat it hangs over the
-edge. The construction check measures the torso and gives the number when
-it is more than 5 out. The grandma's sari skirt is drawn on the legs
-instead, so the knees bend inside it; in a stride the two halves part like
-wide trousers. The pirate's near leg is a wooden peg below the knee
-bend (y=330), so it bends, swings and plants like any shin; the walk does
-not limp. His patch is drawn in every `eyes` variant, because `eyes` draws
-over `face`.
-
-**Draw the face front-on and let the engine turn it.** `face` (the nose,
-cheeks, freckles, glasses: anything on the face that is not the eyes or the
-mouth), `eyes` and `mouth` are drawn looking straight out, centred on x=100.
-The engine slides them 22 units toward the way the character faces and
-narrows them to 0.8, so the face looks where the body goes instead of
-staring out of the screen, and when the character turns round the face
-comes through front-on. Keep the features inside x 64..136 so the turned
-face stays on the head. Draw the rest of the head for three-quarters: hair,
-an ear or a bow on the far (left) side only, since the face covers the near
-one; a collar or a buckle a little right of centre. The body turns with the
-face: the engine draws the torso a little narrower (0.88) and hangs the far
-arm and leg further behind it, and a walker or a runner turns further,
-nearly side-on. So draw the torso front-on too.
-
-**Give the head and the torso a back.** Walking or running into the screen
-(up it more than across it) the character turns away: the face parts are
-hidden and every part with a `back` variant draws that, so make `head` and
-`torso` `{ "default": "…", "back": "…" }` with the back of the head (hair
-over it, both ears or both pigtails) and the torso without its collar or
-buttons. Without a `back` the head shows as a blank face, which only suits
-a bald character. Coming out of the screen the face turns to the viewer.
-The arms and legs swing toward and away from the viewer then, so the engine
-foreshortens them and the steps fall under the body.
-
-Rules that make the rig work:
-
-- **Draw every part in absolute canonical coordinates**, hanging from its
-  pivot. The engine rotates the part around the pivot, so an arm must start at
-  the shoulder and a leg at the hip. No `transform` attributes on the outer
-  elements.
-- Arms and legs are easiest as a `<path d='M76 170 L70 284' stroke='{skin}'
-stroke-width='18' stroke-linecap='round' fill='none'/>` plus a hand circle
-  and a shoe shape at the end.
-- **Legs bend at the knee** when the character walks, crouches, sits or
-  lies down: the engine cuts the leg across y=330 and turns the lower half,
-  with a round joint as wide as the leg's stroke. So draw each leg as one
-  straight stroke down from its pivot, as above, and keep the shoe and any
-  sock below the knee.
-- **Arms bend at the elbow** the same way, across y=226: a little when they
-  hang, more as they swing forward in a walk, held bent to run, and from
-  the elbow to wave or rest a hand on the knee. Draw each arm as one
-  straight stroke with the hand at the end; a sleeve may cross the elbow.
-- `face`, `eyes` and `mouth` rotate with the head. Give the eyes and mouth
-  variants (below).
-- **Put detail where cloth folds**: a fold above and below the back of the
-  knee, trousers breaking over the shoe, a shirt bloused over its belt, a
-  line where the fingers curl on a hand. Leave thin bare arms and legs
-  plain: at half size a crease on a 16-unit stroke reads as a scratch.
-- **Hair that swings is a part of its own.** Draw a pigtail or a ponytail
-  as its own part, hung from the head where it is tied (`hangs`, under
-  Springs below), and list it in `springs`; keep the bobble or the band on
-  the head, over the hair, so the tie stays put while the hair swings.
-- `torso` is required. Put the neck in the torso, reaching at least 12
-  units up into the head, and end the torso at least 12 units below the hips
-  so the legs start under it.
-- Inner elements only (`<path>`, `<circle>`, `<rect>`, `<g>`…). Never an
-  `<svg>` element, never `<image>`, no external references. Prefix any `id`
-  you define with the character id to avoid clashes.
+- **`hem`.** The torso ends at about y=292. A kurta, coat or dress drawn
+  lower says where with `"hem"` (the grandpa's kurta: 324), so sitting
+  rests the hem on the floor or hangs it over a seat's edge. The
+  construction check gives the number when it is more than 5 out. A skirt
+  drawn on the legs (the grandma's sari) bends with the knees and parts in
+  a stride. A peg leg below the knee (the pirate) bends and plants like any
+  shin. `eyes` draws over `face`, so an eye patch goes in every `eyes`
+  variant.
+- **Draw the face front-on; the engine turns it.** `face` (nose, cheeks,
+  freckles, glasses: everything but eyes and mouth), `eyes` and `mouth` are
+  drawn looking straight out, centred on x=100, inside x 64..136. The
+  engine slides them 22 units toward the facing side and narrows them to
+  0.8, and brings them through front-on as the character turns. Detail
+  drawn in `head` stays put, so the nose would end up behind the eyes.
+  Draw the rest of the head three-quarters: hair, an ear or a bow on the
+  far (left) side only; a collar or buckle a little right of centre. Draw
+  the torso front-on too: the engine narrows it (0.88) and turns a walker
+  further, nearly side-on.
+- **Give `head` and `torso` a back.** Walking into the screen (up it more
+  than across) the character turns away: the face parts hide and every
+  part with a `back` variant draws it. Make `head` and `torso` `{
+"default": "…", "back": "…" }`: the back of the head (hair over it, both
+  ears or pigtails), the torso without collar or buttons. Without a `back`
+  the head shows a blank face, which suits only a bald character. Walking
+  out of the screen the face turns to the viewer and the limbs foreshorten.
+- **Legs bend at y=330, arms at y=226.** The engine cuts the limb there and
+  turns the lower half with a round joint as wide as its stroke. Draw each
+  as one straight stroke from its pivot (see
+  [Construction](#construction)), the hand or shoe at the end, any sock or
+  shoe below the knee; a sleeve may cross the elbow.
+- **Put detail where cloth folds**: above and behind the knee, trousers
+  breaking over the shoe, a shirt bloused over its belt, a curled finger
+  line. Leave thin bare limbs plain: at half size a crease on a 16-unit
+  stroke reads as a scratch.
+- **Hair that swings is its own part**, hung from the head where it is tied
+  (`hangs`, see [Springs](#springs)) and listed in `springs`; keep the
+  bobble or band on the head so the tie stays put.
+- The neck is in the torso, reaching at least 12 units into the head; the
+  torso ends at least 12 units below the hips.
 
 ### `quadruped` rig — 260 wide × 200 tall, feet on y=200
 
 Four-legged animals. The library has a dog, cat, rabbit, deer, lion, tiger,
-bear, fox, jackal, crocodile and mouse: copy and recolour one when you can,
-and read `get_library_item("dog")` before drawing a new one (a horse, a pig,
-a sheep). The underside of the body sits near y=152. `lie` lays it on the
-floor, so when you draw it higher (a slender deer) or lower (a round
-rabbit), say where with `"belly"`: the deer has 140, the rabbit 166. The
-construction check measures it between the legs and gives the number when it
-is more than 5 out. Lying, the front legs stretch out with the paws on the
-floor in front of the chest; for an animal with hooves (a deer, a goat, a
-horse) set `"hooves": true` and they fold back under the chest, knees
-forward, as a deer's do. A low animal still needs its feet on y=200, so the
-crocodile stands on longer legs than a real one; in water the scene hides
-them.
+bear, fox, jackal, crocodile and mouse: recolour one when you can, and read
+`get_library_item("dog")` before drawing a new one.
 
 ```
  y   0 ─┬─ top of box (ear tips, antlers)
@@ -201,75 +147,57 @@ them.
  y 200 ─┴─ FEET LINE (anchor point is (130,200))
 ```
 
-Parts and draw order (back → front): `legBL`, `legFL` (the far legs),
-`tail`, `body`, (any extra parts), `legBR`, `legFR` (the near legs), `earL`,
-`earR`, `head`, `eyes`, `mouth`. `body` is required. The animal faces
-**right**; L is the far side and R the near side, as on the humanoid. Every
-leg, the tail and the head hang from the body, so when the body tips back
-for `sit` or rocks in the gallop they go with it; the ears and face hang
-from the head.
+Draw order (back → front): `legBL`, `legFL`, `tail`, `body` (required),
+extra parts, `legBR`, `legFR`, `earL`, `earR`, `head`, `eyes`, `mouth`. The
+legs, tail and head hang from the body, so they follow it when it tips
+back to `sit` or rocks in the gallop; the ears and face hang from the head.
 
-- **Legs** are round-capped strokes straight down from their pivot to the
-  line (`<path d='M194 132 L194 189' stroke='{fur}' stroke-width='18'
-stroke-linecap='round' fill='none'/>`) with a paw or hoof shape at the
-  bottom reaching y=200. The body must cover every pivot by at least 12
-  units, so give it a deep chest and rump; a leg can be short and mostly
-  hidden (a rabbit, a mouse), but it starts at its pivot. Far legs a shade
-  darker than near ones. A sitting animal's hind legs bend at the knee
-  (y=166), so keep each leg one straight stroke and the paw below the knee.
-  Below the knee the leg must run down the knee's own x (the pivot's), or
-  the bend shows a notch; a haunch drawn on a hind leg ends a few units
-  above the knee. The near legs (`legBR`, `legFR`) join the body the way
-  the head does: their outline shows only where they leave it, so a haunch
-  grows out of the rump instead of sitting on the flank like a drumstick.
-  Give the haunch its form with a crease instead: a tapered `{line}` shape
-  along the front of the thigh down to the stifle, open at the top so it
-  fades into the back. A small bump at the back of the leg just above the
-  knee reads as the hock; a short tapered line down the back of the heel,
-  drawn after the leg's stroke, marks it. The near front leg gets the same
-  at the elbow: a bump behind the top of the leg where it leaves the chest,
-  with a line down the back of it, both after the stroke or the stroke
-  covers them. Keep them below the head's neck and mane, which hide
-  anything higher on the shoulder.
-- **Head** includes the neck: a thick stroke from inside the chest up to the
-  head, so a nod lowers the whole neck. The head's outline is drawn with the
-  body's, so no line crosses where the neck sinks into the chest and the head
-  grows out of the shoulders. Keep the muzzle inside x ≤ 260.
-- **Ears** sit behind the head, so the head's outline closes their base:
-  draw each from below the head's edge (sunk at least 12 units) up to its
-  tip, covering its pivot. A floppy ear hangs past the back of the head.
-- **Tail** starts inside the rump and covers (44,110); a long tail can
-  curve anywhere in the box.
+- **`belly`.** The underside of the body sits near y=152, which `lie` puts
+  on the floor. Drawn higher (a slender deer: 140) or lower (a round
+  rabbit: 166), say so with `"belly"`; the check gives the number when it
+  is more than 5 out. `"hooves": true` (a deer, a goat, a horse) folds the
+  forelegs under the chest when lying, instead of stretching the paws out
+  in front. A low animal still stands on y=200 (the crocodile has long
+  legs; in water the scene hides them).
+- **Legs** are round-capped strokes straight down from their pivot (`<path
+d='M194 132 L194 189' stroke='{fur}' stroke-width='18'
+stroke-linecap='round' fill='none'/>`) with a paw or hoof reaching
+  y=200. Give the body a deep chest and rump so it covers every pivot by 12
+  units; a short leg (a rabbit, a mouse) still starts at its pivot. Far
+  legs a shade darker. Below the knee (y=166) the leg runs down the
+  pivot's x, or the bend shows a notch.
+- **Near legs join the body without a line**, like the head, so a haunch
+  grows out of the rump. Give it form with a tapered `{line}` crease down
+  the front of the thigh, open at the top; a hind leg's haunch ends a few
+  units above the knee. A bump behind the leg above the knee is the hock,
+  with a short tapered line down the back of the heel; the near front leg
+  gets the same at the elbow. Draw them after the leg's stroke, below the
+  neck and mane, which hide anything higher.
+- **Head** includes the neck: a thick stroke from inside the chest, so a
+  nod lowers the whole neck; no line crosses where it sinks in. Muzzle
+  inside x ≤ 260.
+- **Ears** sit behind the head: draw each from at least 12 units below the
+  head's edge to its tip, covering its pivot. A floppy ear hangs past the
+  back of the head.
+- **Tail** starts inside the rump, covering (44,110); it can curve anywhere
+  in the box.
 - **Face**: one eye in profile (white, iris, highlight) and a mouth under
-  the muzzle, with the same variants as every other rig.
+  the muzzle, with the usual variants.
 
-The engine walks it in diagonal pairs (near front with far hind), with the
-feet planted while they are down, a lifted front paw folding back at the
-wrist and a hind one tucking forward under a hock that points back, the head
-bobbing against the step and the tail swinging; `run` is a gallop between a
-gathered pose and a stretched one; `sit` tips the body back about the hips,
-bends the hind legs at the knee with the paws on the floor and keeps the
-front paws planted on the way down; `lie` brings the body level onto its
-belly with the hind legs folded under, the front paws stretched out in
-front (hooves folded under) and the head lowered; `wave` and `point`
-lift the near front paw; `jump` gathers on bent legs, then leaps stretched
-out. Turning round (a `facing` change, or a move back the way it came)
-takes about 0.7 s, where a person swivels in 0.2: the head comes round
-first, the body narrows to end-on and opens out the other way, the feet step
-round in diagonal pairs and the tail swings wide. The tail and ears are
-springs by default (see below). `height` is the box height on screen:
-about 55 for a mouse, 90–110 for a cat or dog, 170–190 for a lion, bear or
-deer.
+The engine walks it in diagonal pairs with planted feet and gallops it
+for `run`. A turn takes about 0.7 s (a person's 0.2 s), the head first and
+the feet stepping round. The tail and ears are springs by default. `height`: about 55 for a mouse, 90–110 for a cat or
+dog, 170–190 for a lion, bear or deer.
 
 ### `simple` rig — 200 × 200, base on y=200
 
-One required `body` part plus optional `eyes` and `mouth`. The engine bobs and
-tilts the whole body for walk/run, hops it for `bounce`, wobbles it for `fly`,
-rotates it for `spin`, leans it forward for `point`, shivers it for `tremble`,
-settles it lower and wider for `lie`.
-Use it for birds, fish, vehicles, kites, balls, blobby monsters and props:
-anything that bobs, hops or flies rather than walks. A four-legged animal
-belongs on the quadruped rig.
+One required `body` part plus optional `eyes` and `mouth`, for birds, fish,
+vehicles, kites, balls, blobby monsters and props: anything that bobs,
+hops or flies rather than walks. The engine bobs and tilts the whole body
+for walk/run, hops it for `bounce`, wobbles it for `fly`, rotates it for
+`spin`, leans it the way it faces for `point` (set `facing` first),
+shivers it for `tremble`, settles it lower and wider for `lie`; `wave`,
+`nod` and `shake` only tilt or nudge it.
 
 ```
  x   0 ──────────── 200
@@ -281,58 +209,48 @@ belongs on the quadruped rig.
  y200└────┴┴────────┘   base line y=200: feet, wheels or base touch it.
 ```
 
-A minimal creature: `body` is one `<path>`/`<ellipse>` group with wings,
-tail and head drawn in; `eyes` has `open`, `closed`, `wide`, `happy`; `mouth`
-has `closed`, `open`, `smile`, `sad` (a bird's beak is its mouth). Bubbles
-hang from the top of the box, so keep the head near the top.
-`get_library_item("bird")` is a complete worked example to copy the layout
-from (the library also has a `crow`, a `parrot`, a `swan`, a `frog`, a
-`fish` and a coiled `cobra`); `height` on screen is typically 50–80 for a
-bird and 80–140 for a prop or a small creature. The fish's tail is its own
-part hung from the body (see Springs), so it swishes as the fish swims;
-the swan has no feet, since a scene's water covers the bottom of its body.
-The cobra is rigid, coiled with its hood spread: it sways only with the
-rig's bob and tilt, and its open mouth shows the fangs and a forked
-tongue, so talking reads as a hiss.
+`body` is one group with wings, tail and head drawn in; `eyes` has `open`,
+`closed`, `wide`, `happy`; `mouth` has `closed`, `open`, `smile`, `sad` (a
+beak is a mouth). Keep the head near the top, where bubbles hang.
+`get_library_item("bird")` is the worked example; the library also has a
+`crow`, `parrot`, `swan` (no feet: water covers them), `frog`, `fish` (its
+tail a hung spring part) and a rigid coiled `cobra` whose open mouth shows
+fangs, so talking reads as a hiss. `height`: 50–80 for a bird, 80–140 for
+a prop or small creature.
 
 ### Variants
 
 A part can be a map of named SVG fragments instead of a string. The engine
-picks the variant from the current emotion, talking state and blinking:
+picks the variant from the emotion, talking and blinking:
 
 | part    | variants the engine looks for                                                        |
 | ------- | ------------------------------------------------------------------------------------ |
 | `mouth` | `closed` (rest), `open` (talking flap, surprised), `smile`, `sad`, `angry`, `scared` |
 | `eyes`  | `open`, `closed` (blink), `wide` (surprised/scared), `happy`, `sad`, `angry`         |
 
-Missing variants fall back to the next in the list (angry eyes → open, scared
-mouth → open → closed); `write_character` lists every fallback in its text
-and the pose sheet labels the cell (`angry · eyes→open`), so a missing
-variant is never silent. `mouth.open` and `eyes.closed` are what make a
-character feel alive. A variant may be the empty string `""` to
-draw nothing (a beak's closed mouth when the beak is part of the body) as long
-as one variant of the part draws something. Any other part may have variants
-too (`body: { dark, lit }` on a lantern, `hat: { on, tilted }`); select them
-with a `face` action, e.g. `{ "face": { "hat": "tilted" } }`. The pose sheet
-shows one cell per such variant at the end, so check them there.
+A missing variant falls back to the next in the list (angry eyes → open,
+scared mouth → open → closed); `write_character` lists every fallback and
+the pose sheet labels the cell (`angry · eyes→open`). `mouth.open` and
+`eyes.closed` make a character feel alive. `""` draws nothing (a beak's
+closed mouth drawn in the body) as long as some variant of the part draws.
+Any other part may have variants (`body: { dark, lit }` on a lantern), set
+with a `face` action (`{ "face": { "hat": "tilted" } }`); the pose sheet
+shows one cell per variant at the end.
 
 ### Springs
 
 `springs` lists parts that swing behind the motion on their own: a tail
 trails when a walk starts and flicks past on the stop, ears bounce on a
-landing. On the quadruped the default is `["tail", "earL", "earR"]`; other
-rigs have none. Write your own list to change it (`["tail", "scarf"]`), or
-`[]` to keep every part rigid. A part the rig places turns about its pivot,
-so draw it hanging from there; a part the rig does not know (`hair`,
-`scarf` on a humanoid) sways in place by a few units instead, unless you
-hang it. The construction sheet marks spring parts with `~`. Nothing in a
-shot drives a spring: it follows the motion the engine makes.
+landing. The quadruped's default is `["tail", "earL", "earR"]`; other rigs
+have none; `[]` keeps every part rigid. A part the rig places turns about
+its pivot; one it does not know sways in place by a few units, unless you
+hang it. Nothing in a shot drives a spring. The construction sheet marks
+spring parts with `~`.
 
-`hangs` places a part the rig does not know: which part carries it
-(`from`), and the point in the box it turns about (`at`), where it is tied
-on. It moves with that part, so a pigtail hung from the head nods and
-turns with it, and it is drawn just behind it, or just in front with
-`"front": true`. The library kid's pigtails:
+`hangs` places a part the rig does not know: the part that carries it
+(`from`) and the point in the box it turns about (`at`). It moves with
+that part and is drawn just behind it (just in front with `"front":
+true`). The library kid's pigtails:
 
 ```json
 "hangs": {
@@ -342,179 +260,155 @@ turns with it, and it is drawn just behind it, or just in front with
 "springs": ["pigtailL", "pigtailR"]
 ```
 
-Listed in `springs`, a hung part swings about `at`: it trails as a walk
-starts, bounces with each step and lifts on a jump. Draw it hanging from
-`at`, reaching into the part it hangs from; the construction linter checks
-that joint like the rig's own. A part may hang from another hung part (a
+Draw a hung part hanging from `at`, reaching into the part it hangs from;
+the linter checks that joint. A part may hang from another hung part (a
 ribbon on a pigtail).
 
 ### Shadow
 
-Every person and animal stands in a soft ground shadow the engine draws
-under its feet, as wide as the rig's stance; it shrinks and fades as a jump
-or a bounce lifts the body, and goes while the character flies or is
-carried. The simple rig has none by default, since birds and kites hang in
-the air: set `"shadow": true` on a prop that sits on the ground (a lantern,
-a basket), or `false` on anything that should not touch the floor (a ghost,
-a reflection). The pose sheet draws it. Where the scene has a light (see
-Lights and cast shadows), the same characters also throw their silhouette
-across the floor away from it; a carried prop's shadow goes with its
-carrier's.
+People and animals stand in a soft ground shadow as wide as their stance,
+which shrinks as a jump lifts them and goes while they fly or are carried.
+The simple rig has none by default: set `"shadow": true` on a prop that
+sits on the ground (a lantern, a basket), `false` on anything that should
+not touch it (a ghost, a reflection). Scene lights add a cast shadow too
+(see [Lights and cast shadows](#lights-and-cast-shadows)); a carried
+prop's goes with its carrier's.
 
 ### Colours
 
-`colors` is a map of token → colour. Inside part SVG write `{skin}`, `{hair}`
-and so on. Copying a library character and changing `colors` is the fastest
-way to make a new cast member. Undefined tokens are a validation error.
-`line` is the outline colour (below); define it to use `{line}` for line work.
+`colors` maps token → colour; part SVG writes `{skin}`, `{hair}` and so on.
+An undefined token is a validation error. `line` is the outline colour;
+define it to use `{line}` for line work.
 
 ## Drawing style
 
-One style for every character, so a cast looks like it came from one show:
-an **outlined cartoon**. Flat colour shapes, bold and round, with a dark line
-around them. The library characters are the bar; read one before drawing.
+One style for every cast, an **outlined cartoon**: flat colour shapes,
+bold and round, with a dark line around them. The library characters are
+the bar; read one before drawing.
 
-- **Do not draw outlines.** The engine draws the line around every part,
-  the same width on screen for the whole cast, thinner on `eyes` and `mouth`.
-  Shapes inside one part merge into one silhouette; a part in front of
-  another (the near arm over the torso) gets its own line where they cross.
-  The exception is a four-legged animal's head and near legs, which join
-  its body without a line.
-  It uses `colors.line` (default `#2e2633`, near-black plum). Set `"outline":
-false` only for something that should not look drawn: a glow, a ghost.
-- **Do not draw shading either.** The engine shades every part on the side
-  away from the light: by day the light comes from the scene's sun, or from
-  high to the left when it has none, so a head gets a darker crescent on
-  the side away from it and a leg a strip down its far side,
-  turning with the part as it swings and staying put when the character
-  faces left. An arm or a leg shades as a limb: a strip down its length
-  and the hand or the shoe at its end shaded underneath, so a wide shoe
-  or cuff never lights a bump on the shin above it. By a `fire` the shadow
-  swings round and the side toward the flames gets a warm rim. A four-legged animal's head and body shade as one
-  shape. Set `"shade": false` only for something with no form or that gives
-  light itself: a glow, a ghost, a flat sign.
-- **Flat fills.** One base colour per area plus one darker shade of it for
-  inner detail: a muzzle, a belly, an inner ear, a hem. No gradients on
-  characters. Faint shapes (`opacity` below 0.95, e.g. blush at `0.5`) and
-  thin strokes (under 8 wide) get no outline, so they read as detail.
-- **Line work inside the silhouette** (a closed mouth, eyebrows, a nose, a
-  crease) is a stroke in `{line}`, 3–4 units, round caps.
-- **Eyes** are a white, a dark iris and a small white highlight up and to the
-  side. The iris sits toward where the character looks; a blink is a curved
-  `{line}` stroke. Small animals may use a dark dot with a highlight.
-- **Simple, shaped forms**: a head is a circle or a rounded blob, a body a
+- **Do not draw outlines.** The engine draws one around every part, the
+  same width on screen for the whole cast, thinner on `eyes` and `mouth`,
+  in `colors.line` (default `#2e2633`). Shapes inside one part merge into
+  one silhouette; a part in front of another gets its own line where they
+  cross; a four-legged animal's head and near legs join its body without
+  one. `"outline": false` only for a glow or a ghost.
+- **Do not draw shading.** The engine darkens every part on the side away
+  from the light (the scene's sun, else high on the left, or a nearby
+  `fire` with a warm rim), turning with the part as it swings; a limb
+  shades down its length and under its hand or shoe; an animal's head and
+  body shade as one shape. `"shade": false` only
+  for something with no form or that gives light: a glow, a flat sign.
+- **Do not draw a ground shadow**; the floor belongs to the scene.
+- **Flat fills**: one base colour per area plus one darker shade for inner
+  detail (a muzzle, a belly, a hem). No gradients on characters. Faint
+  shapes (`opacity` under 0.95, e.g. blush at 0.5) and strokes under 8 wide
+  get no outline, so they read as detail.
+- **Line work inside the silhouette** (closed mouth, eyebrows, nose,
+  crease) is a `{line}` stroke, 3–4 units, round caps.
+- **Eyes**: a white, a dark iris toward where the character looks, a small
+  white highlight up to the side; a blink is a curved `{line}` stroke. Small
+  animals may use a dark dot with a highlight.
+- **Simple, shaped forms**: a head is a circle or rounded blob, a body a
   bean with a dip in the back and a deep chest (not a box between two
-  ellipses), limbs are tubes with round ends. Give a shape its taper: a tail
-  that thins to its tip, a haunch over a hind leg, a stripe that narrows, as
-  filled paths rather than one even stroke. On screen the box shrinks to
-  about half size, so nothing readable is smaller than 6 units. The library
-  characters are drawn this way; copy from them.
-- Do not draw a ground shadow; the floor belongs to the scene.
+  ellipses), limbs tubes with round ends. Taper what tapers (a tail, a
+  haunch, a stripe) as a filled path, not an even stroke. On screen the box
+  is about half size, so nothing readable is under 6 units.
 
 ## Construction
 
-The rules a rig needs to move without coming apart. `write_character` checks
-them on the drawing itself and returns the construction sheet; each numbered
-warning has a matching red box on it.
+What a rig needs to move without coming apart. `write_character` checks it
+on the drawing and returns the construction sheet, a red box per numbered
+warning.
 
-- **Nothing outside the box.** This one is an error: the engine scales and
-  places the box, and bubbles hang from its top.
-- **Feet on the line**: shoes touch y=400 on the humanoid, all four paws or
-  hooves touch y=200 on the quadruped; the lowest point touches y=200 on the
-  simple rig, unless the thing flies.
+- **Nothing outside the box.** An error: the engine scales and places the
+  box, and bubbles hang from its top. Keep the head near the top.
+- **Feet on the line**: shoes touch y=400 (humanoid), all four feet y=200
+  (quadruped), the lowest point y=200 (simple, unless it flies).
 - **Limbs are strokes from their pivot**, e.g. `<path d='M124 170 L130 280'
-stroke='{skin}' stroke-width='18' stroke-linecap='round' fill='none'/>`. The
-  round cap at the pivot looks the same at every angle, so the joint never
-  shows a corner when the limb swings.
-- **Sink, do not touch.** A limb overlaps the torso (or the quadruped's
-  body) by at least 12 units, the neck reaches 12 units into the head, an
-  ear sinks 12 into the head; a thin limb (a mouse's leg, a lion's tail)
-  sinks three quarters of its width. Inside a part every piece (a leg,
-  a tail, an ear, a pigtail) sinks at least 12 units (three quarters of its
-  own width if it is thinner) into the shape it hangs from. Two shapes that
-  only touch read as separate stickers, and a gap opens as soon as they move.
-- **Draw order is depth.** Inside a part, write the far side first, then the
-  body, then the near side: far legs, tail, body, near legs, head, ears.
-- **Keep the head near the top of the box**, where bubbles hang.
-- **A person's face detail goes in `face`.** A nose, a cheek or freckles
-  drawn in `head` stay put while the engine turns the eyes and mouth, so
-  the nose ends up behind the eyes.
+stroke='{skin}' stroke-width='18' stroke-linecap='round' fill='none'/>`,
+  plus a hand circle or a shoe. The round cap shows no corner at any angle.
+  Draw every part in absolute box coordinates, hanging from its pivot, with
+  no `transform` on its outer elements.
+- **Sink, do not touch.** A limb overlaps the torso or body by at least 12
+  units, as do the neck into the head and an ear into it; a thin piece (a
+  mouse's leg, a lion's tail) sinks three quarters of its width. Inside a
+  part every piece sinks the same into what it hangs from. Shapes that only
+  touch read as stickers and gap as soon as they move.
+- **Draw order is depth.** Inside a part, far side first, then the body,
+  then the near side.
+- **Inner SVG only** (`<path>`, `<circle>`, `<rect>`, `<g>`…): never
+  `<svg>` or `<image>`, no external references. Prefix any `id` with the
+  character's id.
 
 ## Scenes
 
-A scene is an SVG fragment the size of the project (default 1280×720; a
-reel's is 720×1280) plus
-named **anchors**: floor points where characters stand. Add an anchor for
-every door, chair, tree, table, path end you will use. Optional `scale` on an
-anchor shrinks characters that stand further back (`0.7` for a distant path).
-`ground` is the floor y for the built-in shortcuts `left`, `center`, `right`,
-`offLeft`, `offRight` (off = 15% of the frame width outside the edge, 192 px
-at 1280, so anything up to about 350 px wide starts fully hidden; for wider
-characters use an explicit point further out).
+A scene is an SVG fragment the size of the project (default 1280×720, a
+reel's 720×1280) plus named **anchors**: floor points where characters
+stand. Add one for every door, chair, tree, table and path end you will
+use. An anchor's optional `scale` shrinks whoever stands there (`0.7` for
+a distant path). `ground` is the floor y for the shortcuts `left`,
+`center`, `right`, `offLeft` and `offRight` (default 0.9 × height; off is
+15% of the width outside the edge, 192 px at 1280, which hides anything up
+to about 350 px wide; place wider characters further out).
 
-Seating: `sit` puts the **bottom of the body** (just under the hips) on the
-anchor, so a seat anchor goes on the seat surface, not on the floor. Give it
-`floor`, the y of the floor under the seat, and a person sat there bends
-their knees to put their feet on it (e.g. `"bench-seat": { "x": 1010, "y":
-604, "floor": 655 }`). Without `floor`, sitting onto a seat from where the
-actor stood takes that spot as the floor, and sitting where it stands is
-sitting on the ground: legs out, knees up a little. The sit starts with
-the feet on that floor and rises onto the seat as the knees bend, and
-`stand`, or a walk straight off the seat, gets up onto the floor in front
-of it. An animal hops up onto a raised seat and stands on it before it
-sits, and hops down again when it gets up. A `sit` or `lie` with a `to`
-more than a step away (24 px) walks there first, at walking speed, and
-sits once it arrives: there is no need to walk the actor to the seat.
+**Seats.** `sit` puts the bottom of the body on the anchor, so a seat
+anchor goes on the seat surface, with `floor`, the y of the floor under it,
+where the feet go: `"bench-seat": { "x": 1010, "y": 604, "floor": 655 }`.
+Without `floor`, sitting onto a seat takes the spot the actor stood on as
+the floor, and sitting where it stands is sitting on the ground. `stand`
+or a walk off gets up onto the floor in front; an animal hops up onto a
+raised seat and down again. A `sit` or `lie` with a `to` more than 24 px
+away walks there first.
 
-Keep anchors that two people use at the same time at least a character's
-width apart (about 150 px, more if one stands further back at a smaller
-`scale`), or the nearer one hides the other and their bubbles collide.
+Keep anchors two people use at once a character's width apart (about 150
+px, more at a smaller `scale`), or one hides the other and their bubbles
+collide.
 
-Optional `foreground` is drawn in front of the actors (a table edge, a fence).
-Water is a translucent `foreground`: the library's pond lays the water's
-front surface over the pond from its waterline down, so a swan or a
-crocodile standing in it is cut at the waterline and the part below shows
-tinted through it, and a fish placed lower swims wholly under it. One
-waterline serves one swimming depth; a point lower in the water sinks the
-actor deeper, a higher one lifts it out.
+`foreground` is drawn in front of the actors (a table edge, a fence).
+Water is a translucent foreground: the library pond lays its surface over
+the pond from the waterline down, so a swan in it is cut at the waterline
+and a fish placed lower swims wholly under it. A point lower in the water
+sinks the actor deeper.
+
+Keep the floor band to the bottom 15–25% of the frame and the middle third
+uncluttered for faces and bubbles; a 220 px character is about a third of
+the frame height. The anchor sheet shows the project's tallest character
+(or a 220 px humanoid) as a ghost for scale, so write characters first.
+Gradients and `<defs>` are fine; prefix ids with the scene id. Keep
+backgrounds soft and low in contrast so the outlined characters pop; give
+props a character touches (a bench, a well, a door) a `#2e2633` outline of
+about 3 px.
 
 ### Layers and depth
 
-When the camera pans or zooms, a flat scene slides past as one picture.
-Split it into depths and it opens up:
+A flat scene slides past as one picture when the camera moves. Split it
+into depths:
 
-- `far`: the sky, sun, clouds, far hills, the sea, a skyline. Drawn behind
-  `svg`, it moves at half the stage's rate (`parallax.far`, 0 to 1; 0 holds
-  it still like a sky). **It must fill the whole frame on its own**, down to
-  the bottom edge (run the far hill or the sea to y=720), because a zoom
-  shows more of it than you expect; and `svg` must leave the sky out, or it
-  hides `far` (the validator warns about an opaque full-frame rect in
-  `svg`; a see-through one, such as a dusk tint over everything, is fine).
-- `svg` and `foreground`: the stage, where the actors and every anchor are.
-  They move with the camera exactly. Keep anchors on the stage: an actor
-  standing on something in `far` slides off it when the camera moves.
-- `near`: things right in front of the lens, drawn over everything (leaves
-  hanging into a top corner, grass along the bottom edge, a window frame).
-  It moves faster than the stage (`parallax.near`, 1 to 3, default 1.4).
-  Keep it to the edges of the frame, where it cannot cover a face.
+- `far`: sky, sun, clouds, far hills, the sea, a skyline. Drawn behind
+  `svg`, moving at `parallax.far` of the stage's rate (0 to 1, default
+  0.5; 0 holds it still). **It must fill the whole frame on its own**, down
+  to the bottom edge, since a zoom shows more of it than you expect; and
+  `svg` must leave the sky out (the validator warns about an opaque
+  full-frame rect in `svg`; a see-through tint is fine).
+- `svg` and `foreground`: the stage, with the actors and every anchor,
+  moving with the camera exactly. An actor standing on something in `far`
+  slides off it.
+- `near`: things right at the lens, over everything (leaves in a top
+  corner, grass along the bottom edge), moving at `parallax.near` (1 to 3,
+  default 1.4). Keep it to the edges, where it cannot cover a face.
 
-With the camera still, the layers line up as drawn. Interiors usually need
-no `far`. The library `park` and `street` are layered; read them for the
-split. The anchor sheet of a layered scene adds a strip underneath: each
-layer on its own, then the camera zoomed into either side, where the far
-layer should sit differently behind the stage with no gap anywhere.
+Interiors usually need no `far`. The library `park` and `street` are
+layered examples. A layered scene's anchor sheet adds each layer alone and
+the camera zoomed into either side; look for gaps there.
 
 ### Weather and moving nature
 
-Anything in a scene that should move by itself (rain, snow, clouds, fire, the
-sea) is drawn by the engine, every frame. **Do not draw rain streaks,
-snowflakes or flames in the scene's SVG**: they would stand still. Draw the
-mood and everything that does not move (wet pavement and puddles, snow on
-the ground, the fire pit's stones, the rock face behind a waterfall), and
-name the rest. Paint the sky as it is in fair weather and let `clouds` grey
-it: then a `weather` action that clears them brings the blue back.
-
-`weather` covers the whole sky and air:
+Anything that moves by itself (rain, snow, clouds, fire, the sea) is drawn
+by the engine every frame. **Do not draw rain streaks, snowflakes or
+flames**: they would stand still. Draw the mood and what does not move
+(wet pavement, snow on the ground, the fire pit's stones), and name the
+rest. Paint the sky in fair weather and let `clouds` grey it, so clearing
+them brings the blue back.
 
 ```json
 "weather": {
@@ -525,60 +419,40 @@ it: then a `weather` action that clears them brings the blue back.
 }
 ```
 
-- `rain` (`amount` 0.2 drizzle to 1 downpour) falls at three depths: a fine
-  haze behind the scenery, drops between the scenery and the actors, a few
-  big ones in front of the actors. Splashes ring on the floor around
-  `ground`. `snow` is the same with flakes that sway as they fall.
-- `wind` (-1 to 1, positive blows right) slants the rain, carries snow,
-  smoke, sparks and leaves, moves the clouds, and from 0.3 up draws wavy
-  gusts streaming across the frame. `leaves: { "amount": 0.5 }` sends
-  leaves tumbling through (`colors` to recolour them).
-- `clouds` drift across the sky band (down to `low`, default 0.32 × height).
-  `dark` 0 is white fair-weather cloud; 1 is a storm, which also darkens the
-  sky over the clouds and dims the frame a little. From about `amount` 0.4
-  up they wash the colour out of the whole far layer, an overcast day
-  turning a painted blue sky grey (storm clouds darken it as well).
-- `lightning` strikes about every `every` seconds: a bolt in the sky and a
-  flash that brightens the frame for a moment. For a strike at a story beat
-  (the thunderclap that makes someone jump), put `{ "t": 3, "lightning":
-true }` in the shot's actions instead.
-- `heat` (0 to 1) makes the far layer shimmer, as over desert sand at noon.
-- `light: { "color": "#4a5a8f", "amount": 0.7 }` is the light on the
-  characters. They are drawn in daylight colours, so in a night or dusk
-  scene (drawn in its own colours) they would glow: `light` tints them to
-  match, a night blue at about 0.7, a dusk orange at about 0.5. A `fire`
-  then lights whoever comes near it, warmer the closer: the side toward the
-  flames gets a warm rim and the shadow falls on the far side. It also
-  spreads a glow over the scene around it.
-- `top`, on `rain` or `snow`: the stage y it falls from, for a shot under a
-  shelter across the whole top of the frame (the underside of a bench seat
-  in a close-up).
-- `scale`: for a close-up scene drawn large, the same scale its anchors give
-  the characters, so the drops are as big as they would be that close.
+- `rain` (`amount` 0.2 drizzle to 1 downpour) falls at three depths, with
+  splashes on the floor around `ground`; `snow` is the same with swaying
+  flakes. Both take `top`, the stage y they fall from (under a shelter
+  across the whole frame top), and `scale`, the anchors' scale in a
+  close-up scene drawn large.
+- `wind` (-1 to 1, positive blows right) slants rain, carries snow, smoke,
+  sparks and leaves, moves the clouds, and from 0.3 draws gusts.
+  `leaves: { "amount": 0.5 }` sends leaves tumbling (`colors` recolours).
+- `clouds` drift across the sky band (down to `low`, default 0.32 ×
+  height). `dark` 0 is white, 1 a storm that darkens the sky and dims the
+  frame. From `amount` 0.4 they wash the colour out of the far layer.
+- `lightning` strikes about every `every` seconds, a bolt and a flash.
+- `heat` (0 to 1) makes the far layer shimmer.
+- `light: { "color": "#4a5a8f", "amount": 0.7 }` tints the characters,
+  drawn in daylight colours, to a night (blue, ~0.7) or dusk (orange,
+  ~0.5) scene. A `fire` then lights whoever comes near it.
 
-Clouds, the lightning bolt and the heat haze are drawn in the `far` layer,
-so a scene that uses them needs one (the validator warns).
+Clouds, lightning and heat are drawn in `far`, so the scene needs one (the
+validator warns).
 
-**Shelters.** Rain and snow stop on a shelter and the ground under it stays
-dry, with drops gathering and dripping off both ends. A scene lists its own
-as `shelters: [{ "x": 858, "y": 500, "width": 224 }]` (a bench seat, a
-roof's edge, an awning, a tree's canopy: from x to x + width at height y,
-marked blue on the anchor sheet). A character carries one as `shelter: {
-"x": 13, "y": 50, "width": 180, "when": "open" }` in its own box (an
-umbrella's canopy edge): it goes where the character goes, and `when` limits
-it to a variant, so a closed umbrella keeps nothing dry. A list gives one
-span per variant (open overhead, propped over a cat). The construction sheet
-marks it.
+**Shelters.** Rain and snow stop on a shelter, keep the ground under it dry
+and drip off both ends. A scene lists its own, `shelters: [{ "x": 858,
+"y": 500, "width": 224 }]` (a bench seat, a roof edge, a canopy; marked
+blue on the anchor sheet). A character carries one in its own box,
+`shelter: { "x": 13, "y": 50, "width": 180, "when": "open" }` (an
+umbrella's canopy): `when` limits it to a variant, and a list gives one
+span per variant.
 
-**Changing weather.** A shot can set its own `weather`, which replaces the
-scene's for the whole shot; `{}` clears it. To change it during a shot, add
-an action: `{ "t": 4, "weather": { "clouds": { "amount": 0.3 } }, "duration":
-3 }` turns the weather in force into that over 3 s (default 2): rain thins
-out drop by drop, clouds fade away or roll in where they will stay, the
-wind drops, night falls with `light`. What the action leaves out goes away.
+**Changing weather.** A shot's `weather` replaces the scene's for the
+shot; `{}` clears it. An action `{ "t": 4, "weather": { "clouds": {
+"amount": 0.3 } }, "duration": 3 }` turns the weather in force into that
+over `duration` (default 2 s); what it leaves out goes away.
 
-`effects` places moving things, each in the coordinates of the plane it
-belongs to (`layer`):
+`effects` places moving things, each in the coordinates of its `layer`:
 
 ```json
 "effects": [
@@ -599,22 +473,18 @@ belongs to (`layer`):
 | `sun`       | the centre of the disc                             | a breathing halo and slowly turning rays                                        |
 
 `size` scales fire (1 is a campfire about 110 px tall), smoke and the sun;
-`color` recolours the water, the foam, the smoke or the sun. The default
-plane is `far` for the sun and `stage` (behind the actors) for the rest;
-`front` puts it in front of the actors, `near` with the near layer. Waves on
-a sea drawn in `far` need `"layer": "far"`. Draw the sea itself, the pool
-under the waterfall and the fire pit: the effect only adds what moves.
-
-The anchor sheet of a scene with weather or effects adds a row of the empty
-scene at a few moments, so you can see the rain fall and the flames move.
+`color` recolours water, foam, smoke or sun. `layer` defaults to `far` for
+the sun and `stage` (behind the actors) for the rest; `front` is in front
+of the actors, `near` with the near layer. Waves on a sea drawn in `far`
+need `"layer": "far"`. Draw the sea, the pool and the fire pit yourself.
+The anchor sheet adds a row of the empty scene at a few moments.
 
 ### Lights and cast shadows
 
-Every person, animal and grounded prop (`shadow: true`) casts a shadow from
-each light in the scene: its own silhouette laid across the floor away from
-the light, soft at the edge and fading toward the far end. A `sun` effect
-and every `fire` are lights already. A light painted into the art is named in
-`lights`, so the shadows agree with the picture:
+Every person, animal and grounded prop casts its silhouette across the
+floor away from each light, soft and fading. A `sun` effect and every
+`fire` are lights already; name a light painted into the art in `lights`
+so the shadows agree with it:
 
 ```json
 "lights": [
@@ -623,35 +493,19 @@ and every `fire` are lights already. A light painted into the art is named in
 ]
 ```
 
-- `sun` and `moon` are in the sky, far away (`x`, `y` where they are painted,
-  usually in `far`). High in the sky they throw short shadows, low over the
-  horizon long ones; being in the picture, they are behind the stage, so the
-  shadows fall forward, toward the viewer, and away from the light's side. A
-  scene with a sun also lights the characters' shading from it. A moon's
-  shadows are fainter (`strength` 0.55 by default).
-- `lamp` is a light on the stage among the actors (a bulb, a lantern on a
-  post, a lit window): shadows run along the floor away from it, longer the
-  further off the actor stands and the lower the lamp hangs, fading out at
-  `reach` (default 700 px). By day a lamp's shadows are faint; at night
-  (`weather.light`) they are strong. A fire is a lamp at its flames, so
-  shadows waver with it.
-- `strength` (0 to 1) is how dark a shadow a light throws: lower it for a
-  shady place (under a big tree, 0.35) or a hazy sun. Clouds and rain dim a
-  sun's shadows by themselves.
+- `sun` and `moon` are in the sky where painted: high, short shadows; low,
+  long ones, falling toward the viewer and away from the light's side. A
+  sun also lights the characters' shading. A moon's `strength` defaults to
+  0.55.
+- `lamp` is on the stage (a bulb, a lantern, a lit window): shadows run
+  away from it, longer the further off and the lower it hangs, fading out
+  at `reach` (default 700 px); faint by day, strong at night. A fire is a
+  lamp at its flames.
+- `strength` (0 to 1, default 1) is how dark the shadow is: 0.35 under a
+  big tree. Clouds and rain dim a sun's shadows by themselves.
 
-A scene with no lights has only the soft shadow under the feet. Shadows of
-things painted into the scene (a tree, a house) are the painter's: paint
-them falling the same way.
-
-Design tips: the floor band should be the bottom 15–25% of the frame; keep
-the middle third uncluttered where faces and bubbles go; a 220px character is
-about a third of the frame height. The anchor sheet shows a ghost for scale:
-the project's tallest character once one exists (so write characters before
-scenes), otherwise a 220px humanoid.
-Gradients and `<defs>` are fine; prefix ids with the scene id. Keep
-backgrounds soft and low in contrast so the outlined characters pop; props
-and foreground objects a character touches (a bench, a well, a door) get a
-`#2e2633` outline of about 3 px, like the characters.
+Shadows of painted things (a tree, a house) are the painter's: paint them
+falling the same way.
 
 ## Shots
 
@@ -677,296 +531,235 @@ and foreground objects a character touches (a bench, a well, a door) get a
 }
 ```
 
-- `cast` places everyone at the start. Characters not in the cast are not in
-  the shot. `visible: false` hides until an `appear`.
-- **Draw order is by feet position:** the actor whose feet are lower on
-  screen is nearer and is drawn in front. Cast order and size do not matter.
-  When two actors share a path and one must pass behind, give it an anchor or
-  point with a smaller `y`.
-- A position (`at`, `to`, `set.at`) is an anchor name or an explicit point in
-  scene pixels, `{ "x": 640, "y": 610, "scale": 0.8 }` (`scale` optional).
-  A `to` with a `scale` tweens the size during `walk`/`move`/`fly`: use it to
-  walk into the distance, or to sink into a well (`move` to a point with
-  `scale: 0.3` behind a `foreground`).
-  Anchors read better and survive a scene redraw; use points for spots the
-  scene has no name for, such as a kite in the sky.
-- `t` is seconds from the start of the shot. Actions on the same actor can
-  overlap (walk and say at once). Actions never carry across shots.
-- Shots play in file order; pass `order` to `write_shot` to set it.
-- A shot is a cut from the one before. `crossfade: 1` dissolves it in from
-  the previous shot over its first second instead, while the previous shot's
-  last moment carries on underneath: use it for time passing or a change of
-  place that should feel soft. The previous shot then needs no `fadeOut`
-  (it would dissolve from black). `fadeIn`/`fadeOut` still fade from and to
-  black, for the start and end of the film.
+- `cast` places everyone at the start; nobody else is in the shot.
+  `visible: false` hides until an `appear`.
+- **Draw order is by feet**: lower on screen is nearer and in front,
+  whatever the cast order or size. To pass behind someone on a shared path,
+  use an anchor or point with a smaller `y`.
+- A position (`at`, `to`, `set.at`) is an anchor name or a point in scene
+  pixels, `{ "x": 640, "y": 610, "scale": 0.8 }`. A `to` with a `scale`
+  tweens the size during `walk`/`move`/`fly`: walking into the distance,
+  sinking into a well behind a `foreground`. Anchors survive a scene
+  redraw; use points for spots with no name, like a kite in the sky.
+- `t` is seconds from the shot's start. One actor's actions can overlap
+  (walk and say at once). Nothing carries across shots.
+- Shots play in file order; `order` on `write_shot` sets it.
+- A shot is a cut. `crossfade: 1` dissolves it in from the previous shot
+  over its first second, for time passing or a soft change of place (the
+  previous shot then needs no `fadeOut`). `fadeIn`/`fadeOut` fade from and
+  to black, for the start and end of the film.
 
 ### Verbs (`do`)
 
-| verb                  | what happens                                                               | duration default |
-| --------------------- | -------------------------------------------------------------------------- | ---------------- |
-| `walk` / `run`        | planted-foot cycle to `to`, easing in and out (four legs: gallop)          | distance ÷ speed |
-| `move`                | glide to `to` without a cycle (sliding, floating objects)                  | distance ÷ 300   |
-| `fly`                 | move with a gentle wobble (birds, kites, balloons); `to` may be in the sky | distance ÷ 260   |
-| `jump`                | crouch, leap (in place, or to `to`), land with a give                      | 0.8s             |
-| `wave`, `point`       | near arm (or front paw) up and waving / pointing (simple rig: lean toward) | 1.5s             |
-| `nod`, `shake`        | head yes / no                                                              | 0.8s             |
-| `tremble`             | frightened shiver (head and shoulders, or the whole simple body)           | 1.2s             |
-| `sit` / `stand`       | persistent: seat on `to` (a seat anchor), knees bent; four legs sit down   | 0.4s ease        |
-| `lie`                 | persistent: sits, then lies back on the floor (four legs: on the belly)    | 1.3s ease        |
-| `bounce`, `spin`      | squashy hop / full rotation (best on the simple rig)                       | 1s / 0.8s        |
-| `appear`, `disappear` | pop in past full size and settle / swell a touch and shrink away           | 0.4s             |
-| `pickup`, `putdown`   | on a prop, with `attach`: its carrier stoops to the floor for it (below)   | 1.2s             |
+| verb                  | what happens                                                               | duration default     |
+| --------------------- | -------------------------------------------------------------------------- | -------------------- |
+| `walk` / `run`        | planted-foot cycle to `to`, easing in and out (four legs: gallop)          | distance ÷ 220 / 420 |
+| `move`                | glide to `to` without a cycle (sliding, floating objects)                  | distance ÷ 300       |
+| `fly`                 | move with a gentle wobble (birds, kites, balloons); `to` may be in the sky | distance ÷ 260       |
+| `jump`                | crouch, leap (in place, or to `to`), land with a give                      | 0.8s                 |
+| `wave`, `point`       | near arm (or front paw) up and waving / pointing (simple rig: lean toward) | 1.5s                 |
+| `nod`, `shake`        | head yes / no                                                              | 0.8s                 |
+| `tremble`             | frightened shiver (head and shoulders, or the whole simple body)           | 1.2s                 |
+| `sit` / `stand`       | persistent: seat on `to` (a seat anchor), knees bent; four legs sit down   | 0.4s ease            |
+| `lie`                 | persistent: sits, then lies back on the floor (four legs: on the belly)    | 1.3s ease            |
+| `bounce`, `spin`      | squashy hop / full rotation (best on the simple rig)                       | 1s / 0.8s            |
+| `appear`, `disappear` | pop in past full size and settle / swell a touch and shrink away           | 0.4s                 |
+| `pickup`, `putdown`   | on a prop, with `attach`: its carrier stoops to the floor for it (below)   | 1.2s                 |
 
-Walking speed is about 220 px/s, so crossing the frame takes 4–5 seconds;
-`run` is about 420 px/s, `fly` 260, `move` 300. Set `duration` to override any
-default. Any duration works with feet planted: the engine fits the stride
-and its rate to the speed and the character's size, so a small dog keeping
-up with a walking child patters and a lion strolls. A walk starts and ends
-with the feet together, and a jump crosses the ground only while it is in
-the air (the crouch and the landing stay put). Every change of facing, by
-`set` or by walking the other way, is a quick turn (0.2 s), not a flip; a
-person's face comes round through front-on as they turn. A person walking
-up the screen (into it) turns away and is seen from behind, and one walking
-down it faces the viewer, turning at the start of the move and back at its
-end; walk them mostly across the screen to keep the face in profile.
+Crossing the frame on foot takes 4–5 s. `duration` overrides any default,
+and every walk needs enough of it or the character sprints; the engine
+fits the stride to the speed and size, so a small dog keeping up with a
+child patters. A walk starts and ends with the feet together; a jump
+crosses ground only in the air. A change of facing, by `set` or walking
+the other way, is a quick turn (0.2 s). Walking up the screen a person is
+seen from behind, down it from the front, turning at the start and end of
+the move; walk them mostly across to keep the face in profile.
 
-`lie` is for sleeping and resting. A person sits down on the ground (or on
-`to`, a bed or a sofa seat) and lies back with the head behind them, so face
-them the way their feet should point; an animal lies on its belly with its
-front paws out in front under its chin (hooves fold under the chest). A
-sleeper needs `face: { "eyes": "closed" }` and, if you like, a thought
-bubble (`"Zzz..."`): it comes from the head where it lies. `stand` gets up
-again (sitting up first) and `sit` sits back up. A `walk`, `run` or `jump`
-from sitting or lying gets up first and sets off once up, so it ends that
-much later (0.4 s from sitting, 1.3 s from lying); give a `stand` first if
-the getting up should take longer. To open a shot with someone already lying
-or sat, give the `lie` or `sit` at `t: 0` a `duration` of `0.05`.
-
-On the `simple` rig `wave`, `nod` and `shake` only tilt or nudge the body;
-`point` leans the body toward what it faces, `tremble` shivers it, and
-`bounce`, `jump` and `spin` read best there. Face the actor toward the thing
-first (`set: { "facing": … }`) and `point` will lean that way.
+`lie` is for sleeping and resting. A person sits (on the ground or `to`, a
+bed or sofa) and lies back with the head behind them, so face them the way
+the feet should point; an animal lies on its belly, paws out under its
+chin. A sleeper needs `face: { "eyes": "closed" }` and maybe a `"Zzz..."`
+thought bubble. `stand` gets up, `sit` sits back up. A `walk`, `run` or
+`jump` from sitting or lying gets up first and ends that much later (0.4 s,
+1.3 s); give a `stand` first for a slower rise. To open a shot with someone
+already lying or sat, give the `lie` or `sit` at `t: 0` a `duration` of
+`0.05`.
 
 ### Carrying (`attach`)
 
-To have someone carry something, make the prop a character (usually `simple`)
-and attach it: `{ "t": 0, "actor": "lantern", "attach": "pip" }`. From then
-on it hangs from the carrier's near hand (a four-legged animal carries it in
-its mouth), follows every walk, swing and jump, faces the way the carrier
-faces and is drawn just in front of them; its own moves are ignored. To put
-it down, `{ "t": 7.5, "actor": "lantern", "attach": false, "do": "move", "to":
-"pedestal-top" }`: it is let go where the hand is, and the `move` in the same
-action carries on from there; a `set: { "at": … }` in the same action puts it
-down there at once instead. A prop that lies on the floor is taken up with a stoop: `{ "t": 5, "actor":
-"basket", "attach": "pip", "do": "pickup" }` bends the carrier's knees and
-back and brings the near hand (an animal's mouth) down to the floor in front;
-the hand closes on the prop halfway through and it rises with the hand.
-Stand the carrier facing the prop with it about a third of their height in
-front of their feet (a 240 px person: 75 px); the validator says where to
-stand when the hand would come down too far from it. `{ "t": 9, "actor":
-"basket", "attach": false, "do": "putdown", "to": "table-end" }` is the
-reverse: the carrier stoops and lets go at the bottom, and the prop settles
-on `to` (without one, on the floor under the hand). Attaching a prop that is
-already in someone else's hand passes it over: it travels from one hand to
-the other. A prop never jumps to a hand within reach; one attached from far
-across the stage (more than the carrier's height away) is taken at once.
+Make the prop a character (usually `simple`) and attach it: `{ "t": 0,
+"actor": "lantern", "attach": "pip" }`. It hangs from the carrier's near
+hand (an animal's mouth), follows every move, faces the carrier's way and
+is drawn just in front; its own moves are ignored.
 
-Carrying holds across cuts only if you stage it: whoever ends a shot
-carrying something should start the next one with it, cast and attached at
-`t: 0`, or put it down before the cut (the validator warns). Something that
-appears in a hand from nowhere (`attach` with `appear`) is magic; when it
-came from somewhere, lay it on the floor and pick it up. Give the prop a
-`grip`, the point in its own box
-the hand holds (`[100, 22]` for a lantern's handle, the end of a balloon's
-string); without one it is held at its middle. The construction sheet marks a
-character's `hold` point and a prop's `grip`. Carry one thing at a time, and
-do not carry a carrier. An umbrella keeps the rain off whoever carries it
-when it has a `shelter` (see Weather and moving nature).
+- **Let go**: `{ "t": 7.5, "actor": "lantern", "attach": false, "do":
+"move", "to": "pedestal-top" }` lets it go where the hand is and the
+  `move` carries on from there; a `set: { "at": … }` puts it there at once.
+- **From the floor**: `{ "t": 5, "actor": "basket", "attach": "pip", "do":
+"pickup" }` stoops the carrier, the hand closing on the prop halfway.
+  Stand the carrier facing it about a third of their height in front of
+  their feet (a 240 px person: 75 px); the validator says where to stand
+  when the hand would miss. `"attach": false, "do": "putdown", "to":
+"table-end"` is the reverse (without `to`, onto the floor under the
+  hand).
+- **Hand to hand**: attaching a prop already held passes it over. One
+  attached from more than the carrier's height away is taken at once.
+- `grip` is the point in the prop's box the hand holds (`[100, 22]` for a
+  lantern's handle); default its middle. The construction sheet marks a
+  character's `hold` and a prop's `grip`.
+- One thing at a time; never carry a carrier. An umbrella with a `shelter`
+  keeps its carrier dry.
+
+Carrying holds across cuts only if staged: whoever ends a shot carrying
+something starts the next one with it, cast and attached at `t: 0`, or
+puts it down before the cut (the validator warns). A prop that appears in
+a hand (`attach` with `appear`) is magic; when it came from somewhere, lay
+it on the floor and pick it up.
 
 ### Standing on someone (`on`)
 
-Who is in front is worked out from the feet: the lower on the screen, the
-nearer. A mouse on a sleeping lion's back has its feet higher than the
-lion's, so it would be drawn behind it. Say whom it stands on:
+Draw order goes by the feet, so a mouse on a sleeping lion's back, feet
+higher than the lion's, would be drawn behind it. Say whom it stands on:
 
 ```json
 { "t": 1.6, "actor": "chintu", "do": "jump", "to": { "x": 250, "y": 905 }, "on": "lion" }
 ```
 
-with `to` on the top of the lion (`preview_frame` with `debug` shows where
-its back is). It is drawn in front of the lion from when it sets off,
-through hops and jumps in place up there, until a move without `on` lands it
-somewhere else. A shot that opens with it up there says so in the cast:
-`"chintu": { "at": { "x": 250, "y": 905 }, "on": "lion" }`. It does not ride
-along: if the lion gets up, the mouse stays where it was, so move it too, or
-carry it with `attach`. Paint nobody into a scene to get round this; the
-real character breathes, blinks and wakes.
+with `to` on the lion's back (read it off a `preview_frame`). `on` goes on
+a `walk`, `run`, `move`, `fly` or `jump` with a `to`, or with `set.at`. The
+mouse is drawn in front of the lion from when it sets off, through hops in
+place up there, until a move without `on` lands it elsewhere. A shot that
+opens with it up there says so in the cast: `"chintu": { "at": { "x": 250,
+"y": 905 }, "on": "lion" }`. It does not ride along: if the lion gets up,
+move the mouse too, or carry it with `attach`. Never paint a character into
+a scene to get round this; the real one breathes, blinks and wakes.
 
 ### Dialogue
 
-`say` draws a bubble above the head and moves the mouth. A line in a voiced
-character's mouth is spoken (see [Sound](#sound)) and stays up as long as it
-takes to say plus half a second, the mouth opening on the sound. An unvoiced
-line stays up 1 s plus 0.4 s per word (min 1.8 s), so a six-word line takes
-3.4 s. A `duration` on the action keeps a voiced line up longer (never shorter
-than its voice) and sets an unvoiced one's. A growl or a laugh in a
-line goes between asterisks (see [Sound](#sound)). `bubble` can be `speech` (default), `thought` or
-`shout`; a thought keeps the mouth still and nobody turns to look. Keep lines
-short (≤ 12 words) and sequence speakers so bubbles do not overlap:
-`write_shot` warns when one actor starts speaking before another has finished. A bubble pops out of the speaker's head and shrinks back into it.
-Bubbles are always laid out inside the frame and keep the same size at any
-camera zoom, so a bubble that looks clipped on a small contact-sheet frame is
-not; check the text, not the edges.
+`say` draws a bubble above the head and moves the mouth. A voiced line
+stays up as long as it takes to say plus 0.5 s; an unvoiced one 1 s plus
+0.4 s per word (at least 1.8 s). A `duration` keeps a voiced line up
+longer (never shorter than its voice) and sets an unvoiced one's. `bubble`
+is `speech` (default), `thought` (mouth still, nobody turns to look) or
+`shout`. Keep lines to 12 words or fewer and let one speaker finish before
+the next starts (`write_shot` warns when bubbles overlap). Bubbles stay
+inside the frame at the same size at any zoom, so one that looks clipped
+on a small sheet is not: check the text.
 
-Lines and captions can be in Hindi: Devanagari text is drawn in the bundled
-Baloo 2 font, whatever the project's `font` says (that stack is for Latin
-text). Write it as you would in a book, `"अरे कछुए, तुम कितने धीमे हो!"`;
-a Hindi line runs about as long on screen as an English one of the same
-number of words, so the same ≤ 12 words holds.
+Hindi works: Devanagari is drawn in the bundled Baloo 2 whatever the
+project's `font` (a Latin stack). Write it as in a book, `"अरे कछुए, तुम
+कितने धीमे हो!"`; the same 12-word limit holds.
 
-Everyone listens without being told: while someone speaks, the others with
-eyes tip their heads toward the speaker (up to a grown-up, down to a dog), and
-the speaker looks at the one spoken to. That is whoever spoke to them last,
-or the nearest actor in front; when it would be someone else, name them with
-`to`: `{ "t": 4, "actor": "mia", "say": "Can we go?", "to": "dad" }`. Walking,
-jumping and pointing look straight ahead. The engine never turns anyone round
-to look, so set `facing` so that people who talk face each other.
+While someone speaks the others tip their heads toward them, and the
+speaker looks at the one spoken to: whoever spoke to them last, or the
+nearest actor in front, or the one named with `to` (`{ "t": 4, "actor":
+"mia", "say": "Can we go?", "to": "dad" }`). Nobody is turned round to
+look, so set `facing` so that people who talk face each other. Walking,
+jumping and pointing look straight ahead.
 
 ### Emotion, face, captions, camera, set
 
-- `emotion`: `neutral | happy | sad | surprised | angry | scared` — persistent
-  until changed. Each change gets a short take: a blink and a quick head move
-  (thrown back for surprise, dropped for sadness). `face: { "mouth": "grin" }`
-  forces specific variants for the rest of the shot, which also stops that
-  part blinking or talking; `face: { "mouth": "" }` hands it back.
-- `caption`: narrator text at the bottom (`captionStyle: "narration"`, the
-  default) or a big centred card (`"title"`). Default 3 s, or as long as
-  the narrator takes to read it. Captions are a
-  layer above everything and do not follow the camera (narration rises into
-  place as it fades in): a narration strip can run under a
-  speech bubble without touching it, but a title card sits in the middle of
-  the frame where faces and bubbles are, so do not talk over one.
-- `camera: { zoom, x, y }` tweens from the current camera over `duration`
-  (default 1 s; `0.05` is a cut). `x, y` is the world point at frame centre. Zoom in
-  on a face for reactions, pull back for arrivals. Keep zoom between 1 and 2:
-  below 1 is raised to 1 (the scene has nothing outside its edges), and the
-  view is clamped to the scene, so a zoom near an edge shifts toward the middle.
-  A layered scene's `far` and `near` move at their own rates (see Scenes),
-  and above zoom 1.3 the frame's edges darken a little, more the closer in.
-- `camera: { zoom: 1.6, follow: "kid" }` follows a cast member: the camera
-  pans after them, trailing a moment behind with room left ahead of the way
-  they face, and settles when they stop. Use it for a walk or a chase longer
-  than the frame shows: draw the scene wide in the story sense (things worth
-  passing along the way) and zoom in, since the view stays inside the scene
-  and at zoom 1 there is nowhere to pan. Put it on the shot's `camera` to
-  follow from the start, or in an action to take over (it eases across over
-  `duration`); a `camera` with `x`/`y`, or `follow: ""`, lets go.
-- `set: { facing, scale, visible, at }` changes state instantly (teleport,
-  grow); a new `facing` turns round over 0.2 s.
-- `lightning: true` (no actor) strikes at `t`: a bolt in the sky and a flash.
-- `weather: { … }` (no actor) turns the weather into that over `duration`
-  (default 2 s); see Weather and moving nature.
+- `emotion`: `neutral | happy | sad | surprised | angry | scared`,
+  persistent until changed, each change with a blink and a head move.
+  `face: { "mouth": "grin" }` forces variants for the rest of the shot
+  (that part stops blinking or talking); `face: { "mouth": "" }` hands it
+  back.
+- `caption`: narration at the bottom (`captionStyle: "narration"`, the
+  default) or a big centred card (`"title"`), for 3 s or as long as the
+  narrator takes. Captions are above everything and ignore the camera; a
+  narration strip can run under a bubble, but nobody should talk over a
+  title card.
+- `camera: { zoom, x, y }` tweens over `duration` (default 1 s; `0.05` is
+  a cut); `x, y` is the world point at frame centre. Zoom in on a face for
+  a reaction, pull back for an arrival. Keep zoom 1 to 2: below 1 is raised
+  to 1 and the view is clamped to the scene, so a zoom near an edge shifts
+  inward. Above 1.3 the frame's edges darken a little.
+- `camera: { zoom: 1.6, follow: "kid" }` pans after a cast member, trailing
+  a moment with room ahead, and settles when they stop: for a walk or chase
+  longer than the frame. It needs zoom above 1 and a scene with things
+  worth passing. On the shot's `camera` it follows from the start; in an
+  action it eases across over `duration`; `x`/`y` or `follow: ""` lets go.
+- `set: { facing, scale, visible, at }` changes state at once (a new
+  `facing` still turns over 0.2 s).
+- `lightning: true` (no actor) strikes at `t`, for a thunderclap on a beat.
+- `weather: { … }` (no actor) changes the weather (see
+  [Weather and moving nature](#weather-and-moving-nature)).
 
 ## Sound
 
 A film has six layers of sound. You choose four; the engine makes the rest.
 
-- **Voices.** Give each character that speaks a `voice` from `list_voices`:
-  `"voice": "chatterbox:hm_omega"`, or
-  `{ "id": "chatterbox:hm_psi", "pitch": 4 }` for a mouse. `chatterbox:` voices
-  act, saying each line with its speaker's emotion, and pronounce Hindi best;
-  the same voice as `kokoro:` reads evenly and is much faster to make, for a
-  quick draft. Pitch is in semitones: 3 to 5 up turns a grown-up's voice into
-  a child's or a small animal's, -3 a giant's; `speed` 0.85 is slow and old,
-  1.15 quick. Lines are spoken by a local model when a shot is written (and
-  before a render) and kept in the project's `audio/voices/`. The voice sets
-  the language: Devanagari lines need a Hindi voice, and `write_shot` warns
-  when an English voice would read one. `shout` is the same voice louder.
-  `thought` is the same voice heard from inside: quieter, with a little room
-  on it, from the middle, and the mouth stays still. A character with no
-  voice is silent. A line is said with the emotion the character has when it
-  starts, the same one its face shows, so set `emotion` on or before every
-  line that is not said calmly: a line said in anger needs `angry` set, or it
-  is said evenly.
-- **Sounds inside a line.** A growl, a giggle, a snore or a gnawing is not
-  words, and a voice reads it out as if it were. Put it between asterisks and
-  give the action the `sound`:
-  `{ "t": 3, "actor": "lion", "say": "*गुर्रर!* कौन है?", "sound": "lion-growl", "bubble": "shout" }`.
-  The bubble shows `गुर्रर! कौन है?`; the growl is heard, the mouth open
-  through it, and the voice says `कौन है?` once the growl is over (after 2 s
-  at most: a long growl rumbles on under the first words). A line that
-  is only a sound (`"*हि हि!*"` with `"sound": "laugh-child"`) is not spoken at
-  all. `write_shot` warns about growls, laughs and snores written out
-  unmarked, and about a marked sound with no `sound` to be heard.
-- **Narrator.** `set_audio(path, narrator: "chatterbox:hf_alpha")` reads every
-  caption, narration and title cards alike.
-- **Music.** `set_audio(path, music: "playful")` plays under the whole film.
-  A shot's `music` changes it from that shot on: `"tense"`,
-  `{ "track": "sad", "volume": 0.7 }`, or `false` for silence. A track that
-  carries on into the next shot keeps playing across the cut; a new one
-  crossfades in. It ducks under every voice on its own, and stays down
-  through the short gaps of a conversation. Choose music by the story's
-  mood, and change it only where the mood turns.
-- **Ambience.** A scene's `ambience` lists looping sounds of the place:
-  `["jungle"]`, `["night"]`, `[{ "sound": "village", "volume": 0.6 }]`. The
-  library's scenes come with theirs. It carries across cuts between shots in
-  the same place. A scene's `surface` (`hard`, the default, or `grass`) is
-  what feet land on, for the sound of the steps. Do not list rain, wind,
-  fire, waterfalls or waves: weather
-  and effects are heard on their own (rain as hard as it falls, a fire from
-  where it burns, thunder after each strike).
-- **Effects.** `{ "t": 3, "actor": "lion", "sound": "lion-roar" }` plays a
-  sound at `t`, heard from the actor's side of the frame; `volume` 0.5 for far
-  off, 1.5 close. A name with several takes picks one each time, so a repeated
-  sound does not repeat exactly. `list_sounds` has the names. Footsteps (from
-  each foot as it lands), the whoosh into a jump and its landing, a sparkle on
-  `appear` and `disappear`, and the tap of a pickup or putdown are the
-  engine's: never add them.
+- **Voices.** Each speaking character gets a `voice` from `list_voices`:
+  `"chatterbox:hm_omega"`, or `{ "id": "chatterbox:hm_psi", "pitch": 4 }`
+  for a mouse. `chatterbox:` acts the line with its speaker's emotion and
+  says Hindi best; the same voice as `kokoro:` reads evenly and is much
+  faster, for a draft. `pitch` is semitones (3 to 5 up for a child or small
+  animal, -3 a giant); `speed` 0.85 is slow and old, 1.15 quick. Lines are
+  spoken locally when a shot is written (and before a render) into
+  `audio/voices/`. The voice sets the language: Devanagari needs a Hindi
+  voice (`write_shot` warns). `shout` is louder; `thought` quieter, with a
+  little room on it. A character with no voice is silent. A line is said
+  with the emotion the character has when it starts, so set `emotion` on or
+  before every line not said calmly.
+- **Sounds inside a line.** A growl, a giggle, a snore is not words: put it
+  between asterisks and give the action the `sound`: `{ "t": 3, "actor":
+"lion", "say": "*गुर्रर!* कौन है?", "sound": "lion-growl", "bubble":
+"shout" }`. The bubble shows `गुर्रर! कौन है?`, the growl is heard with
+  the mouth open, and the voice says `कौन है?` after it (2 s at most). A
+  line that is only a sound is not spoken. `write_shot` warns about
+  unmarked growls, laughs and snores, and a marked sound with no `sound`.
+- **Narrator.** `set_audio(path, narrator: "chatterbox:hf_alpha")` reads
+  every caption, narration and title alike.
+- **Music.** `set_audio(path, music: "playful")` plays under the film. A
+  shot's `music` changes it from there: `"tense"`, `{ "track": "sad",
+"volume": 0.7 }`, or `false` for silence. The same track plays on across
+  a cut; a new one crossfades in. It ducks under voices on its own. Change
+  it only where the mood turns.
+- **Ambience.** A scene's `ambience` loops the place's sounds: `["jungle"]`,
+  `[{ "sound": "village", "volume": 0.6 }]`; the library scenes have
+  theirs. It carries across cuts in the same place. `surface` (`hard`, the
+  default, or `grass`) sets the footstep sound. Do not list rain, wind,
+  fire, waterfalls or waves: weather and effects are heard on their own.
+- **Effects.** `{ "t": 3, "actor": "lion", "sound": "lion-roar" }` plays at
+  `t` from the actor's side of the frame; `volume` 0.5 far off, 1.5 close.
+  A name with several takes picks one each time. `list_sounds` has the
+  names. Footsteps, jump whooshes and landings, the `appear`/`disappear`
+  sparkle and the pickup/putdown tap are the engine's: never add them.
+- **Mix.** The engine sets every layer's level. Only when a listener finds
+  a layer wrong, `set_audio(path, mix: { "music": 0.5 })` scales `voices`,
+  `music`, `ambience` or `effects` for the whole film (1 as set, 0.5 is
+  −6 dB, 2 is +6 dB); the review app has sliders for it.
 
-- **Mix.** The engine sets every layer's level: music and ambience sit well
-  under the voices and duck further while anyone speaks. When a listener
-  finds a layer too loud or too quiet, `set_audio(path, mix: { "music": 0.5 })`
-  sets a volume per layer (`voices`, `music`, `ambience`, `effects`; 1 as the
-  engine sets it, 0.5 is 6 dB down, 2 is 6 dB up), for the whole film. A
-  person can set it by ear with the sliders in the review app. Leave it out
-  until someone has listened: a per-sound `volume` is for one sound, `mix` is
-  for a whole layer.
+A project's own sounds go in `audio/` (`.ogg`, `.wav`, `.mp3`, `.flac`)
+and are named by file name without the extension; one named like a bundled
+sound replaces it.
 
-A project's own sounds and music go in its `audio/` folder (`.ogg`, `.wav`,
-`.mp3`, `.flac`) and are used by file name without the extension, wherever a
-sound name goes. A file named like a bundled sound replaces it.
-
-Every shot sheet shows the sound under the frames: a row for each speaker,
-then effects, ambience and music, against the shot's clock, each line marked
-with how long it takes to say. A line outlined in red is cut off by the end of
-the shot. `set_audio` returns the same for the whole film, with the cuts
-numbered. To pace a shot with voices, write it, read the lane, then start each
-line about 0.3 s after the one before it ends and end the shot about half a
-second after its last line, with `patch_shot`. Nobody should talk over the
-narrator: `write_shot` warns when a line starts while a caption is still being
-read, and when a character starts a line before finishing their last.
+Every shot sheet shows the sound under the frames against the shot's
+clock: a row per speaker, then effects, ambience and music, each line
+marked with how long it takes to say; a line outlined in red is cut off by
+the shot's end. `set_audio` shows the same for the whole film. To pace a
+shot, write it, read the lanes, then with `patch_shot` start each line
+about 0.3 s after the last ends and end the shot about 0.5 s after its
+last line. `write_shot` warns when a line starts while a caption is still
+being read, or before the same speaker's last line ends.
 
 ## Subtitles and the .mkv
 
-Rendering the whole film writes `out/movie.mkv` beside `out/movie.mp4`: the
-same picture, with tracks a player lets the viewer choose between.
+Rendering the whole film writes `out/movie.mkv` beside `out/movie.mp4`:
+the same picture with tracks a player can choose between.
 
-- **Three sound tracks.** The full mix (played by default); music and effects
-  without the dialogue, for telling the story yourself or voicing it again;
-  and the same with the narrator, so the story is still told while the
-  characters keep quiet. Sounds marked in a line (`*गुर्रर!*`) are effects,
-  so the growl stays in all three. A film with no narrator has no third
-  track, and one with nobody speaking has only the first.
-- **Subtitles**, off until chosen: one track in the language the lines are
-  written in (Hindi when they are in Devanagari, else English), and one for
-  each language in their `translation`. A subtitle is up exactly as long as
-  its bubble or caption, at the bottom, or at the top when it is a
-  narration caption's or starts while one is on screen. They are drawn in the bundled Baloo 2, which the
-  .mkv carries, so a phone shows Devanagari without a font of its own.
-- **A chapter per shot**, named by its id, to skip to a scene.
+- **Three sound tracks**: the full mix (default); music and effects
+  without dialogue; and that plus the narrator. Sounds marked in a line are
+  effects, so they stay in all three. No narrator, no third track; nobody
+  speaking, only the first.
+- **Subtitles**, off until chosen: one in the lines' language (Hindi for
+  Devanagari, else English) and one per language in their `translation`,
+  each up as long as its bubble or caption, at the bottom, or at the top
+  when it belongs to (or overlaps) a narration caption. They are drawn in
+  the bundled Baloo 2, which the .mkv carries.
+- **A chapter per shot**, named by its id.
 
-Write the subtitles in another language as you write each line, in the same
-action, with `translation` keyed by language code:
+Write the translation with each line, keyed by language code:
 
 ```json
 {
@@ -978,104 +771,87 @@ action, with `translation` keyed by language code:
 }
 ```
 
-Translate the meaning, in words a child would hear, not word for word: `अरे
-कछुए भाई` is "Hey there, tortoise", not "Oh tortoise brother". Mark the
-sounds as the line does. Give it to every `say` and `caption` or to none:
-`project_info` warns about lines left out, since their subtitle would be
-missing. A translation changes no picture and no sound, so after adding
-them to a rendered film, `talekit mkv <path>` builds the .mkv again in
-seconds instead of rendering.
+Translate the meaning in words a child would hear: `अरे कछुए भाई` is "Hey
+there, tortoise", not "Oh tortoise brother". Mark sounds as the line does.
+Give it to every `say` and `caption` or to none (`project_info` warns
+about gaps). A translation changes no picture or sound, so after adding
+them, `talekit mkv <path>` rebuilds the .mkv in seconds.
 
 ## A reel: the portrait version
 
 A reel (Instagram Reels, YouTube Shorts) is the story for a phone held
-upright, made as its own project at 720 × 1280: `create_project(path,
-title, width: 720, height: 1280)`. It is not the film cropped. A crop of a
-wide frame keeps a third of it, and the two people talking across it fall
-out of the picture; so the reel is told again, shorter, in scenes drawn
-tall and staged for the narrow frame. Characters and voices can be the
-film's (copy their files); the scenes and the shots are new.
+upright, its own project at 720 × 1280: `create_project(path, title,
+width: 720, height: 1280)`. It is not the film cropped (a crop keeps a
+third of the frame and loses whoever talks across it): it is told again,
+shorter, in scenes drawn tall. The film's characters and voices can be
+copied; the scenes and shots are new.
 
-- **Three minutes at most**, which is the longest the apps take, and
-  `project_info` warns past it. 90 s to 170 s is a good length.
-- **The narrator tells a reel.** A spoken line takes 3 to 4 s, and the
-  film's conversations alone would fill the three minutes with a quarter
-  of the story told. So in a reel the narrator carries the plot: a
-  sentence or two a shot, read over the picture of it happening (the hare
-  at the carrots while the narrator says he ate one after another), with
-  the cast acting it out (a `walk`, a `pickup`, a `sound` of munching, an
-  `emotion`) rather than saying it. A character speaks only where the
-  words themselves turn the story (the challenge, the cry for help, the
-  promise kept), one or two short lines in a scene, and never to say what
-  the narrator just said.
-  Keep every event the plot needs, above all the ones that explain the
-  ending: the hare stops to boast and eats until he is too full to keep
-  awake, which is why he sleeps through the race. Cut what only decorates
-  it: the greetings, the walk there, the second line that says the first
-  again. Write the reel's narration afresh; it is not the film's lines cut
-  down.
-- **The app draws over the edges.** The account name, caption and sound
-  along the bottom fifth, the like and share buttons down the right, the
-  camera and search icons across the top. The engine keeps bubbles and
-  captions clear of them (narration goes at the top, under the icons, so
-  it covers sky rather than the cast); keep the faces and the action clear
-  too, and leave the top of the frame for the narration. Stand people with their feet at about
-  y = 1000 (a reel's `ground` defaults to 0.78 × height) and between x 45
-  and 620, and paint the strip below as floor or foreground.
+- **Three minutes at most** (the apps' limit; `project_info` warns past
+  it). 90 to 170 s is a good length.
+- **The narrator tells a reel.** A spoken line takes 3 to 4 s, so the
+  film's conversations alone would fill three minutes with a quarter of
+  the story told. The narrator carries the plot, a sentence or two a shot,
+  over the picture of it happening, with the cast acting it out (a `walk`,
+  a `pickup`, a munching `sound`, an `emotion`). A character speaks only
+  where the words themselves turn the story (the challenge, the cry for
+  help, the promise kept), a line or two a scene, never repeating the
+  narrator. Keep every event the plot needs, above all those that explain
+  the ending (the hare eats until he is too full to stay awake, which is
+  why he sleeps through the race); cut what only decorates it (greetings,
+  the walk there, a line that says the last one again). Write the
+  narration afresh, not the film's lines cut down.
+- **The app draws over the edges**: account name, caption and sound along
+  the bottom fifth, buttons down the right, icons across the top. The
+  engine keeps bubbles and captions clear (narration goes at the top,
+  under the icons, over the sky); keep faces and action clear too. Stand
+  people with their feet at about y = 1000 (a reel's `ground` defaults to
+  0.78 × height), between x 45 and 620, with floor or foreground painted
+  below.
 - **Draw scenes tall.** `far` fills 720 × 1280 on its own. Use the height:
-  a trunk going up into its canopy, the rock above a cave, sky. The
-  library's scenes are 1280 × 720 and do not fit a reel; draw a tall one in
-  the same style.
-- **Stage close.** The frame holds two people side by side, 150 to 250 px
-  apart, not the film's wide `left` and `right` (a reel's are at 26% and
-  72% of the width). Draw the scene so that the wide shot already holds the
-  cast large: anchor `scale` 1.3 to 1.6 for the library's people and
-  animals, and camera zoom 1.3 to 1.8 for a face. Text is the size a film's
-  is beside the same width of screen. For a closer view of someone (a mouse
-  bouncing on a sleeping lion's back), zoom the camera onto the character
-  itself; do not paint a part of the character large into a scene, which
-  in the narrow frame comes out cropped and out of drawing.
-- **One file to post.** `render` writes `out/movie.mp4`, one picture and one
-  sound track, which is what the apps take; a reel gets no .mkv, since the
-  apps play neither a second sound track nor a subtitle track. Its bubbles
-  and captions are in the picture.
+  a trunk rising into its canopy, rock above a cave, sky. The library's
+  1280 × 720 scenes do not fit; draw tall ones in the same style.
+- **Stage close.** Two people side by side, 150 to 250 px apart (a reel's
+  `left` and `right` are at 26% and 72% of the width). Draw the scene so
+  the wide shot holds the cast large: anchor `scale` 1.3 to 1.6 for the
+  library's people and animals, zoom 1.3 to 1.8 for a face. Text is scaled
+  by the short side, so it matches a film's. For a closer view of someone,
+  zoom the camera onto the character; never paint part of a character
+  large into a scene.
+- **One file to post.** `render` writes only `out/movie.mp4`, one picture
+  and one sound track, bubbles and captions in the picture; no .mkv, since
+  the apps play neither extra sound nor subtitle tracks.
 
 ## Pacing a children's story
 
 - Open with a title card over the first scene (`fadeIn`, `caption` style
   `title`), close with "The End" and a `fadeOut`.
-- One idea per shot. Enter, react, speak, leave. 8–15 seconds is typical.
-- Let a line land: leave ~0.5 s after a bubble before the next one.
-- Alternate wide shots (walks, arrivals) with closer camera zooms (feelings).
+- One idea per shot: enter, react, speak, leave. 8–15 s is typical.
+- Let a line land: about 0.5 s after a bubble before the next one.
+- Alternate wide shots (walks, arrivals) with closer zooms (feelings).
 - Use `emotion` generously: a story reads through faces.
-- **When the plot turns on what a character sees, cut to what they see.** A
-  reflection in a well, a letter, a monster behind the door: the wide shot
-  cannot show it, so write a scene from that character's viewpoint (looking
-  down the well: rim, shaft, water) and a short shot in it where the thing
-  seen is the only cast member, drawn large. In the wide shot before the cut,
-  make the character look: `point` on the simple rig leans the body toward
-  the thing, `emotion: surprised` sells it. See `examples/clever-rabbit`
-  shots 07 to 09.
-- Every `walk` needs enough `duration` or the character will sprint.
+- **When the plot turns on what a character sees, cut to what they see.**
+  A reflection in a well, a letter, a monster behind the door: write a
+  scene from their viewpoint (looking down the well: rim, shaft, water) and
+  a short shot in it with the thing seen as the only cast member, drawn
+  large. Before the cut, make the character look (`point`, `emotion:
+surprised`). See `examples/clever-rabbit` shots 07 to 09.
 
 ## Checklist before `render`
 
-- `project_info` shows no validation errors or warnings you did not intend,
-  construction warnings included.
-- Every shot's contact sheet looks staged: nobody floating, nobody clipped,
-  right people facing each other, the right actor in front.
-- Props are continuous: what is carried at the end of a shot is in hand at
-  the start of the next, nothing is taken that was not lying there, and a
-  prop put down stays down in the shots that follow in the same place.
-- A scene with a sun, moon or lamp painted in names it in `lights`, so the
-  shadows fall away from it.
-- Everyone who speaks has a `voice` and the project has a narrator and music;
-  no line is outlined in red on a sheet, and nobody talks over the narrator.
-- Every line not said calmly has its `emotion` set, and every growl, laugh
-  or snore in a line is `*marked*` with a `sound`.
-- If the film is in Hindi (or anything but English), every `say` and
-  `caption` has an English `translation`, unless you were told otherwise or
-  it is a reel (which has no subtitle track to put it in).
-- Total duration matches what was asked for: a short fable is 60–120 s, a
-  full picture-book story 5–10 minutes, a reel at most 3 minutes.
-- The film sheet returned by `render` shows every shot the way you intended.
+- `project_info` shows no validation or construction warnings you did not
+  intend.
+- Every contact sheet looks staged: nobody floating or clipped, the right
+  people facing each other, the right actor in front.
+- Props are continuous: what is carried at a shot's end is in hand at the
+  next one's start, nothing is taken that was not lying there, and a prop
+  put down stays down in later shots in the same place.
+- A scene with a painted sun, moon or lamp names it in `lights`.
+- Everyone who speaks has a `voice`, the project has a narrator and music,
+  no line is outlined in red, and nobody talks over the narrator.
+- Every line not said calmly has its `emotion`, and every growl, laugh or
+  snore in a line is `*marked*` with a `sound`.
+- A film in Hindi (or anything but English) has an English `translation`
+  on every `say` and `caption`, unless told otherwise or it is a reel.
+- Total duration matches the ask: a short fable 60–120 s, a picture-book
+  story 5–10 minutes, a reel at most 3 minutes.
+- The film sheet from `render` shows every shot as intended.
