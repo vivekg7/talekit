@@ -54,6 +54,11 @@ write(sys.argv[1], p.person(
     torso=p.kurta(k=0.9, extras=[p.janeu(), p.angavastram(over='shoulder')]), arms=p.sleeves(),
     legs=p.dhoti(p.khadau), face=p.face('thin', tilak='chandan'), eyes=p.eyes('sly'), mouth=p.mouth(dy=4),
     colors=colors))
+# A poor priest: bare-chested over the dhoti's waist wrap, a janeu and a shawl over one shoulder.
+write(sys.argv[1], p.person(
+    'w12', 'W12', 228, head=p.shaven_head(), torso=p.bare_chest(extras=[p.janeu(), p.angavastram(over='shoulder')]),
+    arms=p.bare_arms(), legs=p.dhoti(p.khadau, bottom=360), face=p.face('full', tilak='tripundra'), eyes=p.eyes('sly'),
+    mouth=p.mouth(dy=8), colors=colors))
 `;
 
 // Every woman's head, torso, arms and skirt, the face options with them; g2 a girl.
@@ -104,7 +109,7 @@ describe.skipIf(!python)('python kit', () => {
       /character 'w\d+'/.test(p.where + p.message)
     );
     expect(problems).toEqual([]);
-    expect(Object.keys(project.characters).filter((id) => /^w\d+$/.test(id))).toHaveLength(12);
+    expect(Object.keys(project.characters).filter((id) => /^w\d+$/.test(id))).toHaveLength(13);
   }, 60_000);
 
   it("builds every piece of the women's wardrobe, plaits swinging, a child's head grown", async () => {

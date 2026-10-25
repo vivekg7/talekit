@@ -85,7 +85,8 @@ docstring is not enough, and then only that function.
   shikha, a sage's fringe (or `locks` to his shoulders) or a student's
   stubble; for women `bun`, with a gajra or the sari drawn over it, and
   `plait` and `two_plaits`, which bring their plaits as parts that swing),
-  torsos (`kurta`, to the knee with `long=330`, `banyan`, `tunic`,
+  torsos (`kurta`, to the knee with `long=330`, `banyan`, a lean
+  `bare_chest` over a dhoti's waist wrap, `tunic`,
   `angrakha`, `sari`, `choli`, `kameez`, with `gamchha`, `angavastram`,
   `dupatta`, a rudraksha `mala` or a `janeu` laid over), arms
   (`blouse_sleeves` with bangles for women), legs (`dhoti`, `pyjama`,

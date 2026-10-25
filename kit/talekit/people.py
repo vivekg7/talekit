@@ -1584,6 +1584,46 @@ def banyan(k=0.9, extras=()):
     return Torso(*_with(front, back, extras), 296)
 
 
+def bare_chest(k=0.86, ribs=True, extras=()):
+    """A bare chest and belly above the dhoti's waist wrap, tucked in a knot at the navel
+    with a fan of pleats: a poor priest, a beggar, a labourer, a wrestler. `k` narrows the
+    build (0.86 lean, 1.0 a full one); `ribs` marks a thin man's ribs. Wear it with
+    bare_arms() and a dhoti(), a janeu or an angavastram(over='shoulder') laid over.
+    Tokens: skin, skinDark, pants, pantsDark."""
+    body = (
+        "M74 160 Q100 154 126 160 Q138 164 139 180 L136 230 Q135 252 138 270 L139 292 "
+        "Q120 297 100 296 Q80 297 61 292 L62 270 Q65 252 64 230 L61 180 Q62 164 74 160 Z"
+    )
+    wrap = "M61 256 Q100 266 139 256 L139 292 Q120 297 100 296 Q80 297 61 292 Z"
+    base = NECK + fill(sx(body, k), "{skin}") + fill(sx(wrap, k), "{pants}")
+    base += line(sx("M62 262 Q100 272 138 262", k), 2.5, "{pantsDark}")
+    front = (
+        base
+        + line(sx("M80 168 Q90 172 97 170", k), 2.4, "{skinDark}")
+        + line(sx("M120 168 Q110 172 103 170", k), 2.4, "{skinDark}")
+        + line(sx("M76 200 Q88 210 99 204", k), 2.4, "{skinDark}")
+        + line(sx("M124 200 Q112 210 101 204", k), 2.4, "{skinDark}")
+        + circle(100, 246, 2.4, "{skinDark}")
+        + fill("M96 262 L106 262 L112 292 Q101 296 90 292 Z", "{pantsDark}")
+        + line("M98 266 L95 290", 2, "{pants}")
+        + line("M102 266 L104 291", 2, "{pants}")
+        + fill("M92 258 Q101 252 110 258 Q104 266 96 264 Z", "{pants}")
+    )
+    if ribs:
+        front += "".join(
+            line(sx(f"M{x0} {y} Q{x1} {y + 6} {x2} {y + 3}", k), 2, "{skinDark}")
+            for y in (214, 226)
+            for x0, x1, x2 in ((70, 78, 88), (130, 122, 112))
+        )
+    back = (
+        base
+        + line(sx("M80 186 Q74 200 84 214", k), 2.4, "{skinDark}")
+        + line(sx("M120 186 Q126 200 116 214", k), 2.4, "{skinDark}")
+        + line("M100 176 L100 250", 2.2, "{skinDark}")
+    )
+    return Torso(*_with(front, back, extras), 294)
+
+
 def tunic(sword=True, extras=()):
     """An angrakha-cut tunic flaring to mid-thigh with a gold border, a sash at the waist with
     its end hanging, and with `sword` a belt from the far shoulder and a curved talwar in its
