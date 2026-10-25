@@ -9,6 +9,7 @@ import { LIBRARY, copyFromLibrary } from './library/index.js';
 import { createProject, loadProject, projectPaths } from './project/store.js';
 import { formatProblems, hasErrors, validateProject } from './project/validate.js';
 import { rasterize } from './render/raster.js';
+import { coverSvg, coverWidth } from './render/cover.js';
 import {
   characterSheetSvg,
   constructionSheetSvg,
@@ -29,6 +30,8 @@ const USAGE = `talekit — story video generation for AI agents
   talekit sheet <dir> <id> [-o file.png]       pose + construction sheet (character) or anchor sheet (scene)
   talekit frame <dir> <shotId> [-t 1.5] [-o file.png] [--svg] [--debug]
   talekit contact <dir> <shotId> [-n 6] [-o file.png]
+  talekit cover <dir> <shotId> -t <sec> --title "…" [--sub "…"] [--tag "…"] [--zoom 1.3 --focus x,y] [-o file.png]
+                                               the thumbnail: a frame with the title over it (out/thumbnail.png)
   talekit voice <dir> [shotId]                 speak the lines that have no audio yet (local TTS)
   talekit render <dir> [shotId] [-o file.mp4] [--silent]   the whole film (not a reel) also writes a .mkv
   talekit remix <dir> [-o file.mp4]            mix the sound again under a rendered film (after a mix change)
@@ -63,6 +66,10 @@ async function main(argv: string[]): Promise<void> {
     allowPositionals: true,
     options: {
       title: { type: 'string' },
+      sub: { type: 'string' },
+      tag: { type: 'string' },
+      zoom: { type: 'string' },
+      focus: { type: 'string' },
       width: { type: 'string' },
       height: { type: 'string' },
       fps: { type: 'string' },
@@ -170,6 +177,27 @@ async function main(argv: string[]): Promise<void> {
         values.out ?? path.join(p.out, `contact-${shotId}.png`),
         contactSheetSvg(project, shot, num(values.count) ?? 6)
       );
+      return;
+    }
+    case 'cover': {
+      const [dir, shotId] = rest;
+      if (!dir || !shotId || !values.title)
+        throw new Error('usage: talekit cover <dir> <shotId> -t sec --title "…"');
+      const project = await loadProject(dir);
+      const shot = project.shots.find((s) => s.id === shotId);
+      if (!shot) throw new Error(`no shot '${shotId}'`);
+      const [fx, fy] = (values.focus ?? '').split(',').map(Number);
+      const svg = coverSvg(project, shot, num(values.time) ?? 0, {
+        title: values.title,
+        sub: values.sub,
+        tag: values.tag,
+        zoom: num(values.zoom),
+        focus: values.focus ? { x: fx, y: fy } : undefined,
+      });
+      const file = values.out ?? path.join(projectPaths(dir).out, 'thumbnail.png');
+      await mkdir(path.dirname(file), { recursive: true });
+      await writeFile(file, rasterize(svg, coverWidth(project)));
+      console.log(file);
       return;
     }
     case 'voice': {

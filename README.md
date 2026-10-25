@@ -144,6 +144,7 @@ talekit copy <dir> <libraryId>       talekit render <dir> [shot] [--silent]
 talekit serve <dir> [dir…] [--open]  talekit voice <dir> [shot]
 talekit mcp                          talekit remix <dir> [-o file.mp4]
                                      talekit mkv <dir> [-o file.mp4]
+talekit cover <dir> <shot> -t 3 --title "…"   (out/thumbnail.png)
 ```
 
 `node dist/cli.js` with no arguments prints every option.

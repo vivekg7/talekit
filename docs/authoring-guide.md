@@ -13,7 +13,8 @@ comes back after every write. Fix what looks wrong before moving on.
    `out/movie.mp4` and `out/movie.mkv`, and the portrait reel's
    `out/movie.mp4`. The reel is a project of its own beside the film (`…`
    and `…-reel`; see [A reel](#a-reel-the-portrait-version)), made after
-   the film from its characters and voices.
+   the film from its characters and voices. Each also gets a cover and a
+   description to post it with (step 8).
 2. **`create_project(path, title)`** once; `path` is the absolute project
    directory and every later tool takes it. Then `list_library()`, and
    `set_audio(path, narrator, music)` (see [Sound](#sound)).
@@ -61,6 +62,21 @@ frames)` are full size. To fix a shot, `patch_shot(path, shotId, …)`:
    notes", `list_notes(path)` gives each with the picture the person saw.
    Fix it, check the new picture, then `resolve_note(path, id)`. Do not
    resolve a note you did not act on; say why instead.
+8. **Cover and description.** Every film and reel ships with a thumbnail
+   and the words to post it with, both in its `out/`. From a shell,
+   `talekit cover <dir> <shotId> -t <sec> --title "…" [--sub "…"] [--tag
+"…"] [--zoom 1.3 --focus x,y]` writes `out/thumbnail.png`: that frame
+   with the title over it, 1280 × 720 for a film (title on the left third,
+   so keep the action right of centre) and 1080 × 1920 for a reel (title
+   near the top, inside the 3:4 crop a profile grid shows). Pick the
+   story's funniest or most dramatic moment, not the title card; `--sub`
+   is a small line above the title ("पंचतंत्र की कहानी"), `--tag` the moral
+   or hook on a red tag, and `--zoom` pushes in about the scene point
+   `--focus`. Look at the picture. Then write `out/description.md`: a
+   title, a two- to four-sentence description that teases the turn
+   without giving away the ending, the moral, and hashtags, in the film's
+   language and in English, and the `talekit cover` line used, so the
+   cover can be drawn again when the art changes.
 
 ### Writing it from scripts: the Python kit
 

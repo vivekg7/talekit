@@ -43,3 +43,29 @@ describe('Devanagari text', () => {
     );
   });
 });
+
+describe('a cover', () => {
+  it('sets the title over a frame, pushed in about the focus', async () => {
+    const { loadProject } = await import('../src/project/store.js');
+    const { coverSvg } = await import('../src/render/cover.js');
+    const p = await loadProject('examples/lost-kite');
+    const svg = coverSvg(p, p.shots[0], 1, {
+      title: 'पतंग',
+      tag: 'Never give up!',
+      zoom: 1.5,
+      focus: { x: 400, y: 300 },
+    });
+    expect(svg).toContain(`translate(${400 * -0.5} ${300 * -0.5}) scale(1.5)`);
+    expect(svg).toContain(
+      shapedText('पतंग', {
+        x: 1280 * 0.34,
+        y: 190,
+        fontSize: 96,
+        fill: '#ffd23f',
+        bold: true,
+        stroke: { color: '#2e2633', width: 96 * 0.16 },
+      })
+    );
+    expect(svg).toContain("fill='#c8342b'");
+  });
+});
