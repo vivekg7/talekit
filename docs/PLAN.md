@@ -352,6 +352,15 @@ race) were the check before audio. The fixes they led to:
   foreshortened. In the engine rather than asking for three-quarter
   drawings, so every character already drawn turns. Backs are variants, not
   a new part list, so a character without one still works.
+- **Standing `on` someone** (2026-10-25). First only the draw order, which
+  goes by the feet. Then riding along, once the lion reel needed a mouse on
+  a lion that gets up: the spot is kept in the coordinates of the rig's main
+  part (a body, a torso) as the one underneath stood when the rider landed,
+  and carried through that part's pose each frame. The root alone was not
+  enough, since a lying animal lowers and levels its body part, not its
+  root; with it the mouse ended up on the lion's flank. A hop along the
+  back without `on` takes the rider off, which the reel itself got wrong,
+  so the check warns about it.
 
 Not done: a depth walk slides its feet; no camera shake or handheld drift.
 
@@ -633,5 +642,4 @@ the scene on a clear layer moved edge pixels by up to 54 of 255.
   bundled already, see 7.7).
 - From the passes above: ripples round a swimmer, `attach` to a named point
   (a parrot on a shoulder), a depth walk with planted feet, camera shake, a
-  prop that turns with the hand, a hobble, an actor standing `on` another
-  that rides along with it.
+  prop that turns with the hand, a hobble.

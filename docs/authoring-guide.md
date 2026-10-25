@@ -628,11 +628,13 @@ higher than the lion's, would be drawn behind it. Say whom it stands on:
 with `to` on the lion's back (read it off a `preview_frame`). `on` goes on
 a `walk`, `run`, `move`, `fly` or `jump` with a `to`, or with `set.at`. The
 mouse is drawn in front of the lion from when it sets off, through hops in
-place up there, until a move without `on` lands it elsewhere. A shot that
-opens with it up there says so in the cast: `"chintu": { "at": { "x": 250,
-"y": 905 }, "on": "lion" }`. It does not ride along: if the lion gets up,
-move the mouse too, or carry it with `attach`. Never paint a character into
-a scene to get round this; the real one breathes, blinks and wakes.
+place up there, until a move without `on` lands it elsewhere, so a hop
+along the back to another spot needs `on` too (the check warns when it is
+missing). A shot that opens with it up there says so in the cast:
+`"chintu": { "at": { "x": 250, "y": 905 }, "on": "lion" }`. It rides
+along: if the lion gets up, walks or turns round, the mouse keeps its spot
+on the lion's body (it keeps facing its own way). Never paint a character
+into a scene to get round this; the real one breathes, blinks and wakes.
 
 ### Dialogue
 

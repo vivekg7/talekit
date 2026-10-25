@@ -1,5 +1,5 @@
 import { clamp01, easeInOut, easeOut, hash01, lerp, ramp } from './easing.js';
-import { holdPoint, poseFor } from './actor.js';
+import { holdPoint, partToScene, poseFor, sceneToPart } from './actor.js';
 import type { Travel } from './gait.js';
 import { JUMP, SPEED, STOOP, VERB_DURATION, type Locomotion } from './motion.js';
 import { defaultGround, stageSides } from './format.js';
@@ -24,6 +24,8 @@ export interface Point {
   x: number;
   y: number;
   scale: number;
+  /** A spot on another actor (`on`), given as that actor stood at time `at`. */
+  rides?: { base: string; at: number };
 }
 
 export interface ActiveVerb {
@@ -229,6 +231,9 @@ function canonicalDistance(m: Move, e: number, k: number): number {
 
 function movePoint(m: Move, t: number): Point {
   const e = moveProgress(m, t);
+  // Not yet off, or there: the end itself, still on whoever it is on.
+  if (e <= 0) return m.from;
+  if (e >= 1) return m.to;
   return {
     x: lerp(m.from.x, m.to.x, e),
     y: lerp(m.from.y, m.to.y, e),
@@ -241,6 +246,27 @@ const TAKE_TIME = 0.6;
 const LOOK_TIME = 0.35;
 /** How deep holders and look targets are resolved: a prop's carrier, a listener's speaker. */
 const MAX_DEPTH = 2;
+
+/**
+ * Where a spot on another actor is at time t: carried from how that actor stood at `rides.at`
+ * through its moves, turns, lying down and getting up since, as a point on its body.
+ */
+function ridePoint(
+  project: Project,
+  scene: Scene,
+  shot: Shot,
+  p: Point,
+  t: number,
+  depth: number
+): Point {
+  const { rides, ...plain } = p;
+  if (!rides || depth >= MAX_DEPTH || !shot.cast[rides.base]) return plain;
+  const then = resolveActor(project, scene, shot, rides.base, rides.at, depth + 1);
+  const now = resolveActor(project, scene, shot, rides.base, t, depth + 1);
+  const spot = sceneToPart(then, poseFor(then, rides.at), p);
+  const at = partToScene(now, poseFor(now, t), spot);
+  return { x: at.x, y: at.y, scale: (p.scale * now.perspective) / then.perspective };
+}
 
 /** A prop taken from the floor or set down on it: the carrier stoops to do it. */
 const isStoop = (a: Action): boolean => a.do === 'pickup' || a.do === 'putdown';
@@ -323,6 +349,11 @@ export function resolveActor(
   const actions = shot.actions.filter((a) => a.actor === id).sort((a, b) => a.t - b.t);
 
   let point = resolvePosition(project, scene, cast.at);
+  if (cast.on) point = { ...point, rides: { base: cast.on, at: 0 } };
+  const ride = (p: Point, time: number) => ridePoint(project, scene, shot, p, time, depth);
+  // Moving between two spots that may each be on someone, where both of them are at `time`.
+  const along = (m: Move, time: number) =>
+    movePoint({ ...m, from: ride(m.from, time), to: ride(m.to, time) }, time);
   let facing: Facing = cast.facing;
   let scale = cast.scale;
   let visible = cast.visible;
@@ -427,8 +458,11 @@ export function resolveActor(
 
   for (const a of actions) {
     if (a.t > t) break;
-    // Where is the actor when this action starts?
-    if (move) point = movePoint(move, a.t);
+    // Where is the actor when this action starts? Stopped part way, it is no longer on anyone.
+    if (move) {
+      const e = moveProgress(move, a.t);
+      point = e <= 0 ? move.from : e >= 1 ? move.to : along(move, a.t);
+    }
     if (rise && a.t >= (rise.hop?.t1 ?? rise.at)) {
       rise = undefined;
       seat = 0;
@@ -488,6 +522,7 @@ export function resolveActor(
     if (a.set) {
       if (a.set.at) {
         point = resolvePosition(project, scene, a.set.at);
+        if (a.on) point = { ...point, rides: { base: a.on, at: a.t } };
         move = undefined;
         rise = undefined;
         on = a.on;
@@ -530,9 +565,11 @@ export function resolveActor(
     if (a.do && !isStoop(a)) {
       const verb = a.do;
       if (isMoveVerb(verb)) {
-        const to = a.to ? resolvePosition(project, scene, a.to) : point;
+        let to = a.to ? resolvePosition(project, scene, a.to) : point;
         const d = actionDuration(a, point, to);
         const t0 = setOff(a.t);
+        // A spot on someone is read off them as they are when it lands there.
+        if (a.on && to.rides?.base !== a.on) to = { ...to, rides: { base: a.on, at: t0 + d } };
         move = { verb, from: point, to, t0, t1: t0 + d, rest: locoStart };
         locoStart = t0;
         // Up onto someone from when it sets off; off them once it lands somewhere else.
@@ -623,7 +660,7 @@ export function resolveActor(
 
   let travel: Travel | undefined;
   if (move) {
-    point = movePoint(move, t);
+    point = along(move, t);
     if (t < move.t0) {
       locoStart = move.rest;
     } else if (t < move.t1) {
@@ -679,6 +716,8 @@ export function resolveActor(
     point = perch.point;
     seat = perch.seat;
   }
+  // Standing still on someone: wherever that spot on them has got to.
+  if (point.rides) point = ride(point, t);
   if (offAt <= t) on = undefined;
   const holding = Object.keys(shot.cast).some((other) => holderAt(shot, other, t) === id);
   const state: ActorState = {

@@ -644,7 +644,7 @@ export const ActionSchema = z
       .describe("The sound's loudness: 1 as recorded (default), 0.5 distant, 1.5 close"),
     /** Standing on another actor: drawn in front of it while on it. */
     on: IdSchema.optional().describe(
-      "With a walk, run, move, fly or jump that has a `to`, or with set.at: the id of the actor this one ends up standing on (a mouse on a sleeping lion's back), so it is drawn in front of that actor from when it sets off until a later move without `on` lands somewhere else. Put `to` on the top of that actor (read where it is off a preview_frame). It does not ride along: to be carried, use attach"
+      "With a walk, run, move, fly or jump that has a `to`, or with set.at: the id of the actor this one ends up standing on (a mouse on a sleeping lion's back), so it is drawn in front of that actor from when it sets off until a later move without `on` lands somewhere else. Put `to` on the top of that actor (read where it is off a preview_frame). It rides along on that spot of its body as the other gets up, walks or turns; a hop to another spot up there needs `on` again"
     ),
     /** Instant state changes. */
     set: z
@@ -692,7 +692,7 @@ export const CastMemberSchema = z.object({
   visible: z.boolean().default(true),
   emotion: EmotionSchema.default('neutral'),
   on: IdSchema.optional().describe(
-    "The id of the actor this one starts the shot standing on (a mouse already on a sleeping lion's back), so it is drawn in front of it; `at` is the spot on its top"
+    "The id of the actor this one starts the shot standing on (a mouse already on a sleeping lion's back), so it is drawn in front of it and rides along on it; `at` is the spot on its top"
   ),
 });
 export type CastMember = z.infer<typeof CastMemberSchema>;

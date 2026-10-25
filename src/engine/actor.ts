@@ -416,18 +416,71 @@ export function renderShadow(actor: ActorState, pose: Pose): string {
   );
 }
 
+/** A point in the actor's box, through the pose's root (not its spin), in the scene. */
+export function boxToScene(
+  actor: ActorState,
+  pose: Pose,
+  [bx, by]: [number, number]
+): { x: number; y: number } {
+  const rig = rigOf(actor.character);
+  const s = (actor.character.height / rig.height) * actor.scale;
+  // The root transforms the composer applies: scale about the feet, then the body offset.
+  const x = pose.sx * (bx - rig.width / 2) + pose.dx;
+  const y = pose.sy * (by - rig.height) + pose.dy;
+  return { x: actor.x + s * sideOf(actor) * x, y: actor.y + s * y };
+}
+
+/** Where a point in the scene is in the actor's box: boxToScene the other way. */
+export function sceneToBox(
+  actor: ActorState,
+  pose: Pose,
+  p: { x: number; y: number }
+): [number, number] {
+  const rig = rigOf(actor.character);
+  const s = (actor.character.height / rig.height) * actor.scale;
+  return [
+    rig.width / 2 + ((p.x - actor.x) / (s * sideOf(actor)) - pose.dx) / pose.sx,
+    rig.height + ((p.y - actor.y) / s - pose.dy) / pose.sy,
+  ];
+}
+
+/**
+ * Where a point in the scene lies on the part someone standing on this actor rides (its
+ * rig's main one: a body, a torso), in that part's own coordinates, so it can be found again
+ * once the actor has moved, turned, lain down or got up.
+ */
+export function sceneToPart(
+  actor: ActorState,
+  pose: Pose,
+  p: { x: number; y: number }
+): [number, number] {
+  const rig = rigOf(actor.character);
+  // For one pose the part is turned and shifted: undone from where three points land.
+  const o = toRoot(rig, pose, rig.required, [0, 0]);
+  const ex = toRoot(rig, pose, rig.required, [1, 0]);
+  const ey = toRoot(rig, pose, rig.required, [0, 1]);
+  const [a, c] = [ex[0] - o[0], ex[1] - o[1]];
+  const [b, d] = [ey[0] - o[0], ey[1] - o[1]];
+  const [bx, by] = sceneToBox(actor, pose, p);
+  const [qx, qy] = [bx - o[0], by - o[1]];
+  const det = a * d - b * c;
+  return [(d * qx - b * qy) / det, (a * qy - c * qx) / det];
+}
+
+/** A point on the part someone rides (see sceneToPart), in the scene. */
+export function partToScene(
+  actor: ActorState,
+  pose: Pose,
+  point: [number, number]
+): { x: number; y: number } {
+  const rig = rigOf(actor.character);
+  return boxToScene(actor, pose, toRoot(rig, pose, rig.required, point));
+}
+
 /** Where a carried prop is held (the rig's hold point, through the pose), in the scene. */
 export function holdPoint(actor: ActorState, pose: Pose): { x: number; y: number } {
   const rig = rigOf(actor.character);
-  const s = (actor.character.height / rig.height) * actor.scale;
-  const [hx, hy] = toRoot(rig, pose, rig.hold.part, rig.hold.point);
-  // The root transforms the composer applies: scale about the feet, then the body offset.
-  const x = rig.width / 2 + pose.sx * (hx - rig.width / 2) + pose.dx;
-  const y = rig.height + pose.sy * (hy - rig.height) + pose.dy;
-  return {
-    x: actor.x + s * sideOf(actor) * (x - rig.width / 2),
-    y: actor.y + s * (y - rig.height),
-  };
+  return boxToScene(actor, pose, toRoot(rig, pose, rig.hold.part, rig.hold.point));
 }
 
 /**

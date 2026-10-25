@@ -8,6 +8,7 @@ import {
   holderAt,
   movieDuration,
   resolveActor,
+  resolvePosition,
   STAGE_SHORTCUTS,
 } from '../engine/timeline.js';
 import { isPortrait, REEL_SECONDS } from '../engine/format.js';
@@ -32,6 +33,7 @@ import type {
   Voice,
   Weather,
 } from '../engine/types.js';
+import { isMoveVerb } from '../engine/types.js';
 import { SOUNDS } from '../library/sounds.js';
 
 export interface Problem {
@@ -545,6 +547,7 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
       });
   }
   out.push(...pickupReach(shot, project));
+  out.push(...stepsOff(shot, project));
   if (shot.actions.length === 0 && Object.keys(shot.cast).length === 0)
     out.push({ level: 'warning', where, message: 'empty shot: no cast and no actions' });
   return out;
@@ -581,6 +584,42 @@ function pickupReach(shot: Shot, project: Project): Problem[] {
       });
     }
   });
+  return out;
+}
+
+/**
+ * A hop along someone's back without `on`: a move without it takes the actor off whoever it
+ * stands on, so landing up there again it is drawn behind them (and no longer rides along).
+ * Up there is over their box with the feet well above theirs.
+ */
+function stepsOff(shot: Shot, project: Project): Problem[] {
+  const out: Problem[] = [];
+  const scene = project.scenes[shot.scene];
+  // Off after one such hop, it is still meant to be up there for the next.
+  const meant: Record<string, string> = {};
+  const inOrder = [...shot.actions.entries()].sort(([, x], [, y]) => x.t - y.t);
+  for (const [i, a] of inOrder) {
+    if (!a.actor || !a.do || !isMoveVerb(a.do) || !a.to || !shot.cast[a.actor]) continue;
+    if (a.on || !project.characters[a.actor]) {
+      delete meant[a.actor];
+      continue;
+    }
+    const on = resolveActor(project, scene, shot, a.actor, a.t).on ?? meant[a.actor];
+    delete meant[a.actor];
+    if (!on || !project.characters[on]) continue;
+    const base = resolveActor(project, scene, shot, on, a.t);
+    const rig = rigOf(base.character);
+    const s = (base.character.height / rig.height) * base.scale;
+    const to = resolvePosition(project, scene, a.to);
+    if (Math.abs(to.x - base.x) < (rig.width / 2) * s && to.y < base.y - 0.1 * rig.height * s) {
+      out.push({
+        level: 'warning',
+        where: `shot '${shot.id}' action[${i}] (t=${a.t})`,
+        message: `'${a.actor}' lands on '${on}' again without on, so it is drawn behind '${on}' from then; add "on": "${on}" to stay up there`,
+      });
+      meant[a.actor] = on;
+    }
+  }
   return out;
 }
 

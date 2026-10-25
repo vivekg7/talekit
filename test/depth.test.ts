@@ -280,6 +280,28 @@ describe('standing on someone', () => {
     expect(order(p, 2.5)).toEqual(['mouse', 'lion']);
   });
 
+  it('rides along as the one under it walks, lies down and gets up', () => {
+    const at = (p: Project, id: string, t: number) =>
+      resolveFrame(p, p.shots[0], t).actors.find((a) => a.id === id)!;
+    const p = shot({ at: { x: 590, y: 560 }, on: 'lion' }, [
+      { t: 1, actor: 'lion', do: 'walk', to: { x: 800, y: 650 } },
+      { t: 4, actor: 'lion', do: 'lie', duration: 1 },
+    ]);
+    const before = at(p, 'mouse', 0);
+    const walked = at(p, 'mouse', 3.9);
+    // As far along as the lion went, and as high up its back.
+    expect(walked.x - before.x).toBeCloseTo(at(p, 'lion', 3.9).x - 600, 0);
+    expect(walked.y).toBeCloseTo(before.y, 0);
+    // Down with its back as it lies.
+    expect(at(p, 'mouse', 5.5).y).toBeGreaterThan(walked.y + 10);
+    // A hop along the back without `on` gets a warning: it would be off the lion.
+    const hop = shot({ at: { x: 590, y: 560 }, on: 'lion' }, [
+      { t: 1, actor: 'mouse', do: 'jump', to: { x: 620, y: 560 }, duration: 0.5 },
+    ]);
+    const msgs = validateShot(hop.shots[0], hop).map((w) => w.message);
+    expect(msgs.some((m) => m.includes(`lands on 'lion' again without on`))).toBe(true);
+  });
+
   it('needs a way up and someone in the cast to stand on', () => {
     expect(() =>
       ShotSchema.parse({
