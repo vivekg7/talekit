@@ -414,11 +414,15 @@ function quadrupedVerb(rig: Rig, pose: Pose, verb: Verb, u: number): boolean {
       return true;
     }
     case 'shake': {
-      const n = Math.sin(u * TAU * 3);
-      add('head', 9 * n);
-      nudge(pose, 'head', 3 * n, 0);
-      add('earL', -8 * n);
-      add('earR', -8 * n);
+      // A profile head cannot turn away from the camera, so the "no" is a wide swing in the
+      // plane with the ears flung after it and the shoulders answering; smaller reads as a
+      // twitch at reel size.
+      const n = Math.sin(u * TAU * 3) * Math.min(1, u * 8, (1 - u) * 8);
+      add('head', 16 * n);
+      nudge(pose, 'head', 6 * n, 0);
+      add('body', -3 * n);
+      add('earL', -16 * n);
+      add('earR', -16 * n);
       return true;
     }
     case 'jump': {
