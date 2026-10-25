@@ -60,6 +60,8 @@ import { faceFallbacks } from '../engine/motion.js';
 import { writeMkv } from '../render/mkv.js';
 import { isPortrait } from '../engine/format.js';
 import { renderVideo } from '../render/video.js';
+import { openInBrowser } from '../viewer/open.js';
+import { serve } from '../viewer/server.js';
 import { makeVoices } from '../project/voices.js';
 import { SOUNDS } from '../library/sounds.js';
 import { VOICES } from '../library/voices.js';
@@ -205,7 +207,7 @@ function describeProject(
     open.length
       ? `${open.length} open — call list_notes to see them with pictures, fix each, then resolve_note.`
       : 'none open',
-    `Review app: \`talekit serve ${projectPaths(root).root}\` (the person leaves notes there)`,
+    `Review app: open_review, or \`talekit serve ${projectPaths(root).root} --open\` (the person leaves notes there)`,
   ];
   return lines.join('\n');
 }
@@ -728,6 +730,42 @@ export function buildServer(): McpServer {
     }
   );
 
+  // Review apps started by open_review, by project root; they live as long as this server.
+  const reviews = new Map<string, string>();
+  server.registerTool(
+    'open_review',
+    {
+      title: 'Open the review apps',
+      description:
+        "Serve the review app for each project (the film and its reel, after both are rendered) on 127.0.0.1 and open each in the person's browser (Firefox when it is running, else the default), so they can watch and leave notes. A project already served by this call keeps its address. Returns the addresses: tell the person.",
+      inputSchema: {
+        paths: z
+          .array(z.string())
+          .min(1)
+          .describe('Absolute project directories, the landscape film first'),
+      },
+    },
+    async ({ paths }) => {
+      try {
+        const urls: string[] = [];
+        for (const root of paths) {
+          const key = projectPaths(root).root;
+          let url = reviews.get(key);
+          if (!url) {
+            const last = [...reviews.values()].at(-1);
+            url = (await serve(key, last ? Number(new URL(last).port) + 1 : 4848)).url;
+            reviews.set(key, url);
+          }
+          openInBrowser(url);
+          urls.push(`${url}  ${key}`);
+        }
+        return ok(text(`review apps open:\n${urls.join('\n')}`));
+      } catch (e) {
+        return fail((e as Error).message);
+      }
+    }
+  );
+
   server.registerTool(
     'list_voices',
     {
@@ -853,7 +891,7 @@ export function buildServer(): McpServer {
     {
       title: 'List review notes',
       description:
-        'Notes a person left in the review app (`talekit serve <path>`) on a character, a scene, or one moment of a shot. Each open note comes with a picture of what they were looking at: the frame at that moment for a shot note, the pose or anchor sheet for an asset note. Fix what the note asks, check the result, then call resolve_note.',
+        'Notes a person left in the review app (open_review) on a character, a scene, or one moment of a shot. Each open note comes with a picture of what they were looking at: the frame at that moment for a shot note, the pose or anchor sheet for an asset note. Fix what the note asks, check the result, then call resolve_note.',
       inputSchema: {
         path: pathArg,
         all: z.boolean().optional().describe('Include resolved notes (default: open only)'),

@@ -32,7 +32,7 @@ story ──agent──▶ characters/*.json  scenes/*.json  shots/*.json ──
 npm install
 npm run build
 node dist/cli.js render examples/lost-kite   # → examples/lost-kite/out/movie.mp4 and .mkv
-node dist/cli.js serve  examples/lost-kite   # review app at http://127.0.0.1:4848
+node dist/cli.js serve  examples/lost-kite --open   # review app at http://127.0.0.1:4848
 claude mcp add talekit -- node /absolute/path/to/talekit/dist/cli.js mcp
 ```
 
@@ -47,7 +47,10 @@ characters, scenes and shots.
 
 ## Reviewing and output
 
-`talekit serve <project>` opens the review app: the film with a scrubber and
+`talekit serve <film> <reel> --open` serves a review app for each project
+(on 4848 and 4849, or the next free ports) and opens both in the browser,
+in Firefox when it is already running. The agent does the same with
+`open_review` once both are rendered. Each is the film with a scrubber and
 a strip of shots, the characters as pose sheets, the scenes as anchor sheets.
 Pick a moment or an asset and type what is wrong; it is saved to
 `<project>/notes.json`. Tell the agent "fix my notes": `list_notes` hands it
@@ -64,7 +67,8 @@ full mix, the film without dialogue, and that with the narrator), subtitles
 in the film's language and each translation (off until chosen), and a
 chapter per shot. VLC or MX Player on a phone shows them all.
 
-A **reel** for Instagram or YouTube Shorts is a project of its own at
+A movie is delivered three ways: the film's mp4 and .mkv, and the reel's
+mp4. A **reel** for Instagram or YouTube Shorts is a project of its own at
 720 × 1280 (`talekit init <dir> --width 720 --height 1280`): the story told
 again in at most three minutes, mostly by the narrator, in scenes drawn
 tall. Text keeps clear of the apps' overlays, and the render is one mp4,
@@ -126,6 +130,7 @@ scripts" in the guide.
 | `list_sounds`              | bundled music, ambience and sound effects                               |
 | `set_audio`                | sets the music, narrator and mix, returns a **map of the film's sound** |
 | `render`                   | mp4 of one shot or the whole film, plus a **film sheet** (frame/shot)   |
+| `open_review`              | review apps for the film and the reel, opened in the browser            |
 | `list_notes`               | review notes left in the app, each with the frame or sheet it points at |
 | `resolve_note`             | marks a note done once the fix is in                                    |
 
@@ -136,7 +141,7 @@ talekit init <dir> --title "…"       talekit sheet <dir> <id>
 talekit check <dir>                  talekit frame <dir> <shot> -t 2.5 [--debug] [--svg]
 talekit library                      talekit contact <dir> <shot> -n 6
 talekit copy <dir> <libraryId>       talekit render <dir> [shot] [--silent]
-talekit serve <dir>                  talekit voice <dir> [shot]
+talekit serve <dir> [dir…] [--open]  talekit voice <dir> [shot]
 talekit mcp                          talekit remix <dir> [-o file.mp4]
                                      talekit mkv <dir> [-o file.mp4]
 ```

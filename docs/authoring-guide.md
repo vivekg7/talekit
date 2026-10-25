@@ -8,9 +8,12 @@ comes back after every write. Fix what looks wrong before moving on.
 ## Workflow
 
 1. **Plan.** List characters, locations and 6–40 shots of 5–20 s each. A
-   shot is one location with one bit of action. A reel for a phone held
-   upright is a project of its own (see
-   [A reel](#a-reel-the-portrait-version)).
+   shot is one location with one bit of action. **A movie is delivered
+   three ways** unless the person asks for only one: the landscape film's
+   `out/movie.mp4` and `out/movie.mkv`, and the portrait reel's
+   `out/movie.mp4`. The reel is a project of its own beside the film (`…`
+   and `…-reel`; see [A reel](#a-reel-the-portrait-version)), made after
+   the film from its characters and voices.
 2. **`create_project(path, title)`** once; `path` is the absolute project
    directory and every later tool takes it. Then `list_library()`, and
    `set_audio(path, narrator, music)` (see [Sound](#sound)).
@@ -47,9 +50,13 @@ frames)` are full size. To fix a shot, `patch_shot(path, shotId, …)`:
 6. **`render(path, shotId?)`** one shot early to check motion, then the
    whole film, which returns a film sheet (one frame per shot) and, unless
    it is a reel, `out/movie.mkv` (see
-   [Subtitles and the .mkv](#subtitles-and-the-mkv)).
-7. **Review notes.** The person watches in the review app (`talekit serve
-<path>`) and leaves notes on a character, a scene or a moment of a shot.
+   [Subtitles and the .mkv](#subtitles-and-the-mkv)). Render the reel the
+   same way.
+7. **Review notes.** Once both are rendered, `open_review([film, reel])`
+   (from a shell, `talekit serve <film> <reel> --open`) serves a review app
+   for each and opens both in the person's browser; give them the two
+   addresses it returns. They watch and leave notes on a character, a scene
+   or a moment of a shot.
    When `project_info` reports open notes, or you are asked to "fix my
    notes", `list_notes(path)` gives each with the picture the person saw.
    Fix it, check the new picture, then `resolve_note(path, id)`. Do not
@@ -928,4 +935,5 @@ surprised`). See `examples/clever-rabbit` shots 07 to 09.
   on every `say` and `caption`, unless told otherwise or it is a reel.
 - Total duration matches the ask: a short fable 60–120 s, a picture-book
   story 5–10 minutes, a reel at most 3 minutes.
+- There is a reel beside the film, unless the person asked for one only.
 - The film sheet from `render` shows every shot as intended.

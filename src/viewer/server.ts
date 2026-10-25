@@ -157,9 +157,13 @@ function readBody(req: http.IncomingMessage): Promise<unknown> {
 /**
  * The review app: live frames of every shot, the assets as pose and anchor sheets, and notes
  * a person leaves on any of them for the agent to pick up with `list_notes`. The project is
- * reloaded on every request so edits show up immediately.
+ * reloaded on every request so edits show up immediately. A port already taken (often an
+ * earlier review app) moves it to the next free one; it resolves to the address it got.
  */
-export async function serve(root: string, port: number): Promise<void> {
+export async function serve(
+  root: string,
+  port: number
+): Promise<{ url: string; close: () => void }> {
   await loadProject(root); // fail fast if the directory is not a project
   const json = (res: http.ServerResponse, body: unknown, status = 200) =>
     res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(body));
@@ -291,6 +295,12 @@ export async function serve(root: string, port: number): Promise<void> {
       else res.writeHead(500, { 'content-type': 'text/plain' }).end((e as Error).message);
     }
   });
-  await new Promise<void>((resolve) => server.listen(port, '127.0.0.1', resolve));
-  console.log(`talekit review: http://127.0.0.1:${port}/  (${root})`);
+  for (let p = port; ; p++) {
+    const err = await new Promise<NodeJS.ErrnoException | undefined>((resolve) => {
+      server.once('error', resolve);
+      server.listen(p, '127.0.0.1', () => resolve(undefined));
+    });
+    if (!err) return { url: `http://127.0.0.1:${p}/`, close: () => server.close() };
+    if (err.code !== 'EADDRINUSE' || p >= port + 20) throw err;
+  }
 }
