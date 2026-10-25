@@ -21,7 +21,7 @@ import {
   type Shot,
   type Voice,
 } from '../engine/types.js';
-import { voiceLines } from '../engine/voice.js';
+import { timeActions, voiceLines } from '../engine/voice.js';
 import { LIBRARY, nameFromId } from '../library/index.js';
 import {
   createProject,
@@ -31,6 +31,7 @@ import {
   saveMeta,
   saveScene,
   saveShot,
+  storedShot,
   shotOrder,
 } from '../project/store.js';
 import { listActions, patchShot, SETTABLE } from '../project/patch.js';
@@ -298,7 +299,7 @@ export function buildServer(): McpServer {
               ? project.scenes[id]
               : project.shots.find((s) => s.id === id);
         if (!item) return fail(`no ${kind} '${id}'`);
-        const json = JSON.stringify(item, null, 2);
+        const json = JSON.stringify(kind === 'shot' ? storedShot(item as Shot) : item, null, 2);
         if (kind !== 'shot') return ok(text(json));
         return ok(
           text(`${json}\n\nActions by index (for patch_shot):\n${listActions(item as Shot)}`)
@@ -487,7 +488,7 @@ export function buildServer(): McpServer {
     {
       title: 'Write shot',
       description:
-        "Validate and save a shot (shots/<NN>-<id>.json; `order` sets NN and therefore playback order). Cross-checks cast, anchors, face variants, who a line is spoken `to`, who carries what (`attach`; a `pickup` the carrier cannot reach says where to stand), who stands on whom (`on`) and whether a `crossfade` has a shot to dissolve from, and warns when two actors speak at once. The project check also warns when someone ends a shot carrying a prop and starts the next empty-handed. Listeners look at the speaker on their own; do not stage looks. Lines of characters with a `voice`, and captions when the project has a narrator, are spoken now, each with the emotion its speaker has then; a spoken line lasts as long as it takes to say, and warnings say when one is cut off by the end of the shot, talks over the narrator or runs into the speaker's own next line, or when a growl or a laugh is written out for the voice to read (mark it *…* and add a `sound`). Returns a contact sheet of evenly spaced frames so you can check staging, timing and bubbles, with the sound under it (a row per speaker, effects, ambience, music; a line outlined in red is cut off); it is drawn smaller than preview_shot draws it, so use that when a detail is hard to make out.",
+        "Validate and save a shot (shots/<NN>-<id>.json; `order` sets NN and therefore playback order). Cross-checks cast, anchors, face variants, who a line is spoken `to`, who carries what (`attach`; a `pickup` the carrier cannot reach says where to stand), who stands on whom (`on`) and whether a `crossfade` has a shot to dissolve from, and warns when two actors speak at once. The project check also warns when someone ends a shot carrying a prop and starts the next empty-handed. Listeners look at the speaker on their own; do not stage looks. Lines of characters with a `voice`, and captions when the project has a narrator, are spoken now, each with the emotion its speaker has then; a spoken line lasts as long as it takes to say (give a reply `after` in place of `t` and it starts that long after the line before it ends, however long that turns out), and warnings say when one is cut off by the end of the shot, talks over the narrator or runs into the speaker's own next line, or when a growl or a laugh is written out for the voice to read (mark it *…* and add a `sound`). Returns a contact sheet of evenly spaced frames so you can check staging, timing and bubbles, with the sound under it (a row per speaker, effects, ambience, music; a line outlined in red is cut off); it is drawn smaller than preview_shot draws it, so use that when a detail is hard to make out.",
       inputSchema: {
         path: pathArg,
         shot: ShotSchema,
@@ -509,6 +510,7 @@ export function buildServer(): McpServer {
     async ({ path: root, shot, order, frames }) => {
       try {
         const project = await loadProject(root);
+        timeActions(project, shot);
         const problems = validateShot(shot, project);
         if (hasErrors(problems)) return fail(formatProblems(problems));
         const file = await saveShot(root, shot, order);
@@ -554,7 +556,7 @@ export function buildServer(): McpServer {
               fields: z
                 .record(z.string(), z.unknown())
                 .describe(
-                  'Action fields to change, e.g. { "t": 3.5 } or { "say": "…" }; null removes one'
+                  'Action fields to change, e.g. { "t": 3.5 } or { "say": "…" }; null removes one. An action placed `after` a line takes { "after": 0.5 }, or { "t": 3.5, "after": null } for a fixed time'
                 ),
             })
           )
@@ -583,7 +585,7 @@ export function buildServer(): McpServer {
         const project = await loadProject(root);
         const before = project.shots.find((s) => s.id === shotId);
         if (!before) return fail(`no shot '${shotId}'`);
-        const { shot, from, to } = patchShot(before, { set, cast, edit, remove, add });
+        const { shot, from, to } = patchShot(before, { set, cast, edit, remove, add }, project);
         const problems = validateShot(shot, project);
         if (hasErrors(problems)) return fail(formatProblems(problems));
         const file = await saveShot(root, shot, await shotOrder(root, shotId));

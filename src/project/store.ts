@@ -14,6 +14,7 @@ import {
   type Shot,
   type VoiceClip,
 } from '../engine/types.js';
+import { timeActions } from '../engine/voice.js';
 
 export const META_FILE = 'talekit.json';
 
@@ -113,7 +114,9 @@ export async function loadProject(root: string): Promise<Project> {
     else shots.push(r.data);
   }
   if (errors.length) throw new Error(errors.join('\n'));
-  return { meta, characters, scenes, shots, audio: await loadAudio(p.audio) };
+  const project: Project = { meta, characters, scenes, shots, audio: await loadAudio(p.audio) };
+  for (const shot of shots) timeActions(project, shot);
+  return project;
 }
 
 /** Formats ffmpeg decodes that a project's audio/ folder may hold. */
@@ -220,6 +223,17 @@ export async function saveShot(root: string, s: Shot, order?: number): Promise<s
   }
   const prefix = order !== undefined ? String(order).padStart(2, '0') + '-' : '';
   const file = path.join(dir, `${prefix}${s.id}.json`);
-  await writeFile(file, JSON.stringify(s, null, 2) + '\n');
+  await writeFile(file, JSON.stringify(storedShot(s), null, 2) + '\n');
   return file;
+}
+
+/** A shot as its file has it: an action placed `after` a line keeps that, not the time it
+ * last worked out to. */
+export function storedShot(s: Shot): object {
+  const actions = s.actions.map((a) => {
+    if (a.after === undefined) return a;
+    const { t: _, ...rest } = a;
+    return rest;
+  });
+  return { ...s, actions };
 }

@@ -69,4 +69,36 @@ describe('patch_shot', () => {
       '2: t=6 dog jump',
     ]);
   });
+
+  it('keeps an action placed after a line free of a t, and in its place', () => {
+    const placed = ShotSchema.parse({
+      ...shot,
+      actions: [
+        { t: 0.5, actor: 'kid', say: 'Hello, dog!' },
+        { after: 0.3, actor: 'dog', say: 'Woof!' },
+        { t: 6, actor: 'dog', do: 'jump' },
+      ],
+    });
+    placed.actions[1].t = 2.6; // as loading the shot timed it
+    const { shot: out } = patchShot(placed, {
+      edit: [{ index: 1, fields: { after: 0.5 } }],
+      add: [{ after: 0.2, actor: 'kid', do: 'wave' }],
+    });
+    expect(out.actions.map((a) => [a.after, a.do ?? a.say])).toEqual([
+      [undefined, 'Hello, dog!'],
+      [0.5, 'Woof!'],
+      [undefined, 'jump'],
+      [0.2, 'wave'],
+    ]);
+    // A time of its own is one or the other.
+    expect(() => patchShot(placed, { edit: [{ index: 1, fields: { t: 3 } }] })).toThrow(
+      /t or after, not both/
+    );
+    const fixed = patchShot(placed, { edit: [{ index: 1, fields: { t: 3, after: null } }] });
+    expect(fixed.shot.actions[1]).toMatchObject({ t: 3 });
+    expect(fixed.shot.actions[1].after).toBeUndefined();
+    expect(() => ShotSchema.parse({ ...shot, actions: [{ actor: 'kid', do: 'wave' }] })).toThrow(
+      /t \(or after\) is required/
+    );
+  });
 });

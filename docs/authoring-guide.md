@@ -560,8 +560,8 @@ falling the same way.
     { "t": 0.5, "actor": "mia", "do": "walk", "to": "tree" },
     { "t": 3, "actor": "mia", "say": "Dad! Look what I found!" },
     { "t": 3, "actor": "dad", "do": "wave" },
-    { "t": 5.5, "actor": "dad", "say": "A kite! Let's fly it.", "emotion": "happy" },
-    { "t": 8, "actor": "mia", "do": "jump" },
+    { "after": 0.4, "actor": "dad", "say": "A kite! Let's fly it.", "emotion": "happy" },
+    { "after": 0.3, "actor": "mia", "do": "jump" },
     { "t": 9, "camera": { "zoom": 1.6, "x": 400, "y": 500 }, "duration": 2 }
   ]
 }
@@ -579,6 +579,18 @@ falling the same way.
   redraw; use points for spots with no name, like a kite in the sky.
 - `t` is seconds from the shot's start. One actor's actions can overlap
   (walk and say at once). Nothing carries across shots.
+- `after` in place of `t` starts an action that many seconds after the
+  line listed before it (the nearest earlier `say` or `caption`) stops
+  being spoken: dad answers 0.4 s after mia finishes, however long her
+  voice turns out to be. The engine works the time out when the shot is
+  loaded and again once the voices are made, so a reworded line or a slower
+  voice moves the replies after it instead of talking over them; with no
+  line before it, it counts from the shot's start. It works on any action
+  (a jump just after a line, a turn as a reply begins). Keep the actions in
+  the order they happen, and leave enough `duration` for the last line: a
+  line the shot's end cuts off is warned about. The file keeps `after`;
+  `get_item` and `patch_shot` show the time it worked out to. To give such
+  an action a fixed time, patch it with `{ "t": 6, "after": null }`.
 - Shots play in file order; `order` on `write_shot` sets it.
 - A shot is a cut. `crossfade: 1` dissolves it in from the previous shot
   over its first second, for time passing or a soft change of place (the
@@ -680,7 +692,8 @@ stays up as long as it takes to say plus 0.5 s; an unvoiced one 1 s plus
 longer (never shorter than its voice) and sets an unvoiced one's. `bubble`
 is `speech` (default), `thought` (mouth still, nobody turns to look) or
 `shout`. Keep lines to 12 words or fewer and let one speaker finish before
-the next starts (`write_shot` warns when bubbles overlap). Bubbles stay
+the next starts (`write_shot` warns when bubbles overlap): give a reply
+`after` rather than a `t` and it waits for the line before it. Bubbles stay
 inside the frame at the same size at any zoom, so one that looks clipped
 on a small sheet is not: check the text.
 
@@ -867,7 +880,8 @@ copied; the scenes and shots are new.
 - Open with a title card over the first scene (`fadeIn`, `caption` style
   `title`), close with "The End" and a `fadeOut`.
 - One idea per shot: enter, react, speak, leave. 8–15 s is typical.
-- Let a line land: about 0.5 s after a bubble before the next one.
+- Let a line land: `after: 0.5` or so before the next one, 0.2 for a
+  quick retort, 1 or more for a silence.
 - Alternate wide shots (walks, arrivals) with closer zooms (feelings).
 - Use `emotion` generously: a story reads through faces.
 - **When the plot turns on what a character sees, cut to what they see.**

@@ -5,7 +5,7 @@ import path from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import type { Project, Shot } from '../engine/types.js';
-import { ENVELOPE_RATE, voiceLines, type Line } from '../engine/voice.js';
+import { ENVELOPE_RATE, timeActions, voiceLines, type Line } from '../engine/voice.js';
 import { decode, RATE } from '../render/audio.js';
 import {
   loadAudio,
@@ -130,7 +130,8 @@ function envelope(samples: Float32Array): Buffer {
 
 /**
  * Speak every line in these shots that has no audio yet, into audio/voices/, and record it
- * in the index. The project's `audio` is refreshed, so timings read the new lines at once.
+ * in the index. The project's `audio` is refreshed, and the actions placed `after` a line
+ * timed again, so timings read the new lines at once.
  * Throws when the sidecar cannot start; a line the model fails on is reported, not thrown.
  */
 export async function makeVoices(
@@ -139,12 +140,34 @@ export async function makeVoices(
   shots: Shot[] = project.shots,
   onLine?: (done: number, total: number) => void
 ): Promise<VoiceReport> {
+  const report: VoiceReport = { made: 0, kept: 0, failed: [] };
+  // A line placed `after` another moves once that one has its voice, and may then fall
+  // after an emotion it fell before: speak again what that leaves without audio.
+  for (let pass = 0; pass < 3; pass++) {
+    const skip = new Set(report.failed.map((f) => f.line.key));
+    const r = await speak(root, project, shots, skip, onLine);
+    if (pass === 0) report.kept = r.kept;
+    report.made += r.made;
+    report.failed.push(...r.failed);
+    if (!r.made) break;
+  }
+  return report;
+}
+
+async function speak(
+  root: string,
+  project: Project,
+  shots: Shot[],
+  skip: Set<string>,
+  onLine?: (done: number, total: number) => void
+): Promise<VoiceReport> {
   const dir = projectPaths(root).audio;
   const voicesDir = path.join(dir, 'voices');
   const index = await readVoiceIndex(dir);
   const lines = voiceLines(project, shots);
   const todo = [...new Map(lines.map((l) => [l.key, l])).values()].filter(
-    (l) => !(index[l.key] && existsSync(path.join(voicesDir, index[l.key].file)))
+    (l) =>
+      !skip.has(l.key) && !(index[l.key] && existsSync(path.join(voicesDir, index[l.key].file)))
   );
   const report: VoiceReport = { made: 0, kept: lines.length - todo.length, failed: [] };
   if (!todo.length) return report;
@@ -218,6 +241,7 @@ export async function makeVoices(
     await writeFile(voiceIndexPath(dir), JSON.stringify(sortKeys(index), null, 1) + '\n');
   }
   project.audio = await loadAudio(dir);
+  for (const shot of new Set([...project.shots, ...shots])) timeActions(project, shot);
   return report;
 }
 

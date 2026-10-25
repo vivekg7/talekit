@@ -13,14 +13,7 @@ import {
 } from '../engine/timeline.js';
 import { isPortrait, REEL_SECONDS } from '../engine/format.js';
 import { resolveSound } from '../engine/sources.js';
-import {
-  clipFor,
-  lineDuration,
-  lineLead,
-  spokenText,
-  voiceLines,
-  voiceSpec,
-} from '../engine/voice.js';
+import { lineEnd, spokenText, voiceLines, voiceSpec } from '../engine/voice.js';
 import { needsShaping } from '../engine/glyphs.js';
 import { VOICES } from '../library/voices.js';
 import type {
@@ -523,13 +516,7 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
   // or a longer `duration`) may overlap the next one, as bubbles do in a comic.
   const bubbles = shot.actions
     .filter((a) => a.say && a.actor)
-    .map((a) => {
-      const clip = clipFor(project, shot, a);
-      const to = clip
-        ? a.t + lineLead(project, shot, a) + clip.duration
-        : a.t + lineDuration(project, shot, a);
-      return { actor: a.actor!, from: a.t, to };
-    })
+    .map((a) => ({ actor: a.actor!, from: a.t, to: lineEnd(project, shot, a) }))
     .sort((a, b) => a.from - b.from);
   for (let i = 1; i < bubbles.length; i++) {
     const cur = bubbles[i];

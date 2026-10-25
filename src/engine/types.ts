@@ -555,8 +555,20 @@ export type View = { zoom: number; x: number; y: number };
 
 export const ActionSchema = z
   .object({
-    /** Start time in seconds from the start of the shot. */
-    t: z.number().min(0),
+    /** Start time in seconds from the start of the shot (given here, or worked out from `after`). */
+    t: z
+      .number()
+      .min(0)
+      .optional()
+      .describe('Seconds from the start of the shot. Give this or `after`'),
+    /** Seconds after the line before it in the list is spoken: the engine works out `t`. */
+    after: z
+      .number()
+      .min(0)
+      .optional()
+      .describe(
+        "In place of t: start this many seconds after the line listed before it (the nearest earlier action with a say or caption) stops being spoken, 0.3 for a quick reply, 1 for a pause. The engine works out t from how long that line really takes, so the timing holds when the voices are made or a line is reworded; with no line before it, it counts from the start of the shot. Keep the actions in the order they happen. Any action can use it: a turn or an emotion just after someone's line"
+      ),
     /** Seconds. Each verb has a sensible default. */
     duration: z.number().positive().optional(),
     actor: IdSchema.optional(),
@@ -671,6 +683,11 @@ export const ActionSchema = z
       a.attach !== undefined,
     'an action needs at least one of: do, say, emotion, face, caption, camera, set, attach, lightning, weather, sound'
   )
+  .refine((a) => a.t !== undefined || a.after !== undefined, 't (or after) is required')
+  .refine(
+    (a) => a.t === undefined || a.after === undefined,
+    'give t or after, not both (patch_shot: set the other to null)'
+  )
   .refine((a) => !a.translation || a.say || a.caption, 'translation needs a say or caption')
   .refine(
     (a) =>
@@ -682,7 +699,10 @@ export const ActionSchema = z
   .refine(
     (a) => !(a.do || a.say || a.emotion || a.face || a.set || a.attach !== undefined) || a.actor,
     'actor is required for do/say/emotion/face/set/attach'
-  );
+  )
+  // An action placed `after` a line has its t worked out when the shot is loaded
+  // (timeActions); until then it is 0, so everything that reads a shot sees a time.
+  .transform((a) => ({ ...a, t: a.t ?? 0 }));
 export type Action = z.infer<typeof ActionSchema>;
 
 export const CastMemberSchema = z.object({

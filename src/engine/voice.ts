@@ -191,6 +191,34 @@ export function lineDuration(project: Project, shot: Shot, a: Action): number {
   return lead + (a.say ? sayDuration(shownText(a.say)) : 3);
 }
 
+/**
+ * When a line stops being spoken: its voice's end once it has one, else when its bubble or
+ * caption comes down.
+ */
+export function lineEnd(project: Project, shot: Shot, a: Action): number {
+  const clip = clipFor(project, shot, a);
+  return clip
+    ? a.t + lineLead(project, shot, a) + clip.duration
+    : a.t + lineDuration(project, shot, a);
+}
+
+/**
+ * Give every action placed `after` a line its t: that many seconds after the line listed
+ * before it stops being spoken, in list order, so a chain of replies follows each line's
+ * real length. Run again whenever the voices change.
+ */
+export function timeActions(project: Project, shot: Shot): void {
+  const placed = shot.actions.filter((a) => a.after !== undefined);
+  if (!placed.length) return;
+  // Not yet placed, so a line's mood (its emotion by then) does not count them.
+  for (const a of placed) a.t = NaN;
+  let end = 0;
+  for (const a of shot.actions) {
+    if (a.after !== undefined) a.t = Math.round((end + a.after) * 100) / 100;
+    if (a.say || a.caption) end = lineEnd(project, shot, a);
+  }
+}
+
 /** Whether a voiced mouth is open `u` seconds into its line. */
 export function mouthOpen(clip: VoiceClip, u: number): boolean {
   const i = Math.floor(u * ENVELOPE_RATE);

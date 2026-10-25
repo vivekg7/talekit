@@ -1,5 +1,6 @@
 import { actionDuration } from '../engine/timeline.js';
-import { ActionSchema, ShotSchema, type Action, type Shot } from '../engine/types.js';
+import { ActionSchema, ShotSchema, type Action, type Project, type Shot } from '../engine/types.js';
+import { timeActions } from '../engine/voice.js';
 import { formatIssues } from './store.js';
 
 /**
@@ -43,7 +44,11 @@ const AFTER = 1;
 /** The least span worth a picture. */
 const MIN_SPAN = 2;
 
-export function patchShot(shot: Shot, patch: ShotPatch): Patched {
+/**
+ * Apply `patch` to `shot`. With the project, the actions placed `after` a line are timed in
+ * the result, as loading it would time them.
+ */
+export function patchShot(shot: Shot, patch: ShotPatch, project?: Project): Patched {
   const n = shot.actions.length;
   const bad = (i: number) => !Number.isInteger(i) || i < 0 || i >= n;
   const errors: string[] = [];
@@ -63,6 +68,15 @@ export function patchShot(shot: Shot, patch: ShotPatch): Patched {
     cast: Record<string, unknown>;
     actions: Record<string, unknown>[];
   };
+  // An action placed `after` a line has no t of its own; the time it worked out to keeps
+  // its place among the others, and shows where the change is.
+  const was = new Map<Record<string, unknown>, number>();
+  raw.actions = raw.actions.map((a) => {
+    const { t, ...rest } = a;
+    const kept = a.after === undefined ? a : rest;
+    was.set(kept, Number(t));
+    return kept;
+  });
   for (const [k, v] of Object.entries(patch.set ?? {})) {
     if (v === null) delete raw[k];
     else raw[k] = v;
@@ -79,6 +93,7 @@ export function patchShot(shot: Shot, patch: ShotPatch): Patched {
       if (v === null) delete a[k];
       else a[k] = v;
     }
+    was.set(a, was.get(raw.actions[index])!);
     raw.actions[index] = a;
     touched.push(a);
   }
@@ -87,19 +102,24 @@ export function patchShot(shot: Shot, patch: ShotPatch): Patched {
   const added = (patch.add ?? []) as Record<string, unknown>[];
   touched.push(...added);
   // Kept in time order, as everything that reads a shot takes them; ties keep their order.
+  // A new action placed `after` a line goes last, after the line it follows.
+  const at = (a: Record<string, unknown>) =>
+    typeof a.t === 'number' ? a.t : (was.get(a) ?? Infinity);
   raw.actions = [...raw.actions.filter((_, i) => !removed.has(i)), ...added].sort(
-    (a, b) => Number(a.t) - Number(b.t)
+    (a, b) => at(a) - at(b)
   );
 
   const r = ShotSchema.safeParse(raw);
   if (!r.success) throw new Error(formatIssues(r.error));
   const out = r.data;
   if (out.id !== shot.id) throw new Error('a patch cannot change the shot id');
+  if (project) timeActions(project, out);
 
   const whole = !!patch.set || !!patch.cast || !touched.length;
   if (whole) return { shot: out, from: 0, to: out.duration };
   const spans = touched.map((a) => {
-    const t = Number(a.t) || 0;
+    const i = raw.actions.indexOf(a);
+    const t = (i >= 0 ? out.actions[i].t : was.get(a)) || 0;
     const p = ActionSchema.safeParse(a);
     return [t, t + Math.max(p.success ? actionDuration(p.data) : 0, 0.5)];
   });
@@ -123,7 +143,7 @@ const clip = (s: string, n = 40) => (s.length > n ? `${s.slice(0, n - 1)}…` : 
 function describeAction(a: Action): string {
   const where = (p: unknown) =>
     typeof p === 'string' ? p : p && typeof p === 'object' ? JSON.stringify(p) : '';
-  const bits = [`t=${a.t}`];
+  const bits = [a.after === undefined ? `t=${a.t}` : `t=${a.t} (after ${a.after})`];
   if (a.actor) bits.push(a.actor);
   if (a.do) bits.push(a.do);
   if (a.to !== undefined) bits.push(`→ ${where(a.to)}`);

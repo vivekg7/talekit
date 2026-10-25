@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -11,13 +11,16 @@ import {
   lineDuration,
   LINGER,
   mouthOpen,
+  sayDuration,
   shownText,
   spokenText,
+  timeActions,
   voiceLines,
 } from '../src/engine/voice.js';
 import { resolveFrame } from '../src/engine/timeline.js';
 import { SOUNDS } from '../src/library/sounds.js';
 import { validateProject, validateShot, voiceProblems } from '../src/project/validate.js';
+import { saveShot } from '../src/project/store.js';
 import { makeVoices } from '../src/project/voices.js';
 import { mixAudio, RATE } from '../src/render/audio.js';
 import { writeMkv } from '../src/render/mkv.js';
@@ -223,6 +226,49 @@ describe('voices', () => {
           .filter((c) => c.bus === 'voice')
           .map((c) => c.label)
       ).toEqual(['narrator', 'kid']);
+    } finally {
+      delete process.env.TALEKIT_TTS;
+    }
+  });
+
+  it('starts a line placed after another when that one has been said, voiced or not', async () => {
+    process.env.TALEKIT_TTS = fake;
+    try {
+      const r = root();
+      const p = voiced(
+        [
+          shot('a', {
+            duration: 8,
+            cast: { kid: { at: 'center' } },
+            actions: [
+              { t: 0, caption: 'Once upon a time' },
+              { after: 0.3, actor: 'kid', say: 'one two three' },
+              { t: 4, actor: 'kid', emotion: 'happy' },
+              { after: 0.3, actor: 'kid', say: 'four five six' },
+            ],
+          }),
+        ],
+        path.join(r, 'audio')
+      );
+      const [, second, , third] = p.shots[0].actions;
+      // Before the voices: a caption is up 3 s, a three-word line about 2.2 s.
+      timeActions(p, p.shots[0]);
+      expect(second.t).toBeCloseTo(3.3, 5);
+      expect(third.t).toBeCloseTo(3.3 + sayDuration('one two three') + 0.3, 5);
+      expect(voiceLines(p).find((l) => l.text === 'four five six')!.emotion).toBe('happy');
+      // Voiced, each follows the line before it as said: 4 words, then 3, a third of a second
+      // each. The last now falls before the kid cheers up, so it is said again, plainly.
+      const report = await makeVoices(r, p);
+      expect(second.t).toBeCloseTo(4 / 3 + 0.3, 1);
+      expect(third.t).toBeCloseTo(4 / 3 + 0.3 + 1 + 0.3, 1);
+      expect(report.made).toBe(4);
+      expect(voiceLines(p).find((l) => l.text === 'four five six')!.emotion).toBe('neutral');
+      expect(clipFor(p, p.shots[0], third)).toBeDefined();
+      expect(validateShot(p.shots[0], p)).toEqual([]);
+      // Saved, it keeps `after`, not the time it worked out to.
+      const file = await saveShot(r, p.shots[0]);
+      const saved = JSON.parse(readFileSync(file, 'utf8')) as { actions: object[] };
+      expect(saved.actions[1]).toEqual({ after: 0.3, actor: 'kid', say: 'one two three' });
     } finally {
       delete process.env.TALEKIT_TTS;
     }
