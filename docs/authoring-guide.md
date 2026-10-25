@@ -71,6 +71,14 @@ library. Copy `kit/templates/cast.py` and `kit/templates/shots.py` into
 `src/` and edit them. Inside the repo they find the kit themselves;
 elsewhere run them with `PYTHONPATH=<talekit>/kit`.
 
+To see what the kit offers, run `python3 kit/talekit/api.py`: every
+helper's signature and docstring and the keys of its tables (`BEARDS`,
+`TILAK`, `LOOKS`), about 5k tokens. `api.py people` prints one module,
+`api.py beard` the names that match. Read that, not the modules: the
+source of `people.py` alone is about 25k tokens, and an agent that reads it
+carries it through every step after. Open a function's body only when its
+docstring is not enough, and then only that function.
+
 - **`talekit.people`**, a wardrobe on the humanoid rig: heads (`short_hair`,
   `side_part`, `spiky_hair`, `curly_hair`, `head_band`, `pagdi`,
   `tall_pagdi`, `safa`, `plumed_turban`, `crown`, `shaven_head` with a

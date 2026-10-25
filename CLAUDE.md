@@ -31,7 +31,9 @@ reasoning are in `docs/PLAN.md`. Read both before changing the data model.
   SVG). They are the quality bar and the templates agents copy.
 - `kit/` — the Python kit story scripts import (`kit/talekit/`: drawing
   helpers, a humanoid wardrobe, voice-paced shot helpers) and the
-  templates a new story starts from (`kit/templates/`). `test/kit.test.ts`
+  templates a new story starts from (`kit/templates/`); `kit/talekit/api.py`
+  prints its API in brief from the docstrings, for agents to read instead of
+  the source, so a helper's docstring is its documentation. `test/kit.test.ts`
   runs both through `talekit check`; keep its output in the file format.
 - `src/mcp/server.ts`, `src/cli.ts`, `src/viewer/` — thin interfaces over
   the same code. The viewer is one embedded page (`page.ts`, no framework, no

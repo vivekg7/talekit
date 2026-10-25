@@ -9,6 +9,7 @@ This kit is the code those scripts kept rewriting:
   people      a wardrobe on the humanoid rig: heads, torsos, arms, legs, feet, faces; person()
   scenes      painting helpers (blob, canopy, tufts, stick) and write()
   shots       Film (voice-paced timing, shot files) and the action helpers
+  api         prints all of the above in brief: python3 kit/talekit/api.py [module|name]
 
 Start from kit/templates (cast.py, shots.py): copy them into <project>/src/ and edit.
 Inside the talekit repo a script finds the kit by walking up from itself (the header in

@@ -131,6 +131,25 @@ describe.skipIf(!python)('python kit', () => {
     ]);
   });
 
+  // The brief agents read instead of the source: it must cover the kit and stay brief.
+  it('prints the API in brief, whole or narrowed to a module or a name', () => {
+    const api = path.join(KIT, 'talekit', 'api.py');
+    const all = run([api]);
+    for (const name of [
+      'person(',
+      'shaven_head(',
+      'class Film(',
+      'putdown(',
+      'canopy(',
+      'taper(',
+      'BEARDS:',
+    ])
+      expect(all).toContain(name);
+    expect(all.length).toBeLessThan(40_000);
+    expect(run([api, 'shots'])).not.toContain('## people');
+    expect(run([api, 'tilak'])).toMatch(/^## people\nTILAK: /);
+  });
+
   it('names a colour the parts use but nobody gave', () => {
     const r = spawnSync(
       'python3',
