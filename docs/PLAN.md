@@ -555,7 +555,11 @@ named sound and subtitle tracks, styled ASS subtitles and their font; the
 mp4 stays, since a phone's gallery may not play an .mkv. It is built from
 the rendered mp4 with the picture copied: two more mixes and a mux, not a
 render. The dialogue-free tracks leave the lines out of the ducking, since
-music that dips for an unheard voice sounds like a fault. Translations come
+music that dips for an unheard voice sounds like a fault. Without the
+voices those tracks measured 6 to 10 LU under the full mix (2026-10-25),
+so a player switched to one had to be turned up; each is now raised to the
+full mix's loudness, with a limiter 3 dB under full scale for the effects
+the gain pushes over (AAC's true peak passed 0 dB at 2). Translations come
 from the agent (`translation` on each line), not a model at render time: the
 agent knows the story, and the render stays deterministic and offline.
 Baloo 2's narrow space is widened in the subtitles, and a subtitle over a

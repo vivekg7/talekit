@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -504,6 +504,17 @@ describe('voices', () => {
         'a',
         'b',
       ]);
+      // The tracks without the voices are brought up to the full mix's loudness.
+      const lufs = (track: number) => {
+        const r = spawnSync('ffmpeg', [
+          ...['-nostats', '-i', mkv, '-map', `0:a:${track}`],
+          ...['-af', 'ebur128=framelog=quiet', '-f', 'null', '-'],
+        ]);
+        return Number(/\bI:\s+(-?[\d.]+) LUFS/.exec(String(r.stderr))![1]);
+      };
+      const full = lufs(0);
+      expect(Math.abs(lufs(1) - full)).toBeLessThan(1);
+      expect(Math.abs(lufs(2) - full)).toBeLessThan(1);
     } finally {
       delete process.env.TALEKIT_TTS;
     }

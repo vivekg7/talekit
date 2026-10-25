@@ -34,6 +34,34 @@ const ISO639_2: Record<string, string> = {
   ar: 'ara',
 };
 const iso = (lang: string) => ISO639_2[lang] ?? lang;
+
+/**
+ * Integrated loudness in LUFS of the sound these ffmpeg input arguments read, or undefined
+ * when there is too little of it to measure.
+ */
+async function loudness(bin: string, input: string[]): Promise<number | undefined> {
+  const r = await runFfmpeg(bin, [
+    '-nostats',
+    ...input,
+    '-map',
+    '0:a',
+    '-af',
+    'ebur128=framelog=quiet',
+    '-f',
+    'null',
+    '-',
+  ]);
+  const i = Number(/\bI:\s+(-?[\d.]+) LUFS/.exec(r.stderr)?.[1]);
+  return Number.isFinite(i) && i > -70 ? i : undefined;
+}
+
+/**
+ * Brought up to the full mix's loudness, so a player switched to the track needs no turning
+ * up (without the voices it measured 6 to 10 LU quieter). The peaks this pushes over are held
+ * 3 dB under full scale, where the AAC encode's true peak stays below clipping; at 2 it did not.
+ */
+const matchLevel = (gain: number) =>
+  `volume=${gain.toFixed(2)}dB,alimiter=limit=0.708:level=false:attack=5:release=50`;
 const english = new Intl.DisplayNames(['en'], { type: 'language' });
 const languageName = (lang: string) => english.of(lang) ?? lang;
 
@@ -65,11 +93,12 @@ export async function writeMkv(
   const inputs: string[][] = [['-i', mp4]];
   const out: string[] = ['-map', '0:v', '-c:v', 'copy'];
   const audio: string[] = [];
-  const addAudio = (title: string, lang: string, input?: number) => {
+  const addAudio = (title: string, lang: string, input?: number, filter?: string) => {
     const n = audio.length;
     out.push('-map', input === undefined ? '0:a' : `${input}:a`);
     out.push(`-c:a:${n}`, input === undefined ? 'copy' : 'aac');
     if (input !== undefined) out.push(`-b:a:${n}`, '160k');
+    if (filter) out.push(`-filter:a:${n}`, filter);
     out.push(`-metadata:s:a:${n}`, `title=${title}`, `-metadata:s:a:${n}`, `language=${iso(lang)}`);
     out.push(`-disposition:a:${n}`, n ? '0' : 'default');
     audio.push(title);
@@ -85,6 +114,7 @@ export async function writeMkv(
       if (voices.length) takes.push(['none', 'Music and effects', 'zxx']);
       if (voices.some((c) => c.narrator) && voices.some((c) => !c.narrator))
         takes.push(['narrator', 'Music, effects and narrator', own]);
+      const target = takes.length ? await loudness(bin, ['-i', mp4]) : undefined;
       for (const [voicesKept, title, lang] of takes) {
         const mix = await mixAudio(project, shots, {
           ffmpegPath: bin,
@@ -95,8 +125,11 @@ export async function writeMkv(
         const raw = `${file}.${voicesKept}.f32`;
         temp.push(raw);
         await writeFile(raw, new Uint8Array(mix.buffer));
-        inputs.push(['-f', 'f32le', '-ar', String(RATE), '-ac', '2', '-i', raw]);
-        addAudio(title, lang, inputs.length - 1);
+        const input = ['-f', 'f32le', '-ar', String(RATE), '-ac', '2', '-i', raw];
+        inputs.push(input);
+        const level = target === undefined ? undefined : await loudness(bin, input);
+        const gain = level === undefined ? 0 : target! - level;
+        addAudio(title, lang, inputs.length - 1, gain > 0.1 ? matchLevel(gain) : undefined);
       }
     }
 

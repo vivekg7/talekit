@@ -750,8 +750,9 @@ the same picture with tracks a player can choose between.
 
 - **Three sound tracks**: the full mix (default); music and effects
   without dialogue; and that plus the narrator. Sounds marked in a line are
-  effects, so they stay in all three. No narrator, no third track; nobody
-  speaking, only the first.
+  effects, so they stay in all three. The second and third are brought up
+  to the first's loudness. No narrator, no third track; nobody speaking,
+  only the first.
 - **Subtitles**, off until chosen: one in the lines' language (Hindi for
   Devanagari, else English) and one per language in their `translation`,
   each up as long as its bubble or caption, at the bottom, or at the top
