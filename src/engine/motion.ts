@@ -98,6 +98,7 @@ export const VERB_DURATION: Partial<Record<Verb, number>> = {
   pickup: 1.2,
   putdown: 1.2,
   wipe: 2.4,
+  kick: 0.9,
 };
 
 /**
@@ -385,6 +386,18 @@ export function quadrupedTurn(pose: Pose, u: number, busy: boolean): void {
     if (lift > 0.01) raiseFoot(QUADRUPED, pose, leg, lift);
 }
 
+/**
+ * The beats of a kick: `draw` (0..1) pulls the leg back with the knee bent, then `out`
+ * snaps it out straight past where it ends, holds and brings it home.
+ */
+function kickBeats(u: number): { draw: number; out: number } {
+  if (u < 0.3) return { draw: easeInOut(u / 0.3), out: 0 };
+  if (u < 0.45)
+    return { draw: 1 - easeInOut((u - 0.3) / 0.15), out: backOut((u - 0.3) / 0.15, 1.4) };
+  if (u < 0.7) return { draw: 0, out: 1 };
+  return { draw: 0, out: 1 - easeInOut((u - 0.7) / 0.3) };
+}
+
 /** Quadruped verbs: the near front paw does what the humanoid's near arm does. */
 function quadrupedVerb(rig: Rig, pose: Pose, verb: Verb, u: number): boolean {
   const add = (part: string, deg: number) => (pose.rot[part] = (pose.rot[part] ?? 0) + deg);
@@ -393,6 +406,15 @@ function quadrupedVerb(rig: Rig, pose: Pose, verb: Verb, u: number): boolean {
       const k = settle(u, 0.18, 0.18);
       pose.rot.legFR = k * (-78 + 16 * Math.sin(u * TAU * 2.5));
       add('head', -4 * k);
+      return true;
+    }
+    case 'kick': {
+      // A buck: weight onto the front legs, both hind legs lash out behind.
+      const { draw, out } = kickBeats(u);
+      add('legBL', -12 * draw + 55 * out);
+      add('legBR', -12 * draw + 62 * out);
+      add('body', 4 * draw - 10 * out);
+      add('head', 6 * out);
       return true;
     }
     case 'point': {
@@ -721,6 +743,22 @@ export function applyVerb(
         // No arm: the body rubs back and forth against it.
         pose.rot.body = (pose.rot.body ?? 0) + k * (6 + 4 * Math.sin(turns));
         pose.dx += k * (6 + 4 * Math.cos(turns));
+      }
+      break;
+    }
+    case 'kick': {
+      // The near leg draws back with the knee bent, snaps out straight, forward and up, holds
+      // a beat and comes home; the arms fling out for balance. On top of a `lie` the same
+      // swing lifts the foot up off the bed, the kick of someone lying on their back.
+      const { draw, out } = kickBeats(u);
+      if (humanoid) {
+        pose.rot.legR = (pose.rot.legR ?? 0) + 18 * draw - 70 * out;
+        pose.bend.legR = mix(mix(pose.bend.legR ?? 0, 70, draw), 0, Math.min(1, out));
+        pose.rot.armL = (pose.rot.armL ?? 0) - 25 * out;
+        pose.rot.armR = (pose.rot.armR ?? 0) + 20 * out;
+      } else {
+        pose.rot.body = (pose.rot.body ?? 0) + 6 * draw - 14 * out;
+        pose.dx += 10 * out;
       }
       break;
     }

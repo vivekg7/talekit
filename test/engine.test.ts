@@ -327,6 +327,26 @@ describe('simple-rig verbs', () => {
   });
 });
 
+describe('kick', () => {
+  it('swings the near leg forward and up, then home', () => {
+    const rig = RIGS.humanoid;
+    const still = basePose(rig, 'idle', 0, 0);
+    const peak = basePose(rig, 'idle', 0, 0);
+    applyVerb(rig, peak, 'kick', 0.55);
+    expect(peak.rot.legR).toBeLessThan((still.rot.legR ?? 0) - 60);
+    expect(peak.bend.legR ?? 0).toBeCloseTo(0);
+    const lying = basePose(rig, 'idle', 0, 0);
+    applyVerb(rig, lying, 'lie', 1);
+    const before = lying.rot.legR ?? 0;
+    applyVerb(rig, lying, 'kick', 0.55);
+    // Lying on the back, forward is up off the bed.
+    expect(lying.rot.legR).toBeLessThan(before - 60);
+    const done = basePose(rig, 'idle', 0, 0);
+    applyVerb(rig, done, 'kick', 1);
+    expect(Math.abs((done.rot.legR ?? 0) - (still.rot.legR ?? 0))).toBeLessThan(0.01);
+  });
+});
+
 describe('compose + raster', () => {
   it('produces an SVG with the actors and rasterizes to PNG', () => {
     const p = project({
