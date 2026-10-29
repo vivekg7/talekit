@@ -228,6 +228,8 @@ export function characterBody(
   side = 1
 ): string {
   const rig = rigOf(character);
+  // What each part is fused into, this pose: a loose part (`Pose.loose`) is drawn whole.
+  const fuse = (name: string) => (pose.loose?.includes(name) ? undefined : rig.fuse[name]);
   // Part way round to the viewer, a plait is drawn behind the body and, fading, where it was.
   const fading = (name: string) => pose.toward! < 1 && hungBehind(rig, name);
   const names = [
@@ -265,7 +267,7 @@ export function characterBody(
       .filter(Boolean)
       .join(' ');
     // A part fused into its parent (a quadruped's head into its body) shades with it.
-    const into = rig.fuse[name];
+    const into = fuse(name);
     const parent = into && character.parts[into];
     const joined =
       typeof parent === 'string' && rigPart(rig, name).parent === into
@@ -293,9 +295,9 @@ export function characterBody(
       return bentLimb(id, joint, bend, f.svg, f.under, width, f.shade, draw);
     };
     for (const f of drawn)
-      if (f.under && rig.fuse[f.name] === d.name)
+      if (f.under && fuse(f.name) === d.name)
         out += group(`${f.name}-line`, f.tf, limb(f, 'lines') || f.under);
-    const fused = rig.fuse[d.name] && joined.has(rig.fuse[d.name]);
+    const fused = fuse(d.name) && joined.has(fuse(d.name)!);
     const inner =
       limb(d, fused ? 'fills' : 'all') || (fused ? '' : d.under) + d.svg + d.shade(d.svg);
     out += group(d.name, d.tf, inner, d.fade);

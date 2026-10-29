@@ -247,7 +247,8 @@ stroke-linecap='round' fill='none'/>`) with a paw or hoof reaching
   legs a shade darker. Below the knee (y=166) the leg runs down the
   pivot's x, or the bend shows a notch.
 - **Near legs join the body without a line**, like the head, so a haunch
-  grows out of the rump. Give it form with a tapered `{line}` crease down
+  grows out of the rump. Lying, a paw animal's near hind leg is drawn with
+  its whole outline, folded on the flank with the foot flat on the floor. Give it form with a tapered `{line}` crease down
   the front of the thigh, open at the top; a hind leg's haunch ends a few
   units above the knee. A bump behind the leg above the knee is the hock,
   with a short tapered line down the back of the heel; the near front leg

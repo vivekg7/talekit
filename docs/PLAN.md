@@ -248,7 +248,10 @@ is not a new character. What each taught:
 - **Paws and hooves.** A lying animal's legs folded inside its outline. The
   forelegs now reach forward to paws in front of the chest; nothing in the
   drawing tells hooves from paws, so a character says `hooves`, and hooves
-  fold back under the chest.
+  fold back under the chest. The hind legs still vanished: folded against
+  the flank, a fused leg never leaves the body, so it had no line at all.
+  Lying, a paw animal's near hind leg is `loose` (`Pose.loose`): drawn with
+  its whole outline, folded as when sitting, the foot flat on the floor.
 - The park bench was redrawn: it read as a fence and its legs went below its
   floor. Its seat anchor is 42 above the floor, so a child's feet swing clear.
 

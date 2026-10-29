@@ -47,6 +47,12 @@ export interface Pose {
    * moved by `dx` canonical units and its width times `scale`.
    */
   shadow?: { dx: number; scale: number };
+  /**
+   * Parts drawn with their whole outline though the rig fuses them (`Rig.fuse`): a lying
+   * animal's near hind leg, folded against its side, never leaves the body, so a line only
+   * where it does would leave none and the leg would vanish into the flank.
+   */
+  loose?: string[];
 }
 
 export type Locomotion = 'idle' | 'walk' | 'run' | 'move' | 'fly';
@@ -487,8 +493,8 @@ function quadrupedVerb(rig: Rig, pose: Pose, verb: Verb, u: number): boolean {
     }
     case 'lie': {
       // From sitting: the body comes level and down onto its belly, the front legs fold
-      // forward along the floor, the hind legs stay folded under, and the head goes down
-      // onto the paws. `u` is how far down (0 sitting, 1 lying).
+      // forward along the floor, the hind legs stay folded, and the head goes down onto the
+      // paws. `u` is how far down (0 sitting, 1 lying).
       const l = easeInOut(u);
       const [ox, oy] = pose.off.body ?? [0, 0];
       pose.off.body = [ox, mix(oy, rig.height - (rig.belly ?? rig.height), l)];
@@ -499,12 +505,14 @@ function quadrupedVerb(rig: Rig, pose: Pose, verb: Verb, u: number): boolean {
         // slanted shin would reach below the belly with its corner.
         const floor = QUADRUPED.height - hip[1] - LIE_TUCK * l;
         const hind = leg.startsWith('legB');
-        // The hind legs are already folded under; the front ones go from planted to
-        // stretched out in front, the upper leg down to the floor and the paw on it ahead
-        // of the chest, where it shows (folded under, it would be lost in the body). Hooves
-        // fold back under the chest, knees forward.
+        // The hind legs are already folded: hooves tucked under, paws on the real floor as
+        // when sitting, the haunch drawn whole on the flank (`loose`) and the foot showing
+        // flat along the floor beneath it. The front ones go from planted to stretched out
+        // in front, the upper leg down to the floor and the paw on it ahead of the chest,
+        // where it shows (folded under, it would be lost in the body). Hooves fold back
+        // under the chest, knees forward.
         const [turn, bend] = hind
-          ? foldLeg(QUADRUPED, leg, floor, 0, -90)
+          ? foldLeg(QUADRUPED, leg, rig.hooves ? floor : floor + LIE_TUCK * l, 0, -90)
           : rig.hooves
             ? tuckUnder(leg, floor)
             : reachOut(leg, floor + LIE_TUCK * l);
@@ -513,6 +521,7 @@ function quadrupedVerb(rig: Rig, pose: Pose, verb: Verb, u: number): boolean {
           : mix(pose.rot[leg] ?? 0, turn - pose.rot.body, l);
         pose.bend[leg] = hind ? bend : mix(pose.bend[leg] ?? 0, bend, l);
       }
+      if (!rig.hooves && l > 0) pose.loose = ['legBR'];
       // The neck sinks into the shoulders rather than the head tipping onto its face, and
       // the chin stays up off the paws.
       add('head', 8 * l);

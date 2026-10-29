@@ -495,6 +495,10 @@ describe('lying down', () => {
     const ahead = (x: number) => (x - a.x) / k + RIGS.quadruped.width / 2 - shoulder[0];
     expect(ahead(feet.legFR[0])).toBeGreaterThan(20);
     expect(Math.abs(feet.legFR[1] - 660)).toBeLessThan(1.5);
+    // The near hind leg folds on the flank with its paw on the floor, drawn whole, since a
+    // line only where it leaves the body would leave none.
+    expect(Math.abs(feet.legBR[1] - 660)).toBeLessThan(1.5);
+    expect(pose.loose).toEqual(['legBR']);
     // Hooves fold back under the chest instead.
     const tucked = emptyPose();
     const deer = rigOf({ rig: 'quadruped', belly: 140, hooves: true });
@@ -503,6 +507,7 @@ describe('lying down', () => {
     const hoof = footPoint(deer, tucked, 'legFR');
     expect(hoof[0]).toBeLessThan(toRoot(deer, tucked, 'body', deer.parts.legFR.pivot)[0] + 10);
     expect(hoof[1]).toBeLessThan(deer.height);
+    expect(tucked.loose).toBeUndefined();
     // A belly drawn higher (a deer's) comes down further, onto the floor.
     const drop = (belly?: number) => {
       const lying = emptyPose();
