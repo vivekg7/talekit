@@ -8,7 +8,8 @@ import { validateCharacter, validateShot } from '../src/project/validate.js';
 import { outlineText, rasterize } from '../src/render/raster.js';
 import { characterSheetSvg, filmSheetSvg } from '../src/render/sheets.js';
 import { poseFor } from '../src/engine/actor.js';
-import { applyVerb, basePose, faceFallbacks } from '../src/engine/motion.js';
+import { applyVerb, basePose, chewing, faceFallbacks } from '../src/engine/motion.js';
+import { toRoot } from '../src/engine/gait.js';
 import { RIGS } from '../src/engine/rigs.js';
 
 function project(shotInput: unknown): Project {
@@ -344,6 +345,37 @@ describe('kick', () => {
     const done = basePose(rig, 'idle', 0, 0);
     applyVerb(rig, done, 'kick', 1);
     expect(Math.abs((done.rot.legR ?? 0) - (still.rot.legR ?? 0))).toBeLessThan(0.01);
+  });
+});
+
+describe('eat', () => {
+  it('brings the near hand to the mouth, chews, and puts it back', () => {
+    const rig = RIGS.humanoid;
+    const hand = (u: number) => {
+      const p = basePose(rig, 'idle', 0, 0);
+      applyVerb(rig, p, 'eat', u, 0, undefined, 1.6);
+      const [x, y] = toRoot(rig, p, rig.hold.part, rig.hold.point);
+      return [x + p.dx, y + p.dy];
+    };
+    const still = hand(0);
+    // At the mouth (the turned face's, about (124, 128)): just in front of and under it.
+    const [x, y] = hand(0.5);
+    expect(Math.hypot(x - 124, y - 128)).toBeLessThan(20);
+    expect(Math.hypot(...hand(1).map((v, i) => v - still[i]))).toBeLessThan(0.01);
+    // The mouth opens and shuts once it is there, and not before.
+    const at = (u: number) => chewing([{ verb: 'eat', u, span: 1.6 }]);
+    expect(at(0.1)).toBeUndefined();
+    const flaps = new Set([0.3, 0.34, 0.38, 0.42, 0.46].map(at));
+    expect(flaps).toEqual(new Set([true, false]));
+  });
+
+  it('dips a four-legged head to the floor and pecks on the simple rig', () => {
+    const quad = basePose(RIGS.quadruped, 'idle', 0, 0);
+    applyVerb(RIGS.quadruped, quad, 'eat', 0.5);
+    expect(quad.rot.head).toBeGreaterThan(35);
+    const simple = basePose(RIGS.simple, 'idle', 0, 0);
+    applyVerb(RIGS.simple, simple, 'eat', 1 / 12);
+    expect(simple.rot.body).toBeGreaterThan(5);
   });
 });
 

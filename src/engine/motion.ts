@@ -105,6 +105,7 @@ export const VERB_DURATION: Partial<Record<Verb, number>> = {
   putdown: 1.2,
   wipe: 2.4,
   kick: 0.9,
+  eat: 1.6,
 };
 
 /**
@@ -404,8 +405,31 @@ function kickBeats(u: number): { draw: number; out: number } {
   return { draw: 0, out: 1 - easeInOut((u - 0.7) / 0.3) };
 }
 
+/** An `eat`: the share of it at which the food reaches the mouth, the bites a second. */
+const EAT = { at: 0.22, hz: 4 };
+
+/**
+ * The beats of an `eat`: `k` (0..1) brings the food to the mouth (or the head down to it)
+ * and away again, and `chew` is a bob, -1..1, four a second from when it gets there.
+ */
+function eatBeats(u: number, span: number): { k: number; chew: number } {
+  const k = u < EAT.at ? easeInOut(u / EAT.at) : u > 0.8 ? 1 - easeInOut((u - 0.8) / 0.2) : 1;
+  const chew = u < EAT.at ? 0 : Math.sin((u - EAT.at) * span * TAU * EAT.hz) * k;
+  return { k, chew };
+}
+
+/**
+ * Whether an `eat` under way has the mouth open now, chewing open and shut from when the
+ * food reaches it to just before the end; undefined when nobody is eating.
+ */
+export function chewing(verbs: { verb: Verb; u: number; span?: number }[]): boolean | undefined {
+  const eat = verbs.find((v) => v.verb === 'eat' && v.u >= EAT.at && v.u < 0.95);
+  if (!eat) return undefined;
+  return Math.sin((eat.u - EAT.at) * (eat.span ?? 1) * TAU * EAT.hz) > 0;
+}
+
 /** Quadruped verbs: the near front paw does what the humanoid's near arm does. */
-function quadrupedVerb(rig: Rig, pose: Pose, verb: Verb, u: number): boolean {
+function quadrupedVerb(rig: Rig, pose: Pose, verb: Verb, u: number, span: number): boolean {
   const add = (part: string, deg: number) => (pose.rot[part] = (pose.rot[part] ?? 0) + deg);
   switch (verb) {
     case 'wave': {
@@ -421,6 +445,16 @@ function quadrupedVerb(rig: Rig, pose: Pose, verb: Verb, u: number): boolean {
       add('legBR', -12 * draw + 62 * out);
       add('body', 4 * draw - 10 * out);
       add('head', 6 * out);
+      return true;
+    }
+    case 'eat': {
+      // Eating off the floor: the head goes down in front of the forepaws, as for a pickup,
+      // and stays there chewing, then comes back up.
+      const { k, chew } = eatBeats(u, span);
+      add('body', 6 * k);
+      add('head', 44 * k + 5 * chew);
+      nudge(pose, 'head', 6 * k, 14 * k + 2 * chew);
+      add('tail', -8 * k);
       return true;
     }
     case 'point': {
@@ -556,6 +590,12 @@ function lean(rig: Rig, pose: Pose, l: number): void {
   plantFeet(rig, pose, ['legL', 'legR']);
 }
 
+/**
+ * Where `eat` puts the near hand, in the head's frame: just in front of and under the
+ * mouth of a face turned the way the character faces, so what it holds is at the lips.
+ */
+const EAT_AT: Pt = [136, 132];
+
 /** Where a `wipe` with nothing named goes: in front of the chest (box units). */
 const WIPE_AT: Pt = [206, 214];
 
@@ -638,7 +678,7 @@ export function applyVerb(
     pose.sy *= k;
     return;
   }
-  if (rig.name === 'quadruped' && quadrupedVerb(rig, pose, verb, u)) return;
+  if (rig.name === 'quadruped' && quadrupedVerb(rig, pose, verb, u, span)) return;
   switch (verb) {
     case 'wave': {
       const k = settle(u, 0.18, 0.18);
@@ -768,6 +808,25 @@ export function applyVerb(
       } else {
         pose.rot.body = (pose.rot.body ?? 0) + 6 * draw - 14 * out;
         pose.dx += 10 * out;
+      }
+      break;
+    }
+    case 'eat': {
+      // The near hand comes up to the mouth with whatever it holds, stays there while the
+      // head bobs with the chewing (the mouth flaps: `chewing`), and goes back down. The
+      // head tips a little toward the hand.
+      const { k, chew } = eatBeats(u, span);
+      if (humanoid) {
+        pose.rot.head = (pose.rot.head ?? 0) + 5 * k;
+        const [x, y] = toRoot(rig, pose, 'head', EAT_AT);
+        reachTo(rig, pose, [x + pose.dx, y + pose.dy], k);
+        pose.rot.head += 2.5 * chew;
+        nudge(pose, 'head', 0, 1.5 * Math.max(0, chew));
+      } else {
+        // No hands: a few small pecks forward.
+        const peck = Math.max(0, Math.sin(u * TAU * 3)) * settle(u, 0.1, 0.1);
+        pose.rot.body = (pose.rot.body ?? 0) + 14 * peck;
+        pose.dx += 5 * peck;
       }
       break;
     }

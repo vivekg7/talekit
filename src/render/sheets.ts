@@ -103,6 +103,11 @@ export function characterSheetSvg(character: Character): string {
     make('jump: crouch', withVerb('jump', 0.1)),
     make('jump', withVerb('jump', 0.5)),
     make('tremble', withVerb('tremble', 0.3)),
+    // Food at the mouth (head down to it, on four legs), chewing with the mouth open.
+    {
+      ...make('eat', withVerb('eat', 0.42), 'neutral', true),
+      ...(quad ? { zoom: 0.8, shift: 30 } : {}),
+    },
     { ...make('pickup', withVerb('pickup', 0.5)), zoom: 0.8, shift: 30 },
     ...(rig.name === 'humanoid'
       ? [

@@ -660,6 +660,7 @@ falling the same way.
 | `pickup`, `putdown`   | on a prop, with `attach`: its carrier stoops or reaches for it (below)                 | 1.2s                 |
 | `wipe`                | near hand out to `to` (an actor or a spot), going round on it: dusting                 | 2.4s                 |
 | `kick`                | near leg draws back, snaps out forward and up (lying: up off the bed; four legs: buck) | 0.9s                 |
+| `eat`                 | near hand and what it holds to the mouth, chewing (four legs: head down; simple: peck) | 1.6s                 |
 
 Crossing the frame on foot takes 4–5 s. `duration` overrides any default,
 and every walk needs enough of it or the character sprints; the engine
@@ -707,6 +708,13 @@ is drawn just in front; its own moves are ignored.
 - **Dusting, polishing, scrubbing**: `{ "do": "wipe", "to": "vase" }`
   puts the near hand on the middle of the named actor (or on a spot) and
   rubs round in small circles; stand them as close as for a pickup.
+- **Eating**: `{ "do": "eat", "sound": "munch" }` brings the near hand,
+  with whatever it holds, up to the mouth, where it stays while the head
+  bobs and the mouth chews, then takes it back down. The prop's `grip` is
+  what reaches the lips, so grip a roti or a fruit by its lower edge. An
+  animal puts its head down to the floor in front of its forepaws and
+  chews there; the simple rig pecks forward. Several bites are several
+  `eat`s.
 - **Hand to hand**: attaching a prop already held passes it over. One
   attached from more than the carrier's height away is taken at once.
 - `grip` is the point in the prop's box the hand holds (`[100, 22]` for a

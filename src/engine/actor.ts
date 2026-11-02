@@ -4,6 +4,7 @@ import {
   applyTake,
   applyVerb,
   basePose,
+  chewing,
   emptyPose,
   quadrupedTurn,
   resolveFace,
@@ -68,12 +69,14 @@ export function poseFor(actor: ActorState, t: number): Pose {
     if (away < 0.5) pose.yaw += (2 - pose.yaw) * 2 * away;
     else pose.back = true;
   }
+  // Eating, the mouth chews open and shut as it flaps in talk; a line said meanwhile wins.
+  const chew = actor.talking ? undefined : chewing(actor.verbs);
   pose.face = resolveFace(actor.character.parts, {
     back: pose.back,
     emotion: actor.emotion,
     overrides: actor.face,
-    talking: actor.talking,
-    mouth: actor.mouth,
+    talking: actor.talking || chew !== undefined,
+    mouth: chew ?? actor.mouth,
     t,
     phase: actor.phase,
     // A take starts with a blink.
