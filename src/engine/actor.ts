@@ -29,8 +29,11 @@ export function poseFor(actor: ActorState, t: number): Pose {
   // The floor under the seat, in the character's own units.
   const seat = actor.seat / ((actor.character.height / rig.height) * actor.scale);
   // A person on a raised seat even before sitting has begun: the pose puts the feet on the
-  // floor. An animal stands on the seat itself, having hopped up.
-  if (sat || (seat > 0 && rig.name === 'humanoid')) applyVerb(rig, pose, 'sit', actor.sit, seat);
+  // floor. An animal stands on the seat itself, having hopped up, and so does a person who
+  // stood on it (jumped up onto a branch): they sit down from there and get up there.
+  const climbs = seat > 0 && rig.name === 'humanoid' && !actor.perched;
+  if (sat || climbs) applyVerb(rig, pose, 'sit', actor.sit, seat);
+  if (sat && actor.perched) pose.dy -= seat * (1 - easeInOut(actor.sit));
   if (actor.lie > 0) applyVerb(rig, pose, 'lie', actor.lie, seat);
   // Carrying: the near arm hangs a little forward and swings less, under the weight.
   if (actor.holding && rig.name === 'humanoid') {
@@ -414,7 +417,10 @@ export function renderShadow(actor: ActorState, pose: Pose): string {
     pose,
     actor.x,
     // Under the feet: a person's on the floor below a raised seat until sat on it.
-    actor.y + (rigOf(actor.character).name === 'humanoid' ? actor.seat * (1 - actor.sit) : 0),
+    actor.y +
+      (rigOf(actor.character).name === 'humanoid' && !actor.perched
+        ? actor.seat * (1 - actor.sit)
+        : 0),
     actor.scale,
     sideOf(actor),
     actor.opacity

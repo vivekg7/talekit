@@ -438,8 +438,11 @@ where the feet go: `"bench-seat": { "x": 1010, "y": 604, "floor": 655 }`.
 Without `floor`, sitting onto a seat takes the spot the actor stood on as
 the floor, and sitting where it stands is sitting on the ground. `stand`
 or a walk off gets up onto the floor in front; an animal hops up onto a
-raised seat and down again. A `sit` or `lie` with a `to` more than 24 px
-away walks there first.
+raised seat and down again. Someone standing on the seat itself (who
+jumped up onto a branch with `"do": "jump", "to": "branch"`, or was cast
+there) sits down from there and gets up there again, so a `jump` back down
+leaves from the branch. A `sit` or `lie` with a `to` more than 24 px away
+walks there first.
 
 Keep anchors two people use at once a character's width apart (about 150
 px, more at a smaller `scale`), or one hides the other and their bubbles

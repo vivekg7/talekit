@@ -278,6 +278,27 @@ describe('knees', () => {
       expect(actorAt(p, 'kid', t)).toMatchObject({ x: 600, y: 300, seat: 340, sit: 1 });
   });
 
+  it('sits down on a raised seat it jumped up onto, and gets up on it again', () => {
+    const p = seated(
+      [
+        { t: 0, actor: 'kid', do: 'jump', to: 'branch' },
+        { t: 1, actor: 'kid', do: 'sit', to: 'branch' },
+        { t: 3, actor: 'kid', do: 'stand' },
+        { t: 4, actor: 'kid', do: 'jump', to: { x: 600, y: 640 } },
+      ],
+      { kid: { at: { x: 600, y: 640 } } }
+    );
+    p.scenes.park.anchors.branch = { x: 600, y: 300, scale: 1, floor: 640 };
+    // Standing on the branch it landed on, and again once up: never on the floor under it,
+    // where a person climbing onto a seat from the floor has their feet.
+    const feet = (t: number) => Math.max(...feetY(actorAt(p, 'kid', t), t));
+    for (const t of [1, 3.6]) expect(Math.abs(feet(t) - 300)).toBeLessThan(1.5);
+    for (const t of [1.05, 1.15, 1.3, 2, 3.05, 3.2, 3.5]) expect(feet(t)).toBeLessThan(400);
+    expect(actorAt(p, 'kid', 3.6)).toMatchObject({ x: 600, y: 300, seat: 0 });
+    // The jump down sets off from the branch.
+    expect(actorAt(p, 'kid', 4.1).y).toBeLessThan(400);
+  });
+
   it('sits onto a raised seat from the floor, and gets up onto the floor again', () => {
     const p = seated(
       [

@@ -75,6 +75,11 @@ export interface ActorState {
   sit: number;
   /** How far below the seat (the actor's point) the floor is, scene pixels: 0 on the ground. */
   seat: number;
+  /**
+   * A person on a raised seat who stood on the seat itself (jumped up onto a branch, or
+   * was cast there), not on the floor below it: they sit down from it and get up on it.
+   */
+  perched: boolean;
   /** 0 up, 1 lying down (from sitting); in between while lying back or sitting up. */
   lie: number;
   /** The anchor's perspective scale under the actor (already folded into `scale`). */
@@ -383,6 +388,7 @@ export function resolveActor(
   let face: Record<string, string> = {};
   let sitting = false;
   let seat = 0;
+  let perched = false;
   // Standing on another actor, and when a move that takes it off lands.
   let on = cast.on;
   let offAt = Infinity;
@@ -404,6 +410,11 @@ export function resolveActor(
   let rise: { at: number; seat: Point; hop?: Move } | undefined;
   const getUp = (at: number, seated: boolean): number => {
     if (!seated || seat <= 0) return at;
+    // Stood on the seat to sit on it: stands up on it again.
+    if (perched) {
+      rise = { at, seat: point };
+      return at;
+    }
     const floor = { ...point, y: point.y + seat };
     rise = { at, seat: point, hop: hops ? hop(point, floor, at) : undefined };
     point = floor;
@@ -608,10 +619,15 @@ export function resolveActor(
         if (verb === 'jump' && t >= t0 && t < t0 + d) verbs.push({ verb, u: (t - t0) / d });
       } else if (verb === 'sit' || verb === 'lie') {
         // Sitting again before it was up: still on the seat.
+        const again = rise !== undefined;
         if (rise) {
           point = rise.seat;
           rise = undefined;
         }
+        // Sitting down where it stands: a person standing on a raised seat (jumped up onto a
+        // branch) sits from there, not from the floor below it.
+        const fresh = !sitting && !again && !hops;
+        if (fresh) perched = true;
         const from = point;
         // When it starts to sit: at once, or once it has got there.
         let at = a.t;
@@ -627,6 +643,7 @@ export function resolveActor(
           const there = Math.hypot(to.x - point.x, to.y - point.y) < 1;
           const far = !there && Math.hypot(foot.x - ground.x, foot.y - ground.y) > APPROACH;
           const up = hops && high > 0 && !there;
+          if (fresh) perched = there;
           if (far || up) {
             // Up, across to the foot of it and (an animal) up onto it, then down.
             at = setOff(a.t);
@@ -797,6 +814,7 @@ export function resolveActor(
     view: move && !heldBy ? moveView(move, t) : 0,
     sit: sitAmount(t),
     seat,
+    perched: perched && seat > 0,
     lie: lieAmount(t),
     perspective: point.scale,
     on: heldBy ? undefined : on,
