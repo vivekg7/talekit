@@ -621,9 +621,12 @@ export function resolveActor(
           const ground = sitting ? { ...point, y: point.y + seat } : point;
           const high = verb === 'sit' ? seatHeight(scene, ground, to) : 0;
           const foot = { ...to, y: to.y + high };
-          const far = Math.hypot(foot.x - ground.x, foot.y - ground.y) > APPROACH;
-          const on = sitting && Math.hypot(to.x - point.x, to.y - point.y) < 1;
-          const up = hops && high > 0 && !on;
+          // Already standing on the seat itself (cast there to open the shot sat on it): it
+          // sits where it is, rather than walking down to the floor under a high seat (a
+          // branch) and climbing back up.
+          const there = Math.hypot(to.x - point.x, to.y - point.y) < 1;
+          const far = !there && Math.hypot(foot.x - ground.x, foot.y - ground.y) > APPROACH;
+          const up = hops && high > 0 && !there;
           if (far || up) {
             // Up, across to the foot of it and (an animal) up onto it, then down.
             at = setOff(a.t);

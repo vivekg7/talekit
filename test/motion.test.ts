@@ -268,6 +268,16 @@ describe('knees', () => {
     expect(actorAt(box, 'kid', 1).seat).toBe(40);
   });
 
+  it('opens a shot sat on a seat far above its floor without climbing down to it first', () => {
+    const p = seated([{ t: 0, actor: 'kid', do: 'sit', to: 'branch', duration: 0.05 }], {
+      kid: { at: 'branch' },
+    });
+    // A branch high in a tree: well over the distance a sit walks across to its seat.
+    p.scenes.park.anchors.branch = { x: 600, y: 300, scale: 1, floor: 640 };
+    for (const t of [0.1, 0.8, 1.5, 3])
+      expect(actorAt(p, 'kid', t)).toMatchObject({ x: 600, y: 300, seat: 340, sit: 1 });
+  });
+
   it('sits onto a raised seat from the floor, and gets up onto the floor again', () => {
     const p = seated(
       [
