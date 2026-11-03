@@ -278,6 +278,22 @@ describe('knees', () => {
       expect(actorAt(p, 'kid', t)).toMatchObject({ x: 600, y: 300, seat: 340, sit: 1 });
   });
 
+  it('gets up off a cot it lay on onto the floor in front, not onto the cot', () => {
+    const p = seated(
+      [
+        { t: 0, actor: 'kid', do: 'lie', to: 'cot', duration: 0.05 },
+        { t: 2, actor: 'kid', do: 'sit' },
+        { t: 3, actor: 'kid', do: 'stand' },
+      ],
+      { kid: { at: { x: 600, y: 640 } } }
+    );
+    p.scenes.park.anchors.cot = { x: 600, y: 600, scale: 1, floor: 640 };
+    // Lying on the cot's top, then up on the floor under it.
+    expect(actorAt(p, 'kid', 1)).toMatchObject({ x: 600, y: 600 });
+    const feet = (t: number) => Math.max(...feetY(actorAt(p, 'kid', t), t));
+    expect(Math.abs(feet(5) - 640)).toBeLessThan(1.5);
+  });
+
   it('sits down on a raised seat it jumped up onto, and gets up on it again', () => {
     const p = seated(
       [

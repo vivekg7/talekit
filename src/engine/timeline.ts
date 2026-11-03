@@ -159,6 +159,14 @@ function seatHeight(scene: Scene, from: Point, at: Point): number {
   return Math.max(0, from.y - at.y);
 }
 
+/** How high a bed is: an anchor with a `floor` under it (a cot); 0 for a spot on the floor. */
+function bedHeight(scene: Scene, at: Point): number {
+  for (const a of Object.values(scene.anchors))
+    if (a.floor !== undefined && Math.abs(a.x - at.x) < 1 && Math.abs(a.y - at.y) < 1)
+      return Math.max(0, a.floor - a.y);
+  return 0;
+}
+
 export function moveDuration(verb: Verb, from: Point, to: Point, explicit?: number): number {
   if (explicit) return explicit;
   const dist = Math.hypot(to.x - from.x, to.y - from.y);
@@ -389,6 +397,10 @@ export function resolveActor(
   let sitting = false;
   let seat = 0;
   let perched = false;
+  // Lying on a raised bed (a cot with a `floor`): how high it is, so getting up off it steps
+  // down to the floor in front, as off a seat. Lying is on the bed's surface, so `seat`
+  // stays 0 while lying.
+  let bed = 0;
   // Standing on another actor, and when a move that takes it off lands.
   let on = cast.on;
   let offAt = Infinity;
@@ -409,13 +421,15 @@ export function resolveActor(
    */
   let rise: { at: number; seat: Point; hop?: Move } | undefined;
   const getUp = (at: number, seated: boolean): number => {
-    if (!seated || seat <= 0) return at;
+    const lift = seat > 0 ? seat : bed;
+    bed = 0;
+    if (!seated || lift <= 0) return at;
     // Stood on the seat to sit on it: stands up on it again.
     if (perched) {
       rise = { at, seat: point };
       return at;
     }
-    const floor = { ...point, y: point.y + seat };
+    const floor = { ...point, y: point.y + lift };
     rise = { at, seat: point, hop: hops ? hop(point, floor, at) : undefined };
     point = floor;
     return rise.hop?.t1 ?? at;
@@ -661,6 +675,8 @@ export function resolveActor(
             point = to;
             move = undefined;
           }
+          // After any getting up to go there, which leaves the bed it was on.
+          bed = verb === 'lie' ? bedHeight(scene, to) : 0;
         }
         if (verb === 'sit') {
           if (!sitting && !perch) seat = seatHeight(scene, from, point);
