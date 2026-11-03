@@ -103,6 +103,80 @@ export const SOUNDS: Record<string, SoundInfo> = {
     description: 'quiet indoor room tone, faint hum of a house',
     duration: 27.79,
   },
+  market: {
+    file: 'ambience/market.ogg',
+    kind: 'ambience',
+    description:
+      'a busy crowd outdoors near a temple in an Indian town: voices and bustle, no music',
+    duration: 38.01,
+  },
+  temple: {
+    file: 'ambience/temple.ogg',
+    kind: 'ambience',
+    description: 'outside a temple in India: monks chanting, bells now and then, birds',
+    duration: 33.51,
+  },
+  'rain-roof': {
+    file: 'ambience/rain-roof.ogg',
+    kind: 'ambience',
+    description: 'medium steady rain drumming on a tin roof, heard from inside',
+    duration: 31.01,
+  },
+  pond: {
+    file: 'ambience/pond.ogg',
+    kind: 'ambience',
+    description: 'a pond in a field: frogs singing, birds, a little wind',
+    duration: 37.01,
+  },
+  desert: {
+    file: 'ambience/desert.ogg',
+    kind: 'ambience',
+    description: 'gentle steady wind over empty open land, sparse (a constructed sound)',
+    duration: 31.01,
+  },
+  farm: {
+    file: 'ambience/farm.ogg',
+    kind: 'ambience',
+    description: 'a farmyard by day: chickens, a rooster and sheep, no machinery',
+    duration: 41.01,
+  },
+  crowd: {
+    file: 'ambience/crowd.ogg',
+    kind: 'ambience',
+    description:
+      'a large indoor crowd murmuring, indistinct and echoing, for a court or a gathering',
+    duration: 34.01,
+  },
+  storm: {
+    file: 'ambience/storm.ogg',
+    kind: 'ambience',
+    description: 'a howling winter gale with snow, strong wind and no rain',
+    duration: 41.51,
+  },
+  kitchen: {
+    file: 'ambience/kitchen.ogg',
+    kind: 'ambience',
+    description: 'onions frying in hot oil, popping and sizzling, indoors',
+    duration: 32.01,
+  },
+  dawn: {
+    file: 'ambience/dawn.ogg',
+    kind: 'ambience',
+    description: 'a dawn chorus: birds beginning to sing at first light, quiet surroundings',
+    duration: 30.51,
+  },
+  hall: {
+    file: 'ambience/hall.ogg',
+    kind: 'ambience',
+    description: 'a large stone hall: a quiet, echoing indoor space, people faintly audible',
+    duration: 30.51,
+  },
+  mountain: {
+    file: 'ambience/mountain.ogg',
+    kind: 'ambience',
+    description: "a mountain at nightfall: wind, a river, insects, a cow's bells now and then",
+    duration: 30.51,
+  },
   'thunder-near-1': {
     file: 'sfx/thunder-near-1.ogg',
     kind: 'sfx',
@@ -277,14 +351,14 @@ export const SOUNDS: Record<string, SoundInfo> = {
     description: 'a nervous gulp, one hard swallow',
     duration: 0.54,
   },
-  snore: {
-    file: 'sfx/snore.ogg',
+  'snore-1': {
+    file: 'sfx/snore-1.ogg',
     kind: 'sfx',
     description: 'one snore, a sleeping man breathing in and out',
     duration: 3.97,
   },
-  munch: {
-    file: 'sfx/munch.ogg',
+  'munch-1': {
+    file: 'sfx/munch-1.ogg',
     kind: 'sfx',
     description: 'crunchy munching, chips eaten and chewed',
     duration: 2.81,
@@ -491,8 +565,8 @@ export const SOUNDS: Record<string, SoundInfo> = {
     description: 'small children laughing',
     duration: 3.72,
   },
-  'laugh-adult': {
-    file: 'sfx/laugh-adult.ogg',
+  'laugh-adult-1': {
+    file: 'sfx/laugh-adult-1.ogg',
     kind: 'sfx',
     description: "a man's short hearty laugh",
     duration: 1.32,
@@ -516,6 +590,302 @@ export const SOUNDS: Record<string, SoundInfo> = {
     duration: 6.41,
   },
   yawn: { file: 'sfx/yawn.ogg', kind: 'sfx', description: 'a man yawning', duration: 3.86 },
+  'shatter-1': {
+    file: 'sfx/shatter-1.ogg',
+    kind: 'sfx',
+    description: 'a ceramic plate smashing on a concrete floor, shards scattering',
+    duration: 1.19,
+  },
+  'shatter-2': {
+    file: 'sfx/shatter-2.ogg',
+    kind: 'sfx',
+    description: 'a ceramic plate smashing on a concrete floor, shards scattering',
+    duration: 0.93,
+  },
+  'shatter-3': {
+    file: 'sfx/shatter-3.ogg',
+    kind: 'sfx',
+    description: 'a ceramic plate smashing on a concrete floor, shards scattering',
+    duration: 1.06,
+  },
+  'pot-break-1': {
+    file: 'sfx/pot-break-1.ogg',
+    kind: 'sfx',
+    description: 'a clay pot breaking on a concrete floor: a crack and a crumble',
+    duration: 0.62,
+  },
+  'pot-break-2': {
+    file: 'sfx/pot-break-2.ogg',
+    kind: 'sfx',
+    description: 'a clay pot breaking on a concrete floor: a crack and a crumble',
+    duration: 0.82,
+  },
+  crack: {
+    file: 'sfx/crack.ogg',
+    kind: 'sfx',
+    description: 'a log splitting with a dry crack, one event',
+    duration: 1.03,
+  },
+  coins: {
+    file: 'sfx/coins.ogg',
+    kind: 'sfx',
+    description: 'a pouch of coins shaken, a brief jingle',
+    duration: 1.17,
+  },
+  'coin-drop': {
+    file: 'sfx/coin-drop.ogg',
+    kind: 'sfx',
+    description: 'a single coin dropped onto a hard floor, ringing and settling',
+    duration: 1.1,
+  },
+  clang: {
+    file: 'sfx/clang.ogg',
+    kind: 'sfx',
+    description: 'a metal pot dropped from a height: loud clangs and a ringing rattle',
+    duration: 2.2,
+  },
+  'chop-1': {
+    file: 'sfx/chop-1.ogg',
+    kind: 'sfx',
+    description: 'one sharp axe stroke into a dry log',
+    duration: 0.27,
+  },
+  'chop-2': {
+    file: 'sfx/chop-2.ogg',
+    kind: 'sfx',
+    description: 'one sharp axe stroke into a dry log',
+    duration: 0.25,
+  },
+  hammer: {
+    file: 'sfx/hammer.ogg',
+    kind: 'sfx',
+    description: 'a hammer driving a nail into a wooden board, several quick blows in a row',
+    duration: 2.87,
+  },
+  'door-slam': {
+    file: 'sfx/door-slam.ogg',
+    kind: 'sfx',
+    description: 'an interior door slamming once, with a rattle after the hit (indoor recording)',
+    duration: 0.8,
+  },
+  thud: {
+    file: 'sfx/thud.ogg',
+    kind: 'sfx',
+    description: 'one dull heavy thud, a sack dropped (for a body or a load hitting the ground)',
+    duration: 0.46,
+  },
+  pour: {
+    file: 'sfx/pour.ogg',
+    kind: 'sfx',
+    description: 'water poured from a jug, a gurgling stream',
+    duration: 3.49,
+  },
+  wings: {
+    file: 'sfx/wings.ogg',
+    kind: 'sfx',
+    description: 'a pigeon flapping off a tree branch, wing beats fading away',
+    duration: 1.54,
+  },
+  'wings-flock': {
+    file: 'sfx/wings-flock.ogg',
+    kind: 'sfx',
+    description: 'a flock of small birds taking off in a flutter of wings',
+    duration: 2.3,
+  },
+  clap: {
+    file: 'sfx/clap.ogg',
+    kind: 'sfx',
+    description: 'a single hard hand clap, dry with very little room reverb',
+    duration: 0.12,
+  },
+  whistle: {
+    file: 'sfx/whistle.ogg',
+    kind: 'sfx',
+    description: "a person's short attention-getting whistle, like hailing someone; one call",
+    duration: 0.59,
+  },
+  zip: {
+    file: 'sfx/zip.ogg',
+    kind: 'sfx',
+    description: 'a cartoon zip and fast whoosh, for a comic zoom or run-off',
+    duration: 2.0,
+  },
+  'laugh-adult-2': {
+    file: 'sfx/laugh-adult-2.ogg',
+    kind: 'sfx',
+    description: "a man's short laugh (a phone recording, a little lo-fi)",
+    duration: 1.58,
+  },
+  'snore-2': {
+    file: 'sfx/snore-2.ogg',
+    kind: 'sfx',
+    description: 'one snore, a sleeping man breathing in and out (a shorter cut)',
+    duration: 1.57,
+  },
+  'munch-2': {
+    file: 'sfx/munch-2.ogg',
+    kind: 'sfx',
+    description: 'a raw carrot crunched and chewed: one loud crunch, then softer chewing',
+    duration: 2.88,
+  },
+  'laugh-woman': {
+    file: 'sfx/laugh-woman.ogg',
+    kind: 'sfx',
+    description: "a woman's laugh, short",
+    duration: 1.81,
+  },
+  giggle: {
+    file: 'sfx/giggle.ogg',
+    kind: 'sfx',
+    description: 'a brief cute giggle, half a second',
+    duration: 0.46,
+  },
+  'cry-adult': {
+    file: 'sfx/cry-adult.ogg',
+    kind: 'sfx',
+    description: 'a man crying, sobbing and whimpering',
+    duration: 3.66,
+  },
+  scream: {
+    file: 'sfx/scream.ogg',
+    kind: 'sfx',
+    description: "a man's short frightened scream",
+    duration: 0.97,
+  },
+  'wah-wah': {
+    file: 'sfx/wah-wah.ogg',
+    kind: 'sfx',
+    description:
+      "sad-trombone 'wah wah wah' comic fail: three notes played with a hand in the bell of a horn, descending (E, Eb, D)",
+    duration: 3.91,
+  },
+  ding: {
+    file: 'sfx/ding.ogg',
+    kind: 'sfx',
+    description: 'a bright single bell ding, ringing out (for an idea or a reveal)',
+    duration: 1.22,
+  },
+  'tiger-growl': {
+    file: 'sfx/tiger-growl.ogg',
+    kind: 'sfx',
+    description: 'a tiger roaring once (zoo recording)',
+    duration: 2.6,
+  },
+  'snake-hiss': {
+    file: 'sfx/snake-hiss.ogg',
+    kind: 'sfx',
+    description: 'a long snake-like hiss',
+    duration: 2.5,
+  },
+  peacock: {
+    file: 'sfx/peacock.ogg',
+    kind: 'sfx',
+    description: "a peacock's loud call, twice",
+    duration: 2.9,
+  },
+  parrot: {
+    file: 'sfx/parrot.ogg',
+    kind: 'sfx',
+    description: "a parrot's short call",
+    duration: 1.81,
+  },
+  koel: {
+    file: 'sfx/koel.ogg',
+    kind: 'sfx',
+    description: 'an Asian koel (the Indian cuckoo) calling twice',
+    duration: 2.99,
+  },
+  'sheep-baa': {
+    file: 'sfx/sheep-baa.ogg',
+    kind: 'sfx',
+    description: 'a sheep baaing once',
+    duration: 1.82,
+  },
+  'donkey-bray': {
+    file: 'sfx/donkey-bray.ogg',
+    kind: 'sfx',
+    description: 'a donkey braying loudly, one hee-haw, a village faintly behind',
+    duration: 3.59,
+  },
+  camel: {
+    file: 'sfx/camel.ogg',
+    kind: 'sfx',
+    description: 'a camel groaning and moaning',
+    duration: 3.99,
+  },
+  buffalo: {
+    file: 'sfx/buffalo.ogg',
+    kind: 'sfx',
+    description: 'a water buffalo snorting',
+    duration: 2.25,
+  },
+  'pig-oink': {
+    file: 'sfx/pig-oink.ogg',
+    kind: 'sfx',
+    description: 'a pig grumbling and grunting (imitated with the mouth)',
+    duration: 1.44,
+  },
+  sparrow: {
+    file: 'sfx/sparrow.ogg',
+    kind: 'sfx',
+    description: 'sparrows chirping, quiet, with a little background noise',
+    duration: 2.49,
+  },
+  fox: {
+    file: 'sfx/fox.ogg',
+    kind: 'sfx',
+    description: "a fox's short barks",
+    duration: 2.25,
+  },
+  jackal: {
+    file: 'sfx/jackal.ogg',
+    kind: 'sfx',
+    description:
+      "a lone howl far off (a coyote's, the nearest to a jackal's), with some background hiss",
+    duration: 3.71,
+  },
+  crickets: {
+    file: 'sfx/crickets.ogg',
+    kind: 'sfx',
+    description: 'a cricket chirping, a short continuous burst',
+    duration: 2.51,
+  },
+  conch: {
+    file: 'sfx/conch.ogg',
+    kind: 'sfx',
+    description: 'a conch shell (shankh) blown, one long blast with a little echo',
+    duration: 5.0,
+  },
+  'temple-bell': {
+    file: 'sfx/temple-bell.ogg',
+    kind: 'sfx',
+    description: 'Hindu temple bells rung for evening prayer, repeated strikes',
+    duration: 4.51,
+  },
+  ghungroo: {
+    file: 'sfx/ghungroo.ogg',
+    kind: 'sfx',
+    description: 'small jingle bells shaken once (for ankle bells, ghungroo)',
+    duration: 1.26,
+  },
+  cart: {
+    file: 'sfx/cart.ogg',
+    kind: 'sfx',
+    description: 'wooden wheels squeaking and creaking slowly, for a cart',
+    duration: 3.18,
+  },
+  'bullock-bells': {
+    file: 'sfx/bullock-bells.ogg',
+    kind: 'sfx',
+    description: "cow bells, a short clank (for a bullock's neck bells)",
+    duration: 0.73,
+  },
+  gallop: {
+    file: 'sfx/gallop.ogg',
+    kind: 'sfx',
+    description: 'a horse galloping past through tall grass, approaching then passing',
+    duration: 5.01,
+  },
   calm: {
     file: 'music/calm.ogg',
     kind: 'music',
@@ -576,5 +946,72 @@ export const SOUNDS: Record<string, SoundInfo> = {
     description:
       'Indian-flavoured live jam: sitar and flute over a tanpura drone and hand drum (djembe), slowly building; an excerpt with a fade-out',
     duration: 135.0,
+  },
+  'indian-calm': {
+    file: 'music/indian-calm.ogg',
+    kind: 'music',
+    description:
+      'Indian, calm: an ambient sitar soundscape, soft and unhurried, for quiet reflective scenes; a short 28 s loop',
+    duration: 27.51,
+  },
+  'indian-mellow': {
+    file: 'music/indian-mellow.ogg',
+    kind: 'music',
+    description:
+      'Indian, tender: a slow, mellow sitar and hand-drum loop, for gentle or wistful moments; a short 25 s loop',
+    duration: 25.41,
+  },
+  'indian-folk': {
+    file: 'music/indian-folk.ogg',
+    kind: 'music',
+    description:
+      'Indian, light: a plain folk-flavoured sitar tune, for everyday village scenes; a short 28 s loop',
+    duration: 28.36,
+  },
+  'indian-sitar': {
+    file: 'music/indian-sitar.ogg',
+    kind: 'music',
+    description:
+      'Indian, contemplative: solo sitar, unaccompanied, for a lone wanderer or a thoughtful pause',
+    duration: 82.21,
+  },
+  'wedding-shehnai': {
+    file: 'music/wedding-shehnai.ogg',
+    kind: 'music',
+    description:
+      "Indian, ceremonial: shehnai at a Hindu wedding, hypnotic, for weddings, processions and a king's court (a live recording)",
+    duration: 176.22,
+  },
+  'festive-dhol': {
+    file: 'music/festive-dhol.ogg',
+    kind: 'music',
+    description:
+      'Indian, celebration: dhol drummers at a wedding, loud and joyful, for fairs, festivals and processions (live, a crowd behind; fades out at the end)',
+    duration: 90.01,
+  },
+  stealth: {
+    file: 'music/stealth.ogg',
+    kind: 'music',
+    description: 'tense, slow-building electronic suspense, for sneaking and creeping danger',
+    duration: 80.01,
+  },
+  sneaky: {
+    file: 'music/sneaky.ogg',
+    kind: 'music',
+    description:
+      'sneaky pizzicato strings, cunning and tiptoeing, for tricksters and creeping about',
+    duration: 37.38,
+  },
+  chase: {
+    file: 'music/chase.ogg',
+    kind: 'music',
+    description: 'an action chase cue, driving and urgent, for pursuits and escapes',
+    duration: 42.15,
+  },
+  'happy-end': {
+    file: 'music/happy-end.ogg',
+    kind: 'music',
+    description: 'a warm, slow music box with bells, for a happy ending or a farewell',
+    duration: 41.33,
   },
 };

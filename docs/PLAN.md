@@ -485,7 +485,7 @@ Decisions:
   ship in a public MIT repo, which is redistribution: that rules out CC-BY
   (every film would owe a credit) and the Pixabay and Mixkit licences (free
   to use, not to redistribute). A project can use its own files from
-  `audio/`. The library (95 files, 20 MB) is normalised on the way in, so
+  `audio/`. The library (166 files, 32 MB) is normalised on the way in, so
   the mix uses fixed levels: effects peak at -1 dBFS, ambience -23 LUFS,
   music -18 LUFS, lines levelled to one speaking loudness.
 - **Voices from a local model, not a service**, through a Python sidecar
