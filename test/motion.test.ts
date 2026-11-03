@@ -548,6 +548,23 @@ describe('lying down', () => {
     };
     expect(drop(140) - drop()).toBeCloseTo(12);
   });
+
+  it("brings a mouth up a long neck (a camel's `muzzle`) down to the floor to eat", () => {
+    const eating = (muzzle?: [number, number]) => {
+      const rig = rigOf({ rig: 'quadruped', muzzle });
+      const pose = emptyPose();
+      applyVerb(rig, pose, 'eat', 0.22, 0, undefined, 1.6);
+      return { bow: pose.rot.head, mouth: toRoot(rig, pose, 'head', rig.hold.point)[1] };
+    };
+    // The library's animals bow as they always have, the default muzzle spelt out too.
+    expect(eating().bow).toBeCloseTo(44);
+    expect(eating([240, 100]).bow).toBeCloseTo(44);
+    // A camel's mouth, high up in front, bows much further and ends just above the floor.
+    const camel = eating([248, 47]);
+    expect(camel.bow).toBeGreaterThan(70);
+    expect(camel.mouth).toBeGreaterThan(178);
+    expect(camel.mouth).toBeLessThan(195);
+  });
 });
 
 describe('people', () => {

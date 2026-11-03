@@ -257,19 +257,29 @@ const HUNG = new WeakMap<object, Rig>();
  * is left to the rig's fallback (`validate` reports it).
  */
 export function rigOf(
-  character: Pick<Character, 'rig' | 'hangs' | 'belly' | 'hem' | 'hooves'>
+  character: Pick<Character, 'rig' | 'hangs' | 'belly' | 'hem' | 'hooves' | 'muzzle'>
 ): Rig {
   const rig = hungRig(character);
   // A character's own belly line or hem, and hooves, where the rig has them.
   const belly = rig.belly === undefined ? undefined : character.belly;
   const hem = rig.hem === undefined ? undefined : character.hem;
   const hooves = rig.belly !== undefined && !!character.hooves;
-  if ((belly ?? rig.belly) === rig.belly && (hem ?? rig.hem) === rig.hem && !hooves) return rig;
-  const key = `${belly}/${hem}/${hooves}`;
+  // A four-legged animal's own mouth (a camel's, far up a long neck): what holds a carried
+  // prop and what `eat` brings down to the floor.
+  const muzzle = rig.belly === undefined ? undefined : character.muzzle;
+  if ((belly ?? rig.belly) === rig.belly && (hem ?? rig.hem) === rig.hem && !hooves && !muzzle)
+    return rig;
+  const key = `${belly}/${hem}/${hooves}/${muzzle}`;
   let own = MOVED.get(rig);
   if (!own) MOVED.set(rig, (own = new Map()));
   if (!own.has(key))
-    own.set(key, { ...rig, belly: belly ?? rig.belly, hem: hem ?? rig.hem, hooves });
+    own.set(key, {
+      ...rig,
+      belly: belly ?? rig.belly,
+      hem: hem ?? rig.hem,
+      hooves,
+      hold: muzzle ? { part: rig.hold.part, point: muzzle } : rig.hold,
+    });
   return own.get(key)!;
 }
 

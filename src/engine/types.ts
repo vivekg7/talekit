@@ -169,6 +169,13 @@ export const CharacterSchema = z.object({
     .describe(
       'Quadruped only: true for hooves (a deer, a goat, a horse). Lying, the forelegs fold under the chest; without it they stretch out in front, the paws on the floor under the chin'
     ),
+  /** Quadruped: where the mouth is, when it is far from the library animals' own. */
+  muzzle: z
+    .tuple([z.number(), z.number()])
+    .optional()
+    .describe(
+      "Quadruped only: [x, y] of the mouth in the box (default [240, 100]), drawn in the head. A carried prop hangs from it, and eat lowers the head until it reaches the floor. Set it when the head reaches far from the neck pivot (196, 108): a camel's or a giraffe's, up a long neck"
+    ),
   /** Humanoid: where the torso ends, which `sit` rests on the seat. */
   hem: z
     .number()

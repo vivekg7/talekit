@@ -239,6 +239,12 @@ back to `sit` or rocks in the gallop; the ears and face hang from the head.
   forelegs under the chest when lying, instead of stretching the paws out
   in front. A low animal still stands on y=200 (the crocodile has long
   legs; in water the scene hides them).
+- **`muzzle`.** The mouth is at (240, 100), where a carried prop hangs
+  and what `eat` brings down to the grass. A head far up a long neck (a
+  camel's, a giraffe's: the neck drawn in the head part, turning at its
+  pivot) says where its mouth is, `"muzzle": [248, 47]`, and `eat` bows
+  that neck as far as it takes to reach the floor; the library's animals
+  bow 44° as before.
 - **Legs** are round-capped strokes straight down from their pivot (`<path
 d='M194 132 L194 189' stroke='{fur}' stroke-width='18'
 stroke-linecap='round' fill='none'/>`) with a paw or hoof reaching

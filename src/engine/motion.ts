@@ -428,6 +428,39 @@ export function chewing(verbs: { verb: Verb; u: number; span?: number }[]): bool
   return Math.sin((eat.u - EAT.at) * (eat.span ?? 1) * TAU * EAT.hz) > 0;
 }
 
+/** How far an animal eating off the floor tips its body forward, and its head at least. */
+const EAT_DIP = 6;
+const EAT_BOW = 44;
+
+/**
+ * Where an eating animal's neck pivot comes to as its body tips forward, and the mouth
+ * (`hold`, a `muzzle`) as a reach `r` at angle `alpha` from it.
+ */
+function eatNeck(rig: Rig): { neck: number; r: number; alpha: number } {
+  const [hx, hy] = rig.parts.body.pivot;
+  const [nx, ny] = rig.parts.head.pivot;
+  const [mx, my] = rig.hold.point;
+  const d = (EAT_DIP * Math.PI) / 180;
+  const neck = hy + (nx - hx) * Math.sin(d) + (ny - hy) * Math.cos(d) + 14;
+  return { neck, r: Math.hypot(mx - nx, my - ny), alpha: Math.atan2(my - ny, mx - nx) };
+}
+
+/**
+ * Where an animal drawn with its own `muzzle` (a camel's, far up a long neck) brings its
+ * mouth down to: just above the floor, so the lips reach the grass. The library's animals
+ * keep their usual bow, which puts the underside of their round heads on the floor.
+ */
+const EAT_MOUTH = 184;
+
+/** How far the head bows to eat: further for a mouth up a long neck, down to EAT_MOUTH. */
+function eatBow(rig: Rig): number {
+  const [mx, my] = rig.hold.point;
+  if (mx === QUADRUPED.hold.point[0] && my === QUADRUPED.hold.point[1]) return EAT_BOW;
+  const { neck, r, alpha } = eatNeck(rig);
+  const turn = Math.asin(Math.min(1, (EAT_MOUTH - neck) / r)) - alpha;
+  return Math.min(130, Math.max(EAT_BOW, (turn * 180) / Math.PI - EAT_DIP));
+}
+
 /** Quadruped verbs: the near front paw does what the humanoid's near arm does. */
 function quadrupedVerb(rig: Rig, pose: Pose, verb: Verb, u: number, span: number): boolean {
   const add = (part: string, deg: number) => (pose.rot[part] = (pose.rot[part] ?? 0) + deg);
@@ -451,8 +484,8 @@ function quadrupedVerb(rig: Rig, pose: Pose, verb: Verb, u: number, span: number
       // Eating off the floor: the head goes down in front of the forepaws, as for a pickup,
       // and stays there chewing, then comes back up.
       const { k, chew } = eatBeats(u, span);
-      add('body', 6 * k);
-      add('head', 44 * k + 5 * chew);
+      add('body', EAT_DIP * k);
+      add('head', eatBow(rig) * k + 5 * chew);
       nudge(pose, 'head', 6 * k, 14 * k + 2 * chew);
       add('tail', -8 * k);
       return true;
