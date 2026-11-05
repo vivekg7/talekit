@@ -684,13 +684,15 @@ the move; walk them mostly across to keep the face in profile.
 bed or sofa) and lies back with the head behind them, so face them the way
 the feet should point; an animal lies on its belly, paws out under its
 chin. A cot or a bed is a seat anchor with a `floor`: lying on it
-is on its top, and getting up steps down onto the floor in front.
+is on its top, from the floor in front of it (cast a sleeper there, at the
+anchor's `x` and `floor`), and getting up swings the legs down and stands
+on the floor in front.
 A sleeper needs `face: { "eyes": "closed" }` and maybe a `"Zzz..."`
 thought bubble. `stand` gets up, `sit` sits back up. A `walk`, `run` or
 `jump` from sitting or lying gets up first and ends that much later (0.4 s,
 1.3 s); give a `stand` first for a slower rise. To open a shot with someone
 already lying or sat, give the `lie` or `sit` at `t: 0` a `duration` of
-`0.05`.
+`0.05`: it is done by the first frame, so the cut never shows them standing.
 
 ### Carrying (`attach`)
 

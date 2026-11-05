@@ -307,6 +307,8 @@ const SETTLE_TIME = 0.25;
  * there first; nearer, it shifts across as it sits.
  */
 const APPROACH = 24;
+/** A sit or lie at a shot's start this quick is how the shot opens, not something seen. */
+const OPENING = 0.05;
 /** Verbs that sit, lie or stand: one of them cuts short a walk to a seat. */
 const SETTLE_VERBS = new Set<Verb>(['sit', 'lie', 'stand']);
 
@@ -399,7 +401,7 @@ export function resolveActor(
   let perched = false;
   // Lying on a raised bed (a cot with a `floor`): how high it is, so getting up off it steps
   // down to the floor in front, as off a seat. Lying is on the bed's surface, so `seat`
-  // stays 0 while lying.
+  // stays 0 while lying, and takes the bed's height as it gets up.
   let bed = 0;
   // Standing on another actor, and when a move that takes it off lands.
   let on = cast.on;
@@ -429,6 +431,8 @@ export function resolveActor(
       rise = { at, seat: point };
       return at;
     }
+    // Off a cot, as off a chair: the legs come down to the floor as it sits up and rises.
+    seat = lift;
     const floor = { ...point, y: point.y + lift };
     rise = { at, seat: point, hop: hops ? hop(point, floor, at) : undefined };
     point = floor;
@@ -649,7 +653,8 @@ export function resolveActor(
           const to = resolvePosition(project, scene, a.to);
           // Where it stands now, and where it will stand to sit (or lie) there.
           const ground = sitting ? { ...point, y: point.y + seat } : point;
-          const high = verb === 'sit' ? seatHeight(scene, ground, to) : 0;
+          // How far the floor is below it: a cot is lain on from the floor in front of it.
+          const high = verb === 'sit' ? seatHeight(scene, ground, to) : bedHeight(scene, to);
           const foot = { ...to, y: to.y + high };
           // Already standing on the seat itself (cast there to open the shot sat on it): it
           // sits where it is, rather than walking down to the floor under a high seat (a
@@ -678,6 +683,10 @@ export function resolveActor(
           // After any getting up to go there, which leaves the bed it was on.
           bed = verb === 'lie' ? bedHeight(scene, to) : 0;
         }
+        // Opening a shot already sat or lying (at 0, done in a blink): it is done by the first
+        // frame, which would otherwise show it still standing for a frame at the cut.
+        if (a.t === 0 && at === 0 && a.duration !== undefined && a.duration <= OPENING)
+          at = -a.duration;
         if (verb === 'sit') {
           if (!sitting && !perch) seat = seatHeight(scene, from, point);
           // Already lying: sit back up.
