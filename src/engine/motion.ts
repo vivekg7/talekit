@@ -113,6 +113,7 @@ export const VERB_DURATION: Partial<Record<Verb, number>> = {
   kick: 0.9,
   eat: 1.6,
   strike: 0.7,
+  swim: 3,
 };
 
 /**
@@ -429,6 +430,18 @@ function strikeBeats(u: number): { up: number; down: number } {
   return { up: 0, down: 1 - easeInOut((u - 0.75) / 0.25) };
 }
 
+/** Strokes a second of a `swim`: the quick churn of a paddle, not a stride. */
+const SWIM_HZ = 2.2;
+
+/**
+ * A `swim`, at u of a span of `span` seconds: how far it has come in (eased in and out over
+ * a third of a second, so it does not pop) and the stroke phase in radians.
+ */
+function swimBeats(u: number, span: number): { k: number; phi: number } {
+  const ramp = Math.min(0.45, 0.3 / Math.max(span, 0.3));
+  return { k: settle(u, ramp, ramp), phi: TAU * SWIM_HZ * u * span };
+}
+
 /** An `eat`: the share of it at which the food reaches the mouth, the bites a second. */
 const EAT = { at: 0.22, hz: 4 };
 
@@ -501,6 +514,23 @@ function quadrupedVerb(rig: Rig, pose: Pose, verb: Verb, u: number, span: number
       add('head', -14 * up + 22 * down);
       add('body', -3 * up + 5 * down);
       pose.dx += 12 * down - 4 * up;
+      return true;
+    }
+    case 'swim': {
+      // A paddle: the forelegs churn in turn, reaching out in front and pulling down, the hind
+      // legs pushing back, all under a body held still, low at the rump and nose up, the head
+      // straining up out of the water. Nothing bobs: the legs work, the body goes nowhere
+      // (a `move` carries it, a river sweeps it along).
+      const { k, phi } = swimBeats(u, span);
+      const s = Math.sin(phi);
+      const c = Math.sin(phi + Math.PI);
+      pose.rot.legFR = (pose.rot.legFR ?? 0) + k * (-40 + 32 * s);
+      pose.rot.legFL = (pose.rot.legFL ?? 0) + k * (-40 + 32 * c);
+      pose.rot.legBR = (pose.rot.legBR ?? 0) + k * (22 + 20 * c);
+      pose.rot.legBL = (pose.rot.legBL ?? 0) + k * (22 + 20 * s);
+      add('body', -12 * k);
+      add('head', -14 * k);
+      add('tail', 10 * k + 4 * k * Math.sin(phi * 0.5));
       return true;
     }
     case 'kick': {
@@ -875,6 +905,23 @@ export function applyVerb(
         pose.rot.body = (pose.rot.body ?? 0) + 8 * up - 16 * down;
         pose.dx += 12 * down - 4 * up;
       }
+      break;
+    }
+    case 'swim': {
+      // Treading water, struggling: the arms beat down in turn from up by the head, the legs
+      // kick under, the body upright and still; other rigs rock a little from side to side.
+      const { k, phi } = swimBeats(u, span);
+      const s = Math.sin(phi);
+      const c = Math.sin(phi + Math.PI);
+      if (humanoid) {
+        pose.rot.armR = mix(pose.rot.armR ?? 0, -130 + 45 * s, k);
+        pose.rot.armL = mix(pose.rot.armL ?? 0, -130 + 45 * c, k);
+        pose.bend.armR = mix(pose.bend.armR ?? 0, -30 + 20 * s, k);
+        pose.bend.armL = mix(pose.bend.armL ?? 0, -30 + 20 * c, k);
+        pose.rot.legR = (pose.rot.legR ?? 0) + k * 18 * s;
+        pose.rot.legL = (pose.rot.legL ?? 0) + k * 18 * c;
+        pose.rot.head = (pose.rot.head ?? 0) - 8 * k;
+      } else pose.rot.body = (pose.rot.body ?? 0) + 6 * k * s;
       break;
     }
     case 'kick': {

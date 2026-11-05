@@ -683,6 +683,7 @@ falling the same way.
 | `kick`                | near leg draws back, snaps out forward and up (lying: up off the bed; four legs: buck) | 0.9s                 |
 | `eat`                 | near hand and what it holds to the mouth, chewing (four legs: head down; simple: peck) | 1.6s                 |
 | `strike`              | near arm up overhead, chops down forward, swinging what it holds (four legs: a butt)   | 0.7s                 |
+| `swim`                | paddles in place, legs churning under a still body, head up; pair with a `move`        | 3s                   |
 
 Crossing the frame on foot takes 4–5 s. `duration` overrides any default,
 and every walk needs enough of it or the character sprints; the engine
@@ -692,6 +693,13 @@ crosses ground only in the air. A change of facing, by `set` or walking
 the other way, is a quick turn (0.2 s). Walking up the screen a person is
 seen from behind, down it from the front, turning at the start and end of
 the move; walk them mostly across to keep the face in profile.
+
+In the water, `swim` paddles for its `duration` without going anywhere:
+four legs churn under a body held still, low at the rump and nose up, the
+head straining out; a person treads water, the arms beating down by the
+head. Nothing bobs, so it reads as helpless. The current is your `move`s
+at the same time: carry the swimmer downstream with them, and dip one
+deeper for a moment and back up to drag the head under.
 
 `lie` is for sleeping and resting. A person sits (on the ground or `to`, a
 bed or sofa) and lies back with the head behind them, so face them the way

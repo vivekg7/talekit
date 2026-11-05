@@ -348,6 +348,39 @@ describe('kick', () => {
   });
 });
 
+describe('swim', () => {
+  it('churns the legs under a body that does not bob', () => {
+    const rig = RIGS.quadruped;
+    const at = (u: number) => {
+      const p = basePose(rig, 'idle', 0, 0);
+      applyVerb(rig, p, 'swim', u, 0, undefined, 3);
+      return p;
+    };
+    const still = basePose(rig, 'idle', 0, 0);
+    // Under way, the forelegs reach out in front and work in turn, stroke after stroke.
+    const legs = [0.3, 0.33, 0.36, 0.39, 0.42].map((u) => at(u).rot.legFR ?? 0);
+    expect(Math.max(...legs) - Math.min(...legs)).toBeGreaterThan(30);
+    expect(Math.min(...legs)).toBeLessThan(-40);
+    const mid = at(0.4);
+    expect(Math.sign(mid.rot.legFR! + 40)).toBe(-Math.sign(mid.rot.legFL! + 40));
+    // Held nose up, and the body stays where it is: the current is a move's to give.
+    for (const u of [0.3, 0.35, 0.4, 0.45]) {
+      const p = at(u);
+      expect(p.rot.body).toBeCloseTo(at(0.3).rot.body ?? 0);
+      expect(p.rot.body).toBeLessThan(-8);
+      expect([p.dx, p.dy]).toEqual([still.dx, still.dy]);
+    }
+    // Eased in and out, so it starts and ends at rest.
+    expect(at(0).rot.legFR ?? 0).toBeCloseTo(still.rot.legFR ?? 0);
+    expect(at(1).rot.legFR ?? 0).toBeCloseTo(still.rot.legFR ?? 0);
+    // A person treads water, the arms up by the head.
+    const person = basePose(RIGS.humanoid, 'idle', 0, 0);
+    applyVerb(RIGS.humanoid, person, 'swim', 0.5, 0, undefined, 3);
+    expect(person.rot.armR).toBeLessThan(-80);
+    expect(person.rot.armL).toBeLessThan(-80);
+  });
+});
+
 describe('eat', () => {
   it('brings the near hand to the mouth, chews, and puts it back', () => {
     const rig = RIGS.humanoid;

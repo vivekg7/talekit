@@ -555,6 +555,7 @@ export const VerbSchema = z.enum([
   'kick',
   'eat',
   'strike',
+  'swim',
 ]);
 export type Verb = z.infer<typeof VerbSchema>;
 
