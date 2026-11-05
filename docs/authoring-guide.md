@@ -550,6 +550,7 @@ over `duration` (default 2 s); what it leaves out goes away.
   { "kind": "smoke", "x": 645, "y": 500, "size": 0.8 },
   { "kind": "sun", "x": 980, "y": 130 },
   { "kind": "waves", "y": 390, "height": 170 },
+  { "kind": "river", "points": [[570, 448], [715, 448], [985, 720], [310, 720]], "flow": [4, 12] },
   { "kind": "waterfall", "x": 640, "y": 180, "width": 150, "height": 360 }
 ]
 ```
@@ -560,6 +561,7 @@ over `duration` (default 2 s); what it leaves out goes away.
 | `smoke`     | where it comes out (a chimney top, a flame's tip)  | puffs rising, swelling, drifting with the wind                                  |
 | `waterfall` | the middle of the lip it pours over                | streaks pouring down `height`, foam, ripples and mist at the foot               |
 | `waves`     | `y` is the far edge of the sea, `height` its depth | rows of crests, a swell rolling in, foam washing up the shore line and back     |
+| `river`     | no `x`, `y`: `points` is the water's outline       | ripples and glints drifting with the current (`flow`), swelling and fading      |
 | `sun`       | the centre of the disc                             | a breathing halo and slowly turning rays                                        |
 
 `size` scales fire (1 is a campfire about 110 px tall), smoke and the sun;
@@ -568,6 +570,16 @@ the sun and `stage` (behind the actors) for the rest; `front` is in front
 of the actors, `near` with the near layer. Waves on a sea drawn in `far`
 need `"layer": "far"`. Draw the sea, the pool and the fire pit yourself.
 The anchor sheet adds a row of the empty scene at a few moments.
+
+A `river` moves water you painted: give `points` the same outline the
+scene fills with the water, and the ripples and glints stay inside it,
+smaller toward its top, where the water is farther off. `flow` is how they
+drift in px per second at the bottom ([18, 0] by default, a slow river
+running right; [0, 0] a still pond). Leave the ripple marks out of the
+painted water, or they will sit still under the moving ones. Water with a
+translucent `foreground` over the waders wants two: one on the stage for
+the open water above the waterline, and one with `"layer": "front"` for
+the foreground's outline, a little faster, since it is nearer.
 
 ### Lights and cast shadows
 

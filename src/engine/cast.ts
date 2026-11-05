@@ -69,7 +69,7 @@ export function castLights(scene: Scene, fires: FireLight[]): CastLight[] {
   if (!scene.lights.some((l) => l.kind === 'sun'))
     for (const e of scene.effects)
       if (e.kind === 'sun' && effectLayer(e) === 'far')
-        out.push({ kind: 'sky', x: e.x ?? 0, y: e.y, strength: 1, reach: 0 });
+        out.push({ kind: 'sky', x: e.x ?? 0, y: e.y ?? 0, strength: 1, reach: 0 });
   for (const f of fires)
     out.push({ kind: 'lamp', x: f.x, y: f.y, strength: f.strength, reach: f.radius * 1.6 });
   return out;

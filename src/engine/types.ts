@@ -336,12 +336,25 @@ export type Weather = z.infer<typeof WeatherSchema>;
 export const EffectSchema = z
   .object({
     kind: z
-      .enum(['fire', 'smoke', 'waterfall', 'waves', 'sun'])
+      .enum(['fire', 'smoke', 'waterfall', 'waves', 'river', 'sun'])
       .describe(
-        'fire: burning logs with flickering flames, a glow and sparks (x, y = the middle of the base on the ground). smoke: puffs rising from x, y (a chimney top, a doused fire). waterfall: water pouring from the lip at x, y (its middle) down `height`, `width` wide, foaming and misting at the bottom. waves: the sea moving between y and y + height, rows of crests and foam washing up and back at the shore line (the bottom); x and width default to the whole frame. sun: a glowing sun at x, y with slowly turning rays'
+        "fire: burning logs with flickering flames, a glow and sparks (x, y = the middle of the base on the ground). smoke: puffs rising from x, y (a chimney top, a doused fire). waterfall: water pouring from the lip at x, y (its middle) down `height`, `width` wide, foaming and misting at the bottom. waves: the sea moving between y and y + height, rows of crests and foam washing up and back at the shore line (the bottom); x and width default to the whole frame. river: ripples and glints drifting with the current and coming and going, inside the water's outline `points` (a river, a pond, a lake; no x or y). sun: a glowing sun at x, y with slowly turning rays"
       ),
     x: z.number().optional(),
-    y: z.number(),
+    y: z.number().optional().describe('Required except for river'),
+    points: z
+      .array(z.tuple([z.number(), z.number()]))
+      .min(3)
+      .optional()
+      .describe(
+        "river: the water's outline as [x, y] corners, the same polygon the scene paints the water with; the ripples stay inside it, smaller toward the top (farther off)"
+      ),
+    flow: z
+      .tuple([z.number(), z.number()])
+      .optional()
+      .describe(
+        'river: how the ripples drift, [x, y] in px per second at the bottom of the water (slower toward the top). Default [18, 0], a slow river running right; [-60, 0] a fast one running left; [0, 0] a still pond'
+      ),
     width: z.number().positive().optional().describe('waterfall (default 120), waves'),
     height: z
       .number()
@@ -361,7 +374,7 @@ export const EffectSchema = z
       .string()
       .optional()
       .describe(
-        'waterfall: the water (default #7cc6ec); waves: the crests and foam (default white); smoke: the puffs; sun: the disc'
+        'waterfall: the water (default #7cc6ec); waves: the crests and foam (default white); river: the ripples (default #f4f7e4); smoke: the puffs; sun: the disc'
       ),
     logs: z.boolean().default(true).describe('fire: draw the burning logs under the flames'),
     layer: z
@@ -371,7 +384,15 @@ export const EffectSchema = z
         "Which plane it belongs to, in that plane's coordinates: far (with the far scenery), stage (on the stage behind the actors), front (on the stage in front of them), near. Default far for sun, stage for the rest"
       ),
   })
-  .refine((e) => e.kind === 'waves' || e.x !== undefined, 'x is required except for waves');
+  .refine(
+    (e) => e.kind === 'waves' || e.kind === 'river' || e.x !== undefined,
+    'x is required except for waves and river'
+  )
+  .refine((e) => e.kind === 'river' || e.y !== undefined, 'y is required except for river')
+  .refine(
+    (e) => e.kind !== 'river' || e.points !== undefined,
+    "river needs `points`, the water's outline"
+  );
 export type Effect = z.infer<typeof EffectSchema>;
 
 /**

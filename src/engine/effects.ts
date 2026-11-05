@@ -5,7 +5,7 @@ import type { Effect } from './types.js';
 import { mix } from './weather.js';
 
 /**
- * Moving things placed in a scene (fire, smoke, a waterfall, the sea, the sun), drawn by
+ * Moving things placed in a scene (fire, smoke, a waterfall, the sea, a river, the sun), drawn by
  * the engine as functions of shot time in the coordinates of the plane they belong to.
  * Like the weather, every value comes from time and `hash01`, so any frame stands alone.
  */
@@ -43,6 +43,8 @@ export function effectsSvg(
           return waterfall(e, id, t, k);
         case 'waves':
           return waves(e, id, t, W, k);
+        case 'river':
+          return river(e, id, t, k);
         case 'sun':
           return sun(e, id, t, k);
       }
@@ -71,7 +73,7 @@ export function fireLights(effects: Effect[], t: number, W: number, H: number): 
     const s = e.size * k;
     out.push({
       x: e.x ?? 0,
-      y: e.y - 50 * s,
+      y: (e.y ?? 0) - 50 * s,
       radius: 340 * s,
       strength: 0.85 + 0.15 * wobble(t, `tk-fx-${layer}-${i}:f`),
     });
@@ -104,7 +106,7 @@ function tongue(x: number, y: number, w: number, h: number, lean: number): strin
 function fire(e: Effect, id: string, t: number, wind: number, k: number): string {
   const s = e.size * k;
   const x = e.x ?? 0;
-  const y = e.y;
+  const y = e.y ?? 0;
   const seed = `${id}:`;
   const flick = wobble(t, seed + 'f');
   const lean = (wind * 26 + 9 * wobble(t, seed + 'l')) * s;
@@ -162,7 +164,7 @@ function smoke(e: Effect, id: string, t: number, wind: number, k: number): strin
     const px =
       x +
       (wind * 200 * u * u + (h('x') - 0.5) * 30 * u + 16 * Math.sin(TAU * (u * 1.2 + h('w')))) * s;
-    const py = e.y - 230 * u * s;
+    const py = (e.y ?? 0) - 230 * u * s;
     const r = (8 + 46 * u) * s * (0.8 + 0.4 * h('r'));
     const o = 0.42 * clamp01(u * 5) * Math.pow(1 - u, 1.3);
     out += `<circle cx='${n(px)}' cy='${n(py)}' r='${n(r)}' fill-opacity='${n(o)}'/>`;
@@ -177,7 +179,7 @@ function smoke(e: Effect, id: string, t: number, wind: number, k: number): strin
  */
 function waterfall(e: Effect, id: string, t: number, k: number): string {
   const x = e.x ?? 0;
-  const y = e.y;
+  const y = e.y ?? 0;
   const w = (e.width ?? 120) * k;
   const h = (e.height ?? 300) * k;
   const color = e.color ?? '#7cc6ec';
@@ -241,7 +243,7 @@ function waterfall(e: Effect, id: string, t: number, k: number): string {
 function waves(e: Effect, id: string, t: number, W: number, k: number): string {
   const x0 = e.x ?? -40;
   const x1 = e.width !== undefined ? x0 + e.width * k : W + 40;
-  const top = e.y;
+  const top = e.y ?? 0;
   const depth = (e.height ?? 120) * k;
   const shore = top + depth;
   const color = e.color ?? '#ffffff';
@@ -298,10 +300,79 @@ function waves(e: Effect, id: string, t: number, W: number, k: number): string {
   return `<g class='waves' fill='none' stroke='${color}' stroke-linecap='round'>${out}</g>`;
 }
 
+/**
+ * Water inside the outline `points` (a river, a pond): ripples, shallow arcs that drift with
+ * the current and swell and fade each in its own time, and glints of light twinkling among
+ * them. Each is placed by hash01 in the outline's box and carried by `flow` (px/s at the
+ * bottom, slower toward the top, where the water is farther off and everything smaller),
+ * wrapping round the box; the outline clips them, so none laps over a bank.
+ */
+function river(e: Effect, id: string, t: number, k: number): string {
+  const pts = e.points ?? [];
+  if (pts.length < 3) return '';
+  const xs = pts.map((p) => p[0]);
+  const ys = pts.map((p) => p[1]);
+  const m = 70 * k; // margin outside the box, so a ripple drifts in from beyond the edge
+  const x0 = Math.min(...xs) - m;
+  const y0 = Math.min(...ys) - m;
+  const bw = Math.max(...xs) + m - x0;
+  const bh = Math.max(...ys) + m - y0;
+  const top = Math.min(...ys);
+  const depth = Math.max(1, Math.max(...ys) - top);
+  const [fx, fy] = e.flow ?? [18, 0];
+  const color = e.color ?? '#f4f7e4';
+  const wrap = (v: number, span: number) => ((v % span) + span) % span;
+  // Where a mark is at t, and how near (0 far, 1 at the bottom) that is.
+  const place = (key: string, slow: number) => {
+    const u = hash01(`${key}:u`) * bw;
+    const v = hash01(`${key}:v`) * bh;
+    const near = clamp01((y0 + v - top) / depth);
+    const speed = (0.35 + 0.65 * near) * slow;
+    const x = x0 + wrap(u + fx * speed * t, bw);
+    const y = y0 + wrap(v + fy * speed * t, bh);
+    return { x, y, near: clamp01((y - top) / depth) };
+  };
+  const count = (spacing: number) =>
+    Math.min(400, Math.round((bw * bh) / (spacing * spacing * k * k)));
+
+  let ripples = '';
+  for (let i = 0, many = count(46); i < many; i++) {
+    const key = `${id}:ripple:${i}`;
+    const g = (s: string) => hash01(`${key}:${s}`);
+    const { x, y, near } = place(key, 1);
+    const life = Math.sin(TAU * (0.16 + 0.14 * g('f')) * t + TAU * g('p'));
+    if (life <= 0.05) continue;
+    const scale = 0.45 + 0.8 * near;
+    const len = (16 + 34 * g('l')) * k * scale;
+    const rise = (1.5 + 2.5 * life) * k * scale;
+    ripples +=
+      `<path d='M${n(x - len / 2)} ${n(y)} q${n(len / 2)} ${n(-rise)} ${n(len)} 0'` +
+      ` stroke-width='${n((1.3 + 1.3 * near) * k)}' stroke-opacity='${n(0.6 * life)}'/>`;
+  }
+  let glints = '';
+  for (let i = 0, many = count(120); i < many; i++) {
+    const key = `${id}:glint:${i}`;
+    const g = (s: string) => hash01(`${key}:${s}`);
+    const { x, y, near } = place(key, 1);
+    const life = Math.sin(TAU * (0.5 + 0.5 * g('f')) * t + TAU * g('p'));
+    if (life <= 0.2) continue;
+    const len = (5 + 10 * g('l')) * k * (0.5 + 0.7 * near);
+    glints +=
+      `<path d='M${n(x - len / 2)} ${n(y)} h${n(len)}' stroke-width='${n(2.2 * k)}'` +
+      ` stroke-opacity='${n(0.85 * life)}'/>`;
+  }
+  const outline = `M${pts.map(([px, py]) => `${n(px)} ${n(py)}`).join(' L')} Z`;
+  return (
+    `<g class='river'><defs><clipPath id='${id}-clip'><path d='${outline}'/></clipPath></defs>` +
+    `<g clip-path='url(#${id}-clip)' fill='none' stroke-linecap='round'>` +
+    `<g stroke='${color}'>${ripples}</g><g stroke='#fff6c8'>${glints}</g></g></g>`
+  );
+}
+
 /** A sun: a soft halo that breathes, rays turning slowly and pulsing, and the disc. */
 function sun(e: Effect, id: string, t: number, k: number): string {
   const x = e.x ?? 0;
-  const y = e.y;
+  const y = e.y ?? 0;
   const r = 55 * e.size * k;
   const disc = e.color ?? '#ffd23f';
   const pulse = Math.sin(TAU * 0.4 * t);
