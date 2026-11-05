@@ -682,6 +682,7 @@ falling the same way.
 | `wipe`                | near hand out to `to` (an actor or a spot), going round on it: dusting                 | 2.4s                 |
 | `kick`                | near leg draws back, snaps out forward and up (lying: up off the bed; four legs: buck) | 0.9s                 |
 | `eat`                 | near hand and what it holds to the mouth, chewing (four legs: head down; simple: peck) | 1.6s                 |
+| `strike`              | near arm up overhead, chops down forward, swinging what it holds (four legs: a butt)   | 0.7s                 |
 
 Crossing the frame on foot takes 4–5 s. `duration` overrides any default,
 and every walk needs enough of it or the character sprints; the engine
@@ -740,6 +741,15 @@ is drawn just in front; its own moves are ignored.
   animal puts its head down to the floor in front of its forepaws and
   chews there; the simple rig pecks forward. Several bites are several
   `eat`s.
+- **Hitting**: `{ "t": 8, "actor": "farmer", "do": "strike" }` is one
+  blow (face the target and stand close enough for what is held to reach
+  it): the near arm winds up over the head and chops down
+  forward, and a carried stick, sword or broom swings with it, back over the
+  shoulder and then forward onto the target. Put the `grip` of anything
+  swung near its foot, so most of it is above the hand. The blow lands
+  0.55 of the way through (0.385 s into the default 0.7 s): put the `thud`
+  and the victim's `tremble` there. A beating is several `strike`s about
+  0.75 s apart.
 - **Hand to hand**: attaching a prop already held passes it over. One
   attached from more than the carrier's height away is taken at once.
 - `grip` is the point in the prop's box the hand holds (`[100, 22]` for a

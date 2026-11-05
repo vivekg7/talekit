@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { characterBody, holdPoint, poseFor } from '../src/engine/actor.js';
+import { composeFrame } from '../src/engine/compose.js';
 import { RIGS } from '../src/engine/rigs.js';
 import { resolveFrame, type ActorState } from '../src/engine/timeline.js';
 import { CharacterSchema, ShotSchema, type Project } from '../src/engine/types.js';
@@ -116,6 +117,34 @@ describe('carrying', () => {
     expect(dropped.heldBy).toBeUndefined();
     expect(Math.abs(dropped.x - at(p, 'lantern', 4.99).x)).toBeLessThan(1);
     expect(at(p, 'lantern', 7.5).x).toBe(1000);
+  });
+
+  it('swings what it carries with a strike: back over the shoulder, then onto the blow', () => {
+    const p = project(cast, [
+      { t: 0, actor: 'lantern', attach: 'kid' },
+      { t: 1, actor: 'kid', do: 'strike' },
+    ]);
+    expect(at(p, 'lantern', 0.5).tilt).toBeUndefined();
+    // Wound up, its top leans back, away from the way the kid faces (right); at the blow
+    // it has come over and down in front.
+    expect(at(p, 'lantern', 1 + 0.4 * 0.7).tilt!.deg).toBeLessThan(-40);
+    const t = 1 + 0.6 * 0.7;
+    const tilt = at(p, 'lantern', t).tilt!;
+    expect(tilt.deg).toBeGreaterThan(90);
+    // Turned about the hand that holds it, and drawn so.
+    const kid = at(p, 'kid', t);
+    const hand = holdPoint(kid, poseFor(kid, t));
+    expect(Math.hypot(tilt.x - hand.x, tilt.y - hand.y)).toBeLessThan(0.01);
+    expect(composeFrame(p, p.shots[0], t)).toMatch(
+      /<g transform='rotate\([^)]*\)'><g class='actor actor-lantern'/
+    );
+    expect(at(p, 'lantern', 2).tilt).toBeUndefined();
+    // Facing left, the same blow comes down the other way.
+    const left = project({ ...cast, kid: { at: { x: 300, y: 640 }, facing: 'left' } }, [
+      { t: 0, actor: 'lantern', attach: 'kid' },
+      { t: 1, actor: 'kid', do: 'strike' },
+    ]);
+    expect(at(left, 'lantern', t).tilt!.deg).toBeLessThan(-90);
   });
 
   it('draws the carried prop just in front of its carrier', () => {

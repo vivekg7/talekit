@@ -369,7 +369,17 @@ export function renderActor(
   if (!actor.visible || actor.opacity <= 0) return '';
   const side = sideOf(actor);
   const body = characterBody(actor.character, pose, light, Math.sign(side) || 1);
-  return placeCharacter(actor.character, body, actor.x, actor.y, actor.scale, side, actor.opacity);
+  return tilted(
+    actor,
+    placeCharacter(actor.character, body, actor.x, actor.y, actor.scale, side, actor.opacity)
+  );
+}
+
+/** A carried prop swung by the hand that holds it (`ActorState.tilt`): turned about the grip. */
+export function tilted(actor: Pick<ActorState, 'tilt'>, svg: string): string {
+  const k = actor.tilt;
+  if (!k || !svg) return svg;
+  return `<g transform='rotate(${n(k.deg)} ${n(k.x)} ${n(k.y)})'>${svg}</g>`;
 }
 
 /** Whether a character casts a ground shadow (see `Character.shadow`). */

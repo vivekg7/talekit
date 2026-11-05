@@ -53,6 +53,12 @@ export interface Pose {
    * where it does would leave none and the leg would vanish into the flank.
    */
   loose?: string[];
+  /**
+   * How far what the near hand carries is swung from upright, in degrees, its top toward
+   * the way the actor faces (a stick brought down in a `strike`); 0 or unset, it is held
+   * as drawn.
+   */
+  wield?: number;
 }
 
 export type Locomotion = 'idle' | 'walk' | 'run' | 'move' | 'fly';
@@ -106,6 +112,7 @@ export const VERB_DURATION: Partial<Record<Verb, number>> = {
   wipe: 2.4,
   kick: 0.9,
   eat: 1.6,
+  strike: 0.7,
 };
 
 /**
@@ -405,6 +412,23 @@ function kickBeats(u: number): { draw: number; out: number } {
   return { draw: 0, out: 1 - easeInOut((u - 0.7) / 0.3) };
 }
 
+/** A `strike`: the share of it at which the blow lands (where to put the thud). */
+export const STRIKE_HIT = 0.55;
+
+/**
+ * The beats of a `strike`: `up` winds the arm up and back over the head, `down` chops it
+ * forward through the blow, fast, which lands at STRIKE_HIT; a beat there, then back.
+ */
+function strikeBeats(u: number): { up: number; down: number } {
+  if (u < 0.4) return { up: easeInOut(u / 0.4), down: 0 };
+  if (u < STRIKE_HIT) {
+    const s = Math.pow((u - 0.4) / (STRIKE_HIT - 0.4), 1.6);
+    return { up: 1 - s, down: s };
+  }
+  if (u < 0.75) return { up: 0, down: 1 };
+  return { up: 0, down: 1 - easeInOut((u - 0.75) / 0.25) };
+}
+
 /** An `eat`: the share of it at which the food reaches the mouth, the bites a second. */
 const EAT = { at: 0.22, hz: 4 };
 
@@ -469,6 +493,14 @@ function quadrupedVerb(rig: Rig, pose: Pose, verb: Verb, u: number, span: number
       const k = settle(u, 0.18, 0.18);
       pose.rot.legFR = k * (-78 + 16 * Math.sin(u * TAU * 2.5));
       add('head', -4 * k);
+      return true;
+    }
+    case 'strike': {
+      // A butt: the head drawn back and up, then thrust forward and down with the body.
+      const { up, down } = strikeBeats(u);
+      add('head', -14 * up + 22 * down);
+      add('body', -3 * up + 5 * down);
+      pose.dx += 12 * down - 4 * up;
       return true;
     }
     case 'kick': {
@@ -825,6 +857,23 @@ export function applyVerb(
         // No arm: the body rubs back and forth against it.
         pose.rot.body = (pose.rot.body ?? 0) + k * (6 + 4 * Math.sin(turns));
         pose.dx += k * (6 + 4 * Math.cos(turns));
+      }
+      break;
+    }
+    case 'strike': {
+      // A blow: the near arm winds up over the head, the elbow bent, the body leaning back;
+      // then chops forward and down, straightening, the body following through. What the
+      // hand carries swings with it: back over the shoulder, then forward onto the target.
+      const { up, down } = strikeBeats(u);
+      if (humanoid) {
+        pose.rot.armR = (pose.rot.armR ?? 0) - 160 * up - 60 * down;
+        pose.bend.armR = (pose.bend.armR ?? 0) - 35 * up - 10 * down;
+        pose.rot.torso = (pose.rot.torso ?? 0) + 6 * up - 8 * down;
+        pose.rot.head = (pose.rot.head ?? 0) + 3 * up - 5 * down;
+        pose.wield = -55 * up + 105 * down;
+      } else {
+        pose.rot.body = (pose.rot.body ?? 0) + 8 * up - 16 * down;
+        pose.dx += 12 * down - 4 * up;
       }
       break;
     }

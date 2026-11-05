@@ -64,6 +64,8 @@ export interface ActorState {
   locoT: number;
   /** How far the current walk or run has got, which drives the legs. */
   travel?: Travel;
+  /** A carried prop swung by its holder's hand: degrees clockwise about (x, y), its grip. */
+  tilt?: { deg: number; x: number; y: number };
   /** Mid-turn after a facing change: the old facing and progress 0..1. */
   turn?: { from: Facing; u: number };
   /**
@@ -354,9 +356,10 @@ function heldPoint(
   holderId: string,
   t: number,
   depth: number
-): { point: Point; facing: Facing; turn?: ActorState['turn'] } {
+): { point: Point; facing: Facing; turn?: ActorState['turn']; tilt?: ActorState['tilt'] } {
   const holder = resolveActor(project, scene, shot, holderId, t, depth + 1);
-  const hand = holdPoint(holder, poseFor(holder, t));
+  const pose = poseFor(holder, t);
+  const hand = holdPoint(holder, pose);
   const rig = rigOf(prop);
   const [gx, gy] = prop.grip ?? [rig.width / 2, rig.height / 2];
   const k = (prop.height / rig.height) * propScale * holder.perspective;
@@ -369,6 +372,8 @@ function heldPoint(
     },
     facing: holder.facing,
     turn: holder.turn,
+    // Swung by the hand (a stick in a blow): turned about the grip, top toward the facing.
+    tilt: pose.wield ? { deg: side * pose.wield, x: hand.x, y: hand.y } : undefined,
   };
 }
 
@@ -790,6 +795,7 @@ export function resolveActor(
   const turnTime = character.rig === 'quadruped' ? QUAD_TURN_TIME : TURN_TIME;
   let turn = t - turnAt < turnTime ? { from: turnFrom, u: (t - turnAt) / turnTime } : undefined;
   const heldBy = holder && depth < MAX_DEPTH ? holder : undefined;
+  let tilt: ActorState['tilt'];
   if (heldBy) {
     const held = heldPoint(project, scene, shot, character, scale, heldBy, t, depth);
     point = held.point;
@@ -798,6 +804,7 @@ export function resolveActor(
       point = { ...point, x: point.x + lift.dx * k, y: point.y + lift.dy * k };
     }
     facing = held.facing;
+    tilt = held.tilt;
     turn = held.turn;
     locomotion = 'idle';
   }
@@ -844,6 +851,7 @@ export function resolveActor(
     perspective: point.scale,
     on: heldBy ? undefined : on,
     heldBy,
+    tilt,
     holding,
     look: 0,
     take: t - takeAt < TAKE_TIME ? { u: (t - takeAt) / TAKE_TIME, emotion } : undefined,
