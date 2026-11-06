@@ -78,4 +78,17 @@ describe('chains', () => {
     keepOffFloor(rig, pose, 'tail');
     expect(tipY()).toBeLessThanOrEqual(rig.height + 0.01);
   });
+
+  it('nods a short head to eat, and less lying down', () => {
+    const c = { ...croc(), muzzle: [236, 119] as [number, number] };
+    const rig = rigOf(c);
+    const standing = emptyPose();
+    applyVerb(rig, standing, 'eat', 0.5, 0, undefined, 3);
+    expect(standing.rot.head).toBeLessThan(30);
+    const lying = emptyPose();
+    applyVerb(rig, lying, 'lie', 1);
+    const before = lying.rot.head ?? 0;
+    applyVerb(rig, lying, 'eat', 0.5, 0, undefined, 3);
+    expect(lying.rot.head! - before).toBeLessThan(standing.rot.head! / 2);
+  });
 });

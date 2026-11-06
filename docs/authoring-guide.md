@@ -250,7 +250,10 @@ back to `sit` or rocks in the gallop; the ears and face hang from the head.
   camel's, a giraffe's: the neck drawn in the head part, turning at its
   pivot) says where its mouth is, `"muzzle": [248, 47]`, and `eat` bows
   that neck as far as it takes to reach the floor; the library's animals
-  bow 44° as before.
+  bow 44° as before. A mouth that is low already, or that no bow would
+  bring down there (a crocodile's long jaw over the ground), only nods:
+  turning a short head 60° stands its snout on end off a stiff neck.
+  Lying down, `eat` nods less again, since the mouth is down there.
 - **Legs** are round-capped strokes straight down from their pivot (`<path
 d='M194 132 L194 189' stroke='{fur}' stroke-width='18'
 stroke-linecap='round' fill='none'/>`) with a paw or hoof reaching

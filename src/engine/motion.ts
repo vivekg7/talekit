@@ -17,6 +17,8 @@ export interface Pose {
    * of the part's turn: the follow-through running down a tail.
    */
   curl?: Record<string, number[]>;
+  /** Lying down, 0..1 (`lie`): what is done lying (eating off the floor) reaches less far. */
+  lying?: number;
   /** Pixel offsets per part in canonical units. */
   off: Record<string, [number, number]>;
   /** Whole-body offset and scale (about the feet). */
@@ -473,6 +475,11 @@ export function chewing(verbs: { verb: Verb; u: number; span?: number }[]): bool
 /** How far an animal eating off the floor tips its body forward, and its head at least. */
 const EAT_DIP = 6;
 const EAT_BOW = 44;
+/**
+ * How far a head too short to reach the floor bows (a crocodile's, low on a short neck):
+ * a nod down toward it, not a snout turned straight down off the neck.
+ */
+const SHORT_BOW = 22;
 
 /**
  * Where an eating animal's neck pivot comes to as its body tips forward, and the mouth
@@ -494,13 +501,19 @@ function eatNeck(rig: Rig): { neck: number; r: number; alpha: number } {
  */
 const EAT_MOUTH = 184;
 
-/** How far the head bows to eat: further for a mouth up a long neck, down to EAT_MOUTH. */
+/**
+ * How far the head bows to eat: further for a mouth up a long neck, down to EAT_MOUTH; a
+ * nod for a mouth that is low already or that no bow would bring down there.
+ */
 function eatBow(rig: Rig): number {
   const [mx, my] = rig.hold.point;
   if (mx === QUADRUPED.hold.point[0] && my === QUADRUPED.hold.point[1]) return EAT_BOW;
   const { neck, r, alpha } = eatNeck(rig);
-  const turn = Math.asin(Math.min(1, (EAT_MOUTH - neck) / r)) - alpha;
-  return Math.min(130, Math.max(EAT_BOW, (turn * 180) / Math.PI - EAT_DIP));
+  if (EAT_MOUTH - neck > r) return SHORT_BOW;
+  const turn = (Math.asin((EAT_MOUTH - neck) / r) - alpha) * (180 / Math.PI) - EAT_DIP;
+  // A mouth low already (a crocodile's long jaw, close over the ground) only nods.
+  if (turn < EAT_BOW) return SHORT_BOW;
+  return Math.min(130, turn);
 }
 
 /** Quadruped verbs: the near front paw does what the humanoid's near arm does. */
@@ -550,10 +563,12 @@ function quadrupedVerb(rig: Rig, pose: Pose, verb: Verb, u: number, span: number
     case 'eat': {
       // Eating off the floor: the head goes down in front of the forepaws, as for a pickup,
       // and stays there chewing, then comes back up.
+      // Lying, the mouth is down there already: a much smaller nod.
       const { k, chew } = eatBeats(u, span);
-      add('body', EAT_DIP * k);
-      add('head', eatBow(rig) * k + 5 * chew);
-      nudge(pose, 'head', 6 * k, 14 * k + 2 * chew);
+      const low = k * (1 - 0.75 * (pose.lying ?? 0));
+      add('body', EAT_DIP * low);
+      add('head', eatBow(rig) * low + 5 * chew);
+      nudge(pose, 'head', 6 * low, 14 * low + 2 * chew);
       add('tail', -8 * k);
       return true;
     }
@@ -661,6 +676,7 @@ function quadrupedVerb(rig: Rig, pose: Pose, verb: Verb, u: number, span: number
       add('head', 8 * l);
       nudge(pose, 'head', 4 * l, LIE_HEAD * l);
       add('tail', 30 * l);
+      pose.lying = Math.max(pose.lying ?? 0, l);
       return true;
     }
     case 'pickup':
@@ -668,7 +684,7 @@ function quadrupedVerb(rig: Rig, pose: Pose, verb: Verb, u: number, span: number
       // The head goes down to the floor in front, where the mouth takes or leaves it.
       const k = stoopDepth(u);
       add('body', 6 * k);
-      add('head', 44 * k);
+      add('head', Math.min(EAT_BOW, eatBow(rig)) * k);
       nudge(pose, 'head', 6 * k, 14 * k);
       add('tail', -10 * k);
       return true;
