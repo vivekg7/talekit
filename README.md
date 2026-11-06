@@ -17,6 +17,16 @@ story ──agent──▶ characters/*.json  scenes/*.json  shots/*.json ──
                  (rigged SVG puppets) (SVG + anchors)  (timeline)
 ```
 
+## Made with talekit
+
+**Kahani ki Potli** is a channel of Hindi stories for children made entirely
+with talekit: Panchatantra fables, Tenali Rama and other classic tales. Each
+story is released as a full film and as a two-minute portrait reel, with Hindi
+and English subtitles.
+
+- YouTube: [@KahaniKiPotli7](https://www.youtube.com/@KahaniKiPotli7)
+- Instagram: [@kahanikipotli7](https://www.instagram.com/kahanikipotli7/)
+
 ## Requirements
 
 - Node 20+ and `ffmpeg` on the PATH (`brew install ffmpeg`). No browser:
