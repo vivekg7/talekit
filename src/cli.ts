@@ -32,9 +32,10 @@ const USAGE = `talekit — story video generation for AI agents
   talekit sheet <dir> <id> [-o file.png]       pose + construction sheet (character) or anchor sheet (scene)
   talekit frame <dir> <shotId> [-t 1.5] [-o file.png] [--svg] [--debug]
   talekit contact <dir> <shotId> [-n 6] [-o file.png]
-  talekit cover <dir> <shotId> -t <sec> --title "…" [--sub "…"] [--tag "…"] [--zoom 1.3 --focus x,y] [-o file.png]
+  talekit cover <dir> <shotId> -t <sec> --title "…" [--sub "…"] [--tag "…"] [--zoom 1.3 --focus x,y] [--banner] [-o file.png]
                                                the thumbnail: a frame with the title over it (out/thumbnail.png),
-                                               and the command that drew it (out/thumbnail.txt)
+                                               and the command that drew it (out/thumbnail.txt); --banner draws a
+                                               2560x1440 YouTube channel banner from a film instead (out/banner.png)
   talekit voice <dir> [shotId]                 speak the lines that have no audio yet (local TTS)
   talekit render <dir> [shotId] [-o file.mp4] [--silent]   the whole film (not a reel) also writes a .mkv
   talekit remix <dir> [-o file.mp4]            mix the sound again under a rendered film (after a mix change)
@@ -86,6 +87,7 @@ async function main(argv: string[]): Promise<void> {
       svg: { type: 'boolean' },
       debug: { type: 'boolean' },
       silent: { type: 'boolean' },
+      banner: { type: 'boolean' },
       help: { type: 'boolean', short: 'h' },
     },
   });
@@ -198,10 +200,12 @@ async function main(argv: string[]): Promise<void> {
         tag: values.tag,
         zoom: num(values.zoom),
         focus: values.focus ? { x: fx, y: fy } : undefined,
+        banner: values.banner,
       });
-      const file = values.out ?? path.join(projectPaths(dir).out, 'thumbnail.png');
+      const name = values.banner ? 'banner.png' : 'thumbnail.png';
+      const file = values.out ?? path.join(projectPaths(dir).out, name);
       await mkdir(path.dirname(file), { recursive: true });
-      await writeFile(file, rasterize(svg, coverWidth(project)));
+      await writeFile(file, rasterize(svg, coverWidth(project, values.banner)));
       // Kept beside the picture, so the cover can be drawn again when the art changes.
       const q = (v: string) => (/^[\w.,/:-]+$/.test(v) ? v : `'${v.replace(/'/g, `'\\''`)}'`);
       const args: [string, string | undefined][] = [
@@ -215,6 +219,7 @@ async function main(argv: string[]): Promise<void> {
       ];
       const command = ['talekit cover .', q(shotId)]
         .concat(args.filter(([, v]) => v !== undefined).map(([k, v]) => `${k} ${q(v!)}`))
+        .concat(values.banner ? ['--banner'] : [])
         .join(' ');
       const note = file.replace(/\.png$/i, '') + '.txt';
       await writeFile(

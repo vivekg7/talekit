@@ -80,7 +80,12 @@ frames)` are full size. To fix a shot, `patch_shot(path, shotId, …)`:
    or hook on a red tag, and `--zoom` pushes in about the scene point
    `--focus`. Look at the picture; the command that drew it is kept in
    `out/thumbnail.txt`, so the cover can be drawn again when the art
-   changes. Then write the words to post it with, as the exact text to
+   changes. The same command with `--banner` draws a channel's
+   2560 × 1440 YouTube banner from a film instead (`out/banner.png`):
+   the words are centred in the 1546 × 423 middle that every device shows
+   (a computer shows the full-width strip through the middle, a TV all of
+   it), the frame is drawn without bubbles or captions, and `--zoom` with
+   a `--focus` low in the frame lifts the cast into that strip. Then write the words to post it with, as the exact text to
    paste: `out/youtube.txt` for both, and `out/instagram.txt` for the reel.
    `youtube.txt` is the title on its first line (at most 100 characters),
    a blank line, then the description: two to four sentences that tease

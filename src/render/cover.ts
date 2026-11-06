@@ -11,7 +11,16 @@ export interface CoverText {
   /** Push in on the action: scale by `zoom` about the scene point `focus`. */
   zoom?: number;
   focus?: { x: number; y: number };
+  /** A YouTube channel banner (2560 × 1440) instead of a thumbnail: films only. */
+  banner?: boolean;
 }
+
+/**
+ * YouTube shows a banner whole only on a TV. A computer shows the full-width strip through
+ * its middle, a phone only the centre of that strip (1546 × 423 of 2560 × 1440), so the
+ * words go there and the picture is left to fill the rest.
+ */
+export const BANNER = { width: 2560, height: 1440, safeWidth: 1546, safeHeight: 423 };
 
 const INK = '#2e2633';
 
@@ -23,7 +32,8 @@ const INK = '#2e2633';
 export function coverSvg(project: Project, shot: Shot, t: number, o: CoverText): string {
   const { width: W, height: H } = project.meta;
   const tall = H > W;
-  const frame = composeFrame(project, shot, t);
+  if (o.banner && tall) throw new Error('a banner is drawn from a film, not a reel');
+  const frame = composeFrame(project, shot, t, { quiet: o.banner });
   const inner = frame.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '');
   // Scaling about a point inside the frame by 1 or more never uncovers an edge.
   const z = Math.max(1, o.zoom ?? 1);
@@ -33,22 +43,41 @@ export function coverSvg(project: Project, shot: Shot, t: number, o: CoverText):
 
   const fit = (text: string, max: number, want: number) =>
     Math.min(want, (want * max) / shapedWidth(text, want, true));
-  const tsize = fit(o.title, W * (tall ? 0.86 : 0.6), tall ? 110 : 96);
-  const cx = tall ? W / 2 : W * 0.34;
-  const ty = tall ? 300 : 190;
+  // The banner's safe area, in frame units.
+  const safeW = (W * BANNER.safeWidth) / BANNER.width;
+  const safeH = (H * BANNER.safeHeight) / BANNER.height;
+  const tsize = o.banner
+    ? fit(o.title, safeW * 0.9, safeH * 0.36)
+    : fit(o.title, W * (tall ? 0.86 : 0.6), tall ? 110 : 96);
+  const ssize =
+    o.sub && fit(o.sub, o.banner ? safeW * 0.8 : W * 0.8, o.banner ? tsize * 0.4 : tall ? 46 : 40);
+  const gsize =
+    o.tag &&
+    fit(o.tag, o.banner ? safeW * 0.8 : W * 0.75, o.banner ? tsize * 0.38 : tall ? 44 : 36);
+  const cx = tall || o.banner ? W / 2 : W * 0.34;
+  // A banner's block of words is centred in the safe area: the sub's top to the tag's foot.
+  const above = ssize ? tsize + ssize * 0.8 : tsize * 0.8;
+  const below = gsize ? tsize * 0.55 + gsize * 1.6 : tsize * 0.25;
+  const ty = o.banner ? H / 2 + (above - below) / 2 : tall ? 300 : 190;
   let over = '';
-  // A dark wash behind the words, fading down into the picture.
-  over += `<defs><linearGradient id='tk-wash' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#1d1424' stop-opacity='.75'/><stop offset='.7' stop-color='#1d1424' stop-opacity='.35'/><stop offset='1' stop-color='#1d1424' stop-opacity='0'/></linearGradient></defs>`;
-  over += `<rect width='${W}' height='${tall ? 470 : 260}' fill='url(#tk-wash)'/>`;
-  if (o.sub) {
-    const ssize = fit(o.sub, W * 0.8, tall ? 46 : 40);
+  if (o.banner) {
+    // A dark band behind the words, fading out above and below into the picture.
+    const top = H / 2 - safeH * 0.75;
+    over += `<defs><linearGradient id='tk-wash' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#1d1424' stop-opacity='0'/><stop offset='.5' stop-color='#1d1424' stop-opacity='.55'/><stop offset='1' stop-color='#1d1424' stop-opacity='0'/></linearGradient></defs>`;
+    over += `<rect y='${top}' width='${W}' height='${safeH * 1.5}' fill='url(#tk-wash)'/>`;
+  } else {
+    // A dark wash behind the words, fading down into the picture.
+    over += `<defs><linearGradient id='tk-wash' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#1d1424' stop-opacity='.75'/><stop offset='.7' stop-color='#1d1424' stop-opacity='.35'/><stop offset='1' stop-color='#1d1424' stop-opacity='0'/></linearGradient></defs>`;
+    over += `<rect width='${W}' height='${tall ? 470 : 260}' fill='url(#tk-wash)'/>`;
+  }
+  if (o.sub && ssize) {
     over += shapedText(o.sub, {
       x: cx,
       y: ty - tsize,
       fontSize: ssize,
       fill: '#ffe9b0',
       bold: true,
-      stroke: { color: INK, width: 8 },
+      stroke: { color: INK, width: o.banner ? ssize * 0.2 : 8 },
     });
   }
   over += shapedText(o.title, {
@@ -59,8 +88,8 @@ export function coverSvg(project: Project, shot: Shot, t: number, o: CoverText):
     bold: true,
     stroke: { color: INK, width: tsize * 0.16 },
   });
-  if (o.tag) {
-    const size = fit(o.tag, W * 0.75, tall ? 44 : 36);
+  if (o.tag && gsize) {
+    const size = gsize;
     const w = shapedWidth(o.tag, size, true) + size * 1.2;
     const y = ty + tsize * 0.55;
     const tilt = `rotate(-3 ${cx} ${y})`;
@@ -70,6 +99,6 @@ export function coverSvg(project: Project, shot: Shot, t: number, o: CoverText):
   return `<svg xmlns='http://www.w3.org/2000/svg' width='${W}' height='${H}' viewBox='0 0 ${W} ${H}'><g${push}>${inner}</g>${over}</svg>`;
 }
 
-/** The pixel width a cover is drawn at: 1080 × 1920 for a reel, 1280 × 720 for a film. */
-export const coverWidth = (project: Project) =>
-  project.meta.height > project.meta.width ? 1080 : 1280;
+/** The pixel width a cover is drawn at: 1080 × 1920 for a reel, 1280 × 720 for a film, 2560 × 1440 for a banner. */
+export const coverWidth = (project: Project, banner = false) =>
+  banner ? BANNER.width : project.meta.height > project.meta.width ? 1080 : 1280;

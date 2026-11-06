@@ -179,6 +179,7 @@ talekit serve <dir> [dir…] [--open] [--lan]
 talekit mcp                          talekit remix <dir> [-o file.mp4]
                                      talekit mkv <dir> [-o file.mp4]
 talekit cover <dir> <shot> -t 3 --title "…"   (out/thumbnail.png)
+talekit cover <dir> <shot> -t 3 --title "…" --banner   (out/banner.png, 2560 × 1440)
 ```
 
 `node dist/cli.js` with no arguments prints every option.

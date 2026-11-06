@@ -68,4 +68,43 @@ describe('a cover', () => {
     );
     expect(svg).toContain("fill='#c8342b'");
   });
+
+  it('draws a banner from a film with the words in the middle every device shows', async () => {
+    const { loadProject } = await import('../src/project/store.js');
+    const { coverSvg, coverWidth, BANNER } = await import('../src/render/cover.js');
+    const p = await loadProject('examples/lost-kite');
+    expect(coverWidth(p, true)).toBe(BANNER.width);
+    const svg = coverSvg(p, p.shots[0], 1, {
+      title: 'पतंग',
+      sub: 'कहानी',
+      tag: 'Hi',
+      banner: true,
+    });
+    // Every word drawn over the picture (sub, title, tag) sits in the band all devices show.
+    const over = svg.slice(svg.indexOf("fill='url(#tk-wash)'"));
+    const ys = [...over.matchAll(/translate\(([\d.]+) ([\d.]+)\) scale\(/g)].map((m) =>
+      Number(m[2])
+    );
+    const safeH = (720 * BANNER.safeHeight) / BANNER.height;
+    expect(ys.length).toBe(3);
+    for (const y of ys) {
+      expect(y).toBeGreaterThan(360 - safeH / 2);
+      expect(y).toBeLessThan(360 + safeH / 2);
+    }
+    const reel = { ...p, meta: { ...p.meta, width: 720, height: 1280 } };
+    expect(() => coverSvg(reel, p.shots[0], 1, { title: 'x', banner: true })).toThrow(/reel/);
+  });
+
+  it('leaves the words out of a quiet frame', async () => {
+    const { loadProject } = await import('../src/project/store.js');
+    const { composeFrame } = await import('../src/engine/compose.js');
+    const p = await loadProject('examples/lost-kite');
+    const differ = p.shots.some((s) =>
+      [0.3, 0.5, 0.7].some(
+        (f) =>
+          composeFrame(p, s, s.duration * f, { quiet: true }) !== composeFrame(p, s, s.duration * f)
+      )
+    );
+    expect(differ).toBe(true);
+  });
 });

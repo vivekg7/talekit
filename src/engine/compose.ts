@@ -26,6 +26,8 @@ import { flashFilter, mix, weatherAt, weatherView, type Span } from './weather.j
 export interface ComposeOptions {
   /** Draw anchor markers and actor feet points. */
   debug?: boolean;
+  /** Leave out the words: speech bubbles and captions (a banner sets its own). */
+  quiet?: boolean;
 }
 
 /** How fast the far and near layers move with the camera, the stage being 1. */
@@ -384,7 +386,7 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
   for (const [i, { actor, pose }] of posed.entries()) {
     const { light, slopes } = lightOf(actor, w, fires, sun);
     world += lit(renderActor(actor, frame.t, pose, light), `tk-lit-${i}`, slopes);
-    if (actor.bubble && actor.visible) {
+    if (actor.bubble && actor.visible && !opts.quiet) {
       const head = actorHeadTop(actor, pose);
       const s = worldToScreen(frame, W, H, head.x, head.y);
       bubbles.push(
@@ -417,7 +419,7 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
   }
 
   const vignette = clamp01((c.zoom - VIGNETTE_FROM) / (VIGNETTE_FULL - VIGNETTE_FROM));
-  const captions = frame.captions
+  const captions = (opts.quiet ? [] : frame.captions)
     .map((cp) => captionSvg(cp.text, cp.style, cp.opacity, cp.slide, W, H, font, k))
     .join('');
   const fade =
