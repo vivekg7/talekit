@@ -118,7 +118,7 @@ The full schema is the authoring guide.
       pose sheet, a warning on overlapping speech and, later, `attach`.
       `examples/clever-rabbit`, made by a subagent given only the story,
       led to tool argument names in the guide, `get_library_item`, larger
-      contact frames, a film sheet from `render` and more. Vivek's review of
+      contact frames, a film sheet from `render` and more. A review of
       it found the key beat missing: the lion never saw anything in the
       well, staged as a 70 px reflection at the rim of a side-on well. The
       fix was staging, not engine (a point-of-view shot down the shaft,
@@ -135,7 +135,7 @@ stickers, nothing had weight, nobody looked at anyone, and scenes were one
 flat layer. Audio went last on purpose, since it would mask the visual
 problems.
 
-Decisions taken with Vivek: one drawing style for everything (**outlined
+Decisions taken early: one drawing style for everything (**outlined
 cartoon**, Bluey-like); animals come from a **library of rigged species**
 that agents recolour and adapt, drawing from scratch stays the exception;
 movement is **procedural with springs**, not a physics engine (rigid bodies
@@ -410,8 +410,8 @@ frame, from time and `hash01`, so a frame still renders on its own. Scene
 
 ### 7.7 Light and form
 
-Vivek asked (2026-10-23) for better-looking characters, suggesting downloaded
-SVGs. Dropped-in art does not suit the engine: a downloaded cat is one
+Better-looking characters were asked for (2026-10-23), with downloaded
+SVGs suggested. Dropped-in art does not suit the engine: a downloaded cat is one
 picture, the rig turns separate parts, art from several sources would not
 share a style, and art with its own outline gets a second one. What made the
 library look like stickers was flat colour. So the engine draws the light,
@@ -454,7 +454,7 @@ downloaded art as reference only.
   drawn as outlines (`glyphs.ts`), its width from the same shaping. Only
   that script takes this path; bundling one font for all text would have
   changed every film's look for a problem only Hindi has.
-- **Cast shadows** (`cast.ts`), at Vivek's asking. Each light throws every
+- **Cast shadows** (`cast.ts`), asked for in review. Each light throws every
   grounded actor's own silhouette across the floor, flattened by an affine
   map that keeps the floor line, blurred and faded toward its far end. The
   silhouette rather than an ellipse, so a raised arm or a tail shows, and
@@ -474,7 +474,7 @@ downloaded art as reference only.
 ### 7.8 Audio (last, on purpose)
 
 Sound makes a silent film feel finished and would hide what still looked
-wrong, so it came after 7.1 to 7.7. Planned 2026-10-23 with Vivek. Six
+wrong, so it came after 7.1 to 7.7. Planned 2026-10-23. Six
 layers, each with one owner:
 
 | Layer         | Who writes it                       | Where it comes from                                                       |
@@ -535,7 +535,7 @@ rumik-oss is slow with only four women's voices; Voxtral's licence rules out
 films that are sold. Kokoro was the first default: fast enough to speak a
 shot's lines inside `write_shot`, and its mistakes were vowel lengths, not
 wrong words. After the first listen
-(2026-10-24) Vivek judged Chatterbox always better, for dialogue and
+(2026-10-24) Chatterbox was judged always better, for dialogue and
 narration: it said हँसा right where Kokoro was badly wrong, and it acts. So
 every voice is `chatterbox:<kokoro voice>`: Kokoro reads a calm reference
 passage once at the character's pitch and speed (cached in
@@ -547,7 +547,7 @@ voice. `kokoro:` stays for quick drafts. A line takes about a second, which
 
 - **A line is said with its speaker's emotion**, the one its face has then.
   No new field, because a face and a voice that disagree is a mistake.
-  Chatterbox's exaggeration is set per emotion from Vivek's notes (an
+  Chatterbox's exaggeration is set per emotion from review notes (an
   excited thought was better at 1.26 than 0.5, an angry shout at 0.5 than
   1.4, since the words carry the anger).
 - **A sound is not a word.** Agents wrote growls and laughs into lines and a
@@ -571,7 +571,7 @@ new sound under the mp4 with the video copied, in seconds. A compressor keyed
 on the voices was the alternative; fixed levels with a hold do it without
 guessing and keep the mix a function of the cue sheet.
 
-**The .mkv** (2026-10-24), for the family's phones: the full mix, music and
+**The .mkv** (2026-10-24), for watching on a phone: the full mix, music and
 effects without dialogue, the same with the narrator, subtitles in each
 language (off by default) and a chapter per shot. MKV, because it carries
 named sound and subtitle tracks, styled ASS subtitles and their font; the
@@ -590,7 +590,7 @@ narration caption moves to the top.
 
 ### 7.9 Reels (portrait)
 
-Most of the family watches reels, not films (Vivek, 2026-10-24), so a story
+Most viewers watch reels, not films (2026-10-24), so a story
 also comes as a portrait reel: 720 × 1280, at most three minutes, one mp4.
 It is its own project, a second, shorter telling with its scenes drawn tall,
 not a reframe of the film. A 9:16 window on a 16:9 scene keeps a third of
@@ -623,7 +623,7 @@ same reason there is no format field.
 
 The first reels kept the films' dialogue and cut events to fit, and told too
 little: the race reel lost the hare stopping to eat, which is why he sleeps,
-while two conversations took most of its time (Vivek, 2026-10-25). A reel is
+while two conversations took most of its time (review, 2026-10-25). A reel is
 told by the narrator instead, a sentence or two a shot over the cast acting
 it out, with a character speaking only where the words turn the story. That
 is a rule for the agent, in the guide; the engine needs nothing new.
