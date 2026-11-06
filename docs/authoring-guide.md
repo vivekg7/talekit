@@ -243,8 +243,21 @@ back to `sit` or rocks in the gallop; the ears and face hang from the head.
   rabbit: 166), say so with `"belly"`; the check gives the number when it
   is more than 5 out. `"hooves": true` (a deer, a goat, a horse) folds the
   forelegs under the chest when lying, instead of stretching the paws out
-  in front. A low animal still stands on y=200 (the crocodile has long
-  legs; in water the scene hides them).
+  in front. A low animal still stands on y=200.
+- **`sprawl`.** A reptile (a crocodile, a lizard, a tortoise) is drawn
+  low, its belly just off the floor, on short legs splayed out at the
+  knee and elbow, and says `"sprawl": true`. It walks with short quick
+  steps, the upper leg swinging from the hip while the lower one keeps its
+  slant, so the long flat foot stays flat on the floor (a whole leg swung
+  stiff tips the toes into the ground). `sit` and `lie` let the belly down
+  level onto the floor, the knees and elbows turning out toward level and
+  the feet staying flat, rather than tipping back onto the haunches like a
+  dog's; standing up lifts it again, so it never rears. The hind knee
+  points forward and the elbow back. Short legs hang lower than the rig's
+  and bend lower down: move their pivots and knees with `pivots` and
+  `bends` (see [Pivots and chains](#pivots-and-chains)), the knee within
+  about 10 of straight under the hip, which leaves the swing room to keep
+  the foot planted. The library crocodile is the example.
 - **`muzzle`.** The mouth is at (240, 100), where a carried prop hangs
   and what `eat` brings down to the grass. A head far up a long neck (a
   camel's, a giraffe's: the neck drawn in the head part, turning at its
@@ -365,9 +378,13 @@ ribbon on a pigtail).
 
 A rig part turns about the rig's pivot for it, wherever the drawing puts
 its joint. When yours is elsewhere, say where with `pivots`: a crocodile's
-tail leaves the body around (84, 128), not at the quadruped's tail pivot
+tail leaves the body around (90, 157), not at the quadruped's tail pivot
 (44, 110), and turned about that point it would swing like a stick nailed
-through its middle. Hung parts set theirs in `hangs` instead.
+through its middle. Hung parts set theirs in `hangs` instead. Legs drawn
+shorter or lower than the rig's take `pivots` at the hip and shoulder and
+`bends` at the knee and elbow (the quadruped's are halfway down, y 166),
+so each bends where it is drawn bent, and the walk measures the leg from
+there: `"bends": { "legBR": [124, 181] }`.
 
 `chains` bends a part along its length, the way a leg bends at the knee,
 instead of turning it stiff about one hinge. The engine cuts it into
@@ -383,8 +400,8 @@ curls up along it rather than going through. What hangs from a chain part
 prop carried in the mouth.
 
 ```json
-"pivots": { "tail": [84, 128], "head": [180, 122] },
-"chains": { "tail": 4, "head": [[201, 111]] }
+"pivots": { "tail": [90, 157], "head": [180, 144] },
+"chains": { "tail": 4, "head": [[201, 133]] }
 ```
 
 The quadruped's tail is a chain of 4 by default; `1` keeps a part stiff.

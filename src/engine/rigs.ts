@@ -76,6 +76,13 @@ export interface Rig {
    */
   hooves?: boolean;
   /**
+   * A reptile's low sprawl rather than legs under the body: the belly just off the floor
+   * and the knees and elbows out, so `sit` and `lie` only let the belly down, level, with
+   * the feet where they stand, instead of tipping back onto the haunches; and the hind
+   * knee points forward, the elbow back. A character says so (`sprawl`).
+   */
+  sprawl?: boolean;
+  /**
    * Where a person's torso ends, a little under the hips or lower for a kurta or a coat:
    * what `sit` rests on the seat. A character can move it (`hem`).
    */
@@ -264,8 +271,9 @@ const HUNG = new WeakMap<object, Rig>();
  * drawn just behind or in front of it, and checked by the construction linter as a joint.
  * A hung part may hang from another; one whose chain does not reach a rig part, or loops,
  * is left to the rig's fallback (`validate` reports it). A part the character turns about
- * its own point (`pivots`) turns there, and a part that bends along its length (`chains`,
- * or the rig's) is cut into links where the drawing has them (see chain.ts).
+ * its own point (`pivots`) turns there, a limb it bends at its own knee (`bends`) bends
+ * there, and a part that bends along its length (`chains`, or the rig's) is cut into links
+ * where the drawing has them (see chain.ts).
  */
 export function rigOf(character: RigSource): Rig {
   const own = JOINTED.get(character);
@@ -276,16 +284,20 @@ export function rigOf(character: RigSource): Rig {
 }
 
 type RigSource = Pick<Character, 'rig' | 'hangs' | 'belly' | 'hem' | 'hooves' | 'muzzle'> &
-  Partial<Pick<Character, 'pivots' | 'chains' | 'parts'>>;
+  Partial<Pick<Character, 'pivots' | 'bends' | 'chains' | 'sprawl' | 'parts'>>;
 
 const JOINTED = new WeakMap<object, Rig>();
 
 /** The character's own pivots and links, on top of its rig. */
 function jointed(rig: Rig, character: RigSource): Rig {
   const pivots = Object.entries(character.pivots ?? {}).filter(([name]) => rig.parts[name]);
+  const knees = Object.entries(character.bends ?? {}).filter(([name]) => rig.bends[name]);
+  // A sprawling reptile: only where the rig has a belly (a four-legged animal).
+  const sprawl = rig.belly !== undefined && !!character.sprawl;
   const chains = { ...rig.chains, ...character.chains };
   const parts = { ...rig.parts };
   for (const [name, pivot] of pivots) parts[name] = { ...parts[name], pivot };
+  const bends = { ...rig.bends, ...Object.fromEntries(knees) };
   const links: Record<string, Link> = {};
   for (const [name, spec] of Object.entries(chains)) {
     const part = character.parts?.[name];
@@ -294,8 +306,14 @@ function jointed(rig: Rig, character: RigSource): Rig {
     const link = linkFor(svg, rigPart({ ...rig, parts }, name).pivot, spec as number | Pt[]);
     if (link) links[name] = link;
   }
-  if (!pivots.length && !Object.keys(links).length) return rig;
-  return { ...rig, parts, links };
+  if (!pivots.length && !knees.length && !sprawl && !Object.keys(links).length) return rig;
+  const own: Rig = { ...rig, parts, bends, links };
+  if (sprawl) {
+    // The hind knee comes forward as a person's does; the elbow goes back.
+    own.sprawl = true;
+    own.hocks = Object.keys(bends).filter((leg) => leg.startsWith('legF'));
+  }
+  return own;
 }
 
 /** The rig with the parts the character hangs, and its belly, hem, hooves and muzzle. */

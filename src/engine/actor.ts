@@ -51,7 +51,7 @@ export function poseFor(actor: ActorState, t: number): Pose {
     pose.sy *= 1 + 0.04 * Math.sin(Math.PI * actor.turn.u);
     if (actor.turn.from !== actor.facing) pose.yaw *= Math.abs(Math.cos(Math.PI * actor.turn.u));
     if (rig.name === 'quadruped' && actor.turn.from !== actor.facing)
-      quadrupedTurn(pose, actor.turn.u, loco !== 'idle' || sat);
+      quadrupedTurn(rig, pose, actor.turn.u, loco !== 'idle' || sat);
   }
   // Going into the screen the face turns on round to side-on and then away; coming out of
   // it, round to the viewer.

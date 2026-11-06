@@ -101,6 +101,47 @@ const GAITS: Partial<Record<Rig['name'], Partial<Record<'walk' | 'run', Gait>>>>
   },
 };
 
+/**
+ * A sprawling reptile's walk (`Rig.sprawl`): the upper leg swings from the hip while the
+ * lower one keeps its slant and the foot stays flat, so steps are short and quick.
+ */
+const SPRAWL_WALK: Gait = {
+  duty: 0.6,
+  legs: { legFR: 0, legBL: 0, legFL: 0.5, legBR: 0.5 },
+  cadence: 1.8,
+  minSwing: 8,
+  maxSwing: 26,
+  bob: 0.5,
+  lift: 4,
+  hop: 0,
+  dip: 1,
+  give: false,
+};
+
+/** The gait a rig walks or runs in, if it has one. */
+function gaitOf(rig: Rig, loco: 'walk' | 'run'): Gait | undefined {
+  if (rig.sprawl && loco === 'walk') return SPRAWL_WALK;
+  return GAITS[rig.name]?.[loco];
+}
+
+/**
+ * A leg's length for the gait: hip to floor, or hip to knee for a sprawling leg, which
+ * swings only that far.
+ */
+function legLength(rig: Rig, leg: string): number {
+  const pivot = rigPart(rig, leg).pivot;
+  const knee = rig.bends[leg];
+  if (rig.sprawl && knee) return Math.hypot(knee[0] - pivot[0], knee[1] - pivot[1]);
+  return rig.height - pivot[1];
+}
+
+/** A limb's rest angle from straight down, hip to knee, positive turned back (as `rot`). */
+function restAngle(rig: Rig, leg: string): number {
+  const pivot = rigPart(rig, leg).pivot;
+  const knee = rig.bends[leg];
+  return knee ? Math.atan2(-(knee[0] - pivot[0]), knee[1] - pivot[1]) : 0;
+}
+
 const RAD = Math.PI / 180;
 const frac = (v: number): number => v - Math.floor(v);
 
@@ -205,7 +246,7 @@ interface Plan {
  */
 function plan(rig: Rig, gait: Gait, t: number, travel?: Travel): Plan {
   const leg = Object.keys(gait.legs)[0];
-  const L = rig.height - rigPart(rig, leg).pivot[1];
+  const L = legLength(rig, leg);
   const sinMin = Math.sin(gait.minSwing * RAD);
   const sinMax = Math.sin(gait.maxSwing * RAD);
   const start = gait.duty / 2;
@@ -230,18 +271,20 @@ function plan(rig: Rig, gait: Gait, t: number, travel?: Travel): Plan {
  * no such gait (it bobs instead).
  */
 export function gaitPhase(rig: Rig, loco: 'walk' | 'run', travel: Travel): number | undefined {
-  const gait = GAITS[rig.name]?.[loco];
+  const gait = gaitOf(rig, loco);
   return gait && plan(rig, gait, 0, travel).phase;
 }
 
 /** The points in a cycle where feet land, a pair landing together counted once. */
 export function footfalls(rig: Rig, loco: 'walk' | 'run'): number[] {
-  const gait = GAITS[rig.name]?.[loco];
+  const gait = gaitOf(rig, loco);
   return gait ? [...new Set(Object.values(gait.legs))].sort((a, b) => a - b) : [];
 }
 
 interface Legs {
   rot: Record<string, number>;
+  /** A sprawling leg's knee, keeping the lower leg at its slant. */
+  bend: Record<string, number>;
   body: number;
   /** Per leg: on the ground, and how high a swinging foot should clear the line. */
   stance: Record<string, boolean>;
@@ -255,7 +298,7 @@ function legsAt(rig: Rig, pl: Plan, phase: number): Legs {
   const { gait } = pl;
   const A = Math.asin(pl.sinA) / RAD;
   const body = gait.rock ? gait.rock[0] * Math.sin(TAU * phase + gait.rock[1]) : 0;
-  const out: Legs = { rot: {}, body, stance: {}, clear: {}, contact: 1 };
+  const out: Legs = { rot: {}, bend: {}, body, stance: {}, clear: {}, contact: 1 };
   for (const [leg, landing] of Object.entries(gait.legs)) {
     const lp = frac(phase - landing);
     let abs: number;
@@ -271,7 +314,16 @@ function legsAt(rig: Rig, pl: Plan, phase: number): Legs {
       out.stance[leg] = false;
       out.clear[leg] = gait.lift * Math.sin(Math.PI * q) * pl.env;
     }
-    out.rot[leg] = abs - (rigPart(rig, leg).parent ? body : 0);
+    let turn = abs;
+    if (rig.sprawl && rig.bends[leg]) {
+      // The knee travels as a straight leg's foot would; the lower leg keeps its slant and
+      // carries the foot along with it, flat.
+      const rest = restAngle(rig, leg);
+      const s = Math.max(-1, Math.min(1, Math.sin(rest) + Math.sin(abs * RAD)));
+      turn = (Math.asin(s) - rest) / RAD;
+      out.bend[leg] = -turn;
+    }
+    out.rot[leg] = turn - (rigPart(rig, leg).parent ? body : 0);
   }
   return out;
 }
@@ -280,7 +332,7 @@ function legsAt(rig: Rig, pl: Plan, phase: number): Legs {
 function feetY(rig: Rig, legs: Legs): Record<string, number> {
   const p: Pose = {
     rot: { ...legs.rot, body: legs.body },
-    bend: {},
+    bend: { ...legs.bend },
     off: {},
     dx: 0,
     dy: 0,
@@ -321,7 +373,7 @@ export function stride(
   t: number,
   travel?: Travel
 ): { phi: number; env: number } {
-  const gait = GAITS[rig.name]![loco]!;
+  const gait = gaitOf(rig, loco)!;
   const pl = plan(rig, gait, t, travel);
   const legs = legsAt(rig, pl, pl.phase);
   const ys = feetY(rig, legs);
@@ -348,6 +400,7 @@ export function stride(
   pose.dy += dy;
   for (const [leg, rot] of Object.entries(legs.rot)) {
     pose.rot[leg] = rot;
+    if (leg in legs.bend) pose.bend[leg] = legs.bend[leg];
     const y = ys[leg] + dy;
     const shift = legs.stance[leg] ? H - y : Math.min(0, H - legs.clear[leg] - y);
     // A planted leg also cancels the sideways drift of its hip or shoulder when the body
@@ -357,7 +410,8 @@ export function stride(
     const drift = legs.stance[leg] ? home - toRoot(rig, pose, leg, pivot)[0] : 0;
     // A swinging leg with a knee bends to lift its foot, and so does a planted one where
     // the gait gives; otherwise the leg slides up into the body.
-    const bends = shift < 0 && !!rig.bends[leg] && (gait.give || !legs.stance[leg]);
+    // A sprawling one lifts flat, sliding up: its knee is already keeping the foot level.
+    const bends = shift < 0 && !!rig.bends[leg] && !rig.sprawl && (gait.give || !legs.stance[leg]);
     const slide = bends ? 0 : shift;
     // A shift on screen, written in the frame of whatever the leg hangs from.
     const r = parentTurn(rig, pose, leg) * RAD;
@@ -379,8 +433,12 @@ export function stride(
 export function raiseFoot(rig: Rig, pose: Pose, leg: string, by: number): void {
   const knee = rig.bends[leg];
   const pivot = rigPart(rig, leg).pivot;
-  const thigh = knee[1] - pivot[1];
-  const shin = rig.height - knee[1];
+  // As drawn, hip to knee and knee to foot, either of which may slant (a reptile's knee
+  // out in front of its hip): their rest angles come off the turns worked out below.
+  const thigh = Math.hypot(knee[0] - pivot[0], knee[1] - pivot[1]);
+  const shin = Math.hypot(pivot[0] - knee[0], rig.height - knee[1]);
+  const restUp = Math.atan2(-(knee[0] - pivot[0]), knee[1] - pivot[1]);
+  const restDown = Math.atan2(-(pivot[0] - knee[0]), rig.height - knee[1]);
   const hip = toRoot(rig, pose, leg, pivot);
   const foot = toRoot(rig, pose, leg, [pivot[0], rig.height]);
   const vx = foot[0] - hip[0];
@@ -397,8 +455,8 @@ export function raiseFoot(rig: Rig, pose: Pose, leg: string, by: number): void {
   const kx = hip[0] - thigh * Math.sin(up);
   const ky = hip[1] + thigh * Math.cos(up);
   const down = Math.atan2(-(hip[0] + vx - kx), hip[1] + vy - ky);
-  pose.rot[leg] = up / RAD - parentTurn(rig, pose, leg);
-  pose.bend[leg] = (down - up) / RAD;
+  pose.rot[leg] = (up - restUp) / RAD - parentTurn(rig, pose, leg);
+  pose.bend[leg] = (down - restDown - (up - restUp)) / RAD;
 }
 
 /**
@@ -409,6 +467,7 @@ export function raiseFoot(rig: Rig, pose: Pose, leg: string, by: number): void {
 export function plantFeet(rig: Rig, pose: Pose, legs: string[]): void {
   for (const leg of legs) {
     if (!rig.parts[leg]) continue;
+    if (rig.sprawl && rig.bends[leg] && spreadKnee(rig, pose, leg)) continue;
     const shift = rig.height - footPoint(rig, pose, leg)[1];
     if (shift < 0 && rig.bends[leg]) {
       raiseFoot(rig, pose, leg, -shift);
@@ -418,4 +477,26 @@ export function plantFeet(rig: Rig, pose: Pose, legs: string[]): void {
     const [ox, oy] = pose.off[leg] ?? [0, 0];
     pose.off[leg] = [ox + shift * Math.sin(r), oy + shift * Math.cos(r)];
   }
+}
+
+/**
+ * A sprawling leg (`Rig.sprawl`) put on the floor under a body that has come down or gone
+ * up: the upper leg turns out toward level, the knee forward or the elbow back as drawn,
+ * until the lower leg, keeping its slant, stands its flat foot on the line. False when the
+ * hip is too high for that (the foot then slides down to the line instead).
+ */
+function spreadKnee(rig: Rig, pose: Pose, leg: string): boolean {
+  const knee = rig.bends[leg];
+  const pivot = rigPart(rig, leg).pivot;
+  const thigh = Math.hypot(knee[0] - pivot[0], knee[1] - pivot[1]);
+  const rest = restAngle(rig, leg);
+  const hip = toRoot(rig, pose, leg, pivot);
+  const parent = parentTurn(rig, pose, leg);
+  // The knee goes where the lower leg, at its slant, reaches the floor from.
+  const down = rig.height - pose.dy - (rig.height - knee[1]) - hip[1];
+  if (down > thigh) return false;
+  const turn = (rest < 0 ? -1 : 1) * Math.acos(Math.max(0, down / thigh)) - rest;
+  pose.rot[leg] = turn / RAD - parent;
+  pose.bend[leg] = -turn / RAD;
+  return true;
 }

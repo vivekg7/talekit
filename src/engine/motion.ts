@@ -160,7 +160,14 @@ function breathe(p: Pose, t: number, phase: number, depth: number): void {
  * top: the head rising as the body dips, the tail and ears swinging, the gallop's
  * reach and tuck of the head.
  */
-function quadrupedBase(p: Pose, loco: Locomotion, t: number, phase: number, travel?: Travel): void {
+function quadrupedBase(
+  rig: Rig,
+  p: Pose,
+  loco: Locomotion,
+  t: number,
+  phase: number,
+  travel?: Travel
+): void {
   switch (loco) {
     case 'idle':
       breathe(p, t, phase, 0.012);
@@ -168,14 +175,14 @@ function quadrupedBase(p: Pose, loco: Locomotion, t: number, phase: number, trav
       p.rot.head = 2 * Math.sin((TAU * (t + phase * 5)) / 5);
       break;
     case 'walk': {
-      const { phi } = stride(QUADRUPED, p, 'walk', t, travel);
+      const { phi } = stride(rig, p, 'walk', t, travel);
       p.rot.head = 2.5 * Math.cos(2 * phi);
       p.rot.tail = 9 * Math.sin(phi);
       p.rot.earL = p.rot.earR = 3 * Math.cos(2 * phi);
       break;
     }
     case 'run': {
-      const { phi } = stride(QUADRUPED, p, 'run', t, travel);
+      const { phi } = stride(rig, p, 'run', t, travel);
       const g = Math.sin(phi);
       p.rot.head = -5 * g;
       p.rot.tail = -18 + 8 * g;
@@ -209,7 +216,7 @@ export function basePose(
 ): Pose {
   const p = emptyPose();
   if (rig.name === 'quadruped') {
-    quadrupedBase(p, loco, t, phase, travel);
+    quadrupedBase(rig, p, loco, t, phase, travel);
     return p;
   }
   const humanoid = rig.name === 'humanoid';
@@ -325,9 +332,9 @@ const LIE_PAW = 40;
  * `LIE_PAW` (less steeply, when the shoulder is lower than that), and the forearm reaches
  * on to the paw on the floor. Returns the turn and the elbow's bend, as foldLeg.
  */
-function reachOut(leg: string, h: number): [number, number] {
-  const upper = QUADRUPED.bends[leg][1] - QUADRUPED.parts[leg].pivot[1];
-  const forearm = QUADRUPED.height - QUADRUPED.bends[leg][1];
+function reachOut(rig: Rig, leg: string, h: number): [number, number] {
+  const upper = rig.bends[leg][1] - rig.parts[leg].pivot[1];
+  const forearm = rig.height - rig.bends[leg][1];
   const elbow = Math.max(0, Math.min(h, forearm * Math.sin(LIE_PAW / DEG)));
   const turn = -Math.acos(Math.min(1, (h - elbow) / upper)) * DEG;
   return [turn, -90 + Math.asin(elbow / forearm) * DEG - turn];
@@ -338,8 +345,8 @@ function reachOut(leg: string, h: number): [number, number] {
  * upper leg forward to a knee on the floor in front of the chest, the cannon folded back
  * under it, the hoof tucked beneath the chest. Returns the turn and the bend, as foldLeg.
  */
-function tuckUnder(leg: string, h: number): [number, number] {
-  const upper = QUADRUPED.bends[leg][1] - QUADRUPED.parts[leg].pivot[1];
+function tuckUnder(rig: Rig, leg: string, h: number): [number, number] {
+  const upper = rig.bends[leg][1] - rig.parts[leg].pivot[1];
   const turn = -90 + Math.asin(Math.min(1, Math.max(0, h / upper))) * DEG;
   return [turn, 80 - turn];
 }
@@ -381,18 +388,30 @@ function foldLeg(
 }
 
 /**
+ * A sprawling reptile letting its belly down onto the floor, `k` of the way (0 standing):
+ * the body comes straight down, level, and the feet stay where they stand, so the knees
+ * and elbows rise out at its sides.
+ */
+function sprawlDown(rig: Rig, pose: Pose, k: number): void {
+  const [ox, oy] = pose.off.body ?? [0, 0];
+  pose.off.body = [ox, oy + (rig.height - (rig.belly ?? rig.height)) * k];
+  plantFeet(rig, pose, QUAD_LEGS);
+}
+
+/**
  * A four-legged animal turning round to face the other way; the mirror flips halfway
  * (`sideOf`). The head leads, lifting and swinging back toward where it is going before
  * the body follows; the body dips as it brings its weight round; the tail swings wide and
  * lags. Standing, the feet step round in diagonal pairs, so it turns on its feet instead
  * of spinning on them; `busy` (walking, sitting) leaves the legs to what they are doing.
  */
-export function quadrupedTurn(pose: Pose, u: number, busy: boolean): void {
+export function quadrupedTurn(rig: Rig, pose: Pose, u: number, busy: boolean): void {
   const add = (part: string, deg: number) => (pose.rot[part] = (pose.rot[part] ?? 0) + deg);
   const lead = Math.sin(Math.PI * clamp01(u / 0.6));
   add('head', -16 * lead);
   nudge(pose, 'head', -3 * lead, -2 * lead);
-  add('tail', 28 * Math.sin(Math.PI * u));
+  // A sprawling reptile's tail sweeps round along the ground, not up off it.
+  if (!rig.sprawl) add('tail', 28 * Math.sin(Math.PI * u));
   add('earL', -10 * lead);
   add('earR', -10 * lead);
   pose.dy += 4 * Math.sin(Math.PI * u);
@@ -405,7 +424,7 @@ export function quadrupedTurn(pose: Pose, u: number, busy: boolean): void {
     ['legFL', step(0.5, 0.92)],
     ['legBR', step(0.5, 0.92)],
   ] as const)
-    if (lift > 0.01) raiseFoot(QUADRUPED, pose, leg, lift);
+    if (lift > 0.01) raiseFoot(rig, pose, leg, lift);
 }
 
 /**
@@ -613,7 +632,7 @@ function quadrupedVerb(rig: Rig, pose: Pose, verb: Verb, u: number, span: number
       add('tail', 10 * crouch - 22 * air);
       add('earL', -16 * air);
       add('earR', -16 * air);
-      if (!air) plantFeet(QUADRUPED, pose, QUAD_LEGS);
+      if (!air) plantFeet(rig, pose, QUAD_LEGS);
       pose.sy *= 1 - 0.1 * squash;
       pose.sx *= 1 + 0.08 * squash;
       return true;
@@ -622,22 +641,26 @@ function quadrupedVerb(rig: Rig, pose: Pose, verb: Verb, u: number, span: number
       // The body tips back about the hips and drops until the rump meets the floor; the
       // hind legs fold at the knee with the paws forward on the floor, the front legs stay
       // straight and keep their paws planted on the way down. `u` is how far down (0
-      // standing, 1 sat).
+      // standing, 1 sat). A sprawling reptile only lets its belly down.
       const k = easeInOut(u);
+      if (rig.sprawl) {
+        sprawlDown(rig, pose, k);
+        return true;
+      }
       pose.off.body = [0, 46 * k];
       pose.rot.body = -24 * k;
       for (const leg of ['legBL', 'legBR']) {
         // Folded for how high the hip is now, so the paw stays on the floor all the way down.
-        const hip = toRoot(QUADRUPED, pose, 'body', QUADRUPED.parts[leg].pivot);
-        const h = QUADRUPED.height - hip[1];
-        const [turn, bend] = foldLeg(QUADRUPED, leg, h, 0, -90 * (1 - k));
+        const hip = toRoot(rig, pose, 'body', rig.parts[leg].pivot);
+        const h = rig.height - hip[1];
+        const [turn, bend] = foldLeg(rig, leg, h, 0, -90 * (1 - k));
         pose.rot[leg] = turn - pose.rot.body;
         pose.bend[leg] = bend;
       }
       pose.rot.legFL = pose.rot.legFR = 24 * k;
       add('head', 18 * k);
       add('tail', -40 * k);
-      if (k < 1) plantFeet(QUADRUPED, pose, ['legFL', 'legFR']);
+      if (k < 1) plantFeet(rig, pose, ['legFL', 'legFR']);
       return true;
     }
     case 'lie': {
@@ -645,14 +668,20 @@ function quadrupedVerb(rig: Rig, pose: Pose, verb: Verb, u: number, span: number
       // forward along the floor, the hind legs stay folded, and the head goes down onto the
       // paws. `u` is how far down (0 sitting, 1 lying).
       const l = easeInOut(u);
+      if (rig.sprawl) {
+        // Down on its belly already (`sit` comes first): the chin comes down too.
+        add('head', 6 * l);
+        pose.lying = Math.max(pose.lying ?? 0, l);
+        return true;
+      }
       const [ox, oy] = pose.off.body ?? [0, 0];
       pose.off.body = [ox, mix(oy, rig.height - (rig.belly ?? rig.height), l)];
       pose.rot.body = (pose.rot.body ?? 0) * (1 - l);
       for (const leg of QUAD_LEGS) {
-        const hip = toRoot(QUADRUPED, pose, 'body', QUADRUPED.parts[leg].pivot);
+        const hip = toRoot(rig, pose, 'body', rig.parts[leg].pivot);
         // Folded to a floor a little higher than the real one: a hoof across the end of a
         // slanted shin would reach below the belly with its corner.
-        const floor = QUADRUPED.height - hip[1] - LIE_TUCK * l;
+        const floor = rig.height - hip[1] - LIE_TUCK * l;
         const hind = leg.startsWith('legB');
         // The hind legs are already folded: hooves tucked under, paws on the real floor as
         // when sitting, the haunch drawn whole on the flank (`loose`) and the foot showing
@@ -661,10 +690,10 @@ function quadrupedVerb(rig: Rig, pose: Pose, verb: Verb, u: number, span: number
         // where it shows (folded under, it would be lost in the body). Hooves fold back
         // under the chest, knees forward.
         const [turn, bend] = hind
-          ? foldLeg(QUADRUPED, leg, rig.hooves ? floor : floor + LIE_TUCK * l, 0, -90)
+          ? foldLeg(rig, leg, rig.hooves ? floor : floor + LIE_TUCK * l, 0, -90)
           : rig.hooves
-            ? tuckUnder(leg, floor)
-            : reachOut(leg, floor + LIE_TUCK * l);
+            ? tuckUnder(rig, leg, floor)
+            : reachOut(rig, leg, floor + LIE_TUCK * l);
         pose.rot[leg] = hind
           ? turn - pose.rot.body
           : mix(pose.rot[leg] ?? 0, turn - pose.rot.body, l);

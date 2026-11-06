@@ -137,6 +137,16 @@ export const CharacterSchema = z.object({
       "Rig parts that turn about a point of this character's own, [x, y] in the box: where the drawing joins its parent. { tail: [84, 128] } for a tail whose root is not at the rig's tail pivot (quadruped 44, 110), which would otherwise swing about a point part way along it. Hung parts set theirs in `hangs`"
     ),
   /**
+   * Where a rig limb bends, when the drawing's knee or elbow is not at the rig's: a
+   * reptile's short legs bend low down, near the floor.
+   */
+  bends: z
+    .record(z.string(), z.tuple([z.number(), z.number()]))
+    .optional()
+    .describe(
+      "Rig limbs that bend at a knee or elbow of this character's own, [x, y] in the box: { legBR: [124, 181] }. The quadruped's are halfway down the leg (y 166); set them with `pivots` on the legs when the legs are drawn shorter or lower, so the leg bends where it is drawn bent"
+    ),
+  /**
    * Parts that bend along their length, like a leg at the knee, rather than swinging stiff
    * about their pivot: cut into links, each taking a share of the part's turn, so a tail
    * curves and its follow-through runs down it to the tip. A head of two links bows from
@@ -200,6 +210,13 @@ export const CharacterSchema = z.object({
     .optional()
     .describe(
       'Quadruped only: true for hooves (a deer, a goat, a horse). Lying, the forelegs fold under the chest; without it they stretch out in front, the paws on the floor under the chin'
+    ),
+  /** Quadruped: a reptile's low sprawl, which lies down without sitting back first. */
+  sprawl: z
+    .boolean()
+    .optional()
+    .describe(
+      "Quadruped only: true for a reptile (a crocodile, a lizard, a tortoise) drawn low on short legs splayed out at the knee and elbow. `sit` and `lie` let the belly down to the floor, level, the feet staying where they stand, rather than tipping back onto the haunches like a dog's; standing up lifts it again. The hind knee points forward and the elbow back"
     ),
   /** Quadruped: where the mouth is, when it is far from the library animals' own. */
   muzzle: z

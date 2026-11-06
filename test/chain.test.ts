@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { characterBody, keepOffFloor } from '../src/engine/actor.js';
 import { linkAngles, linkFor } from '../src/engine/chain.js';
-import { toRoot } from '../src/engine/gait.js';
+import { footPoint, parentTurn, stride, toRoot } from '../src/engine/gait.js';
 import { applyVerb, basePose, emptyPose } from '../src/engine/motion.js';
 import { RIGS, rigOf } from '../src/engine/rigs.js';
 import { CharacterSchema } from '../src/engine/types.js';
@@ -29,10 +29,10 @@ describe('chains', () => {
 
   it("turns a character's part about its own pivot and cuts its chains", () => {
     const rig = rigOf(croc());
-    expect(rig.parts.tail.pivot).toEqual([84, 128]);
+    expect(rig.parts.tail.pivot).toEqual([90, 157]);
     expect(RIGS.quadruped.parts.tail.pivot).toEqual([44, 110]);
     expect(rig.links?.tail.joints).toHaveLength(3);
-    expect(rig.links?.head.joints).toEqual([[201, 111]]);
+    expect(rig.links?.head.joints).toEqual([[201, 133]]);
     // Every quadruped's tail is a chain by default.
     expect(rigOf(CharacterSchema.parse(LIBRARY.characters.lion)).links?.tail).toBeDefined();
   });
@@ -44,8 +44,8 @@ describe('chains', () => {
     pose.rot.head = 30;
     const angles = linkAngles(link, pose, 'head');
     expect(angles[0] + angles[1]).toBeCloseTo(30);
-    const snout: [number, number] = [255, 112];
-    const nape: [number, number] = [185, 120];
+    const snout: [number, number] = [255, 134];
+    const nape: [number, number] = [185, 142];
     const turned = toRoot(rig, pose, 'head', snout);
     // The neck turns the nape by its share only; the snout by the whole turn.
     const stiff = emptyPose();
@@ -80,8 +80,7 @@ describe('chains', () => {
   });
 
   it('nods a short head to eat, and less lying down', () => {
-    const c = { ...croc(), muzzle: [236, 119] as [number, number] };
-    const rig = rigOf(c);
+    const rig = rigOf(croc());
     const standing = emptyPose();
     applyVerb(rig, standing, 'eat', 0.5, 0, undefined, 3);
     expect(standing.rot.head).toBeLessThan(30);
@@ -90,5 +89,51 @@ describe('chains', () => {
     const before = lying.rot.head ?? 0;
     applyVerb(rig, lying, 'eat', 0.5, 0, undefined, 3);
     expect(lying.rot.head! - before).toBeLessThan(standing.rot.head! / 2);
+  });
+});
+
+describe('sprawl', () => {
+  const legs = ['legFL', 'legFR', 'legBL', 'legBR'];
+  // The foot's own turn on screen: 0 when it lies as drawn, flat on the floor.
+  const footTurn = (
+    rig: ReturnType<typeof rigOf>,
+    pose: ReturnType<typeof emptyPose>,
+    leg: string
+  ) => parentTurn(rig, pose, leg) + (pose.rot[leg] ?? 0) + (pose.bend[leg] ?? 0);
+
+  it("takes the character's knees, and bends the hind knee forward and the elbow back", () => {
+    const rig = rigOf(croc());
+    expect(rig.sprawl).toBe(true);
+    expect(rig.bends.legBR).toEqual([124, 181]);
+    expect(rig.parts.legBR.pivot).toEqual([116, 162]);
+    expect(rig.hocks).toEqual(['legFL', 'legFR']);
+    // Other animals keep the rig's.
+    const lion = rigOf(CharacterSchema.parse(LIBRARY.characters.lion));
+    expect(lion.sprawl).toBeUndefined();
+    expect(lion.hocks).toEqual(['legBL', 'legBR']);
+  });
+
+  it('lies down by letting the belly down level, the feet flat where they stand', () => {
+    const rig = rigOf(croc());
+    const pose = basePose(rig, 'idle', 0, 0);
+    applyVerb(rig, pose, 'sit', 1);
+    applyVerb(rig, pose, 'lie', 1);
+    expect(pose.rot.body ?? 0).toBe(0);
+    expect(pose.off.body[1]).toBeCloseTo(rig.height - rig.belly!);
+    for (const leg of legs) {
+      expect(footPoint(rig, pose, leg)[1]).toBeCloseTo(rig.height, 1);
+      expect(footTurn(rig, pose, leg)).toBeCloseTo(0, 5);
+    }
+  });
+
+  it('walks with the feet flat, the planted ones on the floor', () => {
+    const rig = rigOf(croc());
+    for (const t of [0.05, 0.2, 0.35, 0.5]) {
+      const pose = emptyPose();
+      stride(rig, pose, 'walk', t);
+      for (const leg of legs) expect(footTurn(rig, pose, leg)).toBeCloseTo(0, 5);
+      const lowest = Math.max(...legs.map((leg) => footPoint(rig, pose, leg)[1]));
+      expect(lowest).toBeCloseTo(rig.height, 1);
+    }
   });
 });
