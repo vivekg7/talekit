@@ -23,7 +23,9 @@ reasoning are in `docs/PLAN.md`. Read both before changing the data model.
   shaped with HarfBuzz into outlines, in the bundled `fonts/Baloo2.ttf`).
 - `src/project/` — load/save/validate a project directory; `construction.ts`
   is the character linter (rasterises parts, checks box, feet, joints);
-  `notes.ts` is the review-note store shared by the viewer and the MCP.
+  `notes.ts` is the review-note store shared by the viewer and the MCP;
+  `posts.ts` lints the text a video is posted with (`out/youtube.txt`,
+  `out/instagram.txt`) for `talekit check`.
 - `src/render/` — resvg rasteriser, ffmpeg encoder (frames drawn on worker
   threads, `frame-worker.ts`), the sound mixer (`audio.ts`), the .mkv with
   its extra sound and subtitle tracks (`mkv.ts`), preview sheets.

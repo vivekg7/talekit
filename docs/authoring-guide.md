@@ -13,8 +13,8 @@ comes back after every write. Fix what looks wrong before moving on.
    `out/movie.mp4` and `out/movie.mkv`, and the portrait reel's
    `out/movie.mp4`. The reel is a project of its own beside the film (`…`
    and `…-reel`; see [A reel](#a-reel-the-portrait-version)), made after
-   the film from its characters and voices. Each also gets a cover and a
-   description to post it with (step 8).
+   the film from its characters and voices. Each also gets a cover and the
+   text to post it with (step 8).
 2. **`create_project(path, title)`** once; `path` is the absolute project
    directory and every later tool takes it. Then `list_library()`, and
    `set_audio(path, narrator, music)` (see [Sound](#sound)).
@@ -68,7 +68,7 @@ frames)` are full size. To fix a shot, `patch_shot(path, shotId, …)`:
    Fix it, check the new picture, then `resolve_note(path, id)`; the person
    then confirms the fix or reopens it. Do not resolve a note you did not
    act on; say why instead.
-8. **Cover and description.** Every film and reel ships with a thumbnail
+8. **Cover and post text.** Every film and reel ships with a thumbnail
    and the words to post it with, both in its `out/`. From a shell,
    `talekit cover <dir> <shotId> -t <sec> --title "…" [--sub "…"] [--tag
 "…"] [--zoom 1.3 --focus x,y]` writes `out/thumbnail.png`: that frame
@@ -78,11 +78,25 @@ frames)` are full size. To fix a shot, `patch_shot(path, shotId, …)`:
    story's funniest or most dramatic moment, not the title card; `--sub`
    is a small line above the title ("पंचतंत्र की कहानी"), `--tag` the moral
    or hook on a red tag, and `--zoom` pushes in about the scene point
-   `--focus`. Look at the picture. Then write `out/description.md`: a
-   title, a two- to four-sentence description that teases the turn
-   without giving away the ending, the moral, and hashtags, in the film's
-   language and in English, and the `talekit cover` line used, so the
-   cover can be drawn again when the art changes.
+   `--focus`. Look at the picture; the command that drew it is kept in
+   `out/thumbnail.txt`, so the cover can be drawn again when the art
+   changes. Then write the words to post it with, as the exact text to
+   paste: `out/youtube.txt` for both, and `out/instagram.txt` for the reel.
+   `youtube.txt` is the title on its first line (at most 100 characters),
+   a blank line, then the description: two to four sentences that tease
+   the turn without giving away the ending, the moral, the chapters for a
+   film, and hashtags, in the film's language and in English.
+   `instagram.txt` is the reel's caption: the same teaser and moral, a
+   line sending viewers to the full film on YouTube, and a handful of
+   hashtags, without `#Shorts` and without chapters. Both are **plain
+   text**, because YouTube and Instagram show Markdown as typed and keep
+   every line break: no `**` or `#` headings, each paragraph on one line,
+   each hashtag once. Chapters are a "Chapters" line and then one
+   `0:00 name` per line, starting at 0:00, at least three, each at least
+   10 s long, or YouTube shows none. `talekit check` reads both files and
+   says what breaks these rules, including a line that starts on a vowel
+   sign, which is how a pasted Devanagari line looks when its first letter
+   was lost.
 
 ### Writing it from scripts: the Python kit
 
