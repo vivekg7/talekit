@@ -24,6 +24,8 @@ with talekit: Panchatantra fables, Tenali Rama and other classic tales. Each
 story is released as a full film and as a two-minute portrait reel, with Hindi
 and English subtitles.
 
+[![The covers of the first nine Kahani ki Potli films, each drawn by talekit from one frame of its film](docs/showcase.jpg)](https://www.youtube.com/@KahaniKiPotli7)
+
 - YouTube: [@KahaniKiPotli7](https://www.youtube.com/@KahaniKiPotli7)
 - Instagram: [@kahanikipotli7](https://www.instagram.com/kahanikipotli7/)
 
