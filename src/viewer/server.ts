@@ -8,7 +8,15 @@ import { composeFrame } from '../engine/compose.js';
 import { cueSheet, type Bus } from '../engine/sound.js';
 import { movieDuration } from '../engine/timeline.js';
 import { MixSchema, type Project } from '../engine/types.js';
-import { addNote, deleteNote, loadNotes, NOTES_FILE, setNoteStatus } from '../project/notes.js';
+import {
+  addNote,
+  checkNote,
+  deleteNote,
+  loadNotes,
+  NOTES_FILE,
+  reopenNote,
+  setNoteStatus,
+} from '../project/notes.js';
 import { loadProject, projectPaths, saveMeta } from '../project/store.js';
 import { formatProblems, validateProject } from '../project/validate.js';
 import { mixAudio, RATE } from '../render/audio.js';
@@ -222,8 +230,22 @@ export async function serve(
       }
       const noteMatch = /^\/api\/notes\/([^/]+)$/.exec(url.pathname);
       if (noteMatch && method === 'PATCH') {
-        const body = (await readBody(req)) as { status: 'open' | 'done' };
-        json(res, await setNoteStatus(root, noteMatch[1], body.status));
+        // The person reopens a note with what is still wrong (status open and a reply),
+        // closes one (done), and agrees a fix (checked): closing their own note is both.
+        const body = (await readBody(req)) as {
+          status?: 'open' | 'done';
+          checked?: boolean;
+          reply?: string;
+        };
+        const id = noteMatch[1];
+        let note =
+          body.status === 'open'
+            ? await reopenNote(root, id, body.reply)
+            : body.status === 'done'
+              ? await setNoteStatus(root, id, 'done')
+              : undefined;
+        if (body.checked) note = await checkNote(root, id);
+        json(res, note ?? { error: 'nothing to change' }, note ? 200 : 400);
         return;
       }
       if (noteMatch && method === 'DELETE') {

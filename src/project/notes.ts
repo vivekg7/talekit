@@ -17,6 +17,11 @@ export const NoteTargetSchema = z.object({
   id: z.string().min(1),
   /** Seconds into the shot; only for shot notes. */
   t: z.number().min(0).optional(),
+  /**
+   * The spot the person clicked on the frame, in frame pixels (what preview_frame shows,
+   * camera and all); only for shot notes.
+   */
+  at: z.object({ x: z.number(), y: z.number() }).optional(),
 });
 
 export const NoteSchema = z.object({
@@ -25,6 +30,14 @@ export const NoteSchema = z.object({
   text: z.string().min(1),
   status: z.enum(['open', 'done']).default('open'),
   created: z.string(),
+  /**
+   * Done, and waiting for the person to look at the fix: set when a note is resolved,
+   * cleared when they agree or reopen it. Notes done before this existed have none, and
+   * count as checked.
+   */
+  toCheck: z.boolean().optional(),
+  /** What the person added on reopening a note the fix did not settle, oldest first. */
+  replies: z.array(z.object({ text: z.string().min(1), created: z.string() })).optional(),
 });
 
 export type Note = z.infer<typeof NoteSchema>;
@@ -76,7 +89,36 @@ export async function setNoteStatus(
   const notes = await loadNotes(root);
   const note = notes.find((n) => n.id === id);
   if (!note) throw new Error(`no note '${id}'`);
+  if (status === 'done' && note.status !== 'done') note.toCheck = true;
+  if (status === 'open') delete note.toCheck;
   note.status = status;
+  await saveNotes(root, notes);
+  return note;
+}
+
+/** The person agrees a done note is fixed. */
+export async function checkNote(root: string, id: string): Promise<Note> {
+  const notes = await loadNotes(root);
+  const note = notes.find((n) => n.id === id);
+  if (!note) throw new Error(`no note '${id}'`);
+  if (note.status !== 'done') throw new Error(`note '${id}' is not done yet`);
+  delete note.toCheck;
+  await saveNotes(root, notes);
+  return note;
+}
+
+/**
+ * Open a note again, with what is still wrong: the same id keeps the history together, so
+ * the agent reads the first ask and what its fix missed in one place.
+ */
+export async function reopenNote(root: string, id: string, reply?: string): Promise<Note> {
+  const notes = await loadNotes(root);
+  const note = notes.find((n) => n.id === id);
+  if (!note) throw new Error(`no note '${id}'`);
+  note.status = 'open';
+  delete note.toCheck;
+  const text = reply?.trim();
+  if (text) note.replies = [...(note.replies ?? []), { text, created: new Date().toISOString() }];
   await saveNotes(root, notes);
   return note;
 }
@@ -90,11 +132,31 @@ export async function deleteNote(root: string, id: string): Promise<void> {
   );
 }
 
-/** One line per note, the way the agent sees it: `n3 · shot well @ 9.20s · the lion ...`. */
+/**
+ * One line per note, the way the agent sees it: `n3 · shot well @ 9.20s · the lion ...`,
+ * with the clicked spot and what the person added when reopening it.
+ */
 export function describeNote(n: Note): string {
-  const where =
-    n.target.kind === 'shot' && n.target.t !== undefined
-      ? `shot ${n.target.id} @ ${n.target.t.toFixed(2)}s`
-      : `${n.target.kind} ${n.target.id}`;
-  return `${n.id} · ${where} · ${n.text}${n.status === 'done' ? ' (done)' : ''}`;
+  const { kind, id, t, at } = n.target;
+  let where =
+    kind === 'shot' && t !== undefined ? `shot ${id} @ ${t.toFixed(2)}s` : `${kind} ${id}`;
+  if (at) where += `, at (${Math.round(at.x)}, ${Math.round(at.y)})`;
+  const replies = (n.replies ?? []).map((r) => ` · reopened: ${r.text}`).join('');
+  return `${n.id} · ${where} · ${n.text}${replies}${n.status === 'done' ? ' (done)' : ''}`;
+}
+
+interface Size {
+  width: number;
+  height: number;
+}
+
+/**
+ * The frame with a ring round the spot a note points at, so the agent sees what was meant
+ * the way the person did: drawn over the composed SVG, sized by the frame's short side.
+ */
+export function markSpot(svg: string, at: { x: number; y: number }, size: Size): string {
+  const r = Math.min(size.width, size.height) * 0.045;
+  const ring = (stroke: string, w: number) =>
+    `<circle cx='${at.x}' cy='${at.y}' r='${r}' fill='none' stroke='${stroke}' stroke-width='${w}'/>`;
+  return svg.replace(/<\/svg>\s*$/, ring('#fff', r * 0.32) + ring('#e0245e', r * 0.16) + '</svg>');
 }

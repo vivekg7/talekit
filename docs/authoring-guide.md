@@ -60,8 +60,13 @@ frames)` are full size. To fix a shot, `patch_shot(path, shotId, …)`:
    or a moment of a shot.
    When `project_info` reports open notes, or you are asked to "fix my
    notes", `list_notes(path)` gives each with the picture the person saw.
-   Fix it, check the new picture, then `resolve_note(path, id)`. Do not
-   resolve a note you did not act on; say why instead.
+   A note with `at (x, y)` is about the spot they clicked, in frame pixels
+   (as `preview_frame` shows them), ringed on its picture. `reopened: …`
+   is what they added when an earlier fix did not settle it: the first ask
+   still stands, and that is what the fix missed.
+   Fix it, check the new picture, then `resolve_note(path, id)`; the person
+   then confirms the fix or reopens it. Do not resolve a note you did not
+   act on; say why instead.
 8. **Cover and description.** Every film and reel ships with a thumbnail
    and the words to post it with, both in its `out/`. From a shell,
    `talekit cover <dir> <shotId> -t <sec> --title "…" [--sub "…"] [--tag

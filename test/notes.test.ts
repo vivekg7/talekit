@@ -4,10 +4,13 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   addNote,
+  checkNote,
   deleteNote,
   describeNote,
   loadNotes,
+  markSpot,
   notesPath,
+  reopenNote,
   setNoteStatus,
 } from '../src/project/notes.js';
 import { createProject } from '../src/project/store.js';
@@ -64,5 +67,36 @@ describe('review notes', () => {
     expect(describeNote(a)).toBe('n1 · shot well @ 9.20s · lion never looks down');
     const b = await addNote(root, { kind: 'character', id: 'lion' }, 'mane');
     expect(describeNote({ ...b, status: 'done' })).toBe('n2 · character lion · mane (done)');
+  });
+
+  it('keeps a resolved note waiting for the person until they agree or reopen it', async () => {
+    const a = await addNote(root, { kind: 'shot', id: 'well', t: 1 }, 'tail clips the leg');
+    expect((await setNoteStatus(root, a.id, 'done')).toCheck).toBe(true);
+    expect((await checkNote(root, a.id)).toCheck).toBeUndefined();
+    // Resolved again after a reopen, it waits again; the reply is kept with the note.
+    await setNoteStatus(root, a.id, 'done');
+    const back = await reopenNote(root, a.id, ' still clips at the end ');
+    expect(back.status).toBe('open');
+    expect(back.toCheck).toBeUndefined();
+    expect(back.replies?.map((r) => r.text)).toEqual(['still clips at the end']);
+    await expect(checkNote(root, a.id)).rejects.toThrow('not done');
+    expect(describeNote(back)).toBe(
+      'n1 · shot well @ 1.00s · tail clips the leg · reopened: still clips at the end'
+    );
+  });
+
+  it('names a pinned spot and rings it on the frame', async () => {
+    const a = await addNote(
+      root,
+      { kind: 'shot', id: 'well', t: 2, at: { x: 412.4, y: 630 } },
+      'this'
+    );
+    expect(describeNote(a)).toBe('n1 · shot well @ 2.00s, at (412, 630) · this');
+    const svg = markSpot(
+      "<svg width='720' height='1280'></svg>",
+      { x: 10, y: 20 },
+      { width: 720, height: 1280 }
+    );
+    expect(svg).toMatch(/<circle cx='10' cy='20'[^>]*\/><circle[^>]*\/><\/svg>$/);
   });
 });

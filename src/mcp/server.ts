@@ -65,7 +65,7 @@ import { serve } from '../viewer/server.js';
 import { makeVoices } from '../project/voices.js';
 import { SOUNDS } from '../library/sounds.js';
 import { VOICES } from '../library/voices.js';
-import { describeNote, loadNotes, setNoteStatus, type Note } from '../project/notes.js';
+import { describeNote, loadNotes, markSpot, setNoteStatus, type Note } from '../project/notes.js';
 
 type Content =
   { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: 'image/png' };
@@ -891,7 +891,7 @@ export function buildServer(): McpServer {
     {
       title: 'List review notes',
       description:
-        'Notes a person left in the review app (open_review) on a character, a scene, or one moment of a shot. Each open note comes with a picture of what they were looking at: the frame at that moment for a shot note, the pose or anchor sheet for an asset note. Fix what the note asks, check the result, then call resolve_note.',
+        'Notes a person left in the review app (open_review) on a character, a scene, or one moment of a shot. Each open note comes with a picture of what they were looking at: the frame at that moment for a shot note, the pose or anchor sheet for an asset note. A shot note may name a spot they clicked, "at (x, y)" in frame pixels, ringed on its picture: that is what the note is about. "reopened: ..." is what they added when an earlier fix did not settle it; fix that too. Fix what the note asks, check the result, then call resolve_note.',
       inputSchema: {
         path: pathArg,
         all: z.boolean().optional().describe('Include resolved notes (default: open only)'),
@@ -907,10 +907,13 @@ export function buildServer(): McpServer {
         for (const n of notes) {
           content.push(text(describeNote(n)));
           if (n.status !== 'open' || pictures >= 8) continue;
-          const { kind, id, t } = n.target;
+          const { kind, id, t, at } = n.target;
           const shot = kind === 'shot' ? project.shots.find((s) => s.id === id) : undefined;
-          const svg = shot
-            ? composeFrame(project, shot, t ?? shot.duration / 2)
+          const frame = shot && composeFrame(project, shot, t ?? shot.duration / 2);
+          const svg = frame
+            ? at
+              ? markSpot(frame, at, project.meta)
+              : frame
             : kind === 'character' && project.characters[id]
               ? characterSheetSvg(project.characters[id])
               : kind === 'scene' && project.scenes[id]
