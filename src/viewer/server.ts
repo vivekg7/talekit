@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import http from 'node:http';
+import os from 'node:os';
 import { createReadStream, existsSync } from 'node:fs';
 import { mkdir, readdir, rename, stat } from 'node:fs/promises';
 import path from 'node:path';
@@ -22,7 +23,8 @@ import { formatProblems, validateProject } from '../project/validate.js';
 import { mixAudio, RATE } from '../render/audio.js';
 import { characterSheetSvg, constructionSheetSvg, sceneSheetSvg } from '../render/sheets.js';
 import { writeMkv } from '../render/mkv.js';
-import { isPortrait } from '../engine/format.js';
+import { isPortrait, safeInsets } from '../engine/format.js';
+import { lineDuration, shownText } from '../engine/voice.js';
 import { remixVideo } from '../render/video.js';
 import { PAGE } from './page.js';
 
@@ -117,6 +119,42 @@ async function makeStem(root: string, project: Project, bus: Bus): Promise<strin
   return file;
 }
 
+/**
+ * Every line of the film, as the page shows it under the picture while it plays and lists
+ * as each shot's script: who says it (a character's name, or the narrator for a caption),
+ * and the seconds of its shot its bubble or caption is up.
+ */
+function linesOf(project: Project) {
+  return project.shots.flatMap((shot) =>
+    shot.actions
+      .filter((a) => a.say || a.caption)
+      .map((a) => ({
+        shot: shot.id,
+        t: a.t,
+        end: Math.min(shot.duration, a.t + lineDuration(project, shot, a)),
+        who: a.say
+          ? (project.characters[a.actor ?? '']?.name ?? a.actor ?? '')
+          : a.captionStyle === 'title'
+            ? 'title'
+            : 'narrator',
+        text: shownText((a.say ?? a.caption)!).trim(),
+      }))
+  );
+}
+
+/**
+ * The review apps this process serves, so each page can switch to the others: a film and
+ * its reel are reviewed as one, from one tab. Title and shape are read once, when served.
+ */
+const apps: { port: number; title: string; portrait: boolean }[] = [];
+
+/** This machine's address on the local network, for a phone to reach a LAN review app. */
+function lanAddress(): string {
+  for (const list of Object.values(os.networkInterfaces()))
+    for (const a of list ?? []) if (a.family === 'IPv4' && !a.internal) return a.address;
+  throw new Error('no local network address to serve on');
+}
+
 /** Serve a file with Range support; without it the browser cannot seek the video. */
 async function serveFile(
   file: string,
@@ -167,12 +205,16 @@ function readBody(req: http.IncomingMessage): Promise<unknown> {
  * a person leaves on any of them for the agent to pick up with `list_notes`. The project is
  * reloaded on every request so edits show up immediately. A port already taken (often an
  * earlier review app) moves it to the next free one; it resolves to the address it got.
+ * With `lan` it listens on every interface and resolves to this machine's network address,
+ * for a phone on the same Wi-Fi.
  */
 export async function serve(
   root: string,
-  port: number
+  port: number,
+  opts: { lan?: boolean } = {}
 ): Promise<{ url: string; close: () => void }> {
-  await loadProject(root); // fail fast if the directory is not a project
+  const first = await loadProject(root); // fail fast if the directory is not a project
+  const app = { port: 0, title: first.meta.title, portrait: isPortrait(first.meta) };
   const json = (res: http.ServerResponse, body: unknown, status = 200) =>
     res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(body));
 
@@ -280,6 +322,9 @@ export async function serve(
             name: s.name,
             anchors: Object.keys(s.anchors),
           })),
+          lines: linesOf(project),
+          safe: safeInsets(project.meta),
+          apps: apps.map((a) => ({ ...a, here: a === app })),
           problems: formatProblems(validateProject(project)),
           notes: await loadNotes(root),
           movie: await movieInfo(root),
@@ -317,12 +362,22 @@ export async function serve(
       else res.writeHead(500, { 'content-type': 'text/plain' }).end((e as Error).message);
     }
   });
+  // On the local network only when asked: the app has no login, and it writes files.
+  const host = opts.lan ? lanAddress() : '127.0.0.1';
   for (let p = port; ; p++) {
     const err = await new Promise<NodeJS.ErrnoException | undefined>((resolve) => {
       server.once('error', resolve);
-      server.listen(p, '127.0.0.1', () => resolve(undefined));
+      server.listen(p, opts.lan ? '0.0.0.0' : '127.0.0.1', () => resolve(undefined));
     });
-    if (!err) return { url: `http://127.0.0.1:${p}/`, close: () => server.close() };
+    if (!err) {
+      app.port = p;
+      apps.push(app);
+      const close = () => {
+        if (apps.includes(app)) apps.splice(apps.indexOf(app), 1);
+        server.close();
+      };
+      return { url: `http://${host}:${p}/`, close };
+    }
     if (err.code !== 'EADDRINUSE' || p >= port + 20) throw err;
   }
 }

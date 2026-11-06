@@ -737,27 +737,33 @@ export function buildServer(): McpServer {
     {
       title: 'Open the review apps',
       description:
-        "Serve the review app for each project (the film and its reel, after both are rendered) on 127.0.0.1 and open each in the person's browser (Firefox when it is running, else the default), so they can watch and leave notes. A project already served by this call keeps its address. Returns the addresses: tell the person.",
+        "Serve the review app for each project (the film and its reel, after both are rendered) on 127.0.0.1 and open the first in the person's browser (Firefox when it is running, else the default), so they can watch and leave notes; each page has a switch to the others. A project already served by this call keeps its address. With lan, also on the local network, for reviewing a reel on a phone (anyone on that network can open it): only when the person asks. Returns the addresses: tell the person.",
       inputSchema: {
         paths: z
           .array(z.string())
           .min(1)
           .describe('Absolute project directories, the landscape film first'),
+        lan: z
+          .boolean()
+          .optional()
+          .describe('Also serve on the local network, for a phone; only when asked'),
       },
     },
-    async ({ paths }) => {
+    async ({ paths, lan }) => {
       try {
         const urls: string[] = [];
         for (const root of paths) {
-          const key = projectPaths(root).root;
+          // Asked again with lan, a project served on 127.0.0.1 only is served afresh.
+          const key = projectPaths(root).root + (lan ? ' lan' : '');
           let url = reviews.get(key);
           if (!url) {
             const last = [...reviews.values()].at(-1);
-            url = (await serve(key, last ? Number(new URL(last).port) + 1 : 4848)).url;
+            const port = last ? Number(new URL(last).port) + 1 : 4848;
+            url = (await serve(projectPaths(root).root, port, { lan })).url;
             reviews.set(key, url);
           }
-          openInBrowser(url);
-          urls.push(`${url}  ${key}`);
+          if (!urls.length) openInBrowser(url);
+          urls.push(`${url}  ${projectPaths(root).root}`);
         }
         return ok(text(`review apps open:\n${urls.join('\n')}`));
       } catch (e) {

@@ -55,9 +55,10 @@ frames)` are full size. To fix a shot, `patch_shot(path, shotId, …)`:
    same way.
 7. **Review notes.** Once both are rendered, `open_review([film, reel])`
    (from a shell, `talekit serve <film> <reel> --open`) serves a review app
-   for each and opens both in the person's browser; give them the two
-   addresses it returns. They watch and leave notes on a character, a scene
-   or a moment of a shot.
+   for each and opens the first in the person's browser (each page switches
+   to the other); give them the two addresses it returns. They watch and
+   leave notes on a character, a scene or a moment of a shot. Pass
+   `lan: true` only when they ask to review on their phone.
    When `project_info` reports open notes, or you are asked to "fix my
    notes", `list_notes(path)` gives each with the picture the person saw.
    A note with `at (x, y)` is about the spot they clicked, in frame pixels

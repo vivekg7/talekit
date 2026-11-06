@@ -101,6 +101,17 @@ The full schema is the authoring guide.
       them with `resolve_note`, the loop Paper uses. Notes are plain files so
       the viewer and the MCP share only the directory; the page polls mtimes
       rather than watching, to stay dependency-free.
+      Reworked after eight released films (2026-11-06). The picture was
+      sized by the space left over rather than by the film, so a reel came
+      out 214 px wide on a laptop and scenery past the frame's edges showed
+      round it. The frame now keeps the film's shape and gets the full
+      height, and a reel's shots move to a side column. Notes kept quoting
+      lines and describing places ("the jackal's tail, bottom left"), so the
+      line being spoken is shown and a click pins a spot, which `list_notes`
+      rings on the picture. Fixes that missed came back as fresh notes that
+      lost the first ask, so a resolved note waits for the person to agree,
+      and reopening it adds a reply to the same note. Notes done before
+      `toCheck` existed count as checked, so released films stay quiet.
 - [ ] **Phase 6 — Polish loop.** Run the MCP on a fresh story, watch where
       the agent struggles, fix the guide or the engine. Two passes so far.
       `examples/lighthouse` led to empty variants, custom variants on the

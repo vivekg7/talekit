@@ -36,7 +36,7 @@ const USAGE = `talekit — story video generation for AI agents
   talekit render <dir> [shotId] [-o file.mp4] [--silent]   the whole film (not a reel) also writes a .mkv
   talekit remix <dir> [-o file.mp4]            mix the sound again under a rendered film (after a mix change)
   talekit mkv <dir> [-o file.mp4]              build the .mkv again from the rendered mp4 (after a translation)
-  talekit serve <dir> [dir...] [--port 4848] [--open]   a review app per project (a film and its reel); --open opens them
+  talekit serve <dir> [dir...] [--port 4848] [--open] [--lan]   review apps for a film and its reel; --open opens the first, --lan for a phone
   talekit mcp                                  start the MCP server on stdio
 `;
 
@@ -79,6 +79,7 @@ async function main(argv: string[]): Promise<void> {
       count: { type: 'string', short: 'n' },
       port: { type: 'string' },
       open: { type: 'boolean' },
+      lan: { type: 'boolean' },
       svg: { type: 'boolean' },
       debug: { type: 'boolean' },
       silent: { type: 'boolean' },
@@ -272,14 +273,17 @@ async function main(argv: string[]): Promise<void> {
     case 'serve': {
       const { serve } = await import('./viewer/server.js');
       const { openInBrowser } = await import('./viewer/open.js');
-      // The film and its reel are reviewed side by side: one app each, on consecutive ports.
+      // The film and its reel: one app each, on consecutive ports, and each page switches to
+      // the others, so only the first is opened.
       let port = num(values.port) ?? 4848;
-      for (const dir of rest.length ? rest : ['.']) {
-        const { url } = await serve(dir, port);
+      for (const [i, dir] of (rest.length ? rest : ['.']).entries()) {
+        const { url } = await serve(dir, port, { lan: values.lan });
         console.log(`talekit review: ${url}  (${dir})`);
-        if (values.open) openInBrowser(url);
+        if (values.open && i === 0) openInBrowser(url);
         port = Number(new URL(url).port) + 1;
       }
+      if (values.lan)
+        console.log('on the local network: anyone on it can open these and add notes');
       return;
     }
     case 'mcp': {

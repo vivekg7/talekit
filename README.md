@@ -48,14 +48,32 @@ characters, scenes and shots.
 ## Reviewing and output
 
 `talekit serve <film> <reel> --open` serves a review app for each project
-(on 4848 and 4849, or the next free ports) and opens both in the browser,
-in Firefox when it is already running. The agent does the same with
-`open_review` once both are rendered. Each is the film with a scrubber and
-a strip of shots, the characters as pose sheets, the scenes as anchor sheets.
+(on 4848 and 4849, or the next free ports) and opens the first in the
+browser, in Firefox when it is already running; a switch in the header goes
+between the film and the reel. The agent does the same with `open_review`
+once both are rendered. Each shows the picture at the film's exact shape, as
+large as the window allows, with this shot's notes and script in a column
+beside it. A film keeps its shots in a strip along the bottom; a reel has
+them in a second column, so the tall picture gets the full height. The
+characters are shown as pose sheets and the scenes as anchor sheets.
+
 Pick a moment or an asset and type what is wrong; it is saved to
-`<project>/notes.json`. Tell the agent "fix my notes": `list_notes` hands it
-each note with a picture of what you saw, and `resolve_note` closes it. The
-page follows the directory, so the agent's edits appear as it works.
+`<project>/notes.json`. Click the picture first to pin the spot you mean:
+the agent sees it ringed. The line being spoken shows under the picture,
+and a line in the script can be quoted into the note. Tell the agent "fix
+my notes": `list_notes` hands it each note with a picture of what you saw,
+and `resolve_note` closes it. A closed note waits under _fixed: check it_
+until you agree, or reopen it with what is still wrong, which the agent
+reads with the note. The page follows the directory, so the agent's edits
+appear as it works. The address follows the moment (`#hua@3.90`), so a copied
+link opens on it.
+
+For a reel, **safe area** shades what the Shorts and Reels apps draw over
+(caption, buttons, search), and playback can be slowed, sped up or looped
+on one shot. `--lan` (`open_review` with `lan`) serves the apps on the
+local network too, to review a reel on a phone, where it will be watched.
+The app has no login and writes to the project, so anyone on that network
+can add notes; it stays on 127.0.0.1 unless asked.
 
 The film plays with a slider per sound layer (voices, music, ambience,
 effects). **Save** writes the balance to the project's `mix`; **Save and
@@ -141,7 +159,8 @@ talekit init <dir> --title "…"       talekit sheet <dir> <id>
 talekit check <dir>                  talekit frame <dir> <shot> -t 2.5 [--debug] [--svg]
 talekit library                      talekit contact <dir> <shot> -n 6
 talekit copy <dir> <libraryId>       talekit render <dir> [shot] [--silent]
-talekit serve <dir> [dir…] [--open]  talekit voice <dir> [shot]
+talekit serve <dir> [dir…] [--open] [--lan]
+                                     talekit voice <dir> [shot]
 talekit mcp                          talekit remix <dir> [-o file.mp4]
                                      talekit mkv <dir> [-o file.mp4]
 talekit cover <dir> <shot> -t 3 --title "…"   (out/thumbnail.png)
