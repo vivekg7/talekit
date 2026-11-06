@@ -5,7 +5,8 @@ import os from 'node:os';
 import { createReadStream, existsSync } from 'node:fs';
 import { mkdir, readdir, rename, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { composeFrame } from '../engine/compose.js';
+import { fileURLToPath } from 'node:url';
+import { Worker } from 'node:worker_threads';
 import { cueSheet, type Bus } from '../engine/sound.js';
 import { movieDuration } from '../engine/timeline.js';
 import { MixSchema, type Project } from '../engine/types.js';
@@ -21,17 +22,107 @@ import {
 import { loadProject, projectPaths, saveMeta } from '../project/store.js';
 import { formatProblems, validateProject } from '../project/validate.js';
 import { mixAudio, RATE } from '../render/audio.js';
-import { characterSheetSvg, constructionSheetSvg, sceneSheetSvg } from '../render/sheets.js';
 import { writeMkv } from '../render/mkv.js';
 import { isPortrait, safeInsets } from '../engine/format.js';
 import { lineDuration, shownText } from '../engine/voice.js';
 import { remixVideo } from '../render/video.js';
+import type { DrawRequest } from './draw-worker.js';
 import { PAGE } from './page.js';
 
+/** The source tree this file runs from: src/ under tsx, dist/ once built. */
+const CODE = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const EXT = path.extname(fileURLToPath(import.meta.url));
+/** The drawing worker beside this file, as .ts under tsx and .js once built. */
+const DRAW_WORKER = new URL(`./draw-worker${EXT}`, import.meta.url);
+
 /**
- * Newest mtime across everything that changes what the page shows. The page polls this and
- * reloads when it moves, so an agent writing through the MCP shows up within a second or two
- * without a file watcher (which would need a native dependency or a recursive fs.watch).
+ * Run from source, the worker needs tsx to resolve the engine's `.js` imports to `.ts`. A
+ * process started by tsx passes it on; one that was not (vitest) is given it here.
+ */
+function workerArgs(): string[] {
+  const args = process.execArgv;
+  if (EXT !== '.ts' || args.some((a) => a.includes('tsx'))) return args;
+  return [...args, '--import', 'tsx'];
+}
+
+let code = { at: 0, version: 0 };
+/**
+ * Newest mtime across the engine's own source (or build), looked at once a second at most:
+ * when it moves, the pictures are drawn by a fresh worker with the code as it now is, and
+ * the page, which counts it in the project's version, reloads.
+ */
+async function codeVersion(): Promise<number> {
+  if (Date.now() - code.at < 1000) return code.version;
+  let latest = 0;
+  for (const f of await readdir(CODE, { recursive: true })) {
+    if (!f.endsWith(EXT)) continue;
+    try {
+      latest = Math.max(latest, (await stat(path.join(CODE, f))).mtimeMs);
+    } catch {
+      /* deleted between readdir and stat */
+    }
+  }
+  code = { at: Date.now(), version: Math.round(latest) };
+  return code.version;
+}
+
+interface Drawer {
+  worker: Worker;
+  version: number;
+  pending: Map<number, { resolve: (svg: string) => void; reject: (e: Error) => void }>;
+  retired: boolean;
+}
+let drawer: Drawer | undefined;
+let drawSeq = 0;
+
+/**
+ * A picture drawn in the worker (draw-worker.ts). A worker serves until the code changes;
+ * then the next picture starts a new one, which imports the new code, and the old one is
+ * let go once it has answered what it was asked. One that dies (a half-saved source file)
+ * fails what it held, and the next picture tries again.
+ */
+async function drawSvg(job: DrawRequest): Promise<string> {
+  const version = await codeVersion();
+  if (!drawer || drawer.version !== version) {
+    const old = drawer;
+    if (old) {
+      old.retired = true;
+      if (!old.pending.size) void old.worker.terminate();
+    }
+    const fresh: Drawer = {
+      worker: new Worker(DRAW_WORKER, { execArgv: workerArgs() }),
+      version,
+      pending: new Map(),
+      retired: false,
+    };
+    fresh.worker.on('message', (m: { seq: number; svg?: string; error?: string }) => {
+      const wait = fresh.pending.get(m.seq);
+      fresh.pending.delete(m.seq);
+      if (m.error !== undefined) wait?.reject(new Error(m.error));
+      else wait?.resolve(m.svg!);
+      if (fresh.retired && !fresh.pending.size) void fresh.worker.terminate();
+    });
+    fresh.worker.on('error', (e: Error) => {
+      for (const wait of fresh.pending.values()) wait.reject(e);
+      fresh.pending.clear();
+      if (drawer === fresh) drawer = undefined;
+    });
+    fresh.worker.unref();
+    drawer = fresh;
+  }
+  const d = drawer;
+  const seq = ++drawSeq;
+  return new Promise((resolve, reject) => {
+    d.pending.set(seq, { resolve, reject });
+    d.worker.postMessage({ ...job, seq });
+  });
+}
+
+/**
+ * Newest mtime across everything that changes what the page shows, the engine's code
+ * included. The page polls this and reloads when it moves, so an agent writing through the
+ * MCP shows up within a second or two without a file watcher (which would need a native
+ * dependency or a recursive fs.watch).
  */
 async function projectVersion(root: string): Promise<number> {
   const p = projectPaths(root);
@@ -46,6 +137,7 @@ async function projectVersion(root: string): Promise<number> {
   await touch(p.meta);
   await touch(path.join(p.root, NOTES_FILE));
   await touch(path.join(p.out, 'movie.mp4'));
+  latest = Math.max(latest, await codeVersion());
   for (const dir of [p.characters, p.scenes, p.shots]) {
     if (!existsSync(dir)) continue;
     await touch(dir);
@@ -334,25 +426,24 @@ export async function serve(
         });
         return;
       }
-      const project = await loadProject(root);
       if (url.pathname === '/api/frame') {
-        const shot = project.shots.find((s) => s.id === url.searchParams.get('shot'));
-        if (!shot) throw new Error('unknown shot');
-        const t = Number(url.searchParams.get('t') ?? 0);
-        const svg = composeFrame(project, shot, t, { debug: url.searchParams.has('debug') });
+        const svg = await drawSvg({
+          kind: 'frame',
+          root,
+          shot: url.searchParams.get('shot') ?? '',
+          t: Number(url.searchParams.get('t') ?? 0),
+          debug: url.searchParams.has('debug'),
+        });
         res.writeHead(200, { 'content-type': 'image/svg+xml' }).end(svg);
         return;
       }
       if (url.pathname === '/api/sheet') {
-        const id = url.searchParams.get('id') ?? '';
-        const svg = project.characters[id]
-          ? url.searchParams.get('kind') === 'construction'
-            ? constructionSheetSvg(project.characters[id])
-            : characterSheetSvg(project.characters[id])
-          : project.scenes[id]
-            ? sceneSheetSvg(project, project.scenes[id])
-            : undefined;
-        if (!svg) throw new Error('unknown id');
+        const svg = await drawSvg({
+          kind: 'sheet',
+          root,
+          id: url.searchParams.get('id') ?? '',
+          construction: url.searchParams.get('kind') === 'construction',
+        });
         res.writeHead(200, { 'content-type': 'image/svg+xml' }).end(svg);
         return;
       }

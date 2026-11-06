@@ -65,8 +65,11 @@ my notes": `list_notes` hands it each note with a picture of what you saw,
 and `resolve_note` closes it. A closed note waits under _fixed: check it_
 until you agree, or reopen it with what is still wrong, which the agent
 reads with the note. The page follows the directory, so the agent's edits
-appear as it works. The address follows the moment (`#hua@3.90`), so a copied
-link opens on it.
+appear as it works, and the engine's code too: the paused picture and the
+sheets are drawn by a worker that starts afresh whenever a source file
+changes, so a fix to the engine shows without restarting the app (the
+playing video is still the last render). The address follows the moment
+(`#hua@3.90`), so a copied link opens on it.
 
 For a reel, **safe area** shades what the Shorts and Reels apps draw over
 (caption, buttons, search), and playback can be slowed, sped up or looped

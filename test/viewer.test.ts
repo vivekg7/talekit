@@ -1,4 +1,4 @@
-import { cp, mkdtemp, rm } from 'node:fs/promises';
+import { cp, mkdtemp, rm, stat, utimes } from 'node:fs/promises';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
@@ -57,6 +57,31 @@ describe('review app', () => {
       a.close();
       b.close();
       await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('draws pictures with the engine as it is now, and reloads the page when it changes', async () => {
+    const app = await serve('examples/lost-kite', 4870);
+    const get = (url: string) => fetch(new URL(url, app.url));
+    const file = 'src/engine/compose.ts';
+    const was = await stat(file);
+    try {
+      const frame = await get('api/frame?shot=flying&t=1');
+      expect(frame.headers.get('content-type')).toBe('image/svg+xml');
+      expect(await frame.text()).toContain('<g');
+      expect((await get('api/sheet?id=mia')).status).toBe(200);
+      expect((await (await get('api/frame?shot=nope&t=1')).json()).error).toBe('unknown shot');
+      const before = (await (await get('api/version')).json()).version;
+      // An edit to the engine: the version moves (once its second's cache is out) and the
+      // next picture comes from a fresh worker.
+      const now = new Date(Math.max(Date.now(), before + 1000));
+      await utimes(file, now, now);
+      await new Promise((r) => setTimeout(r, 1100));
+      expect((await (await get('api/version')).json()).version).toBeGreaterThan(before);
+      expect(await (await get('api/frame?shot=flying&t=1')).text()).toContain('<g');
+    } finally {
+      await utimes(file, was.atime, was.mtime);
+      app.close();
     }
   });
 });

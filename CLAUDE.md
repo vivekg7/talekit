@@ -37,7 +37,8 @@ reasoning are in `docs/PLAN.md`. Read both before changing the data model.
   runs both through `talekit check`; keep its output in the file format.
 - `src/mcp/server.ts`, `src/cli.ts`, `src/viewer/` — thin interfaces over
   the same code. The viewer is one embedded page (`page.ts`, no framework, no
-  build) plus a small HTTP server (`server.ts`).
+  build) plus a small HTTP server (`server.ts`), which draws its frames and
+  sheets in `draw-worker.ts`, started afresh when the source changes.
 - `examples/lost-kite/` — one-minute story used as the integration check.
   `examples/lighthouse/` — written through the MCP tools as the phase 6 run;
   it exercises from-scratch characters, custom variants, carrying a prop
