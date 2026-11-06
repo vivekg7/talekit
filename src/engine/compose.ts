@@ -53,6 +53,18 @@ export function layerTransform(c: View, W: number, H: number, p: number): string
   return `translate(${W / 2} ${H / 2}) scale(${n(zoom)}) translate(${n(-x)} ${n(-y)})`;
 }
 
+/**
+ * Half the height of an actor's head in the world: from the top of the head (the rig's
+ * speaker point) down to where it joins the neck, the head held to two fifths of the rig's
+ * height for a long-necked one.
+ */
+function headHalf(actor: ActorState): number {
+  const rig = rigOf(actor.character);
+  const s = (actor.character.height / rig.height) * actor.scale;
+  const neck = rig.parts.head?.pivot[1] ?? rig.speaker[1] + 0.4 * rig.height;
+  return (Math.min(neck - rig.speaker[1], 0.4 * rig.height) / 2) * s;
+}
+
 function worldToScreen(frame: FrameState, W: number, H: number, x: number, y: number) {
   const c = frame.camera;
   return { x: (x - c.x) * c.zoom + W / 2, y: (y - c.y) * c.zoom + H / 2 };
@@ -381,6 +393,7 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
           style: actor.bubble.style,
           headX: s.x,
           headTop: s.y,
+          headR: headHalf(actor) * frame.camera.zoom,
           frameW: W,
           frameH: H,
           font,

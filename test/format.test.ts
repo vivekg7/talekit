@@ -78,3 +78,60 @@ describe('a portrait reel', () => {
     expect(over(FILM)).toBe(false);
   });
 });
+
+describe('a bubble with no room above its speaker', () => {
+  const head = { x: 300, top: 30, r: 40 };
+  // The bubble's outline: its box, or a shout's starburst (the second polygon, after the tail).
+  const box = (svg: string) => {
+    const rect = svg.match(/<rect x='([\d.]+)' y='([\d.]+)' width='([\d.]+)' height='([\d.]+)'/);
+    if (rect) {
+      const [, x, y, w, h] = rect.map(Number);
+      return { x, y, w, h };
+    }
+    const star = [...svg.matchAll(/<polygon points='([^']+)'/g)][1][1]
+      .split(' ')
+      .map((p) => p.split(',').map(Number));
+    const xs = star.map(([x]) => x);
+    const ys = star.map(([, y]) => y);
+    const [x, y] = [Math.min(...xs), Math.min(...ys)];
+    return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+  };
+  const bubble = (headX: number, style: 'speech' | 'thought' | 'shout' = 'speech') =>
+    bubbleSvg({
+      text: 'मैंने तुम्हारा पेट भरा, और तुमने मुझे ही मारने की कोशिश की!',
+      style,
+      headX,
+      headTop: head.top,
+      headR: head.r,
+      frameW: FILM.width,
+      frameH: FILM.height,
+      font: 'sans-serif',
+      uiScale: 1,
+    });
+
+  it('goes beside the head, on the side with more room, instead of over the speaker', () => {
+    for (const style of ['speech', 'thought', 'shout'] as const) {
+      const right = box(bubble(head.x, style));
+      expect(right.x).toBeGreaterThan(head.x + head.r);
+      expect(right.y).toBeGreaterThanOrEqual(0);
+      const left = box(bubble(FILM.width - head.x, style));
+      expect(left.x + left.w).toBeLessThan(FILM.width - head.x - head.r);
+    }
+  });
+
+  it('still hangs above a head with room over it', () => {
+    const svg = bubbleSvg({
+      text: 'वाह! चलो!',
+      style: 'speech',
+      headX: 300,
+      headTop: 400,
+      headR: 40,
+      frameW: FILM.width,
+      frameH: FILM.height,
+      font: 'sans-serif',
+      uiScale: 1,
+    });
+    const b = box(svg);
+    expect(b.y + b.h).toBeLessThan(400);
+  });
+});

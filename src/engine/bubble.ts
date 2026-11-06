@@ -59,6 +59,12 @@ export interface BubbleSpec {
   /** Screen-space point the tail points at (top of the head). */
   headX: number;
   headTop: number;
+  /**
+   * Half the head's height on screen. With it, a bubble with no room above the head goes
+   * beside it instead of down over the speaker; without it (sheets, tests) it is pushed
+   * down inside the frame.
+   */
+  headR?: number;
   frameW: number;
   frameH: number;
   font: string;
@@ -122,18 +128,52 @@ function bubbleShape(spec: BubbleSpec): string {
   const w = textW + 2 * padX;
   const h = lines.length * lineHeight + 2 * padY;
 
-  let x = spec.headX - w / 2;
-  x = Math.max(minX, Math.min(maxX - w, x));
-  let y = spec.headTop - tail - h;
-  let tailUp = false; // bubble below the target
-  if (y < minY) {
-    y = minY;
-    if (spec.headTop < minY + h + tail) tailUp = true;
-  }
+  const maxY = spec.frameH - margin - safe.bottom;
 
-  const tailBaseX = Math.max(x + 28 * k, Math.min(x + w - 28 * k, spec.headX));
-  const tipX = spec.headX;
-  const tipY = tailUp ? y - 4 : spec.headTop + 6 * k;
+  // Above the head, the tail pointing down at it.
+  let x = Math.max(minX, Math.min(maxX - w, spec.headX - w / 2));
+  let y = spec.headTop - tail - h;
+  // Which edge the tail leaves from, and the point it reaches.
+  let edge: 'bottom' | 'top' | 'left' | 'right' = 'bottom';
+  let tipX = spec.headX;
+  let tipY = spec.headTop + 6 * k;
+  if (y < minY && spec.headR !== undefined) {
+    // No room above (a speaker high in the frame): beside the head and level with it, on
+    // the side with more room, so it never covers the speaker. A shout's spikes reach out
+    // past its box, so it stands that much further off.
+    const r = spec.headR;
+    const gap = r + tail + (bold ? 0.14 * w : 0);
+    const right = maxX - (spec.headX + gap) >= spec.headX - gap - minX;
+    x = Math.max(minX, Math.min(maxX - w, right ? spec.headX + gap : spec.headX - gap - w));
+    const mid = spec.headTop + r;
+    y = Math.max(minY, Math.min(maxY - h, mid - h / 2));
+    edge = right ? 'left' : 'right';
+    tipX = spec.headX + (right ? 0.8 : -0.8) * r;
+    tipY = mid;
+  } else if (y < minY) {
+    y = minY;
+    if (spec.headTop < minY + h + tail) {
+      edge = 'top';
+      tipY = y - 4;
+    }
+  }
+  const tailUp = edge === 'top';
+  const side = edge === 'left' || edge === 'right';
+  // The tail's root: on its edge, as near the tip as the rounded corners allow (a thought
+  // bubble's ends are round all the way, so from the side it leaves at the middle).
+  const clampTo = (v: number, lo: number, hi: number) =>
+    lo > hi ? (lo + hi) / 2 : Math.max(lo, Math.min(hi, v));
+  const along = side
+    ? spec.style === 'thought'
+      ? y + h / 2
+      : clampTo(tipY, y + 24 * k, y + h - 24 * k)
+    : clampTo(tipX, x + 28 * k, x + w - 28 * k);
+  const at = { bottom: y + h, top: y, left: x, right: x + w }[edge];
+  const out = edge === 'bottom' || edge === 'right' ? 1 : -1;
+  // A point on the tail's edge `d` along it, `o` out from it.
+  const onEdge = (d: number, o = 0): string =>
+    side ? `${n(at + out * o)},${n(along + d)}` : `${n(along + d)},${n(at + out * o)}`;
+  const tip = `${n(tipX)},${n(tipY)}`;
   const r = 18 * k;
   const stroke = `stroke='#222' stroke-width='${3 * k}'`;
   const textX = x + w / 2;
@@ -148,9 +188,13 @@ function bubbleShape(spec: BubbleSpec): string {
     .join('');
 
   if (spec.style === 'thought') {
-    const dir = tailUp ? -1 : 1;
-    const c1 = `<circle cx='${tailBaseX}' cy='${tailUp ? y - 10 * k : y + h + 10 * k}' r='${7 * k}' fill='#fff' ${stroke}/>`;
-    const c2 = `<circle cx='${(tailBaseX + tipX) / 2}' cy='${(tailUp ? y : y + h) + dir * 22 * k}' r='${4.5 * k}' fill='#fff' ${stroke}/>`;
+    const mid = side
+      ? `${n(at + out * 22 * k)},${n((along + tipY) / 2)}`
+      : `${n((along + tipX) / 2)},${n(at + out * 22 * k)}`;
+    const [c2x, c2y] = mid.split(',');
+    const [c1x, c1y] = onEdge(0, 10 * k).split(',');
+    const c1 = `<circle cx='${c1x}' cy='${c1y}' r='${7 * k}' fill='#fff' ${stroke}/>`;
+    const c2 = `<circle cx='${c2x}' cy='${c2y}' r='${4.5 * k}' fill='#fff' ${stroke}/>`;
     return `<g class='bubble'><rect x='${x}' y='${y}' width='${w}' height='${h}' rx='${h / 2}' ry='${h / 2}' fill='#fff' ${stroke}/>${c1}${c2}${textEl}</g>`;
   }
 
@@ -165,11 +209,14 @@ function bubbleShape(spec: BubbleSpec): string {
       const spike = i % 2 === 0 ? 1.28 : 1.05;
       pts.push(`${cx + (Math.cos(a) * w * spike) / 2},${cy + (Math.sin(a) * h * spike) / 2}`);
     }
-    const tailPts = `${tailBaseX - 10 * k},${tailUp ? y : y + h} ${tipX},${tipY} ${tailBaseX + 10 * k},${tailUp ? y : y + h}`;
+    const tailPts = `${onEdge(-10 * k)} ${tip} ${onEdge(10 * k)}`;
     return `<g class='bubble'><polygon points='${tailPts}' fill='#fff' ${stroke} stroke-linejoin='round'/><polygon points='${pts.join(' ')}' fill='#fff' ${stroke} stroke-linejoin='round'/>${textEl}</g>`;
   }
 
-  const baseY = tailUp ? y : y + h;
-  const tailPath = `M${tailBaseX - 12 * k},${baseY} L${tipX},${tipY} L${tailBaseX + 12 * k},${baseY}`;
-  return `<g class='bubble'><path d='${tailPath}' fill='#fff' ${stroke} stroke-linejoin='round'/><rect x='${x}' y='${y}' width='${w}' height='${h}' rx='${r}' ry='${r}' fill='#fff' ${stroke}/><rect x='${tailBaseX - 11 * k}' y='${tailUp ? y - 1 : y + h - 4 * k}' width='${22 * k}' height='${5 * k}' fill='#fff'/>${textEl}</g>`;
+  const tailPath = `M${onEdge(-12 * k)} L${tip} L${onEdge(12 * k)}`;
+  // A white patch over the box's stroke where the tail joins it.
+  const patch = side
+    ? `x='${n(edge === 'left' ? x - 1 : x + w - 4 * k)}' y='${n(along - 11 * k)}' width='${5 * k}' height='${22 * k}'`
+    : `x='${n(along - 11 * k)}' y='${n(tailUp ? y - 1 : y + h - 4 * k)}' width='${22 * k}' height='${5 * k}'`;
+  return `<g class='bubble'><path d='${tailPath}' fill='#fff' ${stroke} stroke-linejoin='round'/><rect x='${x}' y='${y}' width='${w}' height='${h}' rx='${r}' ry='${r}' fill='#fff' ${stroke}/><rect ${patch} fill='#fff'/>${textEl}</g>`;
 }
