@@ -12,6 +12,11 @@ export interface Pose {
    * back, so a knee bends positive and an elbow, which folds the forearm forward, negative.
    */
   bend: Record<string, number>;
+  /**
+   * Degrees per link of a chain part (`Rig.links`), root first, on top of each link's share
+   * of the part's turn: the follow-through running down a tail.
+   */
+  curl?: Record<string, number[]>;
   /** Pixel offsets per part in canonical units. */
   off: Record<string, [number, number]>;
   /** Whole-body offset and scale (about the feet). */

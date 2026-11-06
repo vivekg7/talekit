@@ -24,6 +24,8 @@ const JUMP_CUT = 30;
 /** Lever length (canonical units) for turning the push into an angular one. */
 const LEVER = 40;
 const RAD = Math.PI / 180;
+/** Seconds a swing takes to reach each next link down a chain. */
+const CHAIN_LAG = 0.07;
 
 type Pt = [number, number];
 
@@ -201,14 +203,27 @@ export function applySprings(
   const at = Math.max(0, t) / STEP;
   const last = Math.floor(at) + 1;
   while (sim.done < last) advance(sim, project, shot, actor.id);
-  const i = Math.floor(at);
-  const f = at - i;
-  for (const s of sim.springs) {
+  const rig = rigOf(actor.character);
+  // The spring's value `back` seconds ago (its rest before the shot began).
+  const valueAt = (s: Spring, back: number): Pt => {
+    const at = Math.max(0, t - back) / STEP;
+    const i = Math.floor(at);
+    const f = at - i;
     const [x0, y0] = s.values[i];
     const [x1, y1] = s.values[i + 1] ?? s.values[i];
-    const x = x0 + (x1 - x0) * f;
-    const y = y0 + (y1 - y0) * f;
-    if (s.turns) pose.rot[s.part] = (pose.rot[s.part] ?? 0) + x;
+    return [x0 + (x1 - x0) * f, y0 + (y1 - y0) * f];
+  };
+  for (const s of sim.springs) {
+    const [x, y] = valueAt(s, 0);
+    const link = s.turns ? rig.links?.[s.part] : undefined;
+    if (link) {
+      // Down a chain the swing arrives later link by link, so it runs to the tip like a
+      // whip's and the tip flicks over after the root has stopped.
+      const curl = (pose.curl ??= {})[s.part] ?? [];
+      pose.curl[s.part] = link.shares.map(
+        (share, k) => (curl[k] ?? 0) + share * valueAt(s, k * CHAIN_LAG)[0]
+      );
+    } else if (s.turns) pose.rot[s.part] = (pose.rot[s.part] ?? 0) + x;
     else {
       const [ox, oy] = pose.off[s.part] ?? [0, 0];
       pose.off[s.part] = [ox + x, oy + y];

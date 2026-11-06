@@ -126,6 +126,38 @@ export const CharacterSchema = z.object({
       "Parts the rig does not know, hung from one it does: { pigtailL: { from: 'head', at: [31, 103] } }. Such a part moves with `from` and, listed in `springs`, swings about `at`: pigtails, a ponytail, a scarf end, a feather on a hat"
     ),
   /**
+   * Where a rig part turns, when the drawing's joint is not at the rig's pivot: a tail that
+   * leaves the body further along than the rig's tail pivot turns from its root, not from
+   * a point part way down it.
+   */
+  pivots: z
+    .record(z.string(), z.tuple([z.number(), z.number()]))
+    .optional()
+    .describe(
+      "Rig parts that turn about a point of this character's own, [x, y] in the box: where the drawing joins its parent. { tail: [84, 128] } for a tail whose root is not at the rig's tail pivot (quadruped 44, 110), which would otherwise swing about a point part way along it. Hung parts set theirs in `hangs`"
+    ),
+  /**
+   * Parts that bend along their length, like a leg at the knee, rather than swinging stiff
+   * about their pivot: cut into links, each taking a share of the part's turn, so a tail
+   * curves and its follow-through runs down it to the tip. A head of two links bows from
+   * the neck as well as the head; what hangs from it (eyes, mouth) goes with the last link.
+   */
+  chains: z
+    .record(
+      z.string(),
+      z.union([
+        z.number().int().min(1).max(8),
+        z
+          .array(z.tuple([z.number(), z.number()]))
+          .min(1)
+          .max(7),
+      ])
+    )
+    .optional()
+    .describe(
+      "Parts that bend along their length instead of turning stiff about one hinge: { tail: 4 } cuts the tail into 4 links evenly from its pivot to its far end; or give the joints, root first: { head: [[212, 104]] } bows a head from the neck and from behind the skull. Default: the rig's (quadruped: tail 4); 1 for a stiff part. Works for a part hung with `hangs` too (a monkey's tail)"
+    ),
+  /**
    * Where something carrying this character holds it (see the `attach` action), in its own
    * canonical coordinates: a lantern's handle, a balloon's string end. Default: box centre.
    */

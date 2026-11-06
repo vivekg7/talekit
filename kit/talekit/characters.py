@@ -120,7 +120,7 @@ def complete(colors, used):
 
 def character(id, name, rig, height, parts, colors, description="", voice=None, **more):
     """A character dict with its colours completed. `more` takes any other field of the
-    format as it is: hem, shadow, grip, hold, hangs, springs."""
+    format as it is: hem, shadow, grip, hold, hangs, springs, pivots, chains."""
     c = {
         "id": id,
         "name": name,

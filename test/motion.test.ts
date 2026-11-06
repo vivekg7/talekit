@@ -187,7 +187,9 @@ describe('weight and follow-through', () => {
       const pose = poseFor(a, t);
       const before = pose.rot.tail ?? 0;
       applySprings(p, shot, a, pose, t);
-      return pose.rot.tail! - before;
+      // A quadruped's tail is a chain: the swing goes on its links (`curl`), not its root.
+      const curl = (pose.curl?.tail ?? []).reduce((sum, v) => sum + v, 0);
+      return (pose.rot.tail ?? 0) - before + curl;
     };
     expect(Math.abs(tail(0.9))).toBeLessThan(0.5); // standing still: at rest
     const swing = Math.max(...[1.1, 1.2, 1.3, 1.4].map((t) => Math.abs(tail(t))));

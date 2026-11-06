@@ -1,3 +1,4 @@
+import { curlPoint, linkAngles } from './chain.js';
 import { clamp01, TAU } from './easing.js';
 import type { Pose } from './motion.js';
 import { rigPart, type Rig } from './rigs.js';
@@ -137,7 +138,9 @@ export function limbStep(rig: Rig, pose: Pose, part: string): number {
  * with the sideways swing squeezed, and is shortened to reach just there, keeping its width.
  */
 export function swingOf(rig: Rig, pose: Pose, part: string): [number, number] {
-  const rot = pose.rot[part] ?? 0;
+  // A chain part's own turn is its first link's; the rest bend further along it.
+  const link = rig.links?.[part];
+  const rot = link ? linkAngles(link, pose, part)[0] : (pose.rot[part] ?? 0);
   if (!pose.depth || !rig.turn?.limbs.includes(part)) return [rot, 1];
   const x = (1 - pose.depth) * Math.sin(rot * RAD);
   const y = Math.cos(rot * RAD);
@@ -158,6 +161,9 @@ export function toRoot(rig: Rig, pose: Pose, part: string, point: Pt): Pt {
   const seen = new Set<string>();
   for (let cur: string | undefined = part; cur && !seen.has(cur); cur = rigPart(rig, cur).parent) {
     seen.add(cur);
+    // Along a chain: the joints the point lies past, all of them for what hangs from it.
+    const link = rig.links?.[cur];
+    if (link) p = curlPoint(link, linkAngles(link, pose, cur), p, cur !== part);
     const pivot = rigPart(rig, cur).pivot;
     const [rot, len] = swingOf(rig, pose, cur);
     if (len !== 1) p = [p[0], pivot[1] + (p[1] - pivot[1]) * len];

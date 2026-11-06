@@ -1,3 +1,4 @@
+import { linkFor, type Link, type Pt } from './chain.js';
 import type { Character, RigName } from './types.js';
 
 export interface RigPart {
@@ -50,6 +51,13 @@ export interface Rig {
    * straight stroke gets its joint for free.
    */
   bends: Record<string, [number, number]>;
+  /**
+   * Parts that bend along their length (see chain.ts), and into how many links, unless the
+   * character says otherwise (`Character.chains`): a quadruped's tail.
+   */
+  chains?: Record<string, number>;
+  /** The links of each chain part, worked out from how this character draws it. */
+  links?: Record<string, Link>;
   /**
    * Limbs whose joint points back, not forward: an animal's hind legs, which bend at the
    * hock. Lifting such a foot swings the joint back and tucks the foot forward under it,
@@ -234,6 +242,7 @@ export const QUADRUPED: Rig = {
     legFR: [194, 166],
   },
   hocks: ['legBL', 'legBR'],
+  chains: { tail: 4 },
   belly: 152,
 };
 
@@ -254,11 +263,43 @@ const HUNG = new WeakMap<object, Rig>();
  * like the rig's own, each turning about its pivot as a child of the part it hangs from and
  * drawn just behind or in front of it, and checked by the construction linter as a joint.
  * A hung part may hang from another; one whose chain does not reach a rig part, or loops,
- * is left to the rig's fallback (`validate` reports it).
+ * is left to the rig's fallback (`validate` reports it). A part the character turns about
+ * its own point (`pivots`) turns there, and a part that bends along its length (`chains`,
+ * or the rig's) is cut into links where the drawing has them (see chain.ts).
  */
-export function rigOf(
-  character: Pick<Character, 'rig' | 'hangs' | 'belly' | 'hem' | 'hooves' | 'muzzle'>
-): Rig {
+export function rigOf(character: RigSource): Rig {
+  const own = JOINTED.get(character);
+  if (own) return own;
+  const rig = jointed(shaped(character), character);
+  JOINTED.set(character, rig);
+  return rig;
+}
+
+type RigSource = Pick<Character, 'rig' | 'hangs' | 'belly' | 'hem' | 'hooves' | 'muzzle'> &
+  Partial<Pick<Character, 'pivots' | 'chains' | 'parts'>>;
+
+const JOINTED = new WeakMap<object, Rig>();
+
+/** The character's own pivots and links, on top of its rig. */
+function jointed(rig: Rig, character: RigSource): Rig {
+  const pivots = Object.entries(character.pivots ?? {}).filter(([name]) => rig.parts[name]);
+  const chains = { ...rig.chains, ...character.chains };
+  const parts = { ...rig.parts };
+  for (const [name, pivot] of pivots) parts[name] = { ...parts[name], pivot };
+  const links: Record<string, Link> = {};
+  for (const [name, spec] of Object.entries(chains)) {
+    const part = character.parts?.[name];
+    const svg = typeof part === 'string' ? part : part && Object.values(part)[0];
+    if (!svg) continue;
+    const link = linkFor(svg, rigPart({ ...rig, parts }, name).pivot, spec as number | Pt[]);
+    if (link) links[name] = link;
+  }
+  if (!pivots.length && !Object.keys(links).length) return rig;
+  return { ...rig, parts, links };
+}
+
+/** The rig with the parts the character hangs, and its belly, hem, hooves and muzzle. */
+function shaped(character: RigSource): Rig {
   const rig = hungRig(character);
   // A character's own belly line or hem, and hooves, where the rig has them.
   const belly = rig.belly === undefined ? undefined : character.belly;

@@ -1,3 +1,4 @@
+import { linkAngles, type Link } from './chain.js';
 import { clamp01, easeInOut } from './easing.js';
 import { bodyWidth, footPoint, partOffset, swingOf, toRoot } from './gait.js';
 import {
@@ -72,6 +73,8 @@ export function poseFor(actor: ActorState, t: number): Pose {
     if (away < 0.5) pose.yaw += (2 - pose.yaw) * 2 * away;
     else pose.back = true;
   }
+  // A tail does not go through the floor: lying or sitting, it curls up and lies along it.
+  keepOffFloor(rig, pose, 'tail');
   // Eating, the mouth chews open and shut as it flaps in talk; a line said meanwhile wins.
   const chew = actor.talking ? undefined : chewing(actor.verbs);
   pose.face = resolveFace(actor.character.parts, {
@@ -86,6 +89,25 @@ export function poseFor(actor: ActorState, t: number): Pose {
     blink: !!actor.take && actor.take.u > 0.04 && actor.take.u < 0.22,
   });
   return pose;
+}
+
+/**
+ * Turn a chain part (a tail) up just far enough that its tip stays on or over the floor:
+ * the smallest turn either way that does it, up to a right angle and a third.
+ */
+export function keepOffFloor(rig: Rig, pose: Pose, part: string): void {
+  const link = rig.links?.[part];
+  if (!link) return;
+  const floor = rig.height - pose.dy;
+  const tipY = () => toRoot(rig, pose, part, link.tip)[1];
+  if (tipY() <= floor) return;
+  const base = pose.rot[part] ?? 0;
+  for (let d = 3; d <= 120; d += 3)
+    for (const sign of [1, -1]) {
+      pose.rot[part] = base + sign * d;
+      if (tipY() <= floor) return;
+    }
+  pose.rot[part] = base;
 }
 
 const FACE_PARTS = new Set(['face', 'eyes', 'mouth']);
@@ -137,6 +159,14 @@ function transformChain(rig: Rig, pose: Pose, name: string): string {
     if (off[0] || off[1]) out += `translate(${n(off[0])} ${n(off[1])}) `;
     if (rot) out += `rotate(${n(rot)} ${rp.pivot[0]} ${rp.pivot[1]}) `;
     if (len !== 1) out += `translate(0 ${n(rp.pivot[1] * (1 - len))}) scale(1 ${n(len)}) `;
+    // What hangs from a chain part goes with its last link.
+    const link = p !== name ? rig.links?.[p] : undefined;
+    if (link) {
+      const angles = linkAngles(link, pose, p);
+      link.joints.forEach(([jx, jy], i) => {
+        if (angles[i + 1]) out += `rotate(${n(angles[i + 1])} ${n(jx)} ${n(jy)}) `;
+      });
+    }
   }
   return out.trim();
 }
@@ -202,6 +232,72 @@ function bentLimb(
   if (draw === 'lines') return under ? lines : '';
   if (draw === 'fills') return fills;
   return (under ? lines : '') + fills;
+}
+
+/**
+ * A part that bends along its length (`Rig.links`): drawn once per link, each cut square to
+ * the part at its joints and turned by the links before it and its own, with a disc as wide
+ * as the part round every joint so a bend opens no gap. As for a bent limb, every outline
+ * goes down before any fill, so no line crosses where the links meet.
+ */
+function chainedPart(
+  id: string,
+  link: Link,
+  angles: number[],
+  svg: string,
+  under: string,
+  line: number,
+  shade: (frag: string, extra?: number) => string,
+  draw: 'all' | 'lines' | 'fills' = 'all'
+): string {
+  const far = 4000;
+  const deg = ([dx, dy]: [number, number]) => (Math.atan2(dy, dx) * 180) / Math.PI;
+  // Past joint i (the tip's side of its cut), or short of it, and the disc round it.
+  const clip = (key: string, i: number, past: boolean, pad: number) => {
+    const [jx, jy] = link.joints[i];
+    const x = past ? 0 : -far;
+    return (
+      `<clipPath id='${id}-${key}'><rect x='${x}' y='${-far}' width='${far}' height='${2 * far}' ` +
+      `transform='translate(${n(jx)} ${n(jy)}) rotate(${n(deg(link.dirs[i]))})'/>` +
+      `<circle cx='${n(jx)}' cy='${n(jy)}' r='${n(link.radii[i] + 1.5 + pad)}'/></clipPath>`
+    );
+  };
+  const links = link.joints.length + 1;
+  const piece = (kind: 'l' | 'f', inner: string, pad: number) => {
+    let defs = '';
+    let out = '';
+    for (let k = 0; k < links; k++) {
+      // Inside out: the cut short of the next joint, then the one past this link's own.
+      let g =
+        kind === 'f'
+          ? inner +
+            shade(
+              inner,
+              angles.slice(1, k + 1).reduce((s, a) => s + a, 0)
+            )
+          : inner;
+      if (k < links - 1) {
+        defs += clip(`${kind}${k}b`, k, false, pad);
+        g = `<g clip-path='url(#${id}-${kind}${k}b)'>${g}</g>`;
+      }
+      if (k > 0) {
+        defs += clip(`${kind}${k}a`, k - 1, true, pad);
+        g = `<g clip-path='url(#${id}-${kind}${k}a)'>${g}</g>`;
+      }
+      // Turned by every joint up to its own, the root's outermost.
+      for (let i = k; i >= 1; i--) {
+        const [jx, jy] = link.joints[i - 1];
+        if (angles[i]) g = `<g transform='rotate(${n(angles[i])} ${n(jx)} ${n(jy)})'>${g}</g>`;
+      }
+      out += g;
+    }
+    return `<defs>${defs}</defs>${out}`;
+  };
+  const lines = under ? piece('l', under, line) : '';
+  if (draw === 'lines') return lines;
+  const fills = piece('f', svg, 0);
+  if (draw === 'fills') return fills;
+  return lines + fills;
 }
 
 /** Over this stretch of a turn toward the viewer, what hangs down the back goes behind. */
@@ -294,6 +390,13 @@ export function characterBody(
   let out = '';
   for (const d of drawn) {
     const limb = (f: (typeof drawn)[number], draw: 'all' | 'lines' | 'fills') => {
+      const link = rig.links?.[f.name];
+      if (link) {
+        const angles = linkAngles(link, pose, f.name);
+        if (!angles.slice(1).some(Boolean)) return '';
+        const id = `tk-chain-${character.id}-${f.name}`;
+        return chainedPart(id, link, angles, f.svg, f.under, width, f.shade, draw);
+      }
       const joint = rig.bends[f.name];
       const bend = pose.bend[f.name];
       if (!joint || !bend) return '';

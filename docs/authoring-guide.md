@@ -279,7 +279,8 @@ stroke-linecap='round' fill='none'/>`) with a paw or hoof reaching
 
 The engine walks it in diagonal pairs with planted feet and gallops it
 for `run`. A turn takes about 0.7 s (a person's 0.2 s), the head first and
-the feet stepping round. The tail and ears are springs by default. `height`: about 55 for a mouse, 90–110 for a cat or
+the feet stepping round. The tail and ears are springs by default, and the
+tail bends along its length (see [Pivots and chains](#pivots-and-chains)). `height`: about 55 for a mouse, 90–110 for a cat or
 dog, 170–190 for a lion, bear or deer.
 
 ### `simple` rig — 200 × 200, base on y=200
@@ -356,6 +357,40 @@ true`). The library kid's pigtails:
 Draw a hung part hanging from `at`, reaching into the part it hangs from;
 the linter checks that joint. A part may hang from another hung part (a
 ribbon on a pigtail).
+
+### Pivots and chains
+
+A rig part turns about the rig's pivot for it, wherever the drawing puts
+its joint. When yours is elsewhere, say where with `pivots`: a crocodile's
+tail leaves the body around (84, 128), not at the quadruped's tail pivot
+(44, 110), and turned about that point it would swing like a stick nailed
+through its middle. Hung parts set theirs in `hangs` instead.
+
+`chains` bends a part along its length, the way a leg bends at the knee,
+instead of turning it stiff about one hinge. The engine cuts it into
+links, each square to the part, with a round joint between them; a turn
+of the part is shared out along them, a little more at the root, so a tail
+curves, and a spring's swing reaches each link a moment after the one
+before, so it runs down to the tip like a whip. A number cuts the part
+evenly from its pivot to its far end, each joint on the middle of the
+drawing there, so a curling tail's joints follow its curve; or give the
+joints yourself, root first. A tail resting on the floor (lying, sitting)
+curls up along it rather than going through. What hangs from a chain part
+(the eyes and mouth on a head) goes with its last link, and so does a
+prop carried in the mouth.
+
+```json
+"pivots": { "tail": [84, 128], "head": [180, 122] },
+"chains": { "tail": 4, "head": [[201, 111]] }
+```
+
+The quadruped's tail is a chain of 4 by default; `1` keeps a part stiff.
+A head of two links, the neck turning low in the shoulders and the head
+again behind the skull, bows from both: put that joint behind the eye, so
+the eye's dome and the face move together. A hung tail can be a chain too
+(`"chains": { "tail": 4 }`). A tail that curls back on itself (a monkey's
+loop) is cut along the straight line to its far end, which crosses the
+loop: give its joints along the curl yourself, or leave it stiff.
 
 ### Shadow
 

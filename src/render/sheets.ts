@@ -1,6 +1,7 @@
 import {
   castsShadow,
   characterBody,
+  keepOffFloor,
   placeCharacter,
   SHADOW_DEFS,
   shadowSvg,
@@ -58,6 +59,7 @@ export function characterSheetSvg(character: Character): string {
     talking = false
   ): Cell => {
     const pose = build();
+    keepOffFloor(rig, pose, 'tail');
     pose.face = face(emotion, talking, pose.back);
     return { label, pose };
   };
