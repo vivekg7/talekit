@@ -347,6 +347,26 @@ tail a hung spring part) and a rigid coiled `cobra` whose open mouth shows
 fangs, so talking reads as a hiss. `height`: 50–80 for a bird, 80–140 for
 a prop or small creature.
 
+**Wings that beat.** A bird that flies on screen draws each wing as its own
+part, spread at mid-beat (reaching back and a little up from the
+shoulder), hung from the body at the shoulder (the near wing `"front":
+true`), and lists them in `flaps`. While it flies (`fly`) the engine beats
+them about 40° either side of the drawing, the downstroke quicker than the
+upstroke, lifting the body a little on each. A wing with `spread` and
+`folded` variants shows `spread` in the air and `folded` otherwise, so the
+same swan swims, stands and flies; a `face` action still overrides it. A
+bird that hangs in the air keeps flying with a short, slow `fly` (a
+`duration` over a few pixels). The pose sheet adds the top and the bottom
+of the beat.
+
+```json
+"hangs": {
+  "wingFar": { "from": "body", "at": [96, 118] },
+  "wingNear": { "from": "body", "at": [104, 122], "front": true }
+},
+"flaps": ["wingNear", "wingFar"]
+```
+
 ### Variants
 
 A part can be a map of named SVG fragments instead of a string. The engine
@@ -749,7 +769,7 @@ falling the same way.
 | --------------------- | -------------------------------------------------------------------------------------- | -------------------- |
 | `walk` / `run`        | planted-foot cycle to `to`, easing in and out (four legs: gallop)                      | distance ÷ 220 / 420 |
 | `move`                | glide to `to` without a cycle (sliding, floating objects)                              | distance ÷ 300       |
-| `fly`                 | move with a gentle wobble (birds, kites, balloons); `to` may be in the sky             | distance ÷ 260       |
+| `fly`                 | move with a wobble, beating any `flaps` (birds, kites); `to` may be in the sky         | distance ÷ 260       |
 | `jump`                | crouch, leap (in place, or to `to`), land with a give                                  | 0.8s                 |
 | `wave`, `point`       | near arm (or front paw) up and waving / pointing (simple rig: lean toward)             | 1.5s                 |
 | `nod`, `shake`        | head yes / no                                                                          | 0.8s                 |

@@ -96,6 +96,17 @@ export const CharacterSchema = z.object({
       "Parts that swing behind the motion on a spring (a tail, ears, a scarf). Default: the rig's (quadruped: tail, earL, earR; humanoid and simple: none); [] for none. A part the rig does not place (and `hangs` does not) sways instead of turning"
     ),
   /**
+   * Wings: parts that beat up and down about their pivots while the actor flies. Each may
+   * have `spread` and `folded` variants, which the engine picks itself: spread in the air,
+   * folded at rest.
+   */
+  flaps: z
+    .array(z.string())
+    .optional()
+    .describe(
+      'Wings: parts that beat up and down about their pivots while the actor flies (`fly`), about 40 degrees either side of the drawing, so draw a wing spread at mid-beat. Hang each from the body at its shoulder (`hangs`), the near wing `front: true`. A wing with `spread` and `folded` variants shows `spread` in the air and `folded` otherwise, so one bird both swims and flies; a `face` action still overrides it'
+    ),
+  /**
    * Where a part the rig does not know hangs: from another part, which carries it, turning
    * about a point drawn in the box, just behind that part or just in front. A spring part
    * hung this way swings about its pivot (a pigtail from its tie) instead of swaying, and

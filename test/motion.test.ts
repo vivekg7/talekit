@@ -7,7 +7,7 @@ import { applyVerb, emptyPose, resolveFace } from '../src/engine/motion.js';
 import { RIGS, rigOf } from '../src/engine/rigs.js';
 import { applySprings } from '../src/engine/springs.js';
 import { resolveFrame, type ActorState } from '../src/engine/timeline.js';
-import { SceneSchema, ShotSchema, type Project } from '../src/engine/types.js';
+import { CharacterSchema, SceneSchema, ShotSchema, type Project } from '../src/engine/types.js';
 import { LIBRARY } from '../src/library/index.js';
 
 function project(actions: unknown[], cast: Record<string, unknown> = {}): Project {
@@ -710,5 +710,46 @@ describe('people', () => {
       expect(Math.max(...feet.map(([, y]) => y))).toBeCloseTo(a.y, 0);
       expect(Math.abs(feet[0][0] - feet[1][0]) / s).toBeLessThan(75);
     }
+  });
+});
+
+describe('wings', () => {
+  const bird = CharacterSchema.parse({
+    id: 'goose',
+    name: 'goose',
+    rig: 'simple',
+    height: 80,
+    parts: {
+      body: "<ellipse cx='100' cy='160' rx='60' ry='38' fill='#fff'/>",
+      wing: {
+        spread: "<path d='M100 150 L20 80 L40 150 Z' fill='#eee'/>",
+        folded: "<path d='M100 150 L50 150 L80 170 Z' fill='#eee'/>",
+      },
+    },
+    hangs: { wing: { from: 'body', at: [100, 150], front: true } },
+    flaps: ['wing'],
+  });
+  const flight = (): Project => {
+    const p = project([{ t: 1, actor: 'goose', do: 'fly', to: { x: 900, y: 200 }, duration: 4 }], {
+      goose: { at: { x: 200, y: 300 } },
+    });
+    p.characters.goose = bird;
+    return p;
+  };
+
+  it('folds at rest and spreads in the air', () => {
+    const p = flight();
+    expect(poseFor(actorAt(p, 'goose', 0.5), 0.5).face.wing).toBe('folded');
+    expect(poseFor(actorAt(p, 'goose', 2), 2).face.wing).toBe('spread');
+  });
+
+  it('beats up and down while flying, and is still at rest', () => {
+    const p = flight();
+    const angles = Array.from({ length: 24 }, (_, i) => 2 + i / 24).map(
+      (t) => poseFor(actorAt(p, 'goose', t), t).rot.wing ?? 0
+    );
+    expect(Math.max(...angles)).toBeGreaterThan(30);
+    expect(Math.min(...angles)).toBeLessThan(-30);
+    expect(poseFor(actorAt(p, 'goose', 0.5), 0.5).rot.wing ?? 0).toBe(0);
   });
 });

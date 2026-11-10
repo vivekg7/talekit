@@ -88,7 +88,49 @@ export function poseFor(actor: ActorState, t: number): Pose {
     // A take starts with a blink.
     blink: !!actor.take && actor.take.u > 0.04 && actor.take.u < 0.22,
   });
+  beatWings(
+    actor.character,
+    pose,
+    loco === 'fly',
+    (actor.locoT * WINGBEAT.hz + actor.phase) % 1,
+    actor.face
+  );
   return pose;
+}
+
+/** Wing beats a second, and how far a wing swings either side of its drawing (degrees). */
+export const WINGBEAT = { hz: 2.4, deg: 40 };
+
+/**
+ * Wings (`flaps`) beat while flying, `cycle` (0..1) through a beat: a quicker downstroke
+ * than upstroke, the body lifting a little on each downstroke. Spread in the air, folded at
+ * rest, unless a `face` action (in `overrides`) says otherwise.
+ */
+export function beatWings(
+  character: Character,
+  pose: Pose,
+  flying: boolean,
+  cycle: number,
+  overrides: Record<string, string> = {}
+): void {
+  const wings = character.flaps ?? [];
+  if (!wings.length) return;
+  // Down over the first 40% of the beat, up over the rest: 1 is the top of the stroke. A
+  // wing drawn reaching back from the shoulder turns tip-up for a positive angle.
+  const down = cycle < 0.4;
+  const stroke = down
+    ? Math.cos((Math.PI * cycle) / 0.4)
+    : -Math.cos((Math.PI * (cycle - 0.4)) / 0.6);
+  for (const wing of wings) {
+    const part = character.parts[wing];
+    if (part && typeof part !== 'string' && !overrides[wing]) {
+      const want = flying ? 'spread' : 'folded';
+      if (part[want] !== undefined) pose.face[wing] = want;
+    }
+    if (flying) pose.rot[wing] = (pose.rot[wing] ?? 0) + WINGBEAT.deg * stroke;
+  }
+  // Each downstroke lifts the body a little.
+  if (flying && down) pose.dy -= 3 * Math.sin((Math.PI * cycle) / 0.4);
 }
 
 /**

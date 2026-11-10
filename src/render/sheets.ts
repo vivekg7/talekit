@@ -1,4 +1,5 @@
 import {
+  beatWings,
   castsShadow,
   characterBody,
   keepOffFloor,
@@ -61,6 +62,7 @@ export function characterSheetSvg(character: Character): string {
     const pose = build();
     keepOffFloor(rig, pose, 'tail');
     pose.face = face(emotion, talking, pose.back);
+    beatWings(character, pose, false, 0);
     return { label, pose };
   };
   const base = (loco: Parameters<typeof basePose>[1], t: number) => basePose(rig, loco, t, 0);
@@ -100,6 +102,19 @@ export function characterSheetSvg(character: Character): string {
           make('run: gathered', () => base('run', 0.36)),
         ]
       : [make('run', () => base('run', 0.1))]),
+    // Wings at the top and the bottom of the beat.
+    ...(character.flaps?.length
+      ? (
+          [
+            ['fly: wings up', 0],
+            ['fly: wings down', 0.4],
+          ] as const
+        ).map(([label, cycle]) => {
+          const cell = make(label, () => base('fly', 0));
+          beatWings(character, cell.pose, true, cycle);
+          return cell;
+        })
+      : []),
     make('wave', withVerb('wave', 0.3)),
     make('point', withVerb('point', 0.5)),
     make('jump: crouch', withVerb('jump', 0.1)),

@@ -97,6 +97,9 @@ export function validateCharacter(c: Character): Problem[] {
   for (const name of c.springs ?? [])
     if (!c.parts[name])
       out.push({ level: 'warning', where, message: `springs names '${name}', which has no part` });
+  for (const name of c.flaps ?? [])
+    if (!c.parts[name])
+      out.push({ level: 'warning', where, message: `flaps names '${name}', which has no part` });
   const base = RIGS[c.rig];
   for (const [name, h] of Object.entries(c.hangs ?? {})) {
     if (base.parts[name])
