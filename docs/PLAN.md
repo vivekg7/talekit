@@ -556,7 +556,11 @@ voice. `kokoro:` stays for quick drafts. A line takes about a second, which
 - **Nobody talks over the narrator.** The validator warns when a line and a
   narration overlap; a voiced line is talking until its voice stops, not
   until its bubble fades.
-- Two espeak-ng slips in Hindi fixed in the sidecar (ड़, ऊँ).
+- Two espeak-ng slips in Hindi fixed in the sidecar (ड़, ऊँ). Later,
+  Chatterbox was heard saying हंस as "has": the spectrograms showed a nasal
+  vowel where a good take closes the n. Written हन्स for it alone, every take
+  closed the n (12 of 12, against 2 of 12), so the sidecar respells such words
+  for Chatterbox and the screen keeps the real spelling.
 
 **Second listen** (on a phone, the race and sticks films): beds too loud
 against dialogue. Measured in 0.4 s blocks, voices were 16 dB over the beds

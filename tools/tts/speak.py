@@ -18,6 +18,7 @@ libraries print goes to stderr.
 
 import json
 import os
+import re
 import subprocess
 import sys
 import zlib
@@ -215,6 +216,24 @@ def reference(voice, pitch, speed):
     return path
 
 
+# Words Chatterbox says wrong in Hindi, respelt for it alone (the screen and the subtitles
+# keep the real spelling). It often gives the anusvara of हंस (swan) as a nasal vowel,
+# "has" with a hint of n; with the न् written out it closes the n every time (12 of 12
+# takes of four narrated lines, against 2 of 12). Whole words only: the laughing verbs
+# (हंसना, हंसी, हंसते) are not swans.
+RESPELL = {"hi": {"हंस": "हन्स", "हंसों": "हन्सों"}}
+# Letters and vowel signs, not the danda (।) or the digits, which end a word.
+DEVANAGARI = "\u0900-\u0963\u0971-\u097f"
+
+
+def respelt(text, lang):
+    words = RESPELL.get(lang, {})
+    if not words:
+        return text
+    pattern = rf"(?<![{DEVANAGARI}])({'|'.join(sorted(words, key=len, reverse=True))})(?![{DEVANAGARI}])"
+    return re.sub(pattern, lambda m: words[m.group(1)], text)
+
+
 def chatterbox_line(req):
     m = model("chatterbox")
     ref = reference(
@@ -229,7 +248,7 @@ def chatterbox_line(req):
     # bit-exact, which is why lines are kept in the project).
     mx.random.seed(zlib.crc32(json.dumps(req, sort_keys=True).encode()))
     out = m.generate(
-        text=req["text"],
+        text=respelt(req["text"], language(req["voice"])),
         conds=conditionals[ref],
         exaggeration=ex,
         cfg_weight=0.3,
