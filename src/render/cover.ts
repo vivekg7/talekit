@@ -1,4 +1,5 @@
 import { composeFrame } from '../engine/compose.js';
+import { cullOffFrame } from '../engine/cull.js';
 import { shapedText, shapedWidth } from '../engine/glyphs.js';
 import type { Project, Shot } from '../engine/types.js';
 
@@ -36,12 +37,15 @@ export function coverSvg(project: Project, shot: Shot, t: number, o: CoverText):
   const tall = H > W;
   if (o.banner && tall) throw new Error('a banner is drawn from a film, not a reel');
   const frame = composeFrame(project, shot, t, { quiet: o.banner || o.quiet });
-  const inner = frame.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '');
   // Scaling about a point inside the frame by 1 or more never uncovers an edge.
   const z = Math.max(1, o.zoom ?? 1);
   const f = o.focus ?? { x: W / 2, y: H / 2 };
-  const push =
-    z === 1 ? '' : ` transform='translate(${f.x * (1 - z)} ${f.y * (1 - z)}) scale(${z})'`;
+  const [dx, dy] = [f.x * (1 - z), f.y * (1 - z)];
+  // The frame was culled for its own camera, keeping shapes up to a frame outside it; the
+  // push carries those further out, past where resvg panics (see cull.ts), so cull again.
+  const drawn = frame.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '');
+  const inner = z === 1 ? drawn : cullOffFrame(drawn, [z, 0, 0, z, dx, dy], W, H);
+  const push = z === 1 ? '' : ` transform='translate(${dx} ${dy}) scale(${z})'`;
 
   const fit = (text: string, max: number, want: number) =>
     Math.min(want, (want * max) / shapedWidth(text, want, true));

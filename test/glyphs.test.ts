@@ -69,6 +69,21 @@ describe('a cover', () => {
     expect(svg).toContain("fill='#c8342b'");
   });
 
+  it('leaves out what the push carries far off the frame, which resvg would panic on', async () => {
+    const { loadProject } = await import('../src/project/store.js');
+    const { coverSvg } = await import('../src/render/cover.js');
+    const p = await loadProject('examples/lost-kite');
+    // Within a frame of the left edge, so the frame keeps it; pushed in 1.5 times about a
+    // point on the right, it lands nearly two frames out.
+    const mark = "<rect x='-1200' y='300' width='10' height='10' fill='#0badc0'/>";
+    const scene = p.scenes[p.shots[0].scene];
+    p.scenes[p.shots[0].scene] = { ...scene, svg: scene.svg + mark };
+    const at = (zoom: number) =>
+      coverSvg(p, p.shots[0], 1, { title: 'पतंग', zoom, focus: { x: 900, y: 360 } });
+    expect(at(1)).toContain('#0badc0');
+    expect(at(1.5)).not.toContain('#0badc0');
+  });
+
   it('draws a banner from a film with the words in the middle every device shows', async () => {
     const { loadProject } = await import('../src/project/store.js');
     const { coverSvg, coverWidth, BANNER } = await import('../src/render/cover.js');
