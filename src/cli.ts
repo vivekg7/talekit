@@ -32,7 +32,7 @@ const USAGE = `talekit — story video generation for AI agents
   talekit sheet <dir> <id> [-o file.png]       pose + construction sheet (character) or anchor sheet (scene)
   talekit frame <dir> <shotId> [-t 1.5] [-o file.png] [--svg] [--debug]
   talekit contact <dir> <shotId> [-n 6] [-o file.png]
-  talekit cover <dir> <shotId> -t <sec> --title "…" [--sub "…"] [--tag "…"] [--zoom 1.3 --focus x,y] [--banner] [-o file.png]
+  talekit cover <dir> <shotId> -t <sec> --title "…" [--sub "…"] [--tag "…"] [--zoom 1.3 --focus x,y] [--quiet] [--banner] [-o file.png]
                                                the thumbnail: a frame with the title over it (out/thumbnail.png),
                                                and the command that drew it (out/thumbnail.txt); --banner draws a
                                                2560x1440 YouTube channel banner from a film instead (out/banner.png)
@@ -88,6 +88,7 @@ async function main(argv: string[]): Promise<void> {
       debug: { type: 'boolean' },
       silent: { type: 'boolean' },
       banner: { type: 'boolean' },
+      quiet: { type: 'boolean' },
       help: { type: 'boolean', short: 'h' },
     },
   });
@@ -201,6 +202,7 @@ async function main(argv: string[]): Promise<void> {
         zoom: num(values.zoom),
         focus: values.focus ? { x: fx, y: fy } : undefined,
         banner: values.banner,
+        quiet: values.quiet,
       });
       const name = values.banner ? 'banner.png' : 'thumbnail.png';
       const file = values.out ?? path.join(projectPaths(dir).out, name);
@@ -220,6 +222,7 @@ async function main(argv: string[]): Promise<void> {
       const command = ['talekit cover .', q(shotId)]
         .concat(args.filter(([, v]) => v !== undefined).map(([k, v]) => `${k} ${q(v!)}`))
         .concat(values.banner ? ['--banner'] : [])
+        .concat(values.quiet ? ['--quiet'] : [])
         .join(' ');
       const note = file.replace(/\.png$/i, '') + '.txt';
       await writeFile(

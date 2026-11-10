@@ -78,7 +78,8 @@ frames)` are full size. To fix a shot, `patch_shot(path, shotId, …)`:
    story's funniest or most dramatic moment, not the title card; `--sub`
    is a small line above the title ("पंचतंत्र की कहानी"), `--tag` the moral
    or hook on a red tag, and `--zoom` pushes in about the scene point
-   `--focus`. Look at the picture; the command that drew it is kept in
+   `--focus`; `--quiet` leaves the frame's bubbles and captions out, for a
+   moment when someone is talking. Look at the picture; the command that drew it is kept in
    `out/thumbnail.txt`, so the cover can be drawn again when the art
    changes. The same command with `--banner` draws a channel's
    2560 × 1440 YouTube banner from a film instead (`out/banner.png`):

@@ -13,6 +13,8 @@ export interface CoverText {
   focus?: { x: number; y: number };
   /** A YouTube channel banner (2560 × 1440) instead of a thumbnail: films only. */
   banner?: boolean;
+  /** The frame without bubbles or captions (a banner always is). */
+  quiet?: boolean;
 }
 
 /**
@@ -33,7 +35,7 @@ export function coverSvg(project: Project, shot: Shot, t: number, o: CoverText):
   const { width: W, height: H } = project.meta;
   const tall = H > W;
   if (o.banner && tall) throw new Error('a banner is drawn from a film, not a reel');
-  const frame = composeFrame(project, shot, t, { quiet: o.banner });
+  const frame = composeFrame(project, shot, t, { quiet: o.banner || o.quiet });
   const inner = frame.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '');
   // Scaling about a point inside the frame by 1 or more never uncovers an edge.
   const z = Math.max(1, o.zoom ?? 1);
