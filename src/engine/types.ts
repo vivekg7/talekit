@@ -189,6 +189,17 @@ export const CharacterSchema = z.object({
       "Where a carrier holds this prop when it is attached, [x, y] in the character's own box (a lantern's handle, the end of a balloon string). Default: the box centre"
     ),
   /**
+   * The working end of a tool, in its own canonical coordinates: the edge of a hoe's blade,
+   * the point of a spade. A `dig` brings it down onto the floor. Default: the top of the box
+   * straight above the grip.
+   */
+  tip: z
+    .tuple([z.number(), z.number()])
+    .optional()
+    .describe(
+      "The working end of a tool, [x, y] in the character's own box (the edge of a hoe's blade, the point of a spade): what a `dig` brings down onto the floor. Default: the top of the box straight above the grip"
+    ),
+  /**
    * A soft ground shadow under the feet. Default: on for people and animals, off for the
    * simple rig (birds, kites, things that hang in the air); set true for a prop that sits.
    */
@@ -616,6 +627,7 @@ export const VerbSchema = z.enum([
   'eat',
   'strike',
   'swim',
+  'dig',
 ]);
 export type Verb = z.infer<typeof VerbSchema>;
 

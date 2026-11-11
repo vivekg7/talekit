@@ -193,8 +193,9 @@ def cap(t, text, en=None, style="narration", **more):
 
 
 def do(t, actor, verb, duration=None, **more):
-    """A verb (walk, run, sit, stand, nod, shake, point, tremble, wipe, kick, eat, strike, swim, ...). `more`:
-    to, which for a wipe names what is dusted (an actor, whose middle the hand goes round on)."""
+    """A verb (walk, run, sit, stand, nod, shake, point, tremble, wipe, kick, eat, strike, swim, dig,
+    ...). `more`: to, which for a wipe names what is dusted (an actor, whose middle the hand goes
+    round on)."""
     a = {**_when(t), "actor": actor, "do": verb, **more}
     if duration is not None:
         a["duration"] = duration

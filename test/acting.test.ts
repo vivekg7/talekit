@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { characterBody, holdPoint, poseFor } from '../src/engine/actor.js';
 import { composeFrame } from '../src/engine/compose.js';
+import { cueSheet } from '../src/engine/sound.js';
 import { RIGS } from '../src/engine/rigs.js';
 import { resolveFrame, type ActorState } from '../src/engine/timeline.js';
 import { CharacterSchema, ShotSchema, type Project } from '../src/engine/types.js';
@@ -16,6 +17,19 @@ const LANTERN = CharacterSchema.parse({
   parts: { body: `<rect x='60' y='20' width='80' height='180' fill='gold'/>` },
 });
 
+// A hoe: the handle up from the grip near its foot, the blade's edge forward at the top.
+const HOE = CharacterSchema.parse({
+  id: 'hoe',
+  name: 'Hoe',
+  rig: 'simple',
+  height: 120,
+  grip: [100, 180],
+  tip: [180, 50],
+  parts: {
+    body: `<rect x='95' y='10' width='10' height='190' fill='brown'/><path d='M105 12 L185 30 L180 60 L105 40 Z' fill='grey'/>`,
+  },
+});
+
 function project(cast: Record<string, unknown>, actions: unknown[]): Project {
   const shot = ShotSchema.parse({ id: 's', scene: 'park', duration: 10, cast, actions });
   return {
@@ -25,6 +39,7 @@ function project(cast: Record<string, unknown>, actions: unknown[]): Project {
       grownup: LIBRARY.characters.grownup,
       dog: LIBRARY.characters.dog,
       lantern: LANTERN,
+      hoe: HOE,
     },
     scenes: { park: LIBRARY.scenes.park },
     shots: [shot],
@@ -145,6 +160,43 @@ describe('carrying', () => {
       { t: 1, actor: 'kid', do: 'strike' },
     ]);
     expect(at(left, 'lantern', t).tilt!.deg).toBeLessThan(-90);
+  });
+
+  it('digs: bent over, the blade biting the floor in front, clods thrown up there', () => {
+    const p = project({ ...cast, hoe: { at: { x: 300, y: 640 } } }, [
+      { t: 0, actor: 'hoe', attach: 'kid' },
+      { t: 1, actor: 'kid', do: 'dig', duration: 2.5 },
+    ]);
+    // Two strokes, each biting halfway through its 1.25 s.
+    expect(at(p, 'hoe', 1.6).soil).toBeUndefined();
+    const soil = at(p, 'hoe', 1.75).soil!;
+    expect(soil).toHaveLength(1);
+    const kid = at(p, 'kid', 1.75);
+    // Where the blade went in: on the kid's floor, in front of the kid.
+    expect(Math.abs(soil[0].y - kid.y)).toBeLessThan(1);
+    expect(soil[0].x).toBeGreaterThan(kid.x + 20);
+    expect(soil[0].age).toBeCloseTo(0.125, 2);
+    // Still in the soil through the pull: the blade is held down there, not swung past it.
+    const tilt = at(p, 'hoe', 1.9).tilt!;
+    expect(tilt.deg).toBeGreaterThan(60);
+    expect(composeFrame(p, p.shots[0], 1.75)).toContain("<g class='soil'>");
+    // Bent forward over the work.
+    expect(poseFor(kid, 1.75).rot.torso ?? 0).toBeGreaterThan(10);
+    // The second blow, and then nothing after the clods settle.
+    expect(at(p, 'hoe', 3.0).soil).toHaveLength(1);
+    expect(at(p, 'hoe', 4.0).soil).toBeUndefined();
+    // A thud at each blow.
+    const thuds = cueSheet(p).filter((c) => c.label === 'land');
+    expect(thuds.map((c) => Math.round(c.at * 1000) / 1000)).toEqual([1.625, 2.875]);
+    // Facing left, the blade goes in on the left.
+    const left = project(
+      { ...cast, kid: { at: { x: 300, y: 640 }, facing: 'left' }, hoe: { at: { x: 300, y: 640 } } },
+      [
+        { t: 0, actor: 'hoe', attach: 'kid' },
+        { t: 1, actor: 'kid', do: 'dig', duration: 2.5 },
+      ]
+    );
+    expect(at(left, 'hoe', 1.75).soil![0].x).toBeLessThan(280);
   });
 
   it('draws the carried prop just in front of its carrier', () => {

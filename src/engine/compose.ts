@@ -1,4 +1,12 @@
-import { actorHeadTop, poseFor, renderActor, renderShadow, sideOf, SHADOW_DEFS } from './actor.js';
+import {
+  actorHeadTop,
+  poseFor,
+  renderActor,
+  renderShadow,
+  renderSoil,
+  sideOf,
+  SHADOW_DEFS,
+} from './actor.js';
 import { DAYLIGHT, type Light } from './shade.js';
 import {
   castLights,
@@ -385,7 +393,11 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
   const bubbles: string[] = [];
   for (const [i, { actor, pose }] of posed.entries()) {
     const { light, slopes } = lightOf(actor, w, fires, sun);
-    world += lit(renderActor(actor, frame.t, pose, light), `tk-lit-${i}`, slopes);
+    world += lit(
+      renderActor(actor, frame.t, pose, light) + renderSoil(actor),
+      `tk-lit-${i}`,
+      slopes
+    );
     if (actor.bubble && actor.visible && !opts.quiet) {
       const head = actorHeadTop(actor, pose);
       const s = worldToScreen(frame, W, H, head.x, head.y);

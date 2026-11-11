@@ -1,7 +1,15 @@
 import { clamp01, easeInOut, easeOut, hash01, lerp, ramp } from './easing.js';
 import { holdPoint, partToScene, poseFor, sceneToPart } from './actor.js';
 import type { Pt, Travel } from './gait.js';
-import { JUMP, SPEED, STOOP, VERB_DURATION, type Locomotion } from './motion.js';
+import {
+  digHits,
+  JUMP,
+  SOIL_TIME,
+  SPEED,
+  STOOP,
+  VERB_DURATION,
+  type Locomotion,
+} from './motion.js';
 import { defaultGround, stageSides } from './format.js';
 import { rigOf } from './rigs.js';
 import { clipFor, lineDuration, lineLead, mouthOpen, sayDuration, shownText } from './voice.js';
@@ -49,6 +57,19 @@ export interface Bubble {
   left: number;
 }
 
+/** One blow of a `dig` into the soil, as `ActorState.soil` keeps it. */
+export interface SoilBurst {
+  x: number;
+  y: number;
+  /** Seconds since the blade went in. */
+  age: number;
+  /** World scale of the clods (the digger's perspective and size). */
+  scale: number;
+  /** Which way the digger faces, the clods mostly thrown back toward them. */
+  side: number;
+  salt: string;
+}
+
 export interface ActorState {
   id: string;
   character: Character;
@@ -66,6 +87,11 @@ export interface ActorState {
   travel?: Travel;
   /** A carried prop swung by its holder's hand: degrees clockwise about (x, y), its grip. */
   tilt?: { deg: number; x: number; y: number };
+  /**
+   * Clods of earth thrown up where a tool this actor is (a carried hoe) bit the soil in a
+   * `dig`: where (on the floor), how long ago, at what size; drawn over the actor.
+   */
+  soil?: SoilBurst[];
   /** Mid-turn after a facing change: the old facing and progress 0..1. */
   turn?: { from: Facing; u: number };
   /**
@@ -356,7 +382,13 @@ function heldPoint(
   holderId: string,
   t: number,
   depth: number
-): { point: Point; facing: Facing; turn?: ActorState['turn']; tilt?: ActorState['tilt'] } {
+): {
+  point: Point;
+  facing: Facing;
+  turn?: ActorState['turn'];
+  tilt?: ActorState['tilt'];
+  tip: { x: number; y: number };
+} {
   const holder = resolveActor(project, scene, shot, holderId, t, depth + 1);
   const pose = poseFor(holder, t);
   const hand = holdPoint(holder, pose);
@@ -364,6 +396,23 @@ function heldPoint(
   const [gx, gy] = prop.grip ?? [rig.width / 2, rig.height / 2];
   const k = (prop.height / rig.height) * propScale * holder.perspective;
   const side = holder.facing === 'left' ? -1 : 1;
+  // The working end, from the grip, in scene pixels as drawn upright (y down).
+  const [tx, ty] = prop.tip ?? [gx, 0];
+  const dx = k * (tx - gx);
+  const dy = k * (ty - gy);
+  let wield = pose.wield;
+  if (pose.bite && pose.bite > 0) {
+    // Brought down onto the floor: the swing that puts the tip at the holder's feet level.
+    // Turned by w toward the facing, the tip sits dx sin w + dy cos w below the hand; of the
+    // two swings that reach, the first one coming down from overhead. Out of reach, it
+    // points as low as it can.
+    const r = Math.hypot(dx, dy);
+    const drop = holder.y - hand.y;
+    const a = Math.atan2(dy, dx);
+    const w = (Math.asin(Math.max(-1, Math.min(1, drop / (r || 1)))) - a) * (180 / Math.PI);
+    wield = (wield ?? 0) + (w - (wield ?? 0)) * Math.min(1, pose.bite);
+  }
+  const rad = ((wield ?? 0) * Math.PI) / 180;
   return {
     point: {
       x: hand.x - k * side * (gx - rig.width / 2),
@@ -373,8 +422,50 @@ function heldPoint(
     facing: holder.facing,
     turn: holder.turn,
     // Swung by the hand (a stick in a blow): turned about the grip, top toward the facing.
-    tilt: pose.wield ? { deg: side * pose.wield, x: hand.x, y: hand.y } : undefined,
+    tilt: wield ? { deg: side * wield, x: hand.x, y: hand.y } : undefined,
+    tip: {
+      x: hand.x + side * (dx * Math.cos(rad) - dy * Math.sin(rad)),
+      y: hand.y + dx * Math.sin(rad) + dy * Math.cos(rad),
+    },
   };
+}
+
+/**
+ * The clods still in the air from the blows a held tool has struck in its holder's `dig`s:
+ * thrown up where its tip went into the soil, for SOIL_TIME after each blow.
+ */
+function soilBursts(
+  project: Project,
+  scene: Scene,
+  shot: Shot,
+  prop: Character,
+  propId: string,
+  propScale: number,
+  holderId: string,
+  t: number,
+  depth: number
+): SoilBurst[] {
+  const out: SoilBurst[] = [];
+  shot.actions.forEach((a, n) => {
+    if (a.actor !== holderId || a.do !== 'dig' || a.t > t) return;
+    const d = actionDuration(a);
+    if (t > a.t + d + SOIL_TIME) return;
+    digHits(d).forEach((h, i) => {
+      const at = a.t + h;
+      if (at > t || t - at >= SOIL_TIME || holderAt(shot, propId, at) !== holderId) return;
+      const held = heldPoint(project, scene, shot, prop, propScale, holderId, at, depth);
+      const holder = resolveActor(project, scene, shot, holderId, at, depth + 1);
+      out.push({
+        x: held.tip.x,
+        y: held.tip.y,
+        age: t - at,
+        scale: holder.scale * (holder.character.height / 250),
+        side: holder.facing === 'left' ? -1 : 1,
+        salt: `${shot.id}:${n}:${i}`,
+      });
+    });
+  });
+  return out;
 }
 
 export function resolveActor(
@@ -796,6 +887,7 @@ export function resolveActor(
   let turn = t - turnAt < turnTime ? { from: turnFrom, u: (t - turnAt) / turnTime } : undefined;
   const heldBy = holder && depth < MAX_DEPTH ? holder : undefined;
   let tilt: ActorState['tilt'];
+  let soil: SoilBurst[] | undefined;
   if (heldBy) {
     const held = heldPoint(project, scene, shot, character, scale, heldBy, t, depth);
     point = held.point;
@@ -805,6 +897,8 @@ export function resolveActor(
     }
     facing = held.facing;
     tilt = held.tilt;
+    const burst = soilBursts(project, scene, shot, character, id, scale, heldBy, t, depth);
+    if (burst.length) soil = burst;
     turn = held.turn;
     locomotion = 'idle';
   }
@@ -852,6 +946,7 @@ export function resolveActor(
     on: heldBy ? undefined : on,
     heldBy,
     tilt,
+    soil,
     holding,
     look: 0,
     take: t - takeAt < TAKE_TIME ? { u: (t - takeAt) / TAKE_TIME, emotion } : undefined,

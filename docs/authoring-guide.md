@@ -785,6 +785,7 @@ falling the same way.
 | `eat`                 | near hand and what it holds to the mouth, chewing (four legs: head down; simple: peck) | 1.6s                 |
 | `strike`              | near arm up overhead, chops down forward, swinging what it holds (four legs: a butt)   | 0.7s                 |
 | `swim`                | paddles in place, legs churning under a still body, head up; pair with a `move`        | 3s                   |
+| `dig`                 | bent over, swings what it holds up and down into the floor in front, clods flying      | 2.5s (2 strokes)     |
 
 Crossing the frame on foot takes 4–5 s. `duration` overrides any default,
 and every walk needs enough of it or the character sprints; the engine
@@ -843,6 +844,15 @@ is drawn just in front; its own moves are ignored.
 - **Dusting, polishing, scrubbing**: `{ "do": "wipe", "to": "vase" }`
   puts the near hand on the middle of the named actor (or on a spot) and
   rubs round in small circles; stand them as close as for a pickup.
+- **Digging**: `{ "do": "dig", "duration": 3.75 }` with a hoe or spade
+  attached is as many strokes as fit (about 1.25 s each): bent forward
+  from the hips, the tool lifted over the shoulder and brought down so its
+  working end bites the floor in front of the feet, wherever the arm and
+  the tool's length put the hand, then drawn back toward the feet. Each
+  blow throws up clods and a puff of dust there and sounds a thud. Mark the
+  working end with the prop's `tip` (a hoe's blade edge; default the top
+  of the box above the grip). Stand the digger beside the bed, facing it:
+  the blade lands about a third of their height in front of them.
 - **Eating**: `{ "do": "eat", "sound": "munch" }` brings the near hand,
   with whatever it holds, up to the mouth, where it stays while the head
   bobs and the mouth chews, then takes it back down. The prop's `grip` is
@@ -863,7 +873,7 @@ is drawn just in front; its own moves are ignored.
   attached from more than the carrier's height away is taken at once.
 - `grip` is the point in the prop's box the hand holds (`[100, 22]` for a
   lantern's handle); default its middle. The construction sheet marks a
-  character's `hold` and a prop's `grip`.
+  character's `hold` and a prop's `grip` (and `tip`, a tool's working end).
 - One thing at a time; never carry a carrier. An umbrella with a `shelter`
   keeps its carrier dry.
 

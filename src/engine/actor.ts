@@ -1,5 +1,5 @@
 import { linkAngles, type Link } from './chain.js';
-import { clamp01, easeInOut } from './easing.js';
+import { clamp01, easeInOut, easeOut, hash01 } from './easing.js';
 import { bodyWidth, footPoint, partOffset, swingOf, toRoot } from './gait.js';
 import {
   applyTake,
@@ -9,6 +9,7 @@ import {
   emptyPose,
   quadrupedTurn,
   resolveFace,
+  SOIL_TIME,
   type Pose,
 } from './motion.js';
 import { rigPart, rigOf, type Rig } from './rigs.js';
@@ -518,6 +519,43 @@ export function renderActor(
     actor,
     placeCharacter(actor.character, body, actor.x, actor.y, actor.scale, side, actor.opacity)
   );
+}
+
+/** Earth colours for the clods a `dig` throws up, dark and wet to dry and pale. */
+const SOIL = ['#4f3521', '#6b4a2e', '#8a6440', '#a98457'];
+
+/**
+ * The clods a `dig` throws up where the blade went in (`ActorState.soil`): a spray of lumps
+ * flung up and mostly back toward the digger, falling and settling on the floor, and a low
+ * puff of dust spreading and thinning. Each blow's spray is its own (hash01 of its salt).
+ */
+export function renderSoil(actor: ActorState): string {
+  if (!actor.soil || !actor.visible) return '';
+  let out = '';
+  for (const b of actor.soil) {
+    const u = b.age / SOIL_TIME;
+    const s = b.scale;
+    // The dust: a flat cloud low over the spot, swelling and fading.
+    const dr = (18 + 34 * easeOut(u)) * s;
+    const dop = 0.55 * (1 - u) * Math.min(1, u * 6);
+    out += `<ellipse cx='${n(b.x - b.side * 6 * s * u)}' cy='${n(b.y - 6 * s - 4 * s * u)}' rx='${n(dr)}' ry='${n(dr * 0.38)}' fill='#b99a72' opacity='${n(dop)}'/>`;
+    for (let i = 0; i < 14; i++) {
+      const h = (k: string) => hash01(`${b.salt}:clod:${i}:${k}`);
+      // Launched up and out, most of them back toward the digger; under gravity they come
+      // down onto the floor by the spot and lie there a moment before the next blow.
+      const vx = (h('vx') * 2 - 0.65) * -b.side * 150 * s;
+      const vy = -(170 + 230 * h('vy')) * s;
+      const g = 1100 * s;
+      const fly = Math.min(b.age, (-2 * vy) / g);
+      const x = b.x + vx * fly + (h('x0') - 0.5) * 14 * s;
+      const y = Math.min(b.y, b.y + vy * fly + 0.5 * g * fly * fly) - 2 * s;
+      const r = (3 + 4.5 * h('r')) * s;
+      const op = u < 0.75 ? 1 : 1 - (u - 0.75) / 0.25;
+      const col = SOIL[Math.floor(h('c') * SOIL.length)];
+      out += `<ellipse cx='${n(x)}' cy='${n(y)}' rx='${n(r * 1.15)}' ry='${n(r * 0.85)}' fill='${col}' stroke='#2e2218' stroke-width='${n(0.8 * s)}' opacity='${n(op)}'/>`;
+    }
+  }
+  return `<g class='soil'>${out}</g>`;
 }
 
 /** A carried prop swung by the hand that holds it (`ActorState.tilt`): turned about the grip. */

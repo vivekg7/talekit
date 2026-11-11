@@ -1,6 +1,7 @@
 import { clamp01, hash01 } from './easing.js';
 import { footfalls, gaitPhase } from './gait.js';
 import { rigOf } from './rigs.js';
+import { digHits } from './motion.js';
 import {
   actionDuration,
   attachTime,
@@ -288,6 +289,12 @@ function verbSounds(project: Project, shot: Shot, at0: number): Cue[] {
         a.actor,
         `${k}:land`
       );
+    }
+    // Each blow of a dig: the blade going into the earth.
+    if (a.do === 'dig') {
+      const d = actionDuration(a);
+      const size = Math.min(1.2, project.characters[a.actor].height / 250);
+      digHits(d).forEach((h, i) => push('land', a.t + h, 0.55 * size, a.actor, `${k}:dig:${i}`));
     }
     // A prop picked up or set down: a tap as it leaves or meets the floor.
     if ((a.do === 'pickup' || a.do === 'putdown') && a.attach !== undefined)

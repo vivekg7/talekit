@@ -136,6 +136,9 @@ export function characterSheetSvg(character: Character): string {
             return p;
           }),
           make('wipe', withVerb('wipe', 0.4)),
+          // A dig's stroke: the tool up over the shoulder, then bent over into the blow.
+          make('dig: lift', withVerb('dig', 0.34)),
+          { ...make('dig: blow', withVerb('dig', 0.58)), zoom: 0.8, shift: 30 },
           // On a seat as high as a shin, the dashed line, with the floor below it.
           { ...make('sit', withVerb('sit', 1, 'idle', 70)), lift: 70 },
           { ...make('sit: ground', withVerb('sit', 1)), shift: 55 },
@@ -610,6 +613,7 @@ export function constructionSheetSvg(character: Character): string {
   if (character.parts[rig.hold.part] && character.parts.eyes)
     parts += marker(...rig.hold.point, 'hold');
   if (character.grip) parts += marker(...character.grip, 'grip');
+  if (character.tip) parts += marker(...character.tip, 'tip');
   // What it keeps the rain off: a blue span with drops stopping on it.
   const shelters = character.shelter
     ? Array.isArray(character.shelter)

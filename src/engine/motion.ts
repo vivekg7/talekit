@@ -66,6 +66,12 @@ export interface Pose {
    * as drawn.
    */
   wield?: number;
+  /**
+   * How far what the near hand carries is brought down onto the floor in front, 0..1 (a
+   * `dig`): at 1 its working end (`Character.tip`) touches the floor, whatever the arm and
+   * the tool's length; the swing (`wield`) is solved for it where the prop is placed.
+   */
+  bite?: number;
 }
 
 export type Locomotion = 'idle' | 'walk' | 'run' | 'move' | 'fly';
@@ -121,6 +127,7 @@ export const VERB_DURATION: Partial<Record<Verb, number>> = {
   eat: 1.6,
   strike: 0.7,
   swim: 3,
+  dig: 2.5,
 };
 
 /**
@@ -454,6 +461,54 @@ function strikeBeats(u: number): { up: number; down: number } {
   }
   if (u < 0.75) return { up: 0, down: 1 };
   return { up: 0, down: 1 - easeInOut((u - 0.75) / 0.25) };
+}
+
+/** Seconds a stroke of a `dig` takes, about: a `dig` is as many whole strokes as fit. */
+export const DIG_STROKE = 1.25;
+/** A `dig` stroke: the share of it at which the blade bites the soil. */
+export const DIG_HIT = 0.5;
+
+/** How long a `dig`'s clods fly and settle after each blow, seconds. */
+export const SOIL_TIME = 0.75;
+
+/** How many strokes a `dig` of `span` seconds makes. */
+export function digStrokes(span: number): number {
+  return Math.max(1, Math.round(span / DIG_STROKE));
+}
+
+/** When each stroke of a `dig` of `span` seconds bites, in seconds from its start. */
+export function digHits(span: number): number[] {
+  const n = digStrokes(span);
+  return Array.from({ length: n }, (_, i) => ((i + DIG_HIT) * span) / n);
+}
+
+/**
+ * The beats of a `dig`, at u of a span of `span` seconds: `k` how far into the digging
+ * stance it is (eased in over the first stroke's wind-up, out over the last one's recovery),
+ * and within each stroke `up` the tool raised over the shoulder, `bite` its blade down in the
+ * soil (from the blow to the end of the pull) and `pull` the draw back through it toward
+ * the feet. The blow is fast; the pull and the lift are heavy.
+ */
+function digBeats(u: number, span: number): { k: number; up: number; bite: number; pull: number } {
+  const n = digStrokes(span);
+  const p = (u * n) % 1;
+  const first = u * n < 1;
+  const ramp = Math.min(0.4, 0.4 / n);
+  const k = settle(u, ramp, ramp);
+  const LIFT = 0.38;
+  if (p < LIFT) {
+    // Up out of the soil (where the last stroke left it) and over the shoulder.
+    const up = easeInOut(p / LIFT);
+    if (first) return { k, up, bite: 0, pull: 0 };
+    return { k, up, bite: 1 - easeInOut(Math.min(1, p / 0.14)), pull: 1 - up };
+  }
+  if (p < DIG_HIT) {
+    // The blow: fast, the blade arriving at the soil as the arm comes down.
+    const s = (p - LIFT) / (DIG_HIT - LIFT);
+    return { k, up: 1 - Math.pow(s, 1.7), bite: Math.pow(s, 3), pull: 0 };
+  }
+  // In the soil: drawn back toward the feet, then a beat before the next lift.
+  return { k, up: 0, bite: 1, pull: easeInOut(Math.min(1, (p - DIG_HIT) / 0.35)) };
 }
 
 /** Strokes a second of a `swim`: the quick churn of a paddle, not a stride. */
@@ -954,6 +1009,33 @@ export function applyVerb(
       } else {
         pose.rot.body = (pose.rot.body ?? 0) + 8 * up - 16 * down;
         pose.dx += 12 * down - 4 * up;
+      }
+      break;
+    }
+    case 'dig': {
+      // Digging with a hoe or spade: bent forward over the ground with the knees given, the
+      // near arm lifts the tool up over the shoulder, brings it down hard in front so the
+      // blade bites the soil, and draws it back toward the feet, the back bowing into the
+      // pull; again and again. What it bites with is solved where the prop is placed.
+      const { k, up, bite, pull } = digBeats(u, span);
+      if (humanoid) {
+        // Bent from the hips, the knees only given a little: more as the blow goes in and
+        // the pull comes back, straighter with the tool up.
+        const l = k * (0.55 - 0.25 * up + 0.2 * bite + 0.1 * pull);
+        pose.rot.torso = (pose.rot.torso ?? 0) + 38 * l;
+        pose.dy += 10 * l;
+        plantFeet(rig, pose, ['legL', 'legR']);
+        pose.rot.armR = (pose.rot.armR ?? 0) + k * (-28 - 132 * up + 18 * pull);
+        pose.bend.armR = (pose.bend.armR ?? 0) + k * (-18 - 30 * up - 22 * pull);
+        pose.rot.armL = (pose.rot.armL ?? 0) + k * (-34 - 70 * up + 12 * pull);
+        pose.bend.armL = (pose.bend.armL ?? 0) + k * (-30 - 30 * up);
+        // The head stays up off the chest, looking at the blade, as the back bends.
+        pose.rot.head = (pose.rot.head ?? 0) - 14 * l + k * (4 - 4 * up);
+        pose.wield = k * (-50 * up + 95 * (1 - up));
+        pose.bite = k * bite;
+      } else {
+        pose.rot.body = (pose.rot.body ?? 0) + k * (6 * up - 12 * bite);
+        pose.dx += k * (8 * bite - 3 * up);
       }
       break;
     }
