@@ -128,6 +128,7 @@ export const VERB_DURATION: Partial<Record<Verb, number>> = {
   strike: 0.7,
   swim: 3,
   dig: 2.5,
+  hold: 2,
 };
 
 /**
@@ -993,6 +994,16 @@ export function applyVerb(
         pose.rot.body = (pose.rot.body ?? 0) + k * (6 + 4 * Math.sin(turns));
         pose.dx += k * (6 + 4 * Math.cos(turns));
       }
+      break;
+    }
+    case 'hold': {
+      // The near hand out to `to` (else in front of the chest) and kept there: a hand on
+      // someone's shoulder to steady them as they walk, on a door, on a cart's side. It goes
+      // with whatever it rests on, so walk the two together.
+      const ease = Math.min(0.3, 0.35 / Math.max(span, 0.35));
+      const k = settle(u, ease, ease);
+      if (humanoid) reachTo(rig, pose, to ?? WIPE_AT, k);
+      else pose.dx += 4 * k;
       break;
     }
     case 'strike': {

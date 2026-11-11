@@ -628,6 +628,7 @@ export const VerbSchema = z.enum([
   'strike',
   'swim',
   'dig',
+  'hold',
 ]);
 export type Verb = z.infer<typeof VerbSchema>;
 
@@ -680,11 +681,11 @@ export const ActionSchema = z
     do: VerbSchema.optional(),
     /**
      * Target for walk/run/move/fly: an anchor name, a stage shortcut, or {x, y}. For a wipe,
-     * what is wiped: an actor in the cast or a spot. On a `say` with no `do`, the id of the
-     * actor being spoken to.
+     * what is wiped: an actor in the cast or a spot; for a hold, whom (or where) the hand
+     * rests on. On a `say` with no `do`, the id of the actor being spoken to.
      */
     to: PositionSchema.optional().describe(
-      'walk/run/move/fly/jump/sit/lie/putdown: where to (anchor, stage shortcut or {x, y}); a sit or lie there walks over first. wipe: what the hand goes round on, an actor in the cast (its middle) or a spot. On a say without do: the id of the actor spoken to, when the engine would guess wrong'
+      'walk/run/move/fly/jump/sit/lie/putdown: where to (anchor, stage shortcut or {x, y}); a sit or lie there walks over first. wipe: what the hand goes round on, an actor in the cast (its middle) or a spot. hold: what the hand rests on, an actor in the cast (its shoulder) or a spot. On a say without do: the id of the actor spoken to, when the engine would guess wrong'
     ),
     /** Dialogue shown in a bubble above the actor's head; also animates the mouth. */
     say: z

@@ -440,7 +440,7 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
     else if (
       a.to &&
       !listener &&
-      !(a.do === 'wipe' && typeof a.to === 'string' && shot.cast[a.to])
+      !((a.do === 'wipe' || a.do === 'hold') && typeof a.to === 'string' && shot.cast[a.to])
     ) {
       const err = positionOk(a.to);
       if (err) out.push({ level: 'error', where: w, message: err });
@@ -501,7 +501,9 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
     if (
       a.to &&
       a.do &&
-      !['walk', 'run', 'move', 'fly', 'jump', 'sit', 'lie', 'putdown', 'wipe'].includes(a.do)
+      !['walk', 'run', 'move', 'fly', 'jump', 'sit', 'lie', 'putdown', 'wipe', 'hold'].includes(
+        a.do
+      )
     )
       out.push({ level: 'warning', where: w, message: `'to' is ignored for '${a.do}'` });
     if (a.face && a.actor && shot.cast[a.actor] && project.characters[a.actor]) {

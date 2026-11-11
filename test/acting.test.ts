@@ -199,6 +199,48 @@ describe('carrying', () => {
     expect(at(left, 'hoe', 1.75).soil![0].x).toBeLessThan(280);
   });
 
+  it('holds someone by the shoulder, as they get up and as they walk', () => {
+    const p = project(
+      { kid: { at: { x: 300, y: 640 } }, grownup: { at: { x: 345, y: 640 }, facing: 'left' } },
+      [
+        { t: 1, actor: 'kid', do: 'hold', to: 'grownup', duration: 6 },
+        { t: 3, actor: 'kid', do: 'walk', to: { x: 500, y: 640 }, duration: 3 },
+        { t: 3, actor: 'grownup', do: 'walk', to: { x: 545, y: 640 }, duration: 3 },
+      ]
+    );
+    const hand = (t: number) => {
+      const kid = at(p, 'kid', t);
+      return holdPoint(kid, poseFor(kid, t));
+    };
+    const shoulder = (t: number) => {
+      const g = at(p, 'grownup', t);
+      return { x: g.x, y: g.y - g.character.height * g.scale * 0.62 };
+    };
+    for (const t of [2, 4.5]) {
+      const h = hand(t);
+      const s = shoulder(t);
+      expect(Math.hypot(h.x - s.x, h.y - s.y)).toBeLessThan(12);
+    }
+    // Not yet, and let go after.
+    expect(
+      Math.hypot(hand(0.5).x - shoulder(0.5).x, hand(0.5).y - shoulder(0.5).y)
+    ).toBeGreaterThan(30);
+    // Someone lying is held lower, at the chest, and followed up as they rise.
+    const lying = project(
+      { kid: { at: { x: 300, y: 640 } }, grownup: { at: { x: 420, y: 640 }, facing: 'right' } },
+      [
+        { t: 0, actor: 'grownup', do: 'lie', duration: 0.05 },
+        { t: 1, actor: 'kid', do: 'hold', to: 'grownup', duration: 4 },
+        { t: 2, actor: 'grownup', do: 'stand' },
+      ]
+    );
+    const handAt = (t: number) => {
+      const kid = at(lying, 'kid', t);
+      return holdPoint(kid, poseFor(kid, t));
+    };
+    expect(handAt(1.8).y).toBeGreaterThan(handAt(4.5).y + 40);
+  });
+
   it('draws the carried prop just in front of its carrier', () => {
     const p = project({ ...cast, lantern: { at: { x: 300, y: 700 } } }, [
       { t: 0, actor: 'lantern', attach: 'kid' },

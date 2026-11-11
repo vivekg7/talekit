@@ -786,6 +786,7 @@ falling the same way.
 | `strike`              | near arm up overhead, chops down forward, swinging what it holds (four legs: a butt)   | 0.7s                 |
 | `swim`                | paddles in place, legs churning under a still body, head up; pair with a `move`        | 3s                   |
 | `dig`                 | bent over, swings what it holds up and down into the floor in front, clods flying      | 2.5s (2 strokes)     |
+| `hold`                | near hand out to `to` (an actor's shoulder, or a spot) and kept there                  | 2s                   |
 
 Crossing the frame on foot takes 4–5 s. `duration` overrides any default,
 and every walk needs enough of it or the character sprints; the engine
@@ -844,6 +845,13 @@ is drawn just in front; its own moves are ignored.
 - **Dusting, polishing, scrubbing**: `{ "do": "wipe", "to": "vase" }`
   puts the near hand on the middle of the named actor (or on a spot) and
   rubs round in small circles; stand them as close as for a pickup.
+- **Steadying, supporting**: `{ "do": "hold", "to": "ghayal" }` puts the
+  near hand on the named actor's shoulder (or on a spot) and keeps it there
+  for the `duration`, following them: as they get up off the floor it
+  goes down to them and comes up with them. To walk a hurt man in, give
+  his helpers a `hold` on him each, one a step ahead on the far side and
+  one a step behind on the near side, and walk all three the same distance
+  in the same time.
 - **Digging**: `{ "do": "dig", "duration": 3.75 }` with a hoe or spade
   attached is as many strokes as fit (about 1.25 s each): bent forward
   from the hips, the tool lifted over the shoulder and brought down so its

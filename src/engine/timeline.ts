@@ -1,5 +1,5 @@
 import { clamp01, easeInOut, easeOut, hash01, lerp, ramp } from './easing.js';
-import { holdPoint, partToScene, poseFor, sceneToPart } from './actor.js';
+import { actorHeadTop, holdPoint, partToScene, poseFor, sceneToPart } from './actor.js';
 import type { Pt, Travel } from './gait.js';
 import {
   digHits,
@@ -818,8 +818,8 @@ export function resolveActor(
           const v: ActiveVerb = { verb, u: (t - a.t) / d, span: d };
           verbs.push(v);
           const to = a.to;
-          if (verb === 'wipe' && to && depth < MAX_DEPTH)
-            aims.push({ v, spot: () => wipeSpot(project, scene, shot, to, t, depth) });
+          if ((verb === 'wipe' || verb === 'hold') && to && depth < MAX_DEPTH)
+            aims.push({ v, spot: () => wipeSpot(project, scene, shot, to, t, depth, verb) });
         }
       }
     }
@@ -974,8 +974,12 @@ export function resolveActor(
   return state;
 }
 
+/** Where a `hold` rests on someone: this share of the way from their feet to the top of the head. */
+const HOLD_AT = 0.62;
+
 /**
- * What a `wipe` wipes, in the scene: the middle of an actor named in `to`, or the spot.
+ * What a `wipe` wipes or a `hold` rests on, in the scene: the middle of an actor named in
+ * `to` (for a hold, its shoulder), or the spot.
  */
 function wipeSpot(
   project: Project,
@@ -983,10 +987,17 @@ function wipeSpot(
   shot: Shot,
   to: Position,
   t: number,
-  depth: number
+  depth: number,
+  verb: Verb = 'wipe'
 ): { x: number; y: number } {
   if (typeof to === 'string' && shot.cast[to] && project.characters[to]) {
     const o = resolveActor(project, scene, shot, to, t, depth + 1);
+    if (verb === 'hold') {
+      // The shoulder, along the body as it is now: sitting up off the floor, getting to its
+      // feet, so a hand that holds someone helps them up.
+      const head = actorHeadTop(o, poseFor(o, t));
+      return { x: o.x + (head.x - o.x) * HOLD_AT, y: o.y + (head.y - o.y) * HOLD_AT };
+    }
     return { x: o.x, y: o.y - (o.character.height * o.scale) / 2 };
   }
   return resolvePosition(project, scene, to);
