@@ -20,7 +20,7 @@ import { applySprings } from './springs.js';
 import { bubbleSvg, wrapText, textWidth } from './bubble.js';
 import { needsShaping, shapedText } from './glyphs.js';
 import { clamp01, easeInOut } from './easing.js';
-import { cullOffFrame, parseTransform } from './cull.js';
+import { cullOffFrame, IDENTITY } from './cull.js';
 import { escapeXml, n } from './svg.js';
 import { defaultGround, isPortrait, safeInsets, uiScale } from './format.js';
 import { resolveFrame, type FrameState } from './timeline.js';
@@ -346,11 +346,8 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
   const k = uiScale(project.meta); // text is the same relative size at any resolution
   const c = frame.camera;
   const scene = frame.scene;
-  // Culled first: resvg panics on a layered shape far outside the frame (see cull.ts).
-  const layer = (cls: string, svg: string, p: number) => {
-    const t = layerTransform(c, W, H, p);
-    return `<g class='${cls}' transform='${t}'>${cullOffFrame(svg, parseTransform(t)!, W, H)}</g>`;
-  };
+  const layer = (cls: string, svg: string, p: number) =>
+    `<g class='${cls}' transform='${layerTransform(c, W, H, p)}'>${svg}</g>`;
 
   // Poses first: the shadows all go down before any actor, so one never lies across another.
   const posed = frame.actors.map((actor) => {
@@ -461,6 +458,9 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
     sky.light;
   if (sky.flash)
     picture = `<defs>${flashFilter('tk-flash', sky.flash, W, H)}</defs><g filter='url(#tk-flash)'>${picture}</g>`;
+  // Culled whole, every layer under its camera and inside whatever filters it: resvg panics
+  // on a canvas far outside the one it is drawn on (see cull.ts).
+  picture = cullOffFrame(picture, IDENTITY, W, H, FRAME_DEFS);
   return (
     `<rect width='${W}' height='${H}' fill='#000'/>` +
     picture +

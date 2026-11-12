@@ -14,7 +14,8 @@ reasoning are in `docs/PLAN.md`. Read both before changing the data model.
   light and shadow on every part), `cast.ts` (each actor's shadow thrown
   across the floor by the scene's lights), `timeline.ts` (actions →
   actor state at time t), `actor.ts` + `compose.ts` (state → SVG), `cull.ts`
-  (leaves out shapes far off the frame, which resvg would panic on),
+  (leaves out what resvg would panic on: shapes far off the frame, canvases
+  outside the bounds of the one they are drawn on),
   `outline.ts` (the engine-drawn outline under every part),
   `format.ts` (a film's frame or a portrait reel's: text scale, the safe
   area the reel apps leave), `sound.ts` (the cue sheet: what is heard when), `subtitles.ts` (subtitle

@@ -339,7 +339,18 @@ race) were the check before audio. The fixes they led to:
   outside it: a `near` layer at a close zoom, the stage past zoom 3, an
   actor parked far off-screen. Every camera layer now leaves out shapes more
   than a frame outside before drawing. No example pixel changed. Dissolves
-  fade with an alpha filter for the same reason.
+  fade with an alpha filter for the same reason. Later, blurred tree crowns
+  wider than the frame panicked from zoom 1.4: a canvas inside another is
+  bounded about the outer one's corner, not the frame's, and a blur's region
+  starts a frame or two left of the frame at a close camera, so a
+  see-through leaf just right of the frame was out of bounds. The whole
+  frame is now culled at once, through every layer and filter: a lone
+  shape's `opacity` moves into its `fill-opacity` or `stroke-opacity` where
+  that draws the same (no canvas, so no bounds, and fewer canvases to
+  allocate), and any canvas still outside its bounds, worked out as resvg
+  does, is left out. Groups with an `id` used to be kept whole, so swaying
+  crowns escaped culling; only an id something points at is kept whole now.
+  And a line was measured at the origin (`x1` did not read as a name).
 - **Fused heads.** A quadruped's neck carried its own line across the chest;
   its head's outline now goes down with the body's (`Rig.fuse`).
 - **Knees and elbows** (`Rig.bends`, `Pose.bend`). Legs stuck out stiff on a
