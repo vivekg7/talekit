@@ -200,6 +200,37 @@ export const CharacterSchema = z.object({
       "The working end of a tool, [x, y] in the character's own box (the edge of a hoe's blade, the point of a spade): what a `dig` brings down onto the floor. Default: the top of the box straight above the grip"
     ),
   /**
+   * A bow: the two ends of its string, in its own canonical coordinates, the top one first.
+   * The engine draws the string itself between them, straight, or pulled back to the
+   * archer's hand in an `aim`; the bow is turned to stand across the line of the aim.
+   */
+  bowstring: z
+    .tuple([z.tuple([z.number(), z.number()]), z.tuple([z.number(), z.number()])])
+    .optional()
+    .describe(
+      "Makes this prop a bow: the two ends of its string, [[x, y], [x, y]] in the box, the top one first, where the string is tied at the tips. Draw the bow without a string, the grip (`grip`) in the middle of the stave and the string side toward the left (the archer's side, facing right): the engine draws the string, pulls it back to the hand in an `aim` and turns the bow to stand across the line of the aim"
+    ),
+  /**
+   * A bow's nocking point: where the arrow sits on the string at rest, in its own canonical
+   * coordinates. Default: the point on the string level with the grip.
+   */
+  nock: z
+    .tuple([z.number(), z.number()])
+    .optional()
+    .describe(
+      "A bow only: where the arrow's end sits on the string at rest, [x, y] in the box. Default: the point on the string level with the grip, so the arrow lies across the hand"
+    ),
+  /**
+   * Where a shot at this character hits, in its own canonical coordinates: a bird's eye,
+   * the middle of a target. Default: the middle of the box.
+   */
+  mark: z
+    .tuple([z.number(), z.number()])
+    .optional()
+    .describe(
+      "Where an arrow aimed at this character hits it, [x, y] in the box: a bird's eye, the centre of a target's face. Default: the middle of the box. The arrow stays stuck there and goes wherever this character goes"
+    ),
+  /**
    * A soft ground shadow under the feet. Default: on for people and animals, off for the
    * simple rig (birds, kites, things that hang in the air); set true for a prop that sits.
    */
@@ -656,6 +687,8 @@ export const VerbSchema = z.enum([
   'swim',
   'dig',
   'hold',
+  'aim',
+  'shoot',
 ]);
 export type Verb = z.infer<typeof VerbSchema>;
 
@@ -702,17 +735,28 @@ export const ActionSchema = z
       .describe(
         "In place of t: start this many seconds after the line listed before it (the nearest earlier action with a say or caption) stops being spoken, 0.3 for a quick reply, 1 for a pause. The engine works out t from how long that line really takes, so the timing holds when the voices are made or a line is reworded; with no line before it, it counts from the start of the shot. Keep the actions in the order they happen. Any action can use it: a turn or an emotion just after someone's line"
       ),
-    /** Seconds. Each verb has a sensible default. */
-    duration: z.number().positive().optional(),
+    /** Seconds. Each verb has a sensible default; on a shoot, how long the arrow flies. */
+    duration: z
+      .number()
+      .positive()
+      .optional()
+      .describe(
+        'Seconds the action lasts; each verb has a default. On an aim, the whole aim: the draw, the hold and the lowering (a shoot ends it sooner). On a shoot, how long the arrow takes to get there (default: as fast as an arrow flies)'
+      ),
     actor: IdSchema.optional(),
     do: VerbSchema.optional(),
     /**
      * Target for walk/run/move/fly: an anchor name, a stage shortcut, or {x, y}. For a wipe,
      * what is wiped: an actor in the cast or a spot; for a hold, whom (or where) the hand
-     * rests on. On a `say` with no `do`, the id of the actor being spoken to.
+     * rests on; for an aim, what is aimed at; for a shoot, where the arrow goes. On a `say`
+     * with no `do`, the id of the actor being spoken to.
      */
     to: PositionSchema.optional().describe(
-      'walk/run/move/fly/jump/sit/lie/putdown: where to (anchor, stage shortcut or {x, y}); a sit or lie there walks over first. wipe: what the hand goes round on, an actor in the cast (its middle) or a spot. hold: what the hand rests on, an actor in the cast (its shoulder) or a spot. On a say without do: the id of the actor spoken to, when the engine would guess wrong'
+      'walk/run/move/fly/jump/sit/lie/putdown: where to (anchor, stage shortcut or {x, y}); a sit or lie there walks over first. wipe: what the hand goes round on, an actor in the cast (its middle) or a spot. hold: what the hand rests on, an actor in the cast (its shoulder) or a spot. aim: what the archer aims at, an actor in the cast (its `mark`), an anchor or a spot. shoot: where the arrow goes, if not where the aim was (a miss); on an arrow not on a bow, where it flies to. On a say without do: the id of the actor spoken to, when the engine would guess wrong'
+    ),
+    /** On an `aim`: the arrow (a cast actor) the engine puts on the string for it. */
+    arrow: IdSchema.optional().describe(
+      'aim only: the id of the arrow in the cast (a prop with `grip` at its nock and `tip` at its head, drawn pointing right). The engine puts it on the string as the aim begins, shows it drawn back with the string, and a `shoot` looses it; aimed and lowered without a shot, it stays on the bow, pointing down'
     ),
     /** Dialogue shown in a bubble above the actor's head; also animates the mouth. */
     say: z

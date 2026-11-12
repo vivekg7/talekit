@@ -656,6 +656,20 @@ export const SOUNDS: Record<string, SoundInfo> = {
     description: 'one sharp axe stroke into a dry log',
     duration: 0.25,
   },
+  'bow-twang': {
+    file: 'sfx/bow-twang.ogg',
+    kind: 'sfx',
+    description:
+      'a bow string loosed: a short twang, the arrow swishing away (a shoot from a bow plays it)',
+    duration: 0.4,
+  },
+  'arrow-thunk': {
+    file: 'sfx/arrow-thunk.ogg',
+    kind: 'sfx',
+    description:
+      'an arrow striking wood or a target: one solid thunk (a shoot plays it on the hit)',
+    duration: 0.61,
+  },
   hammer: {
     file: 'sfx/hammer.ogg',
     kind: 'sfx',

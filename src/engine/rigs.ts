@@ -36,6 +36,11 @@ export interface Rig {
   eye: [number, number];
   /** Where a carried prop is held (`attach`): a point drawn in `part`, so it moves with it. */
   hold: { part: string; point: [number, number] };
+  /**
+   * Where the far hand holds what is carried in it: a bow, in the bow hand, so the near
+   * hand is free to draw the string (see `aim`). Only a rig with two hands has one.
+   */
+  farHold?: { part: string; point: [number, number] };
   /** Width of the ground shadow, canonical units: about the span of the feet. */
   shadow: number;
   /**
@@ -144,6 +149,8 @@ export const HUMANOID: Rig = {
   eye: [122, 96],
   // The near hand, at the end of a hanging arm.
   hold: { part: 'armR', point: [129, 284] },
+  // The far hand, its mirror.
+  farHold: { part: 'armL', point: [71, 284] },
   shadow: 130,
   hem: 292,
   // The chin keeps its line against the chest: a person's head sits in front of the body.

@@ -1,7 +1,16 @@
 import { clamp01, easeInOut, easeOut, hash01, lerp, ramp } from './easing.js';
-import { actorHeadTop, holdPoint, partToScene, poseFor, sceneToPart } from './actor.js';
+import {
+  actorHeadTop,
+  bowFlex,
+  holdPoint,
+  partToScene,
+  poseFor,
+  sceneToPart,
+  sideOf,
+} from './actor.js';
 import type { Pt, Travel } from './gait.js';
 import {
+  AIM,
   digHits,
   JUMP,
   SOIL_TIME,
@@ -9,6 +18,7 @@ import {
   STOOP,
   VERB_DURATION,
   type Locomotion,
+  type Pose,
 } from './motion.js';
 import { defaultGround, stageSides } from './format.js';
 import { rigOf } from './rigs.js';
@@ -47,6 +57,10 @@ export interface ActiveVerb {
    * grip of a prop a `pickup` takes off a table (from the floor it stoops, without one).
    */
   to?: Pt;
+  /** An `aim`: seconds into it at which the arrow was loosed, if it was. */
+  loose?: number;
+  /** An `aim`, the first in the shot: the bow is taken from the near hand as it comes up. */
+  handOver?: boolean;
 }
 
 export interface Bubble {
@@ -92,6 +106,25 @@ export interface ActorState {
    * `dig`: where (on the floor), how long ago, at what size; drawn over the actor.
    */
   soil?: SoilBurst[];
+  /** An archer whose lowered bow still has this arrow on its string. */
+  nocked?: string;
+  /**
+   * Carried in its holder's far hand (a bow), or this far handed to it from the near one,
+   * 0..1: drawn just behind the holder, not in front (see compose.ts).
+   */
+  behind?: number;
+  /** Has begun an `aim` this shot: a bow it carries is in its far hand from then on. */
+  aimed?: boolean;
+  /** A bow: how far its limbs are bent back by the draw, 0..1. */
+  flex?: number;
+  /** A bow's string in the scene: tied at a and b, pulled to apex; its width in pixels. */
+  bowstring?: { a: XY; apex: XY; b: XY; width: number };
+  /** An arrow on the string of this archer's bow: drawn just in front of the bow. */
+  nockedOn?: string;
+  /** An arrow stuck in something: box units of it, from the head back, gone in. */
+  bury?: number;
+  /** An arrow in flight: the streak behind it, from its tail back, and its width. */
+  streak?: { x1: number; y1: number; x2: number; y2: number; w: number };
   /** Mid-turn after a facing change: the old facing and progress 0..1. */
   turn?: { from: Facing; u: number };
   /**
@@ -130,6 +163,8 @@ export interface ActorState {
   mouth?: boolean;
   phase: number;
 }
+
+type XY = { x: number; y: number };
 
 export interface CaptionState {
   text: string;
@@ -382,16 +417,36 @@ function heldPoint(
   holderId: string,
   t: number,
   depth: number
-): {
+): Held {
+  const holder = resolveActor(project, scene, shot, holderId, t, depth + 1);
+  return heldFrom(holder, poseFor(holder, t), prop, propScale);
+}
+
+/** Where a carried prop goes, as heldPoint, from its holder as it stands and is posed. */
+interface Held {
   point: Point;
   facing: Facing;
   turn?: ActorState['turn'];
   tilt?: ActorState['tilt'];
   tip: { x: number; y: number };
-} {
-  const holder = resolveActor(project, scene, shot, holderId, t, depth + 1);
-  const pose = poseFor(holder, t);
-  const hand = holdPoint(holder, pose);
+  holder: ActorState;
+  pose: Pose;
+  /** How far it has passed to the far hand (a bow), 0..1: drawn behind its holder. */
+  far: number;
+}
+
+function heldFrom(holder: ActorState, pose: Pose, prop: Character, propScale: number): Held {
+  // A bow is carried in the near hand like anything else, until an aim hands it to the far
+  // one, the bow hand, leaving the near hand to draw; it stays there after.
+  const far =
+    prop.bowstring && rigOf(holder.character).farHold
+      ? (pose.bow?.hand ?? (holder.aimed ? 1 : 0))
+      : 0;
+  let hand = holdPoint(holder, pose);
+  if (far > 0) {
+    const f = holdPoint(holder, pose, true);
+    hand = { x: lerp(hand.x, f.x, far), y: lerp(hand.y, f.y, far) };
+  }
   const rig = rigOf(prop);
   const [gx, gy] = prop.grip ?? [rig.width / 2, rig.height / 2];
   const k = (prop.height / rig.height) * propScale * holder.perspective;
@@ -412,6 +467,9 @@ function heldPoint(
     const w = (Math.asin(Math.max(-1, Math.min(1, drop / (r || 1)))) - a) * (180 / Math.PI);
     wield = (wield ?? 0) + (w - (wield ?? 0)) * Math.min(1, pose.bite);
   }
+  // A bow in an aim: turned to stand across the line of it.
+  if (prop.bowstring && pose.bow)
+    wield = (wield ?? 0) + pose.bow.turn * bowTurn(prop, pose.bow.deg);
   const rad = ((wield ?? 0) * Math.PI) / 180;
   return {
     point: {
@@ -427,6 +485,9 @@ function heldPoint(
       x: hand.x + side * (dx * Math.cos(rad) - dy * Math.sin(rad)),
       y: hand.y + dx * Math.sin(rad) + dy * Math.cos(rad),
     },
+    holder,
+    pose,
+    far,
   };
 }
 
@@ -551,6 +612,8 @@ export function resolveActor(
   /** Taken up mid-shot: how far it was from the hand that took it, when it did. */
   let lift: { at: number; dx: number; dy: number } | undefined;
   let takeAt = -Infinity;
+  /** An arrow left on the string of a bow lowered without a shot. */
+  let nocked: string | undefined;
   let move: Move | undefined;
   let locoStart = 0;
   let locomotion: Locomotion = 'idle';
@@ -812,6 +875,34 @@ export function resolveActor(
         opacity = verb === 'appear' ? clamp01(u * 3) : 1 - clamp01((u - 0.35) / 0.65);
         if (u < 1) verbs.push({ verb, u });
         else if (verb === 'disappear') visible = false;
+      } else if (verb === 'aim') {
+        // Drawing a bow at `to`, turned to face it; cut short by a shot, followed through.
+        // The first takes the bow into the far hand, where it stays.
+        const aimed = shot.actions.some(
+          (o) => o !== a && o.actor === a.actor && o.do === 'aim' && o.t < a.t
+        );
+        const d = aimSpan(shot, a);
+        const lo = looseOf(shot, a);
+        const to = a.to;
+        if (to && depth < MAX_DEPTH) {
+          const at = aimSpot(project, scene, shot, to, a.t, depth);
+          if (Math.abs(at.x - point.x) > 1) turnTo(at.x > point.x ? 'right' : 'left', a.t);
+        }
+        if (t < a.t + d) {
+          const v: ActiveVerb = {
+            verb,
+            u: (t - a.t) / d,
+            span: d,
+            loose: lo === undefined ? undefined : lo - a.t,
+            handOver: !aimed,
+          };
+          verbs.push(v);
+          if (to && depth < MAX_DEPTH)
+            aims.push({ v, spot: () => aimSpot(project, scene, shot, to, t, depth) });
+          nocked = undefined;
+        } else nocked = lo === undefined ? a.arrow : undefined;
+      } else if (verb === 'shoot') {
+        // The aim it looses does it all.
       } else {
         const d = actionDuration(a);
         if (t < a.t + d) {
@@ -888,8 +979,10 @@ export function resolveActor(
   const heldBy = holder && depth < MAX_DEPTH ? holder : undefined;
   let tilt: ActorState['tilt'];
   let soil: SoilBurst[] | undefined;
+  let bowHeld: Held | undefined;
   if (heldBy) {
     const held = heldPoint(project, scene, shot, character, scale, heldBy, t, depth);
+    bowHeld = held;
     point = held.point;
     if (lift && t < lift.at + LIFT_TIME) {
       const k = 1 - easeInOut((t - lift.at) / LIFT_TIME);
@@ -947,6 +1040,9 @@ export function resolveActor(
     heldBy,
     tilt,
     soil,
+    nocked: nocked && bowOf(project, shot, id, t) ? nocked : undefined,
+    aimed: shot.actions.some((a) => a.actor === id && a.do === 'aim' && a.t <= t) || undefined,
+    behind: bowHeld?.far || undefined,
     holding,
     look: 0,
     take: t - takeAt < TAKE_TIME ? { u: (t - takeAt) / TAKE_TIME, emotion } : undefined,
@@ -971,6 +1067,16 @@ export function resolveActor(
   }
   // Looks are worked out for the actors on screen, not for the ones resolved to find them.
   if (depth === 0 && !heldBy) state.look = lookPitch(project, scene, shot, state, t, depth);
+  if (character.bowstring) {
+    const bow = bowHeld?.pose.bow;
+    if (bow?.draw) state.flex = bow.draw;
+    state.bowstring = bowstringOf(state, t, bowHeld);
+  }
+  // An arrow on a bow, in flight or stuck in something: archery puts it there.
+  if (!heldBy) {
+    const arrow = arrowAt(project, scene, shot, id, t, depth);
+    if (arrow) Object.assign(state, arrow, { turn: undefined, travel: undefined, view: 0 });
+  }
   return state;
 }
 
@@ -1210,7 +1316,14 @@ export function resolveFrame(project: Project, shot: Shot, t: number): FrameStat
   // and someone standing on another actor just after them (so before what they carry).
   const depthY = (a: ActorState, hops = 0): number => {
     const h = a.heldBy && actors.find((o) => o.id === a.heldBy);
-    if (h && hops < MAX_DEPTH) return depthY(h, hops + 1) + 0.01;
+    if (h && hops < MAX_DEPTH) return depthY(h, hops + 1) + (a.behind ? -0.01 : 0.01);
+    // An arrow on the string: over the bow, which is over its archer, or behind him in his
+    // far hand (and drawn over him too as it comes up, see compose.ts).
+    const archer = a.nockedOn && actors.find((o) => o.id === a.nockedOn);
+    if (archer && hops < MAX_DEPTH) {
+      const behind = actors.some((o) => o.heldBy === archer.id && o.behind && o.bowstring);
+      return depthY(archer, hops + 1) + (behind ? -0.005 : 0.02);
+    }
     const under = a.on && actors.find((o) => o.id === a.on);
     if (under && hops < MAX_DEPTH) return depthY(under, hops + 1) + 0.005;
     return a.y;
@@ -1248,4 +1361,466 @@ export function locateTime(
 
 export function movieDuration(project: Project): number {
   return project.shots.reduce((s, sh) => s + sh.duration, 0);
+}
+
+// ---------------------------------------------------------------------------------------
+// Archery: a bow drawn in an `aim`, the arrow on its string, loosed with a `shoot`.
+
+/** Scene pixels a second an arrow flies, unless a shoot's `duration` says how long it takes. */
+export const ARROW_SPEED = 2400;
+/** The least time a flight takes, so even a close shot is seen leaving. */
+const ARROW_MIN = 0.12;
+/** The share of an arrow, from the head back, that goes into what it hits. */
+const ARROW_BURY = 0.14;
+/** Seconds an arrow that has just gone in shivers, and how far either way (degrees). */
+const QUIVER = { time: 0.6, deg: 4.5, hz: 14, decay: 0.15 };
+/** Seconds an arrow put on the string takes to fade in. */
+const NOCK_FADE = 0.15;
+
+/** A shot as the engine works it out: whose arrow, loosed when, from whose aim, at what. */
+export interface Release {
+  arrow: string;
+  t: number;
+  /** The archer whose aim it was on the string of, if it was. */
+  archer?: string;
+  aim?: Action;
+  to?: Position;
+  duration?: number;
+}
+
+const RELEASES = new WeakMap<Shot, Release[]>();
+
+/** An aim in progress at t by `actor`, by its own (declared) length. */
+function aimAt(shot: Shot, actor: string, t: number): Action | undefined {
+  let found: Action | undefined;
+  for (const a of shot.actions)
+    if (a.actor === actor && a.do === 'aim' && a.t <= t && t <= a.t + actionDuration(a)) found = a;
+  return found;
+}
+
+/** An aim in progress at t with `arrow` on its string. */
+function aimWith(shot: Shot, arrow: string, t: number): Action | undefined {
+  let found: Action | undefined;
+  for (const a of shot.actions)
+    if (a.do === 'aim' && a.arrow === arrow && a.t <= t && t <= a.t + actionDuration(a)) found = a;
+  return found;
+}
+
+/**
+ * Every arrow loosed in the shot: a `shoot` on an archer looses the arrow of the aim it is
+ * in; one on an arrow looses it from the bow it is on, or sends it from where it is.
+ */
+export function releases(shot: Shot): Release[] {
+  const known = RELEASES.get(shot);
+  if (known) return known;
+  const out: Release[] = [];
+  for (const s of shot.actions) {
+    if (s.do !== 'shoot' || !s.actor) continue;
+    const own = aimAt(shot, s.actor, s.t);
+    if (own) {
+      if (own.arrow)
+        out.push({
+          arrow: own.arrow,
+          t: s.t,
+          archer: s.actor,
+          aim: own,
+          to: s.to ?? own.to,
+          duration: s.duration,
+        });
+      continue;
+    }
+    const on = aimWith(shot, s.actor, s.t);
+    const to = s.to ?? on?.to;
+    if (to)
+      out.push({ arrow: s.actor, t: s.t, archer: on?.actor, aim: on, to, duration: s.duration });
+  }
+  out.sort((a, b) => a.t - b.t);
+  RELEASES.set(shot, out);
+  return out;
+}
+
+/** When the arrow on an aim's string was loosed, if it was. */
+export function looseOf(shot: Shot, aim: Action): number | undefined {
+  return releases(shot).find((r) => r.aim === aim)?.t;
+}
+
+/** How long an aim lasts: as long as it says, or until a shot has been followed through and the bow lowered. */
+export function aimSpan(shot: Shot, aim: Action): number {
+  const lo = looseOf(shot, aim);
+  return lo === undefined ? actionDuration(aim) : lo - aim.t + AIM.follow + AIM.lower;
+}
+
+/** Where on a character an arrow hits: its `mark`, else the middle of its box. */
+function markPoint(o: ActorState, t: number): XY {
+  const rig = rigOf(o.character);
+  return partToScene(o, poseFor(o, t), o.character.mark ?? [rig.width / 2, rig.height / 2]);
+}
+
+/** What an aim or a shot is at, in the scene: an actor's mark, an anchor or a spot. */
+function aimSpot(
+  project: Project,
+  scene: Scene,
+  shot: Shot,
+  to: Position,
+  t: number,
+  depth: number
+): XY {
+  if (typeof to === 'string' && shot.cast[to] && project.characters[to])
+    return markPoint(resolveActor(project, scene, shot, to, t, depth + 1), t);
+  return resolvePosition(project, scene, to);
+}
+
+/** The bow `archer` holds at t: a carried prop with a `bowstring`. */
+export function bowOf(project: Project, shot: Shot, archer: string, t: number): string | undefined {
+  return Object.keys(shot.cast).find(
+    (id) => project.characters[id]?.bowstring && holderAt(shot, id, t) === archer
+  );
+}
+
+/** How far a bow drawn as it is must turn (degrees, clockwise facing right) to stand across a line `deg` above level. */
+function bowTurn(bow: Character, deg: number): number {
+  const [[ax, ay], [bx, by]] = bow.bowstring!;
+  const rad = (deg * Math.PI) / 180;
+  // Across the line, the way the string runs: down and forward for a line going up.
+  const dir = by >= ay ? 1 : -1;
+  const want = Math.atan2(dir * Math.cos(rad), dir * Math.sin(rad));
+  const has = Math.atan2(by - ay, bx - ax);
+  const w = ((want - has) * 180) / Math.PI;
+  return ((((w + 180) % 360) + 360) % 360) - 180;
+}
+
+/** A bow in the scene as it is held: its grip, the string's ends, where it is nocked at rest and where it is pulled to. */
+interface BowAt {
+  grip: XY;
+  a: XY;
+  b: XY;
+  nock: XY;
+  apex: XY;
+  /** Scene pixels per unit of the bow's box. */
+  k: number;
+}
+
+/** Where a point of an upright actor's box is in the scene, placed at (x, y), turned by tilt. */
+function boxPoint(
+  c: Character,
+  at: XY,
+  scale: number,
+  side: number,
+  tilt: ActorState['tilt'],
+  [bx, by]: [number, number]
+): XY {
+  const rig = rigOf(c);
+  const k = (c.height / rig.height) * scale;
+  return turnBy(tilt, {
+    x: at.x + k * side * (bx - rig.width / 2),
+    y: at.y + k * (by - rig.height),
+  });
+}
+
+/** A point of a carried prop turned as its holder's hand turns it (`ActorState.tilt`). */
+function turnBy(tilt: ActorState['tilt'], p: XY): XY {
+  if (!tilt) return p;
+  const r = (tilt.deg * Math.PI) / 180;
+  const dx = p.x - tilt.x;
+  const dy = p.y - tilt.y;
+  return {
+    x: tilt.x + dx * Math.cos(r) - dy * Math.sin(r),
+    y: tilt.y + dx * Math.sin(r) + dy * Math.cos(r),
+  };
+}
+
+/** A bow held by `held.holder`, posed: its string, pulled to the near hand by the draw. */
+function bowAt(bow: Character, scale: number, held: Held): BowAt {
+  const { holder, pose } = held;
+  const side = sideOf({ facing: held.facing, turn: held.turn, character: bow });
+  const flex = bowFlex(bow, pose.bow?.draw ?? 0).map;
+  const at = (p: [number, number]) => boxPoint(bow, held.point, scale, side, held.tilt, flex(p));
+  const rig = rigOf(bow);
+  const g = bow.grip ?? [rig.width / 2, rig.height / 2];
+  const [e1, e2] = bow.bowstring!;
+  const u = Math.abs(e2[1] - e1[1]) > 1e-6 ? (g[1] - e1[1]) / (e2[1] - e1[1]) : 0.5;
+  const n0: [number, number] = bow.nock ?? [
+    e1[0] + (e2[0] - e1[0]) * u,
+    e1[1] + (e2[1] - e1[1]) * u,
+  ];
+  const nock = at(n0);
+  const grip = at(g);
+  let apex = nock;
+  const draw = pose.bow?.draw ?? 0;
+  if (draw > 0 && rigOf(holder.character).name === 'humanoid') {
+    const hand = holdPoint(holder, pose);
+    apex = { x: lerp(nock.x, hand.x, draw), y: lerp(nock.y, hand.y, draw) };
+  }
+  // Let go, the string snaps straight and shivers about where it rests.
+  const tw = pose.bow?.twang;
+  if (tw !== undefined && tw < 0.25) {
+    const len = Math.hypot(grip.x - nock.x, grip.y - nock.y) || 1;
+    const amp = 0.5 * len * Math.exp(-tw / 0.05) * Math.sin(2 * Math.PI * 22 * tw);
+    apex = {
+      x: nock.x + ((grip.x - nock.x) / len) * amp,
+      y: nock.y + ((grip.y - nock.y) / len) * amp,
+    };
+  }
+  return { grip, a: at(e1), b: at(e2), nock, apex, k: (bow.height / rig.height) * scale };
+}
+
+/** Where an arrow goes so its nock (`grip`) is at `g` and it points along `dir`. */
+function placeArrow(
+  arrow: Character,
+  scale: number,
+  g: XY,
+  dir: XY
+): { x: number; y: number; facing: Facing; tilt: ActorState['tilt'] } {
+  const rig = rigOf(arrow);
+  const [gx, gy] = arrow.grip ?? [rig.width / 2, rig.height / 2];
+  const [tx, ty] = arrow.tip ?? [rig.width, gy];
+  const facing: Facing = dir.x < 0 ? 'left' : 'right';
+  const side = facing === 'left' ? -1 : 1;
+  const k = (arrow.height / rig.height) * scale;
+  const has = Math.atan2(k * (ty - gy), side * k * (tx - gx));
+  const want = Math.atan2(dir.y, dir.x);
+  let deg = ((want - has) * 180) / Math.PI;
+  deg = ((((deg + 180) % 360) + 360) % 360) - 180;
+  return {
+    x: g.x - k * side * (gx - rig.width / 2),
+    y: g.y - k * (gy - rig.height),
+    facing,
+    tilt: { deg, x: g.x, y: g.y },
+  };
+}
+
+/** How long an arrow is in the scene, nock to head, at this scale. */
+function arrowLength(arrow: Character, scale: number): number {
+  const rig = rigOf(arrow);
+  const [gx, gy] = arrow.grip ?? [rig.width / 2, rig.height / 2];
+  const [tx, ty] = arrow.tip ?? [rig.width, gy];
+  return Math.hypot(tx - gx, ty - gy) * (arrow.height / rig.height) * scale;
+}
+
+const unit = (v: XY): XY => {
+  const l = Math.hypot(v.x, v.y) || 1;
+  return { x: v.x / l, y: v.y / l };
+};
+
+/** An arrow on the string of `archer`'s bow at t: its nock at the string, pointing past the grip. */
+function onTheString(
+  project: Project,
+  scene: Scene,
+  shot: Shot,
+  archer: string,
+  t: number,
+  depth: number
+): { g: XY; dir: XY; perspective: number } | undefined {
+  const bowId = bowOf(project, shot, archer, t);
+  if (!bowId) return undefined;
+  const bow = project.characters[bowId];
+  const holder = resolveActor(project, scene, shot, archer, t, depth + 1);
+  const held = heldFrom(holder, poseFor(holder, t), bow, shot.cast[bowId].scale);
+  const b = bowAt(bow, shot.cast[bowId].scale * holder.perspective, held);
+  return {
+    g: b.apex,
+    dir: unit({ x: b.grip.x - b.apex.x, y: b.grip.y - b.apex.y }),
+    perspective: holder.perspective,
+  };
+}
+
+/** One arrow's flight: from where it was loosed to where it went in, and what it hit. */
+export interface Flight {
+  release: Release;
+  /** Its nock where it was loosed and where it ends up, and the way it flies. */
+  from: XY;
+  end: XY;
+  dir: XY;
+  /** Where its head goes in: the mark or spot it was shot at, as it was when it got there. */
+  hit: XY;
+  /** When it went in, shot seconds. */
+  at: number;
+  scale: number;
+  /** The actor it went into, if it hit one. */
+  target?: string;
+}
+
+/** How an arrow loosed in `release` flies. */
+export function flightOf(
+  project: Project,
+  scene: Scene,
+  shot: Shot,
+  release: Release,
+  depth: number
+): Flight | undefined {
+  const arrow = project.characters[release.arrow];
+  const cast = shot.cast[release.arrow];
+  if (!arrow || !cast || !release.to) return undefined;
+  const before = Math.max(0, release.t - 1e-4);
+  let from: XY;
+  let scale: number;
+  const nocked = release.archer
+    ? onTheString(project, scene, shot, release.archer, before, depth)
+    : undefined;
+  if (nocked) {
+    from = nocked.g;
+    scale = cast.scale * nocked.perspective;
+  } else {
+    // Sent from where it lies.
+    const st = resolveActor(project, scene, shot, release.arrow, before, depth + 1);
+    from = gripAt(arrow, st, st.scale, st.facing);
+    scale = st.scale;
+  }
+  const to = release.to;
+  const first = aimSpot(project, scene, shot, to, release.t, depth);
+  const time =
+    release.duration ??
+    Math.max(ARROW_MIN, Math.hypot(first.x - from.x, first.y - from.y) / ARROW_SPEED);
+  const at = release.t + time;
+  // A target on the move is hit where it has got to.
+  const hit = aimSpot(project, scene, shot, to, at, depth);
+  const dir = unit({ x: hit.x - from.x, y: hit.y - from.y });
+  const len = arrowLength(arrow, scale);
+  const inside = ARROW_BURY * len;
+  const end = { x: hit.x + dir.x * (inside - len), y: hit.y + dir.y * (inside - len) };
+  const target = typeof to === 'string' && shot.cast[to] && project.characters[to] ? to : undefined;
+  return { release, from, end, dir, hit, at, scale, target };
+}
+
+/**
+ * Where an arrow is at t, when archery has it: on the string of a bow in an aim (or left on a
+ * lowered one), in flight, or stuck in what it hit and going where that goes. Nothing when
+ * something since (an attach, a set, a move of its own) has taken it.
+ */
+function arrowAt(
+  project: Project,
+  scene: Scene,
+  shot: Shot,
+  id: string,
+  t: number,
+  depth: number
+): Partial<ActorState> | undefined {
+  if (depth >= MAX_DEPTH) return undefined;
+  const arrow = project.characters[id];
+  const cast = shot.cast[id];
+  let since = -Infinity;
+  for (const a of shot.actions)
+    if (
+      a.actor === id &&
+      (a.attach !== undefined || a.set?.at || (a.do && isMoveVerb(a.do))) &&
+      attachTime(a) <= t
+    )
+      since = Math.max(since, attachTime(a));
+  const nock = shot.actions
+    .filter((a) => a.do === 'aim' && a.arrow === id && a.actor && a.t <= t)
+    .sort((a, b) => a.t - b.t)
+    .at(-1);
+  const shotOff = releases(shot)
+    .filter((r) => r.arrow === id && r.t <= t)
+    .at(-1);
+  if (shotOff && shotOff.t >= (nock?.t ?? -Infinity) && shotOff.t >= since) {
+    const f = flightOf(project, scene, shot, shotOff, depth);
+    if (!f) return undefined;
+    const len = arrowLength(arrow, f.scale);
+    if (t < f.at) {
+      // In flight, head first, a streak behind it.
+      const e = (t - f.release.t) / (f.at - f.release.t);
+      const g = { x: lerp(f.from.x, f.end.x, e), y: lerp(f.from.y, f.end.y, e) };
+      const back = Math.min(1.4 * len, Math.hypot(g.x - f.from.x, g.y - f.from.y));
+      return {
+        ...placeArrow(arrow, f.scale, g, f.dir),
+        scale: f.scale,
+        perspective: f.scale / cast.scale,
+        visible: true,
+        opacity: 1,
+        locomotion: 'move',
+        streak:
+          back > 1
+            ? {
+                x1: g.x,
+                y1: g.y,
+                x2: g.x - f.dir.x * back,
+                y2: g.y - f.dir.y * back,
+                w: Math.max(1.5, 0.05 * len),
+              }
+            : undefined,
+      };
+    }
+    // Stuck in it: in a spot of the scene, or in an actor, going where it goes.
+    let hit = f.hit;
+    let g = f.end;
+    let scale = f.scale;
+    let visible = true;
+    if (f.target) {
+      const then = resolveActor(project, scene, shot, f.target, f.at, depth + 1);
+      const now = resolveActor(project, scene, shot, f.target, t, depth + 1);
+      const p0 = poseFor(then, f.at);
+      const p1 = poseFor(now, t);
+      hit = partToScene(now, p1, sceneToPart(then, p0, f.hit));
+      g = partToScene(now, p1, sceneToPart(then, p0, f.end));
+      const was = Math.hypot(f.hit.x - f.end.x, f.hit.y - f.end.y) || 1;
+      scale = (f.scale * Math.hypot(hit.x - g.x, hit.y - g.y)) / was;
+      visible = now.visible;
+    }
+    let dir = unit({ x: hit.x - g.x, y: hit.y - g.y });
+    // The shiver as it goes in, about where it went in.
+    const age = t - f.at;
+    if (age < QUIVER.time) {
+      const q =
+        (QUIVER.deg *
+          Math.exp(-age / QUIVER.decay) *
+          Math.sin(2 * Math.PI * QUIVER.hz * age) *
+          Math.PI) /
+        180;
+      const rot = (v: XY): XY => ({
+        x: v.x * Math.cos(q) - v.y * Math.sin(q),
+        y: v.x * Math.sin(q) + v.y * Math.cos(q),
+      });
+      const r = rot({ x: g.x - hit.x, y: g.y - hit.y });
+      g = { x: hit.x + r.x, y: hit.y + r.y };
+      dir = rot(dir);
+    }
+    const rig = rigOf(arrow);
+    const [gx, gy] = arrow.grip ?? [rig.width / 2, rig.height / 2];
+    const [tx, ty] = arrow.tip ?? [rig.width, gy];
+    return {
+      ...placeArrow(arrow, scale, g, dir),
+      scale,
+      perspective: scale / cast.scale,
+      visible,
+      opacity: 1,
+      locomotion: 'idle',
+      bury: ARROW_BURY * Math.hypot(tx - gx, ty - gy),
+      on: f.target,
+    };
+  }
+  if (!nock || nock.t < since) return undefined;
+  const archer = nock.actor!;
+  // On the string: while the aim lasts, and after it on a lowered bow, while the archer
+  // still holds one.
+  const on = onTheString(project, scene, shot, archer, t, depth);
+  if (!on) return undefined;
+  const scale = cast.scale * on.perspective;
+  return {
+    ...placeArrow(arrow, scale, on.g, on.dir),
+    scale,
+    perspective: on.perspective,
+    visible: true,
+    opacity: clamp01((t - nock.t) / NOCK_FADE),
+    locomotion: 'idle',
+    nockedOn: archer,
+  };
+}
+
+/** A bow's string, as the bow is drawn now: held (and pulled) or lying where it is. */
+function bowstringOf(state: ActorState, t: number, held?: Held): ActorState['bowstring'] {
+  const bow = state.character;
+  const rig = rigOf(bow);
+  const k = (bow.height / rig.height) * state.scale;
+  if (held) {
+    const b = bowAt(bow, state.scale, held);
+    return { a: b.a, apex: b.apex, b: b.b, width: Math.max(0.8, 1.5 * k) };
+  }
+  const pose = poseFor(state, t);
+  // Lying where it is, it moves as its main part does.
+  const at = (p: [number, number]) => turnBy(state.tilt, partToScene(state, pose, p));
+  const [e1, e2] = bow.bowstring!;
+  const a = at(e1);
+  const b = at(e2);
+  return { a, apex: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, b, width: Math.max(0.8, 1.5 * k) };
 }

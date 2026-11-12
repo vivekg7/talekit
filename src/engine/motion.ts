@@ -1,6 +1,6 @@
-import { clamp01, easeInOut, hash01, TAU } from './easing.js';
+import { clamp01, easeInOut, easeOut, hash01, TAU } from './easing.js';
 import { parentTurn, plantFeet, raiseFoot, stride, toRoot, type Pt, type Travel } from './gait.js';
-import { QUADRUPED, type Rig } from './rigs.js';
+import { HUMANOID, QUADRUPED, type Rig } from './rigs.js';
 import type { Emotion, Verb } from './types.js';
 
 /** Everything the composer needs to draw one actor at one instant. */
@@ -72,6 +72,15 @@ export interface Pose {
    * the tool's length; the swing (`wield`) is solved for it where the prop is placed.
    */
   bite?: number;
+  /**
+   * Drawing a bow (`aim`), for the bow and arrow the hands hold: `deg` the line of the aim,
+   * degrees above level toward the facing; `turn` how far the bow is turned from as drawn to
+   * stand across that line, 0..1; `draw` how far the string is pulled back to the near hand,
+   * 0..1; `twang` seconds since the string was loosed, while it still shivers; `raise` how
+   * far the bow is up from the archer's side, 0..1; `hand` how far it has been handed from
+   * the near hand, which carries it, to the far one, which holds it to shoot, 0..1.
+   */
+  bow?: { deg: number; turn: number; draw: number; twang?: number; raise: number; hand: number };
 }
 
 export type Locomotion = 'idle' | 'walk' | 'run' | 'move' | 'fly';
@@ -129,6 +138,7 @@ export const VERB_DURATION: Partial<Record<Verb, number>> = {
   swim: 3,
   dig: 2.5,
   hold: 2,
+  aim: 3,
 };
 
 /**
@@ -512,6 +522,239 @@ function digBeats(u: number, span: number): { k: number; up: number; bite: numbe
   return { k, up: 0, bite: 1, pull: easeInOut(Math.min(1, (p - DIG_HIT) / 0.35)) };
 }
 
+/**
+ * The timing of an `aim`, seconds: the bow comes up and the string is drawn over `draw`; a
+ * shot is followed through for `follow` before the bow comes down, which takes `lower`.
+ */
+export const AIM = { draw: 0.6, follow: 0.45, lower: 0.5 };
+
+/** How an arrow at rest on a lowered bow points: this many degrees below level. */
+export const NOCKED_DOWN = -25;
+
+/**
+ * Where the drawing hand comes to on the face, in the head's frame as drawn (a person facing
+ * right): the near jaw, under the cheekbone, behind the mouth the turn slides forward.
+ */
+export const ANCHOR: Pt = [94, 141];
+/** The far hand, at the end of the far arm hanging straight: the bow hand (`Rig.farHold`). */
+export const FAR_HAND: Pt = HUMANOID.farHold!.point;
+/**
+ * How far the near shoulder comes back and up as the string is drawn (box units): the
+ * shoulder blade pulled in behind the draw, so the folded arm's elbow goes back past the
+ * head instead of dropping under the chin.
+ */
+const DRAW_SHOULDER: Pt = [-34, -10];
+/**
+ * How far the far shoulder comes forward and up behind the bow (box units): side-on, it
+ * lies behind the near one, and pushing the bow out it puts the bow hand clear of the face.
+ */
+const BOW_SHOULDER: Pt = [14, -4];
+/**
+ * The hand-over of a carried bow as an aim begins, seconds in: the near hand, carrying it,
+ * brings it out in front to meet the far hand coming up, where that is at `meet`; it
+ * passes to the far hand from `pass`, over `passing`, both hands on it; the near hand
+ * leaves it from `leave` and is on the string `toString` later.
+ */
+const HAND_OVER = { meet: 0.26, pass: 0.21, passing: 0.08, leave: 0.28, toString: 0.14 };
+/** Box units from the bow hand back to the string at rest, about: where the draw starts. */
+const BRACE = 30;
+/** How far the drawing hand flicks back past the anchor as it lets go (box units). */
+const FLICK = 16;
+
+/**
+ * The beats of an `aim` at `e` seconds into one of `span` seconds, loosed `loose` seconds in
+ * (if it is): `raise` the bow arm up to the line and the drawing arm up to the string,
+ * `pull` the string back from rest to the cheek, `flick` the hand thrown back as it lets
+ * go, `down` the bow coming down at the end.
+ */
+export function aimBeats(
+  e: number,
+  span: number,
+  loose?: number
+): { raise: number; pull: number; flick: number; down: number } {
+  const down = easeInOut(clamp01((e - (span - AIM.lower)) / AIM.lower));
+  let raise = easeInOut(clamp01(e / (0.75 * AIM.draw)));
+  let pull = easeInOut(clamp01((e - 0.3 * AIM.draw) / (0.7 * AIM.draw)));
+  let flick = 0;
+  if (loose !== undefined && e >= loose) {
+    pull = 0;
+    flick = easeOut(clamp01((e - loose) / 0.1));
+  } else pull *= 1 - easeInOut(clamp01((e - (span - AIM.lower)) / (0.5 * AIM.lower)));
+  raise *= 1 - down;
+  return { raise, pull, flick, down };
+}
+
+/**
+ * Put the hand at the end of `arm` on `target` (box units in the root frame, before the
+ * body offset): the upper arm swings from the shoulder and the forearm folds at the elbow,
+ * the elbow below the line from shoulder to hand (`up` false) or above it. Out of reach
+ * the hand gets as near as it can, the arm straight. Mixed in by `k`, the short way round
+ * from where the arm is, or (`forward`) swung up in front of the body; the elbow's bend by
+ * `fold`, if that is to go at its own pace.
+ */
+function armTo(
+  rig: Rig,
+  pose: Pose,
+  arm: string,
+  hand: Pt,
+  target: Pt,
+  up: boolean,
+  k: number,
+  forward = false,
+  fold = k
+) {
+  const part = rig.parts[arm];
+  const elbow = rig.bends[arm];
+  if (!part || !elbow || k <= 0) return;
+  const upper = Math.hypot(elbow[0] - part.pivot[0], elbow[1] - part.pivot[1]);
+  const fore = Math.hypot(hand[0] - elbow[0], hand[1] - elbow[1]);
+  const [sx, sy] = toRoot(rig, pose, arm, part.pivot);
+  const gx = target[0] - sx;
+  const gy = target[1] - sy;
+  const d = Math.min(
+    Math.max(Math.hypot(gx, gy), Math.abs(upper - fore) + 1),
+    0.999 * (upper + fore)
+  );
+  const side = up ? -1 : 1;
+  const spread = Math.acos(clampCos((upper ** 2 + d ** 2 - fore ** 2) / (2 * upper * d)));
+  const folded =
+    Math.PI - Math.acos(clampCos((upper ** 2 + fore ** 2 - d ** 2) / (2 * upper * fore)));
+  const ua = Math.atan2(gy, gx) + side * spread;
+  const fa = ua - side * folded;
+  const swing = (ua - Math.atan2(elbow[1] - part.pivot[1], elbow[0] - part.pivot[0])) * DEG;
+  const forearm = (fa - Math.atan2(hand[1] - elbow[1], hand[0] - elbow[0])) * DEG;
+  const wrap = (deg: number) => ((((deg + 180) % 360) + 360) % 360) - 180;
+  const rot = wrap(swing - parentTurn(rig, pose, arm));
+  const bend = wrap(forearm - swing);
+  // Mixed from the arm as it is, the short way round; or `forward`, swung up in front of
+  // the body rather than back behind it, however far round that is.
+  const from = pose.rot[arm] ?? 0;
+  let turn = wrap(rot - from);
+  if (forward && turn > 90) turn -= 360;
+  pose.rot[arm] = from + turn * k;
+  pose.bend[arm] = mix(pose.bend[arm] ?? 0, bend, fold);
+}
+
+const clampCos = (c: number) => Math.max(-1, Math.min(1, c));
+
+/**
+ * Drawing a bow at `to` (box units with the body offset), a right-handed archer seen from
+ * his right: standing side-on and upright, the feet set apart, the head tipped up along the
+ * line; the far arm (the bow hand, `Rig.farHold`) straight out from the far shoulder to put
+ * the bow on the line, out from behind the chest; the near arm folded with the elbow up and
+ * back behind the head, its hand on the string at the near jaw (the arrow's nock), on that
+ * line too. `e` seconds into an aim of `span`, loosed `loose` seconds in. With `handOver`,
+ * the bow is still in the near hand, as it is carried: both hands come to it as it comes up,
+ * the far one takes it, and the near one goes back to the string.
+ */
+function aimPose(
+  rig: Rig,
+  pose: Pose,
+  to: Pt,
+  e: number,
+  span: number,
+  loose?: number,
+  handOver = false
+): void {
+  const { raise, pull, flick, down } = aimBeats(e, span, loose);
+  const k = raise;
+  if (rig.name !== 'humanoid') {
+    // No arms: lean toward it a little.
+    pose.rot.body = (pose.rot.body ?? 0) - 8 * k;
+    return;
+  }
+  // The line of the aim, worked out again as the head tips up along it.
+  let deg = 0;
+  const arm = rig.parts.armL;
+  const reach =
+    Math.hypot(rig.bends.armL[0] - arm.pivot[0], rig.bends.armL[1] - arm.pivot[1]) +
+    Math.hypot(FAR_HAND[0] - rig.bends.armL[0], FAR_HAND[1] - rig.bends.armL[1]);
+  const torso0 = pose.rot.torso ?? 0;
+  const head0 = pose.rot.head ?? 0;
+  const yaw0 = pose.yaw;
+  let anchor: Pt = [0, 0];
+  for (let i = 0; i < 4; i++) {
+    const lift = Math.max(-25, Math.min(65, deg));
+    // Up, the body leans back from the hips and the head tips back further; down, it is
+    // more the body that bends over, so the face stays clear of the string.
+    pose.rot.torso = mix(torso0, -(lift > 0 ? 0.3 : 0.45) * lift, k);
+    pose.rot.head = mix(head0, -(lift > 0 ? 0.62 : 0.3) * lift, k);
+    pose.yaw = mix(yaw0, 1.45, k);
+    anchor = toRoot(rig, pose, 'head', ANCHOR);
+    const gx = to[0] - pose.dx - anchor[0];
+    const gy = to[1] - pose.dy - anchor[1];
+    deg = Math.max(-30, Math.min(70, (-Math.atan2(gy, Math.max(1, gx)) * 180) / Math.PI));
+  }
+  const rad = (deg * Math.PI) / 180;
+  const u: Pt = [Math.cos(rad), -Math.sin(rad)];
+  // Feet set apart and planted, the near foot forward.
+  pose.rot.legR = mix(pose.rot.legR ?? 0, -6, k);
+  pose.rot.legL = mix(pose.rot.legL ?? 0, 6, k);
+  pose.bend.legR = mix(pose.bend.legR ?? 0, 0, k);
+  pose.bend.legL = mix(pose.bend.legL ?? 0, 0, k);
+  plantFeet(rig, pose, ['legL', 'legR']);
+  // The bow hand: on the line from the anchor, an arm's length (just short of straight)
+  // from the far shoulder.
+  const [fx, fy] = pose.off.armL ?? [0, 0];
+  pose.off.armL = [fx + BOW_SHOULDER[0] * k, fy + BOW_SHOULDER[1] * k];
+  const [sx, sy] = toRoot(rig, pose, 'armL', arm.pivot);
+  const ax = anchor[0] - sx;
+  const ay = anchor[1] - sy;
+  const b = u[0] * ax + u[1] * ay;
+  const c = ax * ax + ay * ay - (0.985 * reach) ** 2;
+  const s = -b + Math.sqrt(Math.max(0, b * b - c));
+  const bowHand: Pt = [anchor[0] + s * u[0], anchor[1] + s * u[1]];
+  const farFrom = { rot: pose.rot.armL, bend: pose.bend.armL };
+  armTo(rig, pose, 'armL', FAR_HAND, bowHand, false, k);
+  // The drawing hand: on the string by the bow, pulled back to the anchor; let go, thrown
+  // back a little past it and open. The near shoulder comes back for the draw.
+  const [ox, oy] = pose.off.armR ?? [0, 0];
+  pose.off.armR = [ox + DRAW_SHOULDER[0] * k, oy + DRAW_SHOULDER[1] * k];
+  const rest: Pt = [bowHand[0] - BRACE * u[0], bowHand[1] - BRACE * u[1]];
+  let hand: Pt = [mix(rest[0], anchor[0], pull), mix(rest[1], anchor[1], pull)];
+  if (flick > 0)
+    hand = [anchor[0] - FLICK * flick * u[0], anchor[1] - FLICK * flick * u[1] - 4 * flick];
+  // Handed over: the near hand, carrying the bow, goes with the far one as it comes up,
+  // passes the bow to it, and only then leaves it for the string.
+  let kNear = k;
+  let onString = 1;
+  let held = 1;
+  if (handOver && down === 0) {
+    // Where they meet: the far hand as it will be then, out in front of the chest, clear of
+    // the body and the face; once there, the far hand itself, going on up with the bow.
+    const ghost: Pose = { ...pose, rot: { ...pose.rot }, bend: { ...pose.bend } };
+    ghost.rot.armL = farFrom.rot ?? 0;
+    ghost.bend.armL = farFrom.bend ?? 0;
+    armTo(rig, ghost, 'armL', FAR_HAND, bowHand, false, aimBeats(HAND_OVER.meet, span).raise);
+    const meet = toRoot(rig, ghost, 'armL', FAR_HAND);
+    const far = toRoot(rig, pose, 'armL', FAR_HAND);
+    const there = easeInOut(clamp01((e - HAND_OVER.pass) / HAND_OVER.passing));
+    const grip: Pt = [mix(meet[0], far[0], there), mix(meet[1], far[1], there)];
+    onString = easeInOut(clamp01((e - HAND_OVER.leave) / HAND_OVER.toString));
+    hand = [mix(grip[0], hand[0], onString), mix(grip[1], hand[1], onString)];
+    kNear = easeInOut(clamp01(e / HAND_OVER.meet));
+    held = easeInOut(clamp01((e - HAND_OVER.pass) / HAND_OVER.passing));
+  }
+  // The elbow always on the side of the line from shoulder to hand that puts it up and
+  // back once the hand is at the face, so it never flips over as the hand comes back; the
+  // arm comes up in front to the string, not round behind, and goes down the short way.
+  // Coming down, the elbow drops first, the arm still folded, so the hand goes down by the
+  // neck and not across the face; then it straightens.
+  const fold = down > 0 ? Math.min(1, 2 * kNear) : kNear;
+  armTo(rig, pose, 'armR', rig.hold.point, hand, true, kNear, down === 0, fold);
+  const loosed = loose !== undefined && e >= loose;
+  pose.bow = {
+    // Lowered with the arrow still on the string, it comes to point at the floor in front.
+    deg: loosed ? deg : mix(deg, NOCKED_DOWN, down),
+    // Turned as it comes up; lowered unloosed, it stays turned to point down.
+    turn: loosed || down === 0 ? raise : 1,
+    draw: pull * k * onString,
+    twang: loosed ? e - loose! : undefined,
+    raise,
+    hand: handOver && down === 0 ? held : 1,
+  };
+}
+
 /** Strokes a second of a `swim`: the quick churn of a paddle, not a stride. */
 const SWIM_HZ = 2.2;
 
@@ -854,7 +1097,9 @@ export function reachTo(rig: Rig, pose: Pose, to: Pt, k: number): void {
 /**
  * Layer a timed verb over the base pose. `u` is progress 0..1 through the action; for
  * `sit` it is how far down the actor is, so sitting and standing can ease, and `seat` is
- * how far below the hips the floor is (canonical units; 0 sits on the ground).
+ * how far below the hips the floor is (canonical units; 0 sits on the ground). An `aim` is
+ * `span` seconds long, loosed `loose` seconds in, and with `handOver` takes the bow from the
+ * near hand that carries it.
  */
 export function applyVerb(
   rig: Rig,
@@ -863,7 +1108,9 @@ export function applyVerb(
   u: number,
   seat = 0,
   to?: Pt,
-  span = 1
+  span = 1,
+  loose?: number,
+  handOver = false
 ): void {
   const humanoid = rig.name === 'humanoid';
   u = clamp01(u);
@@ -1006,6 +1253,10 @@ export function applyVerb(
       else pose.dx += 4 * k;
       break;
     }
+    case 'aim':
+      // Drawing a bow at `to`, else straight ahead, level.
+      aimPose(rig, pose, to ?? [600, 132], u * span, span, loose, handOver);
+      break;
     case 'strike': {
       // A blow: the near arm winds up over the head, the elbow bent, the body leaning back;
       // then chops forward and down, straightening, the body following through. What the

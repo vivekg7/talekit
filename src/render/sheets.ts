@@ -1,9 +1,14 @@
 import {
   beatWings,
+  bowFlex,
   castsShadow,
   characterBody,
   keepOffFloor,
+  onNearArm,
   placeCharacter,
+  poseFor,
+  renderActor,
+  renderArchery,
   SHADOW_DEFS,
   shadowSvg,
 } from '../engine/actor.js';
@@ -24,8 +29,11 @@ import {
 } from '../engine/motion.js';
 import { rigOf } from '../engine/rigs.js';
 import { escapeXml, n } from '../engine/svg.js';
-import { STAGE_SHORTCUTS, resolvePosition } from '../engine/timeline.js';
+import { STAGE_SHORTCUTS, resolveFrame, resolvePosition } from '../engine/timeline.js';
 import {
+  CharacterSchema,
+  ProjectMetaSchema,
+  SceneSchema,
   ShotSchema,
   type Character,
   type Emotion,
@@ -46,6 +54,148 @@ interface Cell {
   shift?: number;
   /** Drawn smaller, for a pose wider than the cell (a person lying down). */
   zoom?: number;
+  /** Drawn with the character, in its box: a bow and arrow in the hands, a bow's string. */
+  extra?: string;
+  /** Drawn behind the character, in its box: a bow in the far hand. */
+  under?: string;
+  /** The near arm drawn again over `extra`: the hand on a bow's string, over the arrow. */
+  nearOver?: boolean;
+  /** A bow drawn with its limbs bent back this far (`bowFlex`), its string pulled. */
+  flex?: number;
+}
+
+/** A bow with its string drawn into its main part, straight from tip to tip, for a sheet. */
+function withString(bow: Character): Character {
+  const [[ax, ay], [bx, by]] = bow.bowstring!;
+  const d = `M${ax} ${ay} L${bx} ${by}`;
+  const line = `<path d='${d}' stroke='#f4ead2' stroke-width='2.2'/>`;
+  const part = bow.parts.body;
+  const body =
+    typeof part === 'string'
+      ? part + line
+      : Object.fromEntries(Object.entries(part).map(([k, v]) => [k, v + line]));
+  return { ...bow, parts: { ...bow.parts, body } };
+}
+
+/** A plain bow and arrow for the pose sheet's archery cells, sized to the archer. */
+function sheetArchery(archer: Character): { bow: Character; arrow: Character } {
+  const bow = CharacterSchema.parse({
+    id: 'sheet-bow',
+    name: 'bow',
+    rig: 'simple',
+    height: Math.round(archer.height * 0.66),
+    grip: [110, 100],
+    bowstring: [
+      [80, 10],
+      [80, 190],
+    ],
+    colors: { line: '#3a2a1a' },
+    parts: {
+      body:
+        `<path d='M80 10 Q86 4 92 6 Q118 50 116 100 Q118 150 92 194 Q86 196 80 190 Q108 150 106 100 Q108 50 80 10 Z' fill='#b9803c'/>` +
+        `<rect x='104' y='88' width='14' height='24' rx='3' fill='#b3262b'/>`,
+    },
+  });
+  const arrow = CharacterSchema.parse({
+    id: 'sheet-arrow',
+    name: 'arrow',
+    rig: 'simple',
+    height: Math.round(archer.height * 0.38),
+    grip: [6, 180],
+    tip: [198, 180],
+    colors: { line: '#3a2a1a' },
+    parts: {
+      body:
+        `<path d='M8 177 L176 178 L176 182 L8 183 Z' fill='#d2ad6c'/>` +
+        `<path d='M10 179 L22 166 L44 177 L44 183 L22 194 L10 181 Z' fill='#f6f1e6'/>` +
+        `<path d='M172 172 L198 180 L172 188 L177 180 Z' fill='#6b7078'/>`,
+    },
+  });
+  return { bow, arrow };
+}
+
+/**
+ * An archer's cells, drawn by the engine itself: the bow held up at full draw (level, and
+ * up at a bird), and the moment after the arrow is loosed, from a little shot of their own.
+ */
+function archeryCells(character: Character): Cell[] {
+  const { bow, arrow } = sheetArchery(character);
+  const rig = rigOf(character);
+  const s = character.height / rig.height;
+  const at = { x: 500, y: 1000 };
+  const eye = at.y - character.height * 0.72;
+  const shotOf = (up: number) =>
+    ShotSchema.parse({
+      id: 'sheet',
+      scene: 'sheet',
+      duration: 10,
+      cast: {
+        [character.id]: { at },
+        'sheet-bow': { at },
+        'sheet-arrow': { at, visible: false },
+      },
+      actions: [
+        { t: 0, actor: 'sheet-bow', attach: character.id },
+        {
+          t: 0,
+          actor: character.id,
+          do: 'aim',
+          to: { x: at.x + 2000, y: eye - 2000 * Math.tan((up * Math.PI) / 180) },
+          arrow: 'sheet-arrow',
+          duration: 8,
+        },
+        { t: 2, actor: character.id, do: 'shoot' },
+      ],
+    });
+  const project = (shot: Shot): Project => ({
+    meta: ProjectMetaSchema.parse({ title: 'sheet', width: 1000, height: 1000 }),
+    characters: { [character.id]: character, 'sheet-bow': bow, 'sheet-arrow': arrow },
+    scenes: { sheet: SceneSchema.parse({ id: 'sheet', name: 'sheet', svg: '' }) },
+    shots: [shot],
+  });
+  const cell = (label: string, up: number, t: number): Cell => {
+    const p = project(shotOf(up));
+    const frame = resolveFrame(p, p.shots[0], t);
+    const who = frame.actors.find((a) => a.id === character.id)!;
+    // As the frame draws them: the bow in the far hand behind the archer; its string and the
+    // arrow over him, under his near arm (see compose.ts).
+    let under = '';
+    let over = '';
+    for (const a of frame.actors) {
+      if (a.id === character.id) continue;
+      if (a.behind) under += renderActor(a, t);
+      if (a.behind) over += renderArchery(a);
+      else over += renderActor(a, t) + renderArchery(a);
+    }
+    // From the little shot's scene into the archer's box, kept inside the cell.
+    const id = `tk-sheet-${label.replace(/\W/g, '')}`;
+    const place = (svg: string, key: string) =>
+      `<defs><clipPath id='${id}-${key}'><rect x='${rig.width / 2 - 82}' y='-120' width='214' height='540'/></clipPath></defs>` +
+      `<g clip-path='url(#${id}-${key})'><g transform='translate(${rig.width / 2} ${rig.height}) scale(${n(1 / s)}) translate(${-at.x} ${-at.y})'>${svg}</g></g>`;
+    return {
+      label,
+      pose: poseFor(who, t),
+      under: place(under, 'under'),
+      extra: place(over, 'over'),
+      nearOver: true,
+      shift: 25,
+    };
+  };
+  return [cell('aim', 8, 1.2), cell('aim: up 35°', 35, 1.2), cell('shoot: loosed', 8, 2.012)];
+}
+
+/** A bow's own cells: its string, straight, and the bow drawn with the string pulled back. */
+function bowCells(character: Character, base: () => Pose): Cell[] {
+  const [[ax, ay], [bx, by]] = character.bowstring!;
+  const line = character.colors.line ?? '#2a2320';
+  const path = (d: string) =>
+    `<path d='${d}' fill='none' stroke='${line}' stroke-width='5' stroke-linejoin='round'/><path d='${d}' fill='none' stroke='#f4ead2' stroke-width='2.2' stroke-linejoin='round'/>`;
+  const flex = bowFlex(character, 1);
+  const [fa, fb] = [flex.map([ax, ay]), flex.map([bx, by])];
+  // Pulled back about as far as an archer's arm takes it from the grip.
+  const [gx, gy] = character.grip ?? [100, 100];
+  const pulled = path(`M${n(fa[0])} ${n(fa[1])} L${n(gx - 150)} ${n(gy)} L${n(fb[0])} ${n(fb[1])}`);
+  return [{ label: 'drawn (in an aim)', pose: base(), extra: pulled, shift: -40, flex: 1 }];
 }
 
 /** Every pose the engine can put a character in, so the agent sees the whole range at once. */
@@ -66,6 +216,12 @@ export function characterSheetSvg(character: Character): string {
     return { label, pose };
   };
   const base = (loco: Parameters<typeof basePose>[1], t: number) => basePose(rig, loco, t, 0);
+  // A pose worked out by the timeline keeps its own face; the sheet's is the neutral one.
+  const faced = (pose: Pose): Pose => {
+    keepOffFloor(rig, pose, 'tail');
+    pose.face = face('neutral', false, pose.back);
+    return pose;
+  };
   const withVerb =
     (
       verb: Parameters<typeof applyVerb>[2],
@@ -139,13 +295,18 @@ export function characterSheetSvg(character: Character): string {
           // A dig's stroke: the tool up over the shoulder, then bent over into the blow.
           make('dig: lift', withVerb('dig', 0.34)),
           { ...make('dig: blow', withVerb('dig', 0.58)), zoom: 0.8, shift: 30 },
+          // Drawing a bow, held at full draw, and just loosed.
+          ...archeryCells(character).map((c) => ({ ...c, pose: faced(c.pose) })),
           // On a seat as high as a shin, the dashed line, with the floor below it.
           { ...make('sit', withVerb('sit', 1, 'idle', 70)), lift: 70 },
           { ...make('sit: ground', withVerb('sit', 1)), shift: 55 },
         ]
       : quad
         ? [make('sit', withVerb('sit', 1))]
-        : [make('bounce', withVerb('bounce', 0.25))]),
+        : [
+            make('bounce', withVerb('bounce', 0.25)),
+            ...(character.bowstring ? bowCells(character, () => base('idle', 0)) : []),
+          ]),
     // Lying is layered on sitting on the ground, as the timeline does it.
     {
       ...make('lie', () => {
@@ -219,7 +380,17 @@ export function characterSheetSvg(character: Character): string {
     out += `<line x1='${cx + 20}' y1='${feetY}' x2='${cx + cellW - 20}' y2='${feetY}' stroke='#bbb' stroke-dasharray='4 4'/>`;
     if (cell.lift)
       out += `<line x1='${cx + 20}' y1='${feetY + cell.lift}' x2='${cx + cellW - 20}' y2='${feetY + cell.lift}' stroke='#bbb'/>`;
-    const body = characterBody(character, cell.pose);
+    // A bow's string, which the engine draws: straight, drawn into the bow's own part so it
+    // moves with it, unless the cell pulls it back.
+    const strung = character.bowstring && !cell.extra ? withString(character) : character;
+    const near = (part: string) => onNearArm(rig, part);
+    let body = cell.nearOver
+      ? characterBody(strung, cell.pose, undefined, 1, (part) => !near(part))
+      : characterBody(strung, cell.pose);
+    if (cell.flex) body = `<g transform='${bowFlex(character, cell.flex).tf}'>${body}</g>`;
+    if (cell.under) body = cell.under + body;
+    if (cell.extra) body += cell.extra;
+    if (cell.nearOver) body += characterBody(strung, cell.pose, undefined, 1, near);
     const x = cx + cellW / 2 - (cell.shift ?? 0);
     const scale = (rig.height / character.height) * (cell.zoom ?? 1);
     if (shadow) out += shadowSvg(character, cell.pose, x, feetY, scale, 1);
@@ -623,6 +794,16 @@ export function constructionSheetSvg(character: Character): string {
     parts += marker(...rig.hold.point, 'hold');
   if (character.grip) parts += marker(...character.grip, 'grip');
   if (character.tip) parts += marker(...character.tip, 'tip');
+  if (character.mark) parts += marker(...character.mark, 'mark');
+  // A bow's string, from tip to tip, and where the arrow sits on it.
+  if (character.bowstring) {
+    const [[ax, ay], [bx, by]] = character.bowstring;
+    parts += `<path d='M${ax} ${ay} L${bx} ${by}' stroke='#0a7' stroke-width='${1.5 / scale}' stroke-dasharray='${5 / scale} ${3 / scale}'/>`;
+    parts += marker(ax, ay, 'string') + marker(bx, by, 'string');
+    const [gx, gy] = character.grip ?? [rig.width / 2, rig.height / 2];
+    const u = by !== ay ? (gy - ay) / (by - ay) : 0.5;
+    parts += marker(...(character.nock ?? [ax + (bx - ax) * u, ay + (by - ay) * u]), 'nock');
+  }
   // What it keeps the rain off: a blue span with drops stopping on it.
   const shelters = character.shelter
     ? Array.isArray(character.shelter)

@@ -5,10 +5,12 @@ import { swayBox, swayMissing } from '../engine/sway.js';
 import { RIGS, rigOf } from '../engine/rigs.js';
 import { holdPoint, poseFor } from '../engine/actor.js';
 import {
+  actionDuration,
   attachTime,
   gripAt,
   holderAt,
   movieDuration,
+  releases,
   resolveActor,
   resolvePosition,
   STAGE_SHORTCUTS,
@@ -19,6 +21,7 @@ import { lineEnd, spokenText, voiceLines, voiceSpec } from '../engine/voice.js';
 import { needsShaping } from '../engine/glyphs.js';
 import { VOICES } from '../library/voices.js';
 import type {
+  Action,
   Character,
   Effect,
   Music,
@@ -472,7 +475,11 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
     else if (
       a.to &&
       !listener &&
-      !((a.do === 'wipe' || a.do === 'hold') && typeof a.to === 'string' && shot.cast[a.to])
+      !(
+        (a.do === 'wipe' || a.do === 'hold' || a.do === 'aim' || a.do === 'shoot') &&
+        typeof a.to === 'string' &&
+        shot.cast[a.to]
+      )
     ) {
       const err = positionOk(a.to);
       if (err) out.push({ level: 'error', where: w, message: err });
@@ -533,11 +540,23 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
     if (
       a.to &&
       a.do &&
-      !['walk', 'run', 'move', 'fly', 'jump', 'sit', 'lie', 'putdown', 'wipe', 'hold'].includes(
-        a.do
-      )
+      ![
+        'walk',
+        'run',
+        'move',
+        'fly',
+        'jump',
+        'sit',
+        'lie',
+        'putdown',
+        'wipe',
+        'hold',
+        'aim',
+        'shoot',
+      ].includes(a.do)
     )
       out.push({ level: 'warning', where: w, message: `'to' is ignored for '${a.do}'` });
+    out.push(...archery(shot, project, a, w));
     if (a.face && a.actor && shot.cast[a.actor] && project.characters[a.actor]) {
       const parts = project.characters[a.actor].parts;
       for (const [part, variant] of Object.entries(a.face)) {
@@ -579,6 +598,53 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
   out.push(...stepsOff(shot, project));
   if (shot.actions.length === 0 && Object.keys(shot.cast).length === 0)
     out.push({ level: 'warning', where, message: 'empty shot: no cast and no actions' });
+  return out;
+}
+
+/**
+ * An aim needs a bow in the hand and something to aim at; its arrow must be in the cast. A
+ * shoot needs an aim to loose, or (on an arrow off any bow) somewhere to fly to.
+ */
+function archery(shot: Shot, project: Project, a: Action, w: string): Problem[] {
+  const out: Problem[] = [];
+  const err = (message: string) => out.push({ level: 'error', where: w, message });
+  const warn = (message: string) => out.push({ level: 'warning', where: w, message });
+  if (a.arrow !== undefined && a.do !== 'aim') warn(`'arrow' is only read on an aim`);
+  if (!a.actor || !shot.cast[a.actor]) return out;
+  if (a.do === 'aim') {
+    if (!a.to) err(`aim needs 'to': what '${a.actor}' aims at (an actor, an anchor or a spot)`);
+    else if (a.to === a.actor) err(`'${a.actor}' cannot aim at itself`);
+    const bow = Object.keys(shot.cast).find(
+      (id) => project.characters[id]?.bowstring && holderAt(shot, id, a.t) === a.actor
+    );
+    if (!bow)
+      warn(
+        `'${a.actor}' holds no bow when the aim begins: attach a prop with a 'bowstring' to them first`
+      );
+    if (project.characters[a.actor]?.rig !== 'humanoid')
+      warn(`aim draws a bow with a person's arms; '${a.actor}' only leans`);
+    if (a.arrow === undefined) warn(`aim has no 'arrow': the string is drawn with nothing on it`);
+    else if (!shot.cast[a.arrow]) err(`arrow: '${a.arrow}' is not in the cast`);
+    else if (a.arrow === bow || a.arrow === a.actor)
+      err(`arrow: '${a.arrow}' is the bow or the archer, not an arrow`);
+    else if (shot.actions.some((b) => b.actor === a.arrow && b.attach && b.t <= a.t))
+      warn(`arrow: '${a.arrow}' is carried; let go of it before it goes on the string`);
+  }
+  if (a.do === 'shoot') {
+    const mine = releases(shot).find(
+      (r) => r.t === a.t && (r.archer === a.actor || r.arrow === a.actor)
+    );
+    if (!mine) {
+      const aiming = shot.actions.some(
+        (b) => b.actor === a.actor && b.do === 'aim' && b.t <= a.t && a.t <= b.t + actionDuration(b)
+      );
+      err(
+        aiming
+          ? `shoot: the aim '${a.actor}' is in has no 'arrow' to loose`
+          : `shoot needs an aim in progress on '${a.actor}' (or, on an arrow off any bow, a 'to')`
+      );
+    }
+  }
   return out;
 }
 

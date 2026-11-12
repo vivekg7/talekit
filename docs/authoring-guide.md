@@ -799,27 +799,29 @@ falling the same way.
 
 ### Verbs (`do`)
 
-| verb                  | what happens                                                                           | duration default     |
-| --------------------- | -------------------------------------------------------------------------------------- | -------------------- |
-| `walk` / `run`        | planted-foot cycle to `to`, easing in and out (four legs: gallop)                      | distance ÷ 220 / 420 |
-| `move`                | glide to `to` without a cycle (sliding, floating objects)                              | distance ÷ 300       |
-| `fly`                 | move with a wobble, beating any `flaps` (birds, kites); `to` may be in the sky         | distance ÷ 260       |
-| `jump`                | crouch, leap (in place, or to `to`), land with a give                                  | 0.8s                 |
-| `wave`, `point`       | near arm (or front paw) up and waving / pointing (simple rig: lean toward)             | 1.5s                 |
-| `nod`, `shake`        | head yes / no                                                                          | 0.8s                 |
-| `tremble`             | frightened shiver (head and shoulders, or the whole simple body)                       | 1.2s                 |
-| `sit` / `stand`       | persistent: seat on `to` (a seat anchor), knees bent; four legs sit down               | 0.4s ease            |
-| `lie`                 | persistent: sits, then lies back on the floor (four legs: on the belly)                | 1.3s ease            |
-| `bounce`, `spin`      | squashy hop / full rotation (best on the simple rig)                                   | 1s / 0.8s            |
-| `appear`, `disappear` | pop in past full size and settle / swell a touch and shrink away                       | 0.4s                 |
-| `pickup`, `putdown`   | on a prop, with `attach`: its carrier stoops or reaches for it (below)                 | 1.2s                 |
-| `wipe`                | near hand out to `to` (an actor or a spot), going round on it: dusting                 | 2.4s                 |
-| `kick`                | near leg draws back, snaps out forward and up (lying: up off the bed; four legs: buck) | 0.9s                 |
-| `eat`                 | near hand and what it holds to the mouth, chewing (four legs: head down; simple: peck) | 1.6s                 |
-| `strike`              | near arm up overhead, chops down forward, swinging what it holds (four legs: a butt)   | 0.7s                 |
-| `swim`                | paddles in place, legs churning under a still body, head up; pair with a `move`        | 3s                   |
-| `dig`                 | bent over, swings what it holds up and down into the floor in front, clods flying      | 2.5s (2 strokes)     |
-| `hold`                | near hand out to `to` (an actor's shoulder, or a spot) and kept there                  | 2s                   |
+| verb                  | what happens                                                                           | duration default        |
+| --------------------- | -------------------------------------------------------------------------------------- | ----------------------- |
+| `walk` / `run`        | planted-foot cycle to `to`, easing in and out (four legs: gallop)                      | distance ÷ 220 / 420    |
+| `move`                | glide to `to` without a cycle (sliding, floating objects)                              | distance ÷ 300          |
+| `fly`                 | move with a wobble, beating any `flaps` (birds, kites); `to` may be in the sky         | distance ÷ 260          |
+| `jump`                | crouch, leap (in place, or to `to`), land with a give                                  | 0.8s                    |
+| `wave`, `point`       | near arm (or front paw) up and waving / pointing (simple rig: lean toward)             | 1.5s                    |
+| `nod`, `shake`        | head yes / no                                                                          | 0.8s                    |
+| `tremble`             | frightened shiver (head and shoulders, or the whole simple body)                       | 1.2s                    |
+| `sit` / `stand`       | persistent: seat on `to` (a seat anchor), knees bent; four legs sit down               | 0.4s ease               |
+| `lie`                 | persistent: sits, then lies back on the floor (four legs: on the belly)                | 1.3s ease               |
+| `bounce`, `spin`      | squashy hop / full rotation (best on the simple rig)                                   | 1s / 0.8s               |
+| `appear`, `disappear` | pop in past full size and settle / swell a touch and shrink away                       | 0.4s                    |
+| `pickup`, `putdown`   | on a prop, with `attach`: its carrier stoops or reaches for it (below)                 | 1.2s                    |
+| `wipe`                | near hand out to `to` (an actor or a spot), going round on it: dusting                 | 2.4s                    |
+| `kick`                | near leg draws back, snaps out forward and up (lying: up off the bed; four legs: buck) | 0.9s                    |
+| `eat`                 | near hand and what it holds to the mouth, chewing (four legs: head down; simple: peck) | 1.6s                    |
+| `strike`              | near arm up overhead, chops down forward, swinging what it holds (four legs: a butt)   | 0.7s                    |
+| `swim`                | paddles in place, legs churning under a still body, head up; pair with a `move`        | 3s                      |
+| `dig`                 | bent over, swings what it holds up and down into the floor in front, clods flying      | 2.5s (2 strokes)        |
+| `hold`                | near hand out to `to` (an actor's shoulder, or a spot) and kept there                  | 2s                      |
+| `aim`                 | draws a held bow at `to` and holds it, then lowers it; its `arrow` on the string       | 3s                      |
+| `shoot`               | looses the arrow of the aim in progress; it flies to the target and sticks there       | flight: distance ÷ 2400 |
 
 Crossing the frame on foot takes 4–5 s. `duration` overrides any default,
 and every walk needs enough of it or the character sprints; the engine
@@ -914,15 +916,87 @@ is drawn just in front; its own moves are ignored.
   attached from more than the carrier's height away is taken at once.
 - `grip` is the point in the prop's box the hand holds (`[100, 22]` for a
   lantern's handle); default its middle. The construction sheet marks a
-  character's `hold` and a prop's `grip` (and `tip`, a tool's working end).
+  character's `hold` and a prop's `grip` (and `tip`, a tool's working end;
+  a bow's string and `nock`; a target's `mark`).
 - One thing at a time; never carry a carrier. An umbrella with a `shelter`
-  keeps its carrier dry.
+  keeps its carrier dry. An arrow is not carried: an `aim` puts it on the
+  string of the bow in the hand (see [Archery](#archery-aim-shoot)).
 
 Carrying holds across cuts only if staged: whoever ends a shot carrying
 something starts the next one with it, cast and attached at `t: 0`, or
 puts it down before the cut (the validator warns). A prop that appears in
 a hand (`attach` with `appear`) is magic; when it came from somewhere, lay
 it on the floor and pick it up.
+
+### Archery (`aim`, `shoot`)
+
+A bow and an arrow are two props. The bow is carried (`attach`) like any
+other, in the near hand, in front; the arrow is never attached: the `aim`
+names it and the engine puts it on the string.
+
+```json
+{ "t": 0, "actor": "dhanush", "attach": "arjun" },
+{ "t": 1, "actor": "arjun", "do": "aim", "to": "chidiya", "arrow": "baan", "duration": 15 },
+{ "after": 0.3, "actor": "arjun", "do": "shoot" }
+```
+
+- **`aim`** turns the archer to face `to` and, over the first 0.6 s, raises
+  the bow and draws, a right-handed archer seen from his right: both hands
+  come to the bow as it comes up and the far hand takes it (the bow hand),
+  straight out from the far shoulder along the line with the bow standing
+  across it, the arm and bow behind the chest and head where they cross;
+  the near hand goes to the string and draws it to the near jaw, under the
+  cheek, where the arrow's end sits, the elbow up and back behind the head
+  and the forearm along the arrow; the string runs back to that hand in a V
+  and, with the arrow, lies over the face, the drawing arm over both. Side-on
+  and upright, feet apart; aiming up he leans back from the hips and tips
+  his head back along the line, aiming down he bends over.
+  Then it holds still for the rest of the `duration` (lines said meanwhile
+  are fine) and lowers the bow over its last 0.5 s, the drawing elbow
+  dropping first. The bow stays in the far hand, by his side behind him,
+  for the rest of the shot (a later `aim` starts from there). `to` is an
+  actor in the cast (it aims at its `mark`, and follows it if it moves), an
+  anchor or a spot; a person aims from level to well up (a bird up a tree),
+  not behind.
+  Aims are humanoid only.
+- **Lowered without a shot**, the string goes slack first and the arrow
+  stays on it: the bow is held in the far hand with the arrow pointing at
+  the floor in front, through walks, until the shot ends. Four princes
+  aiming and being told to lower it is four `aim`s with no `shoot`.
+- **`shoot`** on the archer, at any time during the aim, looses its arrow:
+  the string snaps straight and shivers, the hand flicks back, the arrow
+  flies straight and head first at 2400 px/s (at least 0.12 s; a
+  `duration` on the shoot sets the flight time) and goes in where it was
+  aimed, its head out of sight and its shaft shivering. The bow is held up
+  0.45 s more and lowered over 0.5 s; the aim ends there whatever its
+  `duration`. A twang and a whoosh are heard as it goes and a wooden thunk
+  where it goes in (only when that is in the picture); never add them.
+- **Where it sticks.** At a spot or an anchor, it stays there (the
+  haystack, the target painted in the scene). In an actor, it stays at the
+  point hit and goes wherever that actor goes: the wooden bird falls off
+  its branch with the arrow in its eye. It stays stuck through every later
+  action of the shot. A `shoot` with its own `to` sends the arrow there
+  instead of where the aim was: a miss into the haystack beside the target.
+- **An arrow off any bow** flies from where it stands: `{ "actor": "baan",
+"do": "shoot", "to": "chidiya", "duration": 0.4 }`, the arrow cast just
+  off the frame's edge, for the cut to the target as the arrow arrives. It
+  turns to its line of flight as it leaves. No bow is loosed, so there is no
+  twang: only the whoosh as it goes and the thunk where it goes in.
+- **The props.** A bow is a simple-rig prop drawn upright with no string,
+  the string side to the left, `grip` in the middle of the stave, and
+  `bowstring: [[x, y], [x, y]]`, the string's two ends at the tips, the top
+  one first. The engine draws the string and bends the limbs back as it is
+  drawn. `nock` is where the arrow sits on the string at rest (default: on
+  the string level with the grip). About two thirds of the archer's height
+  suits. An arrow is drawn level, pointing right, with `grip` at its nock
+  end and `tip` at the point of its head, low in its box so one lying on
+  the floor lies on it; a bit under 40% of the archer's height. A target
+  sets `mark`, the point in its box an arrow hits (a bird's eye, the gold
+  of a target's face); default the middle of its box.
+- Cast the arrow `visible: false` anywhere: it shows when it goes on the
+  string, fading in. One arrow per aim that shoots; a shot that only aims
+  and lowers can share one. Watch the facing of a target hit by an arrow:
+  a `move` turns it the way it goes, and the arrow turns with it.
 
 ### Standing on someone (`on`)
 
@@ -1037,7 +1111,8 @@ A film has six layers of sound. You choose four; the engine makes the rest.
   `t` from the actor's side of the frame; `volume` 0.5 far off, 1.5 close.
   A name with several takes picks one each time. `list_sounds` has the
   names. Footsteps, jump whooshes and landings, the `appear`/`disappear`
-  sparkle and the pickup/putdown tap are the engine's: never add them.
+  sparkle, the pickup/putdown tap and a shot's twang, whoosh and thunk are
+  the engine's: never add them.
 - **Mix.** The engine sets every layer's level. Only when a listener finds
   a layer wrong, `set_audio(path, mix: { "music": 0.5 })` scales `voices`,
   `music`, `ambience` or `effects` for the whole film (1 as set, 0.5 is

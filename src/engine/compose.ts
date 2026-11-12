@@ -1,7 +1,9 @@
 import {
   actorHeadTop,
   poseFor,
+  onNearArm,
   renderActor,
+  renderArchery,
   renderShadow,
   renderSoil,
   sideOf,
@@ -341,6 +343,15 @@ function frameDocument(project: Project, body: string): string {
   );
 }
 
+/**
+ * How much of a bow's string and arrow is drawn over its archer as the bow comes up
+ * (`Pose.bow.raise`): none hanging at his side, behind him, all of it once it is out in
+ * front; between, faded over the copy behind, so neither jumps from one side to the other.
+ */
+export function bowOver(raise: number): number {
+  return clamp01((raise - 0.15) / 0.35);
+}
+
 /** Everything in one frame, back to front, without the document around it. */
 function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): string {
   const { width: W, height: H, font } = project.meta;
@@ -390,14 +401,62 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
   const lights = castLights(scene, fires);
   const sun = lights.find((l) => l.kind === 'sky');
   world += castShadows(posed, lights, w, W, H);
+  // An archer's bow is in his far hand once an aim has taken it there, so it and its string
+  // and the arrow on it are drawn behind him (timeline.ts puts them there); raised to draw,
+  // they come over him as well, faded in as the bow comes up, and his near arm, on the
+  // string, over them. Part way from the near hand to the far one, the bow is drawn in
+  // front too, fading out as it goes.
+  const overArcher = new Map<string, number[]>();
+  for (const [i, { actor }] of posed.entries()) {
+    const archer = actor.nockedOn ?? (actor.behind && actor.bowstring ? actor.heldBy : undefined);
+    if (archer) overArcher.set(archer, [...(overArcher.get(archer) ?? []), i]);
+  }
   const bubbles: string[] = [];
   for (const [i, { actor, pose }] of posed.entries()) {
     const { light, slopes } = lightOf(actor, w, fires, sun);
-    world += lit(
-      renderActor(actor, frame.t, pose, light) + renderSoil(actor),
-      `tk-lit-${i}`,
-      slopes
-    );
+    const onIt = overArcher.get(actor.id) ?? [];
+    const bow = onIt.map((j) => posed[j]).find((o) => !o.actor.nockedOn);
+    const passing = bow ? 1 - bow.actor.behind! : 0;
+    const up = pose.bow ? Math.max(bowOver(pose.bow.raise), passing) : 0;
+    if (up > 0 || passing > 0) {
+      const rig = rigOf(actor.character);
+      const near = (part: string) => onNearArm(rig, part);
+      world += lit(
+        renderActor(actor, frame.t, pose, light, (part) => !near(part)) +
+          renderArchery(actor) +
+          renderSoil(actor),
+        `tk-lit-${i}`,
+        slopes
+      );
+      let over = '';
+      for (const j of onIt) {
+        const o = posed[j];
+        // A bow's string; an arrow whole.
+        if (o.actor.nockedOn) {
+          const ol = lightOf(o.actor, w, fires, sun);
+          over += lit(
+            renderActor(o.actor, frame.t, o.pose, ol.light) + renderArchery(o.actor),
+            `tk-lit-${j}-over`,
+            ol.slopes
+          );
+        } else over += renderArchery(o.actor);
+      }
+      if (up > 0) world += up < 1 ? `<g opacity='${n(up)}'>${over}</g>` : over;
+      world += lit(renderActor(actor, frame.t, pose, light, near), `tk-lit-${i}-near`, slopes);
+      if (bow && passing > 0) {
+        const bl = lightOf(bow.actor, w, fires, sun);
+        world += `<g opacity='${n(passing)}'>${lit(
+          renderActor(bow.actor, frame.t, bow.pose, bl.light) + renderArchery(bow.actor),
+          `tk-lit-${i}-bow`,
+          bl.slopes
+        )}</g>`;
+      }
+    } else
+      world += lit(
+        renderActor(actor, frame.t, pose, light) + renderArchery(actor) + renderSoil(actor),
+        `tk-lit-${i}`,
+        slopes
+      );
     if (actor.bubble && actor.visible && !opts.quiet) {
       const head = actorHeadTop(actor, pose);
       const s = worldToScreen(frame, W, H, head.x, head.y);

@@ -7,6 +7,7 @@ import {
   basePose,
   chewing,
   emptyPose,
+  NOCKED_DOWN,
   quadrupedTurn,
   resolveFace,
   SOIL_TIME,
@@ -45,7 +46,13 @@ export function poseFor(actor: ActorState, t: number): Pose {
   const head = rig.name === 'simple' ? 'body' : 'head';
   if (actor.look) pose.rot[head] = (pose.rot[head] ?? 0) + actor.look;
   if (actor.take) applyTake(rig, pose, actor.take.emotion, actor.take.u);
-  for (const v of actor.verbs) applyVerb(rig, pose, v.verb, v.u, 0, v.to, v.span);
+  for (const v of actor.verbs)
+    applyVerb(rig, pose, v.verb, v.u, 0, v.to, v.span, v.loose, v.handOver);
+  // An arrow left on the string of a lowered bow: the bow held so it points at the floor.
+  if (actor.nocked && !pose.bow)
+    pose.bow = { deg: NOCKED_DOWN, turn: 1, draw: 0, raise: 0, hand: 1 };
+  // A bow in the hand is held still, so its string stays on its tips.
+  if (actor.heldBy && actor.character.bowstring) pose.sy = 1;
   // Turning round: the body narrows through the mirror and stretches a touch as it does,
   // and the face comes round through front-on.
   if (actor.turn) {
@@ -364,13 +371,15 @@ function zOf(rig: Rig, pose: Pose, name: string): number {
 
 /**
  * Draw the character's parts in canonical coordinates with the given pose, shaded by
- * `light` (none for `null`) as seen from `side` (1 facing right, -1 mirrored to the left).
+ * `light` (none for `null`) as seen from `side` (1 facing right, -1 mirrored to the left);
+ * with `only`, just the parts it picks (an archer drawn in two passes, round the string).
  */
 export function characterBody(
   character: Character,
   pose: Pose,
   light: Light | null = DAYLIGHT,
-  side = 1
+  side = 1,
+  only?: (part: string) => boolean
 ): string {
   const rig = rigOf(character);
   // What each part is fused into, this pose: a loose part (`Pose.loose`) is drawn whole.
@@ -398,6 +407,7 @@ export function characterBody(
     fade: number;
   }[] = [];
   for (const { name, fade } of names) {
+    if (only && !only(name)) continue;
     const part = character.parts[name];
     const svg = typeof part === 'string' ? part : part[pose.face[name] ?? Object.keys(part)[0]];
     if (!svg) continue;
@@ -510,15 +520,99 @@ export function renderActor(
   actor: ActorState,
   t: number,
   pose = poseFor(actor, t),
-  light: Light = DAYLIGHT
+  light: Light = DAYLIGHT,
+  only?: (part: string) => boolean
 ): string {
   if (!actor.visible || actor.opacity <= 0) return '';
   const side = sideOf(actor);
-  const body = characterBody(actor.character, pose, light, Math.sign(side) || 1);
+  let body = characterBody(actor.character, pose, light, Math.sign(side) || 1, only);
+  // A bow drawn: its limbs bent further back.
+  if (actor.flex) body = `<g transform='${bowFlex(actor.character, actor.flex).tf}'>${body}</g>`;
+  // An arrow stuck in something: the head, gone in, is not seen.
+  if (actor.bury) {
+    const id = `tk-bury-${actor.id}`;
+    body = `<defs><clipPath id='${id}'>${buryClip(actor.character, actor.bury)}</clipPath></defs><g clip-path='url(#${id})'>${body}</g>`;
+  }
   return tilted(
     actor,
     placeCharacter(actor.character, body, actor.x, actor.y, actor.scale, side, actor.opacity)
   );
+}
+
+/**
+ * A drawn bow's limbs bent back by `k` (0..1): the drawing stretched across the line of its
+ * string about the grip, so the tips come back toward the archer, and a little shorter. As
+ * an SVG transform in the bow's box, and as the same map on a point of it.
+ */
+export function bowFlex(
+  bow: Character,
+  k: number
+): { tf: string; map: (p: [number, number]) => [number, number] } {
+  const rig = rigOf(bow);
+  const [gx, gy] = bow.grip ?? [rig.width / 2, rig.height / 2];
+  const [[ax, ay], [bx, by]] = bow.bowstring ?? [
+    [gx, 0],
+    [gx, rig.height],
+  ];
+  // The string's line from vertical, and the stretch across it and along it.
+  const a = Math.atan2(by - ay, bx - ax) - Math.PI / 2;
+  const across = 1 + 0.22 * k;
+  const along = 1 - 0.05 * k;
+  const deg = (a * 180) / Math.PI;
+  const tf = `translate(${n(gx)} ${n(gy)}) rotate(${n(deg)}) scale(${n(across)} ${n(along)}) rotate(${n(-deg)}) translate(${n(-gx)} ${n(-gy)})`;
+  const map = ([x, y]: [number, number]): [number, number] => {
+    const c = Math.cos(a);
+    const s = Math.sin(a);
+    // Into the string's frame, stretched, and back.
+    const dx = x - gx;
+    const dy = y - gy;
+    const u = (c * dx + s * dy) * across;
+    const v = (-s * dx + c * dy) * along;
+    return [gx + c * u - s * v, gy + s * u + c * v];
+  };
+  return { tf, map };
+}
+
+/**
+ * The part of an arrow left in sight once `bury` box units of it, from the head back, have
+ * gone into what it hit: a half-plane square to its shaft, in the arrow's box.
+ */
+function buryClip(arrow: Character, bury: number): string {
+  const rig = rigOf(arrow);
+  const [gx, gy] = arrow.grip ?? [rig.width / 2, rig.height / 2];
+  const [tx, ty] = arrow.tip ?? [gx, 0];
+  const len = Math.hypot(tx - gx, ty - gy) || 1;
+  const ex = (tx - gx) / len;
+  const ey = (ty - gy) / len;
+  const cut = len - bury;
+  const far = 4000;
+  const pt = (s: number, w: number) => `${n(gx + ex * s - ey * w)},${n(gy + ey * s + ex * w)}`;
+  return `<polygon points='${pt(-far, -far)} ${pt(cut, -far)} ${pt(cut, far)} ${pt(-far, far)}'/>`;
+}
+
+/**
+ * What the engine draws over an actor in the scene for archery: a bow's string (straight,
+ * or pulled back into a V to the drawing hand) and the streak behind an arrow in flight.
+ */
+export function renderArchery(actor: ActorState): string {
+  if (!actor.visible || actor.opacity <= 0) return '';
+  let out = '';
+  const op = actor.opacity < 1 ? ` opacity='${n(actor.opacity)}'` : '';
+  const str = actor.bowstring;
+  if (str) {
+    const d = `M${n(str.a.x)} ${n(str.a.y)} L${n(str.apex.x)} ${n(str.apex.y)} L${n(str.b.x)} ${n(str.b.y)}`;
+    const line = actor.character.colors.line ?? DEFAULT_LINE_COLOR;
+    out +=
+      `<path d='${d}' fill='none' stroke='${line}' stroke-width='${n(str.width * 2.2)}' stroke-linecap='round' stroke-linejoin='round'${op}/>` +
+      `<path d='${d}' fill='none' stroke='#f4ead2' stroke-width='${n(str.width)}' stroke-linecap='round' stroke-linejoin='round'${op}/>`;
+  }
+  const st = actor.streak;
+  if (st)
+    out +=
+      `<defs><linearGradient id='tk-streak-${actor.id}' gradientUnits='userSpaceOnUse' x1='${n(st.x1)}' y1='${n(st.y1)}' x2='${n(st.x2)}' y2='${n(st.y2)}'>` +
+      `<stop offset='0' stop-color='#fff' stop-opacity='0.75'/><stop offset='1' stop-color='#fff' stop-opacity='0'/></linearGradient></defs>` +
+      `<path d='M${n(st.x1)} ${n(st.y1)} L${n(st.x2)} ${n(st.y2)}' stroke='url(#tk-streak-${actor.id})' stroke-width='${n(st.w)}' stroke-linecap='round'/>`;
+  return out ? `<g class='archery'>${out}</g>` : '';
 }
 
 /** Earth colours for the clods a `dig` throws up, dark and wet to dry and pale. */
@@ -681,10 +775,27 @@ export function partToScene(
   return boxToScene(actor, pose, toRoot(rig, pose, rig.required, point));
 }
 
-/** Where a carried prop is held (the rig's hold point, through the pose), in the scene. */
-export function holdPoint(actor: ActorState, pose: Pose): { x: number; y: number } {
+/**
+ * Where a carried prop is held (the rig's hold point, through the pose), in the scene; with
+ * `far`, in the far hand (`Rig.farHold`), where the rig has one.
+ */
+export function holdPoint(actor: ActorState, pose: Pose, far = false): { x: number; y: number } {
   const rig = rigOf(actor.character);
-  return boxToScene(actor, pose, toRoot(rig, pose, rig.hold.part, rig.hold.point));
+  const hold = (far && rig.farHold) || rig.hold;
+  return boxToScene(actor, pose, toRoot(rig, pose, hold.part, hold.point));
+}
+
+/**
+ * The parts of the arm that holds (`Rig.hold`) and what hangs from it: the near arm, which
+ * draws a bow's string, drawn over the string and the arrow (see compose.ts).
+ */
+export function onNearArm(rig: Rig, name: string): boolean {
+  const seen = new Set<string>();
+  for (let cur: string | undefined = name; cur && !seen.has(cur); cur = rigPart(rig, cur).parent) {
+    if (cur === rig.hold.part) return true;
+    seen.add(cur);
+  }
+  return false;
 }
 
 /**

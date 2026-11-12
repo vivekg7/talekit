@@ -5,6 +5,9 @@ import { digHits } from './motion.js';
 import {
   actionDuration,
   attachTime,
+  bowOf,
+  flightOf,
+  releases,
   resolveActor,
   resolveCamera,
   resolvePosition,
@@ -296,6 +299,21 @@ function verbSounds(project: Project, shot: Shot, at0: number): Cue[] {
       const size = Math.min(1.2, project.characters[a.actor].height / 250);
       digHits(d).forEach((h, i) => push('land', a.t + h, 0.55 * size, a.actor, `${k}:dig:${i}`));
     }
+    // An arrow loosed: the arrow's whoosh as it goes, and the string's twang when it leaves
+    // a bow; one sent off no bow (cut to as it arrives) only flies.
+    if (a.do === 'shoot')
+      for (const r of releases(shot).filter(
+        (r) => r.t === a.t && (r.archer ?? r.arrow) === a.actor
+      )) {
+        if (r.archer && bowOf(project, shot, r.archer, r.t))
+          push('bow-twang', r.t, 0.8, r.archer, `${k}:twang`);
+        push('whoosh', r.t + 0.02, 0.25, r.arrow, `${k}:whoosh`);
+        // Where it goes in, a wooden thunk: if that is in the picture.
+        const f = flightOf(project, scene, shot, r, 0);
+        const { width: W, height: H } = project.meta;
+        if (f && f.hit.x >= 0 && f.hit.x <= W && f.hit.y >= 0 && f.hit.y <= H)
+          push('arrow-thunk', f.at, 0.75, r.arrow, `${k}:thunk`);
+      }
     // A prop picked up or set down: a tap as it leaves or meets the floor.
     if ((a.do === 'pickup' || a.do === 'putdown') && a.attach !== undefined)
       push('tap', attachTime(a), 0.45, a.actor, `${k}:tap`);
