@@ -8,6 +8,7 @@ import {
   SHADOW_DEFS,
 } from './actor.js';
 import { DAYLIGHT, type Light } from './shade.js';
+import { swayLayer } from './sway.js';
 import {
   castLights,
   CAST_DEFS,
@@ -382,7 +383,9 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
   );
   const fx = (plane: EffectLayer) => effectsSvg(scene.effects, plane, frame.t, w.wind ?? 0, W, H);
   const fires = fireLights(scene.effects, frame.t, W, H);
-  let world = `<g class='scene'>${scene.svg}</g>` + fx('stage') + sky.stage;
+  // The scenery that sways in the air, turned for now (and further in a wind).
+  const sway = (layer: string | undefined) => swayLayer(layer, scene.sway, frame.t, w.wind ?? 0);
+  let world = `<g class='scene'>${sway(scene.svg)}</g>` + fx('stage') + sky.stage;
   world += posed.map(({ actor, pose }) => renderShadow(actor, pose)).join('');
   const lights = castLights(scene, fires);
   const sun = lights.find((l) => l.kind === 'sky');
@@ -419,7 +422,7 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
     }
   }
   world += firelight(fires, w);
-  if (scene.foreground) world += `<g class='foreground'>${scene.foreground}</g>`;
+  if (scene.foreground) world += `<g class='foreground'>${sway(scene.foreground)}</g>`;
   world += fx('front');
   if (opts.debug) {
     for (const [name, a] of Object.entries(scene.anchors)) {
@@ -436,7 +439,7 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
       ? `<rect width='${W}' height='${H}' fill='#000' opacity='${n(frame.fade)}'/>`
       : '';
 
-  const farSvg = (scene.far ?? '') + fx('far') + sky.sky;
+  const farSvg = sway(scene.far) + fx('far') + sky.sky;
   let far = farSvg ? layer('far', farSvg, scene.parallax?.far ?? PARALLAX.far) : '';
   if (far && sky.haze) {
     // The haze's noise is fixed to the filtered group's coordinates: shift that group up by
@@ -448,7 +451,7 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
   }
   // Clouds grey the sky behind the stage (the far layer), however it was painted.
   if (far && sky.grade) far = `<defs>${sky.grade}</defs><g filter='url(#tk-sky)'>${far}</g>`;
-  const nearSvg = (scene.near ?? '') + fx('near');
+  const nearSvg = sway(scene.near) + fx('near');
   let picture =
     far +
     sky.far +

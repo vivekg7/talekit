@@ -1,6 +1,7 @@
 import { missingColorTokens } from '../engine/svg.js';
 import { lintCharacter } from './construction.js';
 import { effectLayer } from '../engine/effects.js';
+import { swayBox, swayMissing } from '../engine/sway.js';
 import { RIGS, rigOf } from '../engine/rigs.js';
 import { holdPoint, poseFor } from '../engine/actor.js';
 import {
@@ -223,6 +224,37 @@ export function validateScene(s: Scene, width: number, height: number): Problem[
       where,
       message: 'no anchors; only the stage shortcuts left/center/right are available',
     });
+  out.push(...swayProblems(s));
+  return out;
+}
+
+/**
+ * Every swaying group must be a `<g id>` in one of the layers; an anchor up on one (a
+ * perch on a swaying branch) would leave whoever stands there still while it moves.
+ */
+function swayProblems(s: Scene): Problem[] {
+  const out: Problem[] = [];
+  const where = `scene '${s.id}'`;
+  for (const id of swayMissing(s))
+    out.push({
+      level: 'error',
+      where,
+      message: `sway: no <g id='${id}'> in svg, far, near or foreground`,
+    });
+  for (const [id, { at }] of Object.entries(s.sway ?? {})) {
+    const box = swayBox(s, id);
+    if (!box) continue;
+    for (const [name, a] of Object.entries(s.anchors)) {
+      const inside = a.x >= box[0] && a.x <= box[2] && a.y >= box[1] && a.y <= box[3];
+      // Well above the pivot, not at its foot: a clump of grass at someone's feet is fine.
+      if (inside && at[1] - a.y > 0.25 * (box[3] - box[1]))
+        out.push({
+          level: 'warning',
+          where,
+          message: `anchor '${name}' is on swaying '${id}': whoever stands or sits there stays still while it moves; take it out of the sway or move the anchor`,
+        });
+    }
+  }
   return out;
 }
 

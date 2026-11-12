@@ -682,6 +682,39 @@ translucent `foreground` over the waders wants two: one on the stage for
 the open water above the waterline, and one with `"layer": "front"` for
 the foreground's outline, a little faster, since it is nearer.
 
+### Swaying trees and grass (`sway`)
+
+Nothing in a scene's art moves unless it is told to. Draw each crown,
+branch, palm frond or clump of grass that should stir in the air as its own
+`<g id='…'>`, apart from what holds it up (the crown apart from the trunk),
+and list the groups in `sway` with the point each is fixed at:
+
+```json
+"sway": {
+  "crown-left": { "at": [360, 430] },
+  "branch-low": { "at": [520, 300] },
+  "grass-3": { "at": [905, 668], "amount": 1.5 }
+}
+```
+
+- `at` is the pivot in the layer's own coordinates: the top of the trunk
+  under a crown, where a branch leaves the trunk, the foot of a clump of
+  grass. Groups can be in `svg`, `foreground`, `far` (distant trees, moving
+  with that layer's parallax) or `near`.
+- The engine turns each one a little about its pivot every frame, each in
+  its own time so the trees never move in step: gently by default, and the
+  bigger the group the less and the slower (a big crown a degree or two
+  over about five seconds, a tuft of grass a few degrees over three).
+  `amount` scales that (0.5 stiffer, 2 a fern or a loose banner).
+- The weather's `wind` swings everything further and quicker and leans it
+  the way the wind blows, so a storm needs no other change.
+- **Keep perches off swaying groups.** Nobody standing, sitting or perched
+  on one moves with it: a bird on a branch that sways would hang in the air
+  beside it. Leave a branch that carries someone out of `sway` (the scene
+  check warns about an anchor up in a swaying group).
+- The scene sheet rings each pivot in pink, and its strip of the empty
+  scene at a few moments shows the crowns in different places.
+
 ### Lights and cast shadows
 
 Every person, animal and grounded prop casts its silhouette across the

@@ -101,6 +101,8 @@ describe('layers', () => {
     const tinted = SceneSchema.parse({
       ...LIBRARY.scenes.park,
       svg: `<rect width='1280' height='720' fill='#ff8c4a' opacity='0.2'/>`,
+      // Its trees are gone with the svg, and so are the crowns that sway.
+      sway: undefined,
     });
     expect(validateScene(tinted, W, H)).toEqual([]);
     expect(validateScene(SceneSchema.parse(LIBRARY.scenes.park), W, H)).toEqual([]);
@@ -301,6 +303,37 @@ describe('culling', () => {
     });
     const png = rasterize(composeFrame(p, p.shots[0], 0.5), 320);
     expect(png.subarray(1, 4).toString()).toBe('PNG');
+  });
+
+  it('draws a close-up into a blurred, swaying crown with see-through leaves', () => {
+    // A crown wider than the frame, blurred on the far layer, swaying, its leaves
+    // see-through: a story's scene drawn this way had resvg panic past zoom 1.4.
+    const leaves = Array.from(
+      { length: 12 },
+      (_, i) =>
+        `<path d='M${i * 120 - 60} 220 q 20 -20 40 0 t 40 0' fill='#9b6' opacity='0.8'/>` +
+        `<g opacity='0.7'><circle cx='${i * 120}' cy='300' r='14' fill='#7a4'/><circle cx='${i * 120 + 10}' cy='306' r='14' fill='#8b5'/></g>`
+    ).join('');
+    const scene = SceneSchema.parse({
+      id: 'crown',
+      name: 'Crown',
+      far:
+        `<defs><filter id='cb' x='-20%' y='-20%' width='140%' height='140%'><feGaussianBlur stdDeviation='22'/></filter></defs>` +
+        `<rect width='1280' height='720' fill='#bcd'/>` +
+        `<g filter='url(#cb)'><g id='crown'><path d='M-230 0 Q640 -200 1550 0 Q640 260 -230 0Z' fill='#ab8'/>${leaves}</g></g>`,
+      svg: `<rect y='600' width='1280' height='120' fill='#9c6'/>`,
+      sway: { crown: { at: [640, 0] } },
+    });
+    for (const [x, y] of [
+      [640, 360],
+      [100, 100],
+      [1180, 620],
+    ]) {
+      const p = project([{ id: 'z', scene: 'crown', duration: 4, camera: { zoom: 2.5, x, y } }]);
+      p.scenes.crown = scene;
+      const png = rasterize(composeFrame(p, p.shots[0], 1.3), 320);
+      expect(png.subarray(1, 4).toString()).toBe('PNG');
+    }
   });
 });
 

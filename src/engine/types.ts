@@ -542,6 +542,33 @@ export const SceneSchema = z.object({
   ground: z.number().optional(),
   /** Weather and moving nature the engine animates, so the author never draws a frame of it. */
   weather: WeatherSchema.optional(),
+  /**
+   * Groups of the art that sway, by their `<g id>` in any layer: each turned a little about
+   * its pivot every frame (a crown about the top of its trunk), more and quicker in wind.
+   */
+  sway: z
+    .record(
+      z.string(),
+      z.object({
+        at: z
+          .tuple([z.number(), z.number()])
+          .describe(
+            "The pivot, [x, y] in the layer's own coordinates (scene pixels for svg and foreground): where it is fixed, the top of a trunk under a crown, the root of a branch, the foot of a clump of grass"
+          ),
+        amount: z
+          .number()
+          .min(0)
+          .max(4)
+          .optional()
+          .describe(
+            'How much it moves, times what the engine gives it for its size (default 1; 0.5 stiffer, 2 a floppy fern or a loose banner)'
+          ),
+      })
+    )
+    .optional()
+    .describe(
+      "Parts of the art that sway in the air: { 'crown-left': { at: [360, 430] }, 'grass-3': { at: [905, 668] } }, keyed by the id of a <g> in svg, far, near or foreground. Each turns a little about its pivot, gently by default (a crown a degree or two over about five seconds, grass a few degrees over three: the bigger, the less and the slower), each in its own time, further and quicker with the weather's wind and leaning with it. Draw what sways in its own <g id='...'> apart from what holds it (the crown apart from the trunk). Nothing standing or sitting on a swaying group moves with it: keep perches, seats and anchors off them"
+    ),
   shelters: z
     .array(z.object({ x: z.number(), y: z.number(), width: z.number().positive() }))
     .default([])

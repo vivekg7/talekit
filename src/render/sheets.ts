@@ -245,6 +245,12 @@ export function sceneSheetSvg(project: Project, scene: Scene): string {
     if (p.x >= 0 && p.x <= W) marks += mark(s, p.x, p.y, '#ffd166');
   }
   for (const [name, a] of Object.entries(scene.anchors)) marks += mark(name, a.x, a.y, '#06d6a0');
+  // Each swaying group's pivot, a pink ring, labelled with its id (on far or near, in that
+  // layer's own coordinates, which line up with the frame when the camera is at rest).
+  for (const [id, { at }] of Object.entries(scene.sway ?? {}))
+    marks +=
+      `<g><circle cx='${n(at[0])}' cy='${n(at[1])}' r='8' fill='none' stroke='#ff70c8' stroke-width='3'/>` +
+      `<text x='${n(at[0] + 11)}' y='${n(at[1] + 18)}' font-family='${LABEL_FONT}' font-size='16' font-weight='bold' fill='#ff70c8' stroke='#000' stroke-width='4' paint-order='stroke'>~${escapeXml(id)}</text></g>`;
   for (const sh of scene.shelters)
     marks +=
       `<path d='M${n(sh.x)} ${n(sh.y)} L${n(sh.x + sh.width)} ${n(sh.y)}' stroke='#4ea8ff' stroke-width='5' stroke-dasharray='14 6'/>` +
@@ -273,7 +279,7 @@ export function sceneSheetSvg(project: Project, scene: Scene): string {
     effectsSvg(scene.effects, plane, 1, scene.weather?.wind ?? 0, W, H);
   const strips = [
     scene.far || scene.near ? layerStrip(project, scene) : undefined,
-    scene.weather || scene.effects.length ? motionStrip(project, scene) : undefined,
+    scene.weather || scene.effects.length || scene.sway ? motionStrip(project, scene) : undefined,
   ].filter((x) => x !== undefined);
   let y = H;
   let below = '';
@@ -292,7 +298,7 @@ export function sceneSheetSvg(project: Project, scene: Scene): string {
     (scene.near ? `<g>${scene.near}</g>` : '') +
     fx('near') +
     marks +
-    `<text x='12' y='28' font-family='${LABEL_FONT}' font-size='20' fill='#fff' stroke='#000' stroke-width='4' paint-order='stroke'>${escapeXml(scene.name)} (${scene.id}) · green = anchors · yellow = stage shortcuts${scene.shelters.length ? ' · blue = shelters' : ''}${lights.length ? ' · yellow rings = lights' : ''}</text>` +
+    `<text x='12' y='28' font-family='${LABEL_FONT}' font-size='20' fill='#fff' stroke='#000' stroke-width='4' paint-order='stroke'>${escapeXml(scene.name)} (${scene.id}) · green = anchors · yellow = stage shortcuts${scene.shelters.length ? ' · blue = shelters' : ''}${lights.length ? ' · yellow rings = lights' : ''}${scene.sway ? ' · pink = sway pivots' : ''}</text>` +
     below +
     `</svg>`
   );
@@ -322,7 +328,10 @@ function motionStrip(project: Project, scene: Scene): { svg: string; height: num
   const { width: W, height: H } = project.meta;
   const withScene = { ...project, scenes: { ...project.scenes, [scene.id]: scene } };
   const shot = ShotSchema.parse({ id: `sheet-${scene.id}`, scene: scene.id, duration: 4 });
-  const times = [0, 0.4, 0.8, 1.6];
+  // Swaying scenery moves slowly: moments further apart, across about one sway (with a
+  // quick pair first when rain or flames are moving too).
+  const quick = !!scene.weather || scene.effects.length > 0;
+  const times = !scene.sway ? [0, 0.4, 0.8, 1.6] : quick ? [0, 0.4, 1.6, 3.2] : [0, 1.2, 2.4, 3.6];
   // Catch a strike just as it lights up, when there is lightning to see.
   const every = scene.weather?.lightning?.every;
   if (every) times[3] = Math.round((strikeAt(shot.id, every, 0) + 0.02) * 100) / 100;
