@@ -426,6 +426,13 @@ shorter or lower than the rig's take `pivots` at the hip and shoulder and
 so each bends where it is drawn bent, and the walk measures the leg from
 there: `"bends": { "legBR": [124, 181] }`.
 
+An arm needs no `bends` for reaching wider or narrower than the rig's: the
+engine finds where the arm is drawn across the elbow's height and bends it
+about the middle of it, with a round joint as wide as the arm is there.
+A broad strongman's thick arms, hanging out past the rig's elbows, bend as
+one shape instead of stepping apart at the joint. Give `bends` only for an
+elbow drawn higher or lower than y 226.
+
 `chains` bends a part along its length, the way a leg bends at the knee,
 instead of turning it stiff about one hinge. The engine cuts it into
 links, each square to the part, with a round joint between them; a turn

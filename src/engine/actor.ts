@@ -16,7 +16,7 @@ import {
 import { rigPart, rigOf, type Rig } from './rigs.js';
 import { DEFAULT_LINE_COLOR, limbWidth, OUTLINE_PX, outlineFor } from './outline.js';
 import { DAYLIGHT, shadePart, silhouette, type Light } from './shade.js';
-import { applyColors, n, topLevelPieces, verticalExtent } from './svg.js';
+import { applyColors, n, spanAt, topLevelPieces, verticalExtent } from './svg.js';
 import type { ActorState } from './timeline.js';
 import type { Character, Facing } from './types.js';
 
@@ -252,8 +252,10 @@ function bentLimb(
   draw: 'all' | 'lines' | 'fills' = 'all'
 ): string {
   const [kx, ky] = joint;
-  // A limb drawn as a filled shape has no stroke to measure: assume a typical one.
-  const r = (limbWidth(svg) / 2 || 9) + 1.5;
+  // As wide as the limb is drawn across the joint, so a thick arm's disc covers it edge to
+  // edge; a drawing that cannot be measured there takes its stroke, or a typical width.
+  const span = spanAt(svg, ky, kx);
+  const r = (span ? (span[1] - span[0]) / 2 : limbWidth(svg) / 2 || 9) + 1.5;
   const clip = (key: string, lower: boolean, radius: number) =>
     `<clipPath id='${id}-${key}'><rect x='-1000' y='${lower ? ky : -1000}' width='3000' height='${lower ? 2000 : ky + 1000}'/><circle cx='${kx}' cy='${ky}' r='${n(radius)}'/></clipPath>`;
   const half = (key: string, inner: string) => `<g clip-path='url(#${id}-${key})'>${inner}</g>`;

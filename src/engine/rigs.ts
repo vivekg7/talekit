@@ -1,4 +1,5 @@
 import { linkFor, type Link, type Pt } from './chain.js';
+import { spanAt } from './svg.js';
 import type { Character, RigName } from './types.js';
 
 export interface RigPart {
@@ -52,8 +53,9 @@ export interface Rig {
   /**
    * Where each limb bends, in the limb's own coordinates: the knee on a leg, the elbow on
    * an arm, a point on the line the limb hangs along. The composer cuts a bent limb here
-   * with a round joint and turns the lower half (`Pose.bend`), so every limb drawn as one
-   * straight stroke gets its joint for free.
+   * with a round joint as wide as the limb is drawn there and turns the lower half
+   * (`Pose.bend`), so every limb drawn as one straight stroke gets its joint for free.
+   * A character's elbows move across to the middle of its arms as drawn (`rigOf`).
    */
   bends: Record<string, [number, number]>;
   /**
@@ -305,15 +307,29 @@ function jointed(rig: Rig, character: RigSource): Rig {
   const parts = { ...rig.parts };
   for (const [name, pivot] of pivots) parts[name] = { ...parts[name], pivot };
   const bends = { ...rig.bends, ...Object.fromEntries(knees) };
+  // An elbow the character does not place sits on the middle of its arm as drawn: an arm
+  // reaching wider or narrower than the rig's (a broad strongman's) would otherwise bend
+  // about a point off its centre line, and the turned forearm would step out from under
+  // the upper arm at the joint.
+  let centred = false;
+  for (const [name, [kx, ky]] of Object.entries(rig.bends)) {
+    if (!name.startsWith('arm') || character.bends?.[name]) continue;
+    const span = spanAt(drawingOf(character, name) ?? '', ky, kx);
+    if (!span || span[1] - span[0] > 80) continue;
+    const mid = (span[0] + span[1]) / 2;
+    if (Math.abs(mid - kx) < 0.5) continue;
+    bends[name] = [Math.round(mid * 10) / 10, ky];
+    centred = true;
+  }
   const links: Record<string, Link> = {};
   for (const [name, spec] of Object.entries(chains)) {
-    const part = character.parts?.[name];
-    const svg = typeof part === 'string' ? part : part && Object.values(part)[0];
+    const svg = drawingOf(character, name);
     if (!svg) continue;
     const link = linkFor(svg, rigPart({ ...rig, parts }, name).pivot, spec as number | Pt[]);
     if (link) links[name] = link;
   }
-  if (!pivots.length && !knees.length && !sprawl && !Object.keys(links).length) return rig;
+  if (!pivots.length && !knees.length && !centred && !sprawl && !Object.keys(links).length)
+    return rig;
   const own: Rig = { ...rig, parts, bends, links };
   if (sprawl) {
     // The hind knee comes forward as a person's does; the elbow goes back.
@@ -321,6 +337,12 @@ function jointed(rig: Rig, character: RigSource): Rig {
     own.hocks = Object.keys(bends).filter((leg) => leg.startsWith('legF'));
   }
   return own;
+}
+
+/** How a part is drawn: its only drawing, or its first variant's. */
+function drawingOf(character: RigSource, name: string): string | undefined {
+  const part = character.parts?.[name];
+  return typeof part === 'string' ? part : part && Object.values(part)[0];
 }
 
 /** The rig with the parts the character hangs, and its belly, hem, hooves and muzzle. */

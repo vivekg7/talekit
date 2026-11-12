@@ -4,6 +4,7 @@ import { linkAngles, linkFor } from '../src/engine/chain.js';
 import { footPoint, parentTurn, stride, toRoot } from '../src/engine/gait.js';
 import { applyVerb, basePose, emptyPose } from '../src/engine/motion.js';
 import { RIGS, rigOf } from '../src/engine/rigs.js';
+import { spanAt } from '../src/engine/svg.js';
 import { CharacterSchema } from '../src/engine/types.js';
 import { LIBRARY } from '../src/library/index.js';
 
@@ -135,5 +136,48 @@ describe('sprawl', () => {
       const lowest = Math.max(...legs.map((leg) => footPoint(rig, pose, leg)[1]));
       expect(lowest).toBeCloseTo(rig.height, 1);
     }
+  });
+});
+
+describe('elbows', () => {
+  // A filled arm from the shoulder (sx, 170) to the hand (hx, 288), w wide.
+  const arm = (sx: number, hx: number, w: number) => {
+    const dx = hx - sx;
+    const len = Math.hypot(dx, 118);
+    const [nx, ny] = [(-118 / len) * (w / 2), (dx / len) * (w / 2)];
+    const p = (x: number, y: number) => `${x.toFixed(1)} ${y.toFixed(1)}`;
+    return (
+      `<path d='M${p(sx + nx, 170 + ny)} L${p(hx + nx, 288 + ny)} ` +
+      `L${p(hx - nx, 288 - ny)} L${p(sx - nx, 170 - ny)} Z' fill='{skin}'/>`
+    );
+  };
+  const withArms = (armL: string, armR: string) => {
+    const kid = structuredClone(LIBRARY.characters.kid) as any;
+    kid.parts = { ...kid.parts, armL, armR };
+    return CharacterSchema.parse(kid);
+  };
+
+  it("finds a drawing's span across a line", () => {
+    expect(spanAt(arm(100, 100, 30), 226, 100)).toEqual([85, 115]);
+    expect(spanAt(`<circle cx='50' cy='50' r='10' fill='#000'/>`, 50, 0)).toEqual([40, 60]);
+    expect(spanAt(`<path d='M0 0 L10 0' stroke='#000' stroke-width='4' fill='none'/>`, 50, 0)).toBe(
+      undefined
+    );
+  });
+
+  it('bends a wide arm about the middle of it as drawn', () => {
+    // A strongman's arms reach out past the rig's elbows (73 and 127 at y 226).
+    const rig = rigOf(withArms(arm(76, 56, 30), arm(124, 144, 30)));
+    expect(rig.bends.armL[0]).toBeCloseTo(76 - (20 * 56) / 118, 0);
+    expect(rig.bends.armR[0]).toBeCloseTo(124 + (20 * 56) / 118, 0);
+    expect(rig.bends.armL[1]).toBe(226);
+    // The knees stay where the rig has them: the walk measures the leg from there.
+    expect(rig.bends.legL).toEqual(RIGS.humanoid.bends.legL);
+  });
+
+  it('leaves an elbow a character places itself', () => {
+    const c = withArms(arm(76, 56, 30), arm(124, 144, 30));
+    const rig = rigOf({ ...c, bends: { armL: [70, 230] } });
+    expect(rig.bends.armL).toEqual([70, 230]);
   });
 });
