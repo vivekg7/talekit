@@ -1060,9 +1060,12 @@ jumping and pointing look straight ahead.
   back.
 - `caption`: narration at the bottom (`captionStyle: "narration"`, the
   default) or a big centred card (`"title"`), for 3 s or as long as the
-  narrator takes. Captions are above everything and ignore the camera; a
-  narration strip can run under a bubble, but nobody should talk over a
-  title card.
+  narrator takes. In a film the engine moves a narration strip to the top
+  for the whole line when along the bottom it would cover someone's face
+  (a group sat on the floor, an animal near the camera), so stage for the
+  picture, not around the text; a reel's narration is always at the top.
+  Captions are above everything and ignore the camera; a narration strip
+  can run under a bubble, but nobody should talk over a title card.
 - `camera: { zoom, x, y }` tweens over `duration` (default 1 s; `0.05` is
   a cut); `x, y` is the world point at frame centre. Zoom in on a face for
   a reaction, pull back for an arrival. Keep zoom 1 to 2: below 1 is raised
@@ -1151,7 +1154,8 @@ the same picture with tracks a player can choose between.
 - **Subtitles**, off until chosen: one in the lines' language (Hindi for
   Devanagari, else English) and one per language in their `translation`,
   each up as long as its bubble or caption, at the bottom, or at the top
-  when it belongs to (or overlaps) a narration caption. They are drawn in
+  when it belongs to (or overlaps) a narration caption (at the bottom again
+  when that narration was moved to the top). They are drawn in
   the bundled Baloo 2, which the .mkv carries.
 - **A chapter per shot**, named by its id.
 

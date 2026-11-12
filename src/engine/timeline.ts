@@ -20,7 +20,8 @@ import {
   type Locomotion,
   type Pose,
 } from './motion.js';
-import { defaultGround, stageSides } from './format.js';
+import { defaultGround, isPortrait, stageSides, uiScale } from './format.js';
+import { textWidth, wrapText } from './bubble.js';
 import { rigOf } from './rigs.js';
 import { clipFor, lineDuration, lineLead, mouthOpen, sayDuration, shownText } from './voice.js';
 import type {
@@ -172,6 +173,8 @@ export interface CaptionState {
   opacity: number;
   /** 0 in place; positive while it slides up into place or drifts down on the way out. */
   slide: number;
+  /** A film's narration moved to the top of the frame, off the faces it would cover. */
+  top?: boolean;
 }
 
 export interface FrameState {
@@ -1298,9 +1301,76 @@ function resolveCaptions(project: Project, shot: Shot, t: number): CaptionState[
     const outU = clamp01((a.t + d - t) / fadeLen);
     const opacity = Math.min(1, (t - a.t) / fadeLen, outU);
     const slide = 1 - easeOut(inU) + 0.5 * (1 - outU);
-    out.push({ text: shownText(a.caption), style: a.captionStyle ?? 'narration', opacity, slide });
+    const style = a.captionStyle ?? 'narration';
+    const top = style === 'narration' && narrationOnTop(project, shot, a);
+    out.push({ text: shownText(a.caption), style, opacity, slide, ...(top && { top }) });
   }
   return out;
+}
+
+/**
+ * About where a film's narration strip lies, [left, top, right, bottom] in frame pixels:
+ * along the bottom, or along the top (compose.ts draws the strip itself).
+ */
+export function narrationBox(
+  project: Project,
+  text: string,
+  top: boolean
+): [number, number, number, number] {
+  const { width: W, height: H } = project.meta;
+  const k = uiScale(project.meta);
+  const fontSize = 28 * k;
+  const lines = wrapText(text, W * 0.8, fontSize, true);
+  const w = Math.max(...lines.map((l) => textWidth(l, fontSize, true))) + 40 * k;
+  const h = lines.length * fontSize * 1.25 + 20 * k;
+  const y0 = top ? 18 * k : H - 18 * k - h;
+  return [W / 2 - w / 2, y0, W / 2 + w / 2, y0 + h];
+}
+
+const onTop = new WeakMap<Action, boolean>();
+
+/**
+ * Whether a landscape film's narration goes along the top: when along the bottom it would
+ * cover more of the cast's faces than along the top, at the start, middle or end of the
+ * line (a group sitting on the floor in a wide shot, an animal near the camera). The
+ * choice holds for the whole line, so the strip never jumps while it is up. A reel's
+ * narration is always at the top (the app covers the bottom).
+ */
+export function narrationOnTop(project: Project, shot: Shot, a: Action): boolean {
+  if (isPortrait(project.meta) || !a.caption) return false;
+  const known = onTop.get(a);
+  if (known !== undefined) return known;
+  const { width: W, height: H } = project.meta;
+  const text = shownText(a.caption);
+  const strips = [narrationBox(project, text, false), narrationBox(project, text, true)];
+  const scene = project.scenes[shot.scene];
+  const covered = [0, 0];
+  const d = lineDuration(project, shot, a);
+  for (const u of [0.05, 0.5, 0.95]) {
+    const t = Math.min(a.t + d * u, Math.max(0, shot.duration - 1e-3));
+    const cam = resolveCamera(project, scene, shot, t);
+    for (const id of Object.keys(shot.cast)) {
+      const actor = resolveActor(project, scene, shot, id, t);
+      if (!actor.visible || actor.opacity < 0.3 || actor.heldBy) continue;
+      // The face: a square about the eye, a head's width across.
+      const rig = rigOf(actor.character);
+      const s = (actor.character.height / rig.height) * actor.scale * cam.zoom;
+      const head = actorHeadTop(actor, poseFor(actor, t));
+      const ex = (head.x - cam.x) * cam.zoom + W / 2;
+      const ey = (head.y - cam.y) * cam.zoom + H / 2 + (rig.eye[1] - rig.speaker[1]) * s;
+      const r = Math.max(0.1 * rig.height, 45) * s;
+      if (ex + r < 0 || ex - r > W) continue;
+      strips.forEach(([l, y0, rt, y1], i) => {
+        const across = Math.min(rt, ex + r) - Math.max(l, ex - r);
+        const down = Math.min(y1, ey + r) - Math.max(y0, ey - r);
+        if (across > 0 && down > 0) covered[i] += down / (2 * r);
+      });
+    }
+  }
+  // A face more than a fifth under the strip, once, is enough to move it.
+  const top = covered[0] > 0.2 && covered[1] < covered[0];
+  onTop.set(a, top);
+  return top;
 }
 
 /** The full state of a shot at time `t` (seconds from the start of the shot). */

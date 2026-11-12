@@ -91,13 +91,15 @@ function captionSvg(
   W: number,
   H: number,
   font: string,
-  k: number
+  k: number,
+  top = false
 ): string {
   const fontSize = (style === 'title' ? 54 : 28) * k;
   const lineHeight = fontSize * 1.25;
   // Kept clear of what a reel app draws over the frame, as wide on both sides so it stays
   // in the middle. A reel's narration goes at the top, over the sky: above the app's
-  // caption it would sit on the cast's feet.
+  // caption it would sit on the cast's feet. A film's goes at the top when the timeline
+  // found it would cover the cast's faces at the bottom (narrationBox there).
   const safe = safeInsets({ width: W, height: H });
   const side = Math.max(safe.left, safe.right);
   const lines = wrapText(text, Math.min(W * 0.8, W - 2 * side), fontSize, true);
@@ -107,7 +109,9 @@ function captionSvg(
       ? (safe.top + H - safe.bottom) / 2
       : isPortrait({ width: W, height: H })
         ? safe.top + 20 * k + blockH / 2
-        : H - 28 * k - blockH / 2;
+        : top
+          ? 28 * k + blockH / 2
+          : H - 28 * k - blockH / 2;
   const w = Math.max(...lines.map((l) => textWidth(l, fontSize, true))) + 40 * k;
   const bg =
     style === 'narration'
@@ -491,7 +495,7 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
 
   const vignette = clamp01((c.zoom - VIGNETTE_FROM) / (VIGNETTE_FULL - VIGNETTE_FROM));
   const captions = (opts.quiet ? [] : frame.captions)
-    .map((cp) => captionSvg(cp.text, cp.style, cp.opacity, cp.slide, W, H, font, k))
+    .map((cp) => captionSvg(cp.text, cp.style, cp.opacity, cp.slide, W, H, font, k, cp.top))
     .join('');
   const fade =
     frame.fade > 0

@@ -135,3 +135,47 @@ describe('a bubble with no room above its speaker', () => {
     expect(b.y + b.h).toBeLessThan(400);
   });
 });
+
+describe("a film's narration", () => {
+  const strip = (svg: string) =>
+    svg
+      .match(
+        /<rect x='[\d.]+' y='([\d.]+)' width='[\d.]+' height='([\d.]+)' rx='[\d.]+' fill='#000'/
+      )!
+      .map(Number);
+  const line = [{ t: 0, caption: 'They sat together every evening' }];
+
+  it('runs along the bottom while the faces are clear of it', () => {
+    const p = project(FILM, [
+      {
+        id: 's',
+        scene: 'bare',
+        duration: 4,
+        cast: { kid: { at: { x: 640, y: 600 } } },
+        actions: line,
+      },
+    ]);
+    const [, y] = strip(composeFrame(p, p.shots[0], 2));
+    expect(y).toBeGreaterThan(FILM.height / 2);
+  });
+
+  it('moves to the top, for the whole line, when it would cover a face at the bottom', () => {
+    // Sat low near the camera: the kid's face is where the strip would be.
+    const p = project(FILM, [
+      {
+        id: 's',
+        scene: 'bare',
+        duration: 4,
+        cast: { kid: { at: { x: 640, y: 840 } } },
+        actions: [
+          ...line,
+          { t: 1.5, do: 'walk', actor: 'kid', to: { x: 640, y: 600 }, duration: 1 },
+        ],
+      },
+    ]);
+    for (const t of [0.5, 2, 2.8]) {
+      const [, y, h] = strip(composeFrame(p, p.shots[0], t));
+      expect(y + h).toBeLessThan(FILM.height / 4);
+    }
+  });
+});

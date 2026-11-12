@@ -1,6 +1,7 @@
 import { uiScale } from './format.js';
 import { shotStarts } from './sound.js';
 import type { Project, Shot } from './types.js';
+import { narrationOnTop } from './timeline.js';
 import { lineDuration, shownText } from './voice.js';
 
 /**
@@ -16,8 +17,8 @@ export interface Subtitle {
   text: string;
   /**
    * Shown at the top, so as not to cover a narration caption: the narration's own, and a
-   * line that starts while one is up. One that only runs into the next caption's fade-in
-   * stays at the bottom.
+   * line that starts while one is up (at the bottom when that narration is at the top). One
+   * that only runs into the next caption's fade-in stays at the bottom.
    */
   top: boolean;
 }
@@ -48,10 +49,14 @@ export function subtitles(
   const starts = shotStarts(shots);
   const out: Subtitle[] = [];
   shots.forEach((shot, i) => {
-    // Seconds of this shot that a narration caption is up.
+    // Seconds of this shot that a narration caption is up, and whether it is up at the
+    // top (a film's, moved off the faces): then the subtitle goes at the bottom instead.
     const narration = shot.actions
       .filter((a) => a.caption && (a.captionStyle ?? 'narration') === 'narration')
-      .map((a) => [a.t, a.t + lineDuration(project, shot, a)]);
+      .map(
+        (a) =>
+          [a.t, a.t + lineDuration(project, shot, a), narrationOnTop(project, shot, a)] as const
+      );
     for (const a of shot.actions) {
       const written = a.say ?? a.caption;
       const text = own ? written : a.translation?.[lang];
@@ -64,7 +69,7 @@ export function subtitles(
         start: starts[i] + from,
         end: starts[i] + to,
         text: shownText(text).trim(),
-        top: narration.some(([s, e]) => from >= s && from < e),
+        top: narration.some(([s, e, up]) => from >= s && from < e && !up),
       });
     }
   });
