@@ -9,13 +9,19 @@
  */
 import { waived } from './allow.js';
 import { groundOf, habitatOf, inArea, nearestIn, type Ground, type XY } from './area.js';
-import { BUSY, directs, FOCUSED, sideOf } from './stage.js';
+import { BUSY, directs, FOCUSED, follows, leftAs, sideOf } from './stage.js';
 import { holdPoint, poseFor } from './actor.js';
-import { attachTime, giveParties, resolveActor, type ActorState } from './timeline.js';
+import {
+  attachTime,
+  giveParties,
+  resolveActor,
+  resolveCamera,
+  type ActorState,
+} from './timeline.js';
 import { lineEnd } from './voice.js';
 
 export { waived };
-import type { Allow, Area, Character, Habitat, Project, Scene, Shot } from './types.js';
+import type { Allow, Area, Character, Habitat, Project, Scene, Shot, View } from './types.js';
 
 export { groundOf, habitatOf, inArea, nearestIn };
 export type { Ground };
@@ -47,9 +53,16 @@ export const CODES: Record<string, string> = {
   'attention.speaker': 'a speaker faces away from who the line is said to',
   'attention.reacts': 'someone reacts to what they face away from',
   'continuity.jump': 'something jumps across the stage between frames, in sight',
+  'continuity.cut':
+    'across a cut that carries straight on in the same place, someone is not as the last shot left them',
   'give.reach': 'the two in a give stand too far apart, or face away, for their hands to meet',
   'speech.mismatch': 'no voiced take of a line, heard by speech recognition, says it',
 };
+
+/** Further than this from where the last shot left it, scene pixels, reads as a jump cut. */
+export const CUT_SHIFT = 12;
+/** A size this much off the last shot's (as a share) reads as a jump. */
+const CUT_SIZE = 0.06;
 
 /** Faster than this across the stage (scene pixels a second) reads as a jump cut. */
 export const JUMP_SPEED = 1500;
@@ -483,12 +496,103 @@ function giveRule(project: Project, shot: Shot): Finding[] {
   return out;
 }
 
+/**
+ * A cut that carries straight on in the same place (`follows`): everyone in sight on
+ * either side of it starts as the last shot left them, where they stood, sitting or lying,
+ * asleep (lying, eyes shut) or awake, holding what they held, at the size they were, and nobody appears in a
+ * spot that was in sight empty or vanishes from one still in sight. Facing is not checked:
+ * the engine turns whoever the shot has facing the other way (stage.ts).
+ */
+function cutRule(project: Project, shot: Shot): Finding[] {
+  const prev = follows(project, shot);
+  if (!prev) return [];
+  const scene = project.scenes[shot.scene];
+  const allow = [shot.allow, scene.allow];
+  const { width: W, height: H } = project.meta;
+  const end = prev.duration - 1e-3;
+  const viewA = resolveCamera(project, scene, prev, end);
+  const viewB = resolveCamera(project, scene, shot, 0);
+  const inView = (v: View, p: XY) =>
+    Math.abs(p.x - v.x) <= W / 2 / v.zoom && Math.abs(p.y - v.y) <= H / 2 / v.zoom;
+  const shows = (s: ActorState) => s.visible && s.opacity > 0.05;
+  const seen = (s: ActorState) => shows(s) && (inView(viewA, s) || inView(viewB, s));
+  // Lying with the eyes shut; shut eyes alone are a howl or a laugh as often as sleep.
+  const asleep = (s: ActorState) => s.lie >= 0.5 && s.face.eyes === 'closed';
+  const size = (s: ActorState) => s.scale / (s.perspective || 1);
+  const ids = new Set([...Object.keys(prev.cast), ...Object.keys(shot.cast)]);
+  const out: Finding[] = [];
+  for (const id of ids) {
+    if (!project.characters[id] || waived(allow, 'continuity.cut', id)) continue;
+    const a = leftAs(project, shot, id);
+    const b = shot.cast[id] ? resolveActor(project, scene, shot, id, 0) : undefined;
+    const what: string[] = [];
+    let fix: Finding['fix'];
+    if (a && b) {
+      if (shows(a) !== shows(b)) {
+        if (seen(a) || seen(b))
+          what.push(shows(a) ? 'is hidden at the start' : 'shows, though it was hidden');
+      } else if (seen(a) || seen(b)) {
+        // Carried or riding on the same one, it goes where they go: they answer for it.
+        const along = (a.heldBy && a.heldBy === b.heldBy) || (a.on && a.on === b.on);
+        const d = dist(a, b);
+        if (d > CUT_SHIFT && !along) {
+          what.push(`stands ${r(d)} px from where it was left, (${r(a.x)}, ${r(a.y)})`);
+          const up = (s: ActorState) => s.sit < 0.5 && s.lie < 0.5;
+          if (up(a) && up(b) && !shot.cast[id].on && !b.heldBy)
+            fix = { path: `/cast/${id}/at`, value: { x: r(a.x), y: r(a.y) } };
+        }
+        if (a.lie >= 0.5 !== b.lie >= 0.5)
+          what.push(a.lie >= 0.5 ? 'was lying down and is up' : 'is lying down, and was not');
+        else if (a.sit >= 0.5 !== b.sit >= 0.5)
+          what.push(a.sit >= 0.5 ? 'was sitting and stands' : 'sits, and was standing');
+        if (asleep(a) !== asleep(b))
+          what.push(asleep(a) ? 'was asleep and is awake' : 'is asleep, and was awake');
+        if (a.heldBy !== b.heldBy)
+          what.push(
+            a.heldBy
+              ? `was in '${a.heldBy}''s hand and ${b.heldBy ? `is in '${b.heldBy}''s` : 'is not'}`
+              : `is in '${b.heldBy}''s hand, and was not`
+          );
+        if (Math.abs(size(b) / size(a) - 1) > CUT_SIZE)
+          what.push(`is drawn at ${r2(size(b))} its size, and was at ${r2(size(a))}`);
+      }
+    } else if (a && shows(a) && inView(viewA, a) && inView(viewB, a)) {
+      what.push(
+        `was in sight at the end of '${prev.id}', where this shot looks, and is not in its cast: it vanishes`
+      );
+      fix = {
+        path: `/cast/${id}`,
+        value: { at: { x: r(a.x), y: r(a.y) }, facing: a.facing },
+      };
+    } else if (!a && b && shows(b) && inView(viewA, b) && inView(viewB, b)) {
+      what.push(
+        `was not in '${prev.id}', though its spot was in sight there: it appears from nowhere`
+      );
+    }
+    if (!what.length) continue;
+    out.push({
+      code: 'continuity.cut',
+      shot: shot.id,
+      t: [0, 0],
+      actors: [id],
+      at: b ? { x: b.x, y: b.y } : a ? { x: a.x, y: a.y } : undefined,
+      message: `'${id}' ${what.join('; ')}, across a cut that carries straight on from '${prev.id}'. Start it as '${prev.id}' left it, or set cut: 'later' on '${shot.id}' if time has passed.`,
+      fix,
+    });
+  }
+  return out;
+}
+
 const RULES = [supportRule, attentionRule, jumpRule];
 
 /** Every finding in a shot, waivers applied. */
 export function shotFindings(project: Project, shot: Shot): Finding[] {
   const samples = sampleShot(project, shot);
-  return [...RULES.flatMap((rule) => rule(project, shot, samples)), ...giveRule(project, shot)];
+  return [
+    ...RULES.flatMap((rule) => rule(project, shot, samples)),
+    ...giveRule(project, shot),
+    ...cutRule(project, shot),
+  ];
 }
 
 const r = (v: number) => Math.round(v);

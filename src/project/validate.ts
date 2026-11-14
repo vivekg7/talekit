@@ -1,5 +1,6 @@
 import { missingColorTokens } from '../engine/svg.js';
 import { lintCharacter } from './construction.js';
+import { follows } from '../engine/stage.js';
 import { effectLayer } from '../engine/effects.js';
 import { swayBox, swayMissing } from '../engine/sway.js';
 import { RIGS, rigOf } from '../engine/rigs.js';
@@ -827,12 +828,15 @@ function stepsOff(shot: Shot, project: Project): Problem[] {
 
 /**
  * Continuity between shots: whoever ends a shot carrying something should start the next
- * one with it in hand, or the audience sees it vanish at the cut.
+ * one with it in hand, or the audience sees it vanish at the cut. A cut that carries
+ * straight on in the same place is the world check's (continuity.cut).
  */
 function carriedAcrossCuts(project: Project): Problem[] {
   const out: Problem[] = [];
   for (let i = 1; i < project.shots.length; i++) {
     const [prev, next] = [project.shots[i - 1], project.shots[i]];
+    // Carrying straight on in the same place, the world check holds it (continuity.cut).
+    if (follows(project, next)) continue;
     for (const prop of Object.keys(prev.cast)) {
       const carrier = holderAt(prev, prop, prev.duration);
       if (!carrier || !next.cast[carrier]) continue;

@@ -378,11 +378,23 @@ describe('picking up and putting down', () => {
 
   it('warns when a carried prop vanishes at a cut', () => {
     const p = project(cast, [{ t: 0, actor: 'lantern', attach: 'kid' }]);
-    const next = ShotSchema.parse({ id: 't', scene: 'park', duration: 5, cast: { kid: cast.kid } });
+    // Later (or somewhere else): a warning.
+    const next = ShotSchema.parse({
+      id: 't',
+      scene: 'park',
+      duration: 5,
+      cut: 'later',
+      cast: { kid: cast.kid },
+    });
     const messages = validateProject({ ...p, shots: [p.shots[0], next] }).map((m) => m.message);
     expect(messages.join('\n')).toMatch(
       /'kid' ends 's' carrying 'lantern' but starts 't' empty-handed/
     );
+    // Carrying straight on in the same place, the world check finds it.
+    const straight = ShotSchema.parse({ ...next, cut: 'next' });
+    const found = validateProject({ ...p, shots: [p.shots[0], straight] }).map((m) => m.message);
+    expect(found.join('\n')).not.toMatch(/empty-handed/);
+    expect(found.join('\n')).toMatch(/'lantern' was in sight .* it vanishes/);
     const carried = ShotSchema.parse({
       ...next,
       cast: cast,

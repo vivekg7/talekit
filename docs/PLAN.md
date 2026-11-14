@@ -928,7 +928,69 @@ no walk areas, so they were run over all 36 projects.
   height) or facing away, where a hand would get there only behind the
   back.
 
-8.1 is done; 8.2 (continuity) is next.
+8.1 is done.
+
+### 8.2 so far
+
+- **Same-place continuity.** A shot says whether it carries straight on
+  from the last one in the same scene (`cut: 'next'`) or time has passed
+  (`cut: 'later'`).
+  - **Defaults.** A hard cut is `next` and a crossfade `later`: a dissolve
+    reads as time passing, as it does in film. A shot after a title card
+    starts afresh, and so does one in another scene.
+  - **What a continuous cut is held to.** Everyone in sight on either side
+    of it must start as the last shot left them: where they stood (within
+    12 px), sitting or lying, asleep or awake (lying with eyes `closed`:
+    shut eyes alone are as often a howl), holding what they held, at the
+    same size. Nobody may vanish from a spot the new shot
+    still shows, or appear in one the last shot showed empty. Each
+    difference is a `continuity.cut` finding. It gives the spot or the cast
+    entry to copy as the fix, and offers `cut: 'later'` as the way out.
+  - **Facing is the engine's.** Whoever the shot has facing the other way
+    starts facing as they were and turns at t 0, a 0.2 s turn you can see,
+    rather than a flip at the cut. The engine stages the turn, and
+    `explain` lists it. A thing with no eyes (a pot, a bow) cannot turn
+    itself, so it keeps the facing it had. Anything held faces with its
+    holder. Anyone lying down, or moved or turned by the shot at its start,
+    is left alone.
+  - **Why errors, not fixes, for the rest.** The cast says where everyone
+    starts, explicitly. When that differs from where they were left, the
+    engine cannot tell a slip from a jump in time. So the shot has to say
+    which, and a skipped time is one word.
+  - The project warning about a prop vanishing from a carrier's hand at a
+    cut now covers only cuts to another place or a later time.
+
+**Calibration.** Of 143 same-scene cuts in the 36 released projects
+that changed something, the rule finds 91 things.
+
+- **What the field could not mark.** Most are time skips the files had no
+  way to mark: a dream and back (`gadha-hi`), a dug garden between
+  shots (`prashn-hi`), an establishing shot of the forest before the
+  friends (`chand-hi`).
+- **Real slips the review missed**, checked frame by frame:
+  - an arrow left on the string of Yudhishthir's lowered bow vanishes at
+    the cut to the next prince (`lakshya-hi`);
+  - the camel, just inside the edge of the farmer's shot, is left out of it
+    and vanishes, and so does a melon (`oont-hi`).
+- **Seen in the numbers, not yet watched.** A darbar reframed by moving
+  the king, the vases and Ramaiya 60 to 120 px instead of the camera, so
+  they would slide against the set (`vase-hi`). A seated jackal stands at the
+  cut (`siyar-hi`), and so does a seated man (`sapna-hi`). The lion edges
+  40 to 70 px between two shots (`lion-mouse-hi`).
+- **Not found yet.** A bow held after an `aim` is in the far hand, but the
+  next shot starts it back in the near one, so it jumps 40 px at the cut.
+  The rule lets held props go where their holder's hand goes, so it misses
+  this. The engine should carry that state across the cut too.
+- **False alarms.** The cuts after a title card were the only class of
+  them, now exempt.
+
+The examples had three. clever-rabbit's rabbit stepped 120 px closer to
+the lion at a reframing cut, and now stays where it walked to. In
+lighthouse, Gus started in the sky in plain sight and now flies in from
+off the frame, and Grandma vanished from the beach while Pip found the
+lantern and now stays.
+
+Next in 8.2: the 180° rule across cuts, smart objects, contact verbs.
 
 ## Render speed
 

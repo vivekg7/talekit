@@ -663,20 +663,21 @@ spot ringed (`talekit check --frames dir` saves those frames too). The
 shot is saved anyway, so you can look at it, but nothing renders until
 every finding is fixed or waived.
 
-| Code                 | Means                                                                                                                                              |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `support.air`        | stands on nothing: on no walk area, and cannot fly                                                                                                 |
-| `support.water`      | in deep water, and cannot swim                                                                                                                     |
-| `support.dry`        | lives in water, and is out of it                                                                                                                   |
-| `support.climb`      | a `climb` goes up (or down) nothing that can be climbed: outside every `climb` area                                                                |
-| `world.walk`         | the scene has no walk areas                                                                                                                        |
-| `world.anchor`       | an anchor is on no walk or water area                                                                                                              |
-| `attention.listener` | someone spoken to faces away from the speaker                                                                                                      |
-| `attention.speaker`  | a speaker faces away from who the line is said to                                                                                                  |
-| `attention.reacts`   | someone reacts to what they face away from                                                                                                         |
-| `continuity.jump`    | something jumps across the stage between frames, in sight: a prop handed over from too far, a `set.at` while it shows, a `move` too fast to be one |
-| `speech.mismatch`    | no voiced take of a line, heard by speech recognition, says it (see [Sound](#sound))                                                               |
-| `give.reach`         | the two in a `give` stand too far apart, or face away, so their hands do not meet and the prop floats across                                       |
+| Code                 | Means                                                                                                                                                                                    |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `support.air`        | stands on nothing: on no walk area, and cannot fly                                                                                                                                       |
+| `support.water`      | in deep water, and cannot swim                                                                                                                                                           |
+| `support.dry`        | lives in water, and is out of it                                                                                                                                                         |
+| `support.climb`      | a `climb` goes up (or down) nothing that can be climbed: outside every `climb` area                                                                                                      |
+| `world.walk`         | the scene has no walk areas                                                                                                                                                              |
+| `world.anchor`       | an anchor is on no walk or water area                                                                                                                                                    |
+| `attention.listener` | someone spoken to faces away from the speaker                                                                                                                                            |
+| `attention.speaker`  | a speaker faces away from who the line is said to                                                                                                                                        |
+| `attention.reacts`   | someone reacts to what they face away from                                                                                                                                               |
+| `continuity.jump`    | something jumps across the stage between frames, in sight: a prop handed over from too far, a `set.at` while it shows, a `move` too fast to be one                                       |
+| `continuity.cut`     | across a cut that carries straight on in the same scene, someone is not as the last shot left them: moved, sat up, woken, a prop in another hand, resized, appeared or vanished in sight |
+| `speech.mismatch`    | no voiced take of a line, heard by speech recognition, says it (see [Sound](#sound))                                                                                                     |
+| `give.reach`         | the two in a `give` stand too far apart, or face away, so their hands do not meet and the prop floats across                                                                             |
 
 Waive a finding only when the film means it, in the shot's (or the
 scene's, for every shot there) `allow`. The key is the code, or the code
@@ -912,6 +913,19 @@ falling the same way.
   over its first second, for time passing or a soft change of place (the
   previous shot then needs no `fadeOut`). `fadeIn`/`fadeOut` fade from and
   to black, for the start and end of the film.
+- **A cut in the same scene carries straight on.** With no time passed,
+  everyone must start the shot as the last one left them: where they stood,
+  sitting or lying, asleep or awake, holding what they held, at the same
+  size; nobody may appear in a spot that was just in sight empty, or vanish
+  from one still in sight. Copy the end of the last shot into the cast (a
+  `continuity.cut` finding gives the spot). Whoever this shot has facing
+  the other way is started facing as they were and turns at the start, a
+  turn you can see rather than a flip at the cut (a thing with no eyes, a
+  pot or a bow, stays as it was). When time has passed (the next morning,
+  the work done, back from a dream), say so with `cut: 'later'`, and the
+  cast starts afresh. A `crossfade` is read as time passing (`cut: 'next'`
+  on it if it is not), a shot after a title card starts afresh, and so does
+  one in another scene.
 
 ### Verbs (`do`)
 

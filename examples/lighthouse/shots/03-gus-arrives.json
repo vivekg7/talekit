@@ -18,7 +18,10 @@
       "emotion": "scared"
     },
     "gus": {
-      "at": "sky-right",
+      "at": {
+        "x": 1360,
+        "y": 200
+      },
       "facing": "left",
       "scale": 1,
       "visible": true,

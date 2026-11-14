@@ -8,6 +8,10 @@
  * hands, lying down, carried or without eyes, they stay as they are, and the world check
  * says so when it matters (world.ts). The shot file is never changed; the added actions are
  * marked `staged` and `talekit explain` lists them.
+ *
+ * Continuity (phase 8.2): a shot that carries straight on from the last one in the same
+ * place (`follows`) starts everyone facing the way they were left; one the shot has facing
+ * the other way turns at its start, rather than flipping at the cut.
  */
 import { waived } from './allow.js';
 import { hash01 } from './easing.js';
@@ -65,7 +69,11 @@ export function staged(project: Project, scene: Scene, shot: Shot): Shot {
   if (hit) return hit;
   const extra = staging(project, scene, shot);
   const out: Shot = extra.length
-    ? { ...shot, actions: sortByTime([...shot.actions, ...extra]) }
+    ? {
+        ...shot,
+        cast: carriedCast(project, shot),
+        actions: sortByTime([...shot.actions, ...extra]),
+      }
     : { ...shot };
   STAGED.add(out);
   byShot.set(shot, out);
@@ -74,7 +82,7 @@ export function staged(project: Project, scene: Scene, shot: Shot): Shot {
 
 /** The actions the engine adds to a shot, in time order. */
 export function staging(project: Project, scene: Scene, shot: Shot): StagedAction[] {
-  let work = raw({ ...shot, actions: [...shot.actions] });
+  let work = raw({ ...shot, cast: carriedCast(project, shot), actions: [...shot.actions] });
   const added: StagedAction[] = [];
   const allow = [shot.allow, scene.allow];
   const at = (id: string, t: number) => resolveActor(project, scene, work, id, t);
@@ -82,6 +90,17 @@ export function staging(project: Project, scene: Scene, shot: Shot): StagedActio
     added.push(a);
     work = raw({ ...work, actions: sortByTime([...work.actions, a]) });
   };
+  // Carried on from the last shot facing the other way: turns to how this shot has it, or,
+  // a thing that cannot turn itself, stays as it was.
+  for (const [id, facing] of Object.entries(carried(project, shot))) {
+    const turns = !!project.characters[id].parts.eyes;
+    add({
+      t: 0,
+      actor: id,
+      set: { facing: turns ? shot.cast[id].facing : facing },
+      staged: turns ? `was facing ${facing}` : 'left as it was',
+    } as StagedAction);
+  }
   /**
    * Turn `id` to face `toward` at t, if it faces away; one still on the move or busy then
    * turns as soon as it is free, if that is before `until` (the line's end).
@@ -218,6 +237,67 @@ export function directs(shot: Shot, id: string, from: number, to: number): boole
   return shot.actions.some(
     (a) => a.actor === id && a.t >= from - 0.3 && a.t <= to && a.set?.facing !== undefined
   );
+}
+
+/**
+ * The shot this one carries straight on from: the one before it in the film, in the same
+ * scene, with no time passed between (`cut: 'next'`, the default for a hard cut), and
+ * not a title card.
+ */
+export function follows(project: Project, shot: Shot): Shot | undefined {
+  const i = project.shots.findIndex((s) => s.id === shot.id);
+  const prev = i > 0 ? project.shots[i - 1] : undefined;
+  if (!prev || prev.scene !== shot.scene || !project.scenes[prev.scene]) return undefined;
+  // A title card is the overture: the story starts after it.
+  if (prev.actions.some((a) => a.caption && a.captionStyle === 'title')) return undefined;
+  return (shot.cut ?? (shot.crossfade > 0 ? 'later' : 'next')) === 'next' ? prev : undefined;
+}
+
+/** How `id` was left at the end of the shot before, if this one carries on from it. */
+export function leftAs(project: Project, shot: Shot, id: string): ActorState | undefined {
+  const prev = follows(project, shot);
+  if (!prev?.cast[id] || !project.characters[id]) return undefined;
+  return resolveActor(project, project.scenes[prev.scene], prev, id, prev.duration - 1e-3);
+}
+
+const CARRIED = new WeakMap<Project, WeakMap<Shot, Record<string, Facing>>>();
+
+/**
+ * Who this shot has facing other than the way the last shot left them (in sight there),
+ * and that way. One who sets off on a move at the start, or that the shot turns itself
+ * then, is left to it; so is anything held (it faces with its holder) and anyone lying
+ * down (a turn would flip them over).
+ */
+function carried(project: Project, shot: Shot): Record<string, Facing> {
+  // Per project as well as shot: what comes before a shot depends on the film it is in.
+  let byShot = CARRIED.get(project);
+  if (!byShot) CARRIED.set(project, (byShot = new WeakMap()));
+  const hit = byShot.get(shot);
+  if (hit) return hit;
+  const out: Record<string, Facing> = {};
+  byShot.set(shot, out);
+  for (const [id, cast] of Object.entries(shot.cast)) {
+    const was = leftAs(project, shot, id);
+    if (!was || !was.visible || was.opacity < 0.05 || was.facing === cast.facing) continue;
+    if (was.heldBy || was.lie >= 0.5) continue;
+    const starts = shot.actions.some(
+      (a) =>
+        a.actor === id &&
+        a.t < 0.05 &&
+        ((a.do && (isMoveVerb(a.do) || a.do === 'lie')) || a.set?.facing || a.attach)
+    );
+    if (!starts) out[id] = was.facing;
+  }
+  return out;
+}
+
+/** The cast, facing as it was left where the shot carries on (see `carried`). */
+function carriedCast(project: Project, shot: Shot): Shot['cast'] {
+  const turns = carried(project, shot);
+  if (!Object.keys(turns).length) return shot.cast;
+  const cast = { ...shot.cast };
+  for (const [id, facing] of Object.entries(turns)) cast[id] = { ...cast[id], facing };
+  return cast;
 }
 
 function raw(shot: Shot): Shot {

@@ -11,10 +11,7 @@
       "emotion": "angry"
     },
     "rabbit": {
-      "at": {
-        "x": 760,
-        "y": 664
-      },
+      "at": "court",
       "facing": "right",
       "scale": 1,
       "visible": true,

@@ -3,6 +3,13 @@
   "scene": "beach",
   "duration": 12,
   "cast": {
+    "grandma": {
+      "at": "path-foot",
+      "facing": "right",
+      "scale": 1,
+      "visible": true,
+      "emotion": "happy"
+    },
     "pip": {
       "at": "rocks",
       "facing": "right",

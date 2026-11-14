@@ -985,6 +985,16 @@ export const ShotSchema = z.object({
     .describe(
       "Seconds this shot dissolves in from the previous one at its start (default 0, a cut). The previous shot's last moment carries on underneath, so it needs no fadeOut"
     ),
+  /**
+   * Whether this shot follows on from the last in the same scene (`next`) or time has passed
+   * (`later`): a hard cut is `next` unless it says so, a crossfade `later`.
+   */
+  cut: z
+    .enum(['next', 'later'])
+    .optional()
+    .describe(
+      "In the same scene as the shot before: 'next' (the default for a cut) if it carries straight on, so everyone starts where, how and as they were left (a turn shown as a turn); 'later' (the default with a crossfade) if time has passed, so the cast starts afresh. A shot in another scene always starts afresh"
+    ),
   /** Replaces the scene's weather for this shot: the rain stops, a storm starts. */
   weather: WeatherSchema.optional().describe(
     "This shot's weather instead of the scene's (the rain has stopped, a storm is coming); {} for clear weather in a scene that has some"

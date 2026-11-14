@@ -113,7 +113,9 @@ class Film:
 
     def shot(self, id, scene, end, cast, actions, camera=None, tail=0.6, **more):
         """Add a shot that runs to `end` plus `tail`. `more` takes any other shot field:
-        music, crossfade, fadeIn, fadeOut, weather, ambience."""
+        music, crossfade, cut ('later' when time has passed since the last shot in this
+        scene; else its cast starts as that one left them), fadeIn, fadeOut, weather,
+        ambience."""
         self.shots.append(
             {
                 "id": id,
