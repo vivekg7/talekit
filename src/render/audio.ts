@@ -33,7 +33,8 @@ export function sourcePath(project: Project, src: Source): string {
   }
   if (!project.audio)
     throw new Error(`sound file '${src.file}' needs the project loaded from disk`);
-  return path.join(project.audio.dir, src.file);
+  // A choice's own sound (options.ts) is named by its full path.
+  return path.resolve(project.audio.dir, src.file);
 }
 
 /** Decode a clip to interleaved float samples at RATE. */

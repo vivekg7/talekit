@@ -90,32 +90,61 @@ export async function saveMeta(root: string, meta: ProjectMeta): Promise<string>
   return p.meta;
 }
 
-/** Load every file. Schema errors are collected per file; cross-reference checks live in validate.ts. */
-export async function loadProject(root: string): Promise<Project> {
+/**
+ * Load every file. Schema errors are collected per file; cross-reference checks live in validate.ts.
+ * `over` are option choices (options.ts), each a folder laid out like the project: an item
+ * there replaces the project's one of the same id, a new id joins it (a shot in its file
+ * name's place), its `talekit.json` is merged over the meta and its `audio/` files over the
+ * project's. The project on disk is not touched.
+ */
+export async function loadProject(root: string, over: string[] = []): Promise<Project> {
   const p = projectPaths(root);
-  const meta = await loadMeta(root);
+  let meta = await loadMeta(root);
   const errors: string[] = [];
   const characters: Record<string, Character> = {};
   const scenes: Record<string, Scene> = {};
-  const shots: Shot[] = [];
+  const shotFiles: { file: string; shot: Shot }[] = [];
+  const layers = [p.root, ...over.map((o) => path.resolve(o))];
 
-  for (const { file, data } of await readJsonFiles(p.characters)) {
-    const r = CharacterSchema.safeParse(data);
-    if (!r.success) errors.push(`characters/${file}: ${formatIssues(r.error)}`);
-    else characters[r.data.id] = r.data;
-  }
-  for (const { file, data } of await readJsonFiles(p.scenes)) {
-    const r = SceneSchema.safeParse(data);
-    if (!r.success) errors.push(`scenes/${file}: ${formatIssues(r.error)}`);
-    else scenes[r.data.id] = r.data;
-  }
-  for (const { file, data } of await readJsonFiles(p.shots)) {
-    const r = ShotSchema.safeParse(data);
-    if (!r.success) errors.push(`shots/${file}: ${formatIssues(r.error)}`);
-    else shots.push(r.data);
+  for (const [i, dir] of layers.entries()) {
+    const where = (sub: string, file: string) =>
+      i ? `${path.relative(p.root, dir)}/${sub}/${file}` : `${sub}/${file}`;
+    for (const { file, data } of await readJsonFiles(path.join(dir, 'characters'))) {
+      const r = CharacterSchema.safeParse(data);
+      if (!r.success) errors.push(`${where('characters', file)}: ${formatIssues(r.error)}`);
+      else characters[r.data.id] = r.data;
+    }
+    for (const { file, data } of await readJsonFiles(path.join(dir, 'scenes'))) {
+      const r = SceneSchema.safeParse(data);
+      if (!r.success) errors.push(`${where('scenes', file)}: ${formatIssues(r.error)}`);
+      else scenes[r.data.id] = r.data;
+    }
+    for (const { file, data } of await readJsonFiles(path.join(dir, 'shots'))) {
+      const r = ShotSchema.safeParse(data);
+      if (!r.success) errors.push(`${where('shots', file)}: ${formatIssues(r.error)}`);
+      else {
+        const known = shotFiles.findIndex((s) => s.shot.id === r.data.id);
+        if (known >= 0) shotFiles[known].shot = r.data;
+        else shotFiles.push({ file, shot: r.data });
+      }
+    }
+    if (i && existsSync(path.join(dir, META_FILE))) {
+      const extra = JSON.parse(await readFile(path.join(dir, META_FILE), 'utf8')) as object;
+      meta = ProjectMetaSchema.parse({ ...meta, ...extra });
+    }
   }
   if (errors.length) throw new Error(errors.join('\n'));
-  const project: Project = { meta, characters, scenes, shots, audio: await loadAudio(p.audio) };
+  // Shots play in file name order; a new one from a choice takes its name's place.
+  const shots = over.length
+    ? shotFiles.sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : 0)).map((s) => s.shot)
+    : shotFiles.map((s) => s.shot);
+  let audio = await loadAudio(p.audio);
+  for (const dir of layers.slice(1)) {
+    const more = await loadAudio(path.join(dir, 'audio'));
+    for (const [name, f] of Object.entries(more.files))
+      audio = { ...audio, files: { ...audio.files, [name]: path.join(more.dir, f) } };
+  }
+  const project: Project = { meta, characters, scenes, shots, audio };
   for (const shot of shots) timeActions(project, shot);
   return project;
 }
