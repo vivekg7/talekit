@@ -146,6 +146,22 @@ async function projectVersion(root: string): Promise<number> {
   return Math.round(latest);
 }
 
+/**
+ * The checks' report, worked out again only when the project changed. The page asks for the
+ * project after every agent write and every note, and the world and sight checks take most
+ * of a second on a film; frames wait behind them. The checks read nothing but the project,
+ * so its JSON is the key.
+ */
+const PROBLEMS = new Map<string, { key: string; report: string }>();
+function problemsOf(root: string, project: Project): string {
+  const key = createHash('sha1').update(JSON.stringify(project)).digest('hex');
+  const known = PROBLEMS.get(root);
+  if (known?.key === key) return known.report;
+  const report = formatProblems(validateProject(project));
+  PROBLEMS.set(root, { key, report });
+  return report;
+}
+
 async function movieInfo(root: string): Promise<{ mtime: number; stale: boolean } | null> {
   const p = projectPaths(root);
   const file = path.join(p.out, 'movie.mp4');
@@ -417,7 +433,7 @@ export async function serve(
           lines: linesOf(project),
           safe: safeInsets(project.meta),
           apps: apps.map((a) => ({ ...a, here: a === app })),
-          problems: formatProblems(validateProject(project)),
+          problems: problemsOf(root, project),
           notes: await loadNotes(root),
           movie: await movieInfo(root),
           mix: project.meta.mix ?? {},
