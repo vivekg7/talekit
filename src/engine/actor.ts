@@ -52,6 +52,9 @@ export function poseFor(actor: ActorState, t: number): Pose {
   if (actor.knock) applyKnock(rig, pose, actor.knock.away, actor.knock.u);
   for (const v of actor.verbs)
     applyVerb(rig, pose, v.verb, v.u, 0, v.to, v.span, v.loose, v.handOver, v.reach);
+  // A sail in the hand leaning in the wind (an umbrella, a flag) pulls the arm after it.
+  if (actor.blown && rig.name === 'humanoid' && loco !== 'climb')
+    giveToSail(rig, pose, actor.blown);
   // An arrow left on the string of a lowered bow: the bow held so it points at the floor.
   if (actor.nocked && !pose.bow)
     pose.bow = { deg: NOCKED_DOWN, turn: 1, draw: 0, raise: 0, hand: 1 };
@@ -802,6 +805,24 @@ export function partToScene(
 ): { x: number; y: number } {
   const rig = rigOf(actor.character);
   return boxToScene(actor, pose, toRoot(rig, pose, rig.required, point));
+}
+
+/** The share of a held sail's lean the holding arm turns by, about the shoulder. */
+const SAIL_GIVE = 0.4;
+
+/**
+ * The holding arm giving to a sail the wind leans `deg` (clockwise, own frame) about the
+ * hand: turned about the shoulder by a share of it, the way that carries the hand downwind
+ * (back on the clock for a hand below the shoulder, on for one held up over it). The prop
+ * is placed from the hand after, so its grip stays in it.
+ */
+function giveToSail(rig: Rig, pose: Pose, deg: number): void {
+  const arm = rig.hold.part;
+  const [sx, sy] = toRoot(rig, pose, arm, rigPart(rig, arm).pivot);
+  const [hx, hy] = toRoot(rig, pose, arm, rig.hold.point);
+  const len = Math.hypot(hx - sx, hy - sy);
+  if (len < 1) return;
+  pose.rot[arm] = (pose.rot[arm] ?? 0) - SAIL_GIVE * deg * ((hy - sy) / len);
 }
 
 /**

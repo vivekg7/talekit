@@ -1,11 +1,10 @@
 import { poseFor } from './actor.js';
-import { hash01, TAU } from './easing.js';
 import { toRoot } from './gait.js';
 import type { Pose } from './motion.js';
 import { rigPart, rigOf, type Rig } from './rigs.js';
 import { resolveActor, type ActorState } from './timeline.js';
 import type { Character, Project, Shot } from './types.js';
-import { weatherAt } from './weather.js';
+import { gusting, gustPhase, weatherAt } from './weather.js';
 
 /**
  * Follow-through. Each spring part is a damped spring about its rest pose, pushed by the
@@ -145,7 +144,7 @@ function sample(project: Project, shot: Shot, id: string, springs: Spring[], t: 
 /**
  * The wind's push at t, in the actor's facing frame (canonical units a second squared, to
  * the right), as the acceleration of a pivot that would throw the part the same way: the
- * weather's wind at t, gusting about it in a slow swell, a quicker one and a flutter.
+ * weather's wind at t, gusting in the actor's own phase (`gusting`).
  */
 function windPush(
   scene: Project['scenes'][string],
@@ -155,16 +154,7 @@ function windPush(
   side: number
 ): number {
   const wind = scene ? (weatherAt(scene, shot, t).wind ?? 0) : 0;
-  if (!wind) return 0;
-  const [a, b, c] = sim.gust;
-  const gusty = 0.5 + 0.5 * Math.min(1, Math.abs(wind));
-  const g =
-    1 +
-    gusty *
-      (0.3 * Math.sin(TAU * (0.45 * t + a)) +
-        0.18 * Math.sin(TAU * (1.3 * t + b)) +
-        0.1 * Math.sin(TAU * (2.9 * t + c)));
-  return -side * wind * g * W0 * W0;
+  return wind ? -side * gusting(wind, t, sim.gust) * W0 * W0 : 0;
 }
 
 /** A spring's turn (radians) or sway thrown by a push, before the spring answers it. */
@@ -195,7 +185,7 @@ function simFor(project: Project, shot: Shot, id: string): Sim {
     springs,
     samples: [],
     done: 0,
-    gust: [hash01(`gust:${id}:a`), hash01(`gust:${id}:b`), hash01(`gust:${id}:c`)],
+    gust: gustPhase(id),
   };
   // Already blown as the shot opens: each spring at rest where the wind holds it.
   const scene = project.scenes[shot.scene];

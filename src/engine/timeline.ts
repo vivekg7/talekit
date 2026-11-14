@@ -45,6 +45,7 @@ import type {
 import { isMoveVerb } from './types.js';
 import { actionSalt, resolveSound, soundLength, soundTraits } from './sources.js';
 import { routeLength, routeOf } from './route.js';
+import { gusting, gustPhase, weatherAt } from './weather.js';
 
 export interface Point {
   x: number;
@@ -177,6 +178,12 @@ export interface ActorState {
   /** Carried by this actor (`attach`), and whether this actor is carrying something. */
   heldBy?: string;
   holding: boolean;
+  /**
+   * Carrying a prop that catches the wind (`sail`): how far the wind leans it now, degrees
+   * clockwise in this actor's own frame (facing right), about the grip. The holding arm
+   * gives with it (actor.ts), and the prop is turned by it (heldFrom).
+   */
+  blown?: number;
   /** Head tilt toward whoever the actor is attending to, degrees (down is positive). */
   look: number;
   /** A short take after an emotion change: progress 0..1 and the new emotion. */
@@ -619,6 +626,43 @@ export function holderAt(shot: Shot, prop: string, t: number): string | undefine
   return holder;
 }
 
+/** How far a held sail leans at wind 1 before it gusts (degrees), and the most it ever does. */
+const SAIL_LEAN = 20;
+const SAIL_MAX = 32;
+
+/**
+ * How far the wind leans the sail `id` carries at t (see `ActorState.blown`): downwind,
+ * gusting in the prop's own phase, as far as it catches the wind; easing into SAIL_MAX
+ * rather than stopping dead at it. 0 with no sail in hand or no wind.
+ */
+function blownAt(
+  project: Project,
+  scene: Scene,
+  shot: Shot,
+  id: string,
+  facing: Facing,
+  t: number
+): number {
+  const prop = Object.keys(shot.cast).find(
+    (pid) => project.characters[pid]?.sail && holderAt(shot, pid, t) === id
+  );
+  if (!prop) return 0;
+  const wind = weatherAt(scene, shot, t).wind ?? 0;
+  if (!wind) return 0;
+  const lean = sailLean(project.characters[prop].sail!, gusting(wind, t, gustPhase(prop)));
+  // Clockwise in the scene is downwind for a wind to the right; mirrored in a left-facer's frame.
+  return facing === 'left' ? -lean : lean;
+}
+
+/**
+ * How far a sail catching `sail` of the wind leans in a wind blowing `gust` (clockwise for
+ * a wind to the right), degrees; with no gust given, the furthest it ever leans, at the top
+ * of a gale's gust (the pose sheet shows it).
+ */
+export function sailLean(sail: number, gust = 1.58): number {
+  return SAIL_MAX * Math.tanh((SAIL_LEAN * sail * gust) / SAIL_MAX);
+}
+
 /** Where a prop's grip is with its feet at `at`, at this (final) scale, facing this way. */
 export function gripAt(
   prop: Character,
@@ -724,9 +768,14 @@ function heldFrom(holder: ActorState, pose: Pose, prop: Character, propScale: nu
   const [gx, gy] = prop.grip ?? [rig.width / 2, rig.height / 2];
   const k = (prop.height / rig.height) * propScale * holder.perspective;
   const side = holder.facing === 'left' ? -1 : 1;
-  // The working end, from the grip, in scene pixels as drawn upright (y down).
+  // A sail in a wind (a flag, drawn streaming right) faces downwind, whichever way its
+  // holder faces: turned round in the hand (-1) when the wind blows behind them.
+  const flip = prop.sail && holder.blown ? Math.sign(holder.blown) : 1;
+  const facing: Facing = side * flip < 0 ? 'left' : 'right';
+  // The working end, from the grip, in scene pixels as drawn upright (y down), in the
+  // holder's own frame.
   const [tx, ty] = prop.tip ?? [gx, 0];
-  const dx = k * (tx - gx);
+  const dx = flip * k * (tx - gx);
   const dy = k * (ty - gy);
   let wield = pose.wield;
   if (pose.bite && pose.bite > 0) {
@@ -755,15 +804,18 @@ function heldFrom(holder: ActorState, pose: Pose, prop: Character, propScale: nu
   // A bow in an aim: turned to stand across the line of it.
   if (prop.bowstring && pose.bow)
     wield = (wield ?? 0) + pose.bow.turn * bowTurn(prop, pose.bow.deg);
+  // A sail (an umbrella, a flag) leaned downwind about the hand.
+  if (prop.sail && holder.blown) wield = (wield ?? 0) + holder.blown;
   const rad = ((wield ?? 0) * Math.PI) / 180;
   return {
     point: {
-      x: hand.x - k * side * (gx - rig.width / 2),
+      x: hand.x - k * side * flip * (gx - rig.width / 2),
       y: hand.y + k * (rig.height - gy),
       scale: holder.perspective,
     },
-    facing: holder.facing,
-    turn: holder.turn,
+    facing,
+    // Faced downwind, it does not turn round with its holder.
+    turn: prop.sail && holder.blown ? undefined : holder.turn,
     // Swung by the hand (a stick in a blow): turned about the grip, top toward the facing.
     tilt: wield ? { deg: side * wield, x: hand.x, y: hand.y } : undefined,
     tip: {
@@ -1396,6 +1448,7 @@ export function resolveActor(
     if (y !== undefined) point = { ...point, y };
   }
   const holding = Object.keys(shot.cast).some((other) => holderAt(shot, other, t) === id);
+  const blown = holding ? blownAt(project, scene, shot, id, facing, t) : 0;
   // Struck: knocked back from the blow, wincing, then steady again.
   const blow = heldBy || on ? undefined : blowOn(project, scene, shot, id, point, t, depth);
   let knock: ActorState['knock'];
@@ -1443,6 +1496,7 @@ export function resolveActor(
       undefined,
     behind: bowHeld?.far || undefined,
     holding,
+    ...(blown ? { blown } : {}),
     look: 0,
     take:
       t - takeAt < TAKE_TIME
@@ -2049,7 +2103,7 @@ function boxPoint(
 }
 
 /** A point of a carried prop turned as its holder's hand turns it (`ActorState.tilt`). */
-function turnBy(tilt: ActorState['tilt'], p: XY): XY {
+export function turnBy(tilt: ActorState['tilt'], p: XY): XY {
   if (!tilt) return p;
   const r = (tilt.deg * Math.PI) / 180;
   const dx = p.x - tilt.x;

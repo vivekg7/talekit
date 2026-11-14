@@ -27,7 +27,7 @@ import { clamp01, easeInOut } from './easing.js';
 import { cullOffFrame, IDENTITY, type Affine } from './cull.js';
 import { escapeXml, n } from './svg.js';
 import { defaultGround, isPortrait, safeInsets, uiScale } from './format.js';
-import { resolveFrame, type FrameState } from './timeline.js';
+import { resolveFrame, turnBy, type FrameState } from './timeline.js';
 import type { Project, Shot, View, Weather } from './types.js';
 import { effectsSvg, fireLights, type EffectLayer, type FireLight } from './effects.js';
 import type { Pose } from './motion.js';
@@ -165,12 +165,15 @@ function actorShelter(actor: ActorState, pose: Pose): Span[] {
   const variants = Object.values(pose.face);
   return (Array.isArray(spans) ? spans : [spans]).flatMap((sh, i) => {
     if (sh.when && !variants.includes(sh.when)) return [];
-    const [a, b] = [at(sh.x), at(sh.x + sh.width)];
+    const y = actor.y + s * (pose.sy * (sh.y - rig.height) + pose.dy);
+    // Tipped in the hand (swung, or leaned by the wind): the span between its turned ends.
+    const a = turnBy(actor.tilt, { x: at(sh.x), y });
+    const b = turnBy(actor.tilt, { x: at(sh.x + sh.width), y });
     return [
       {
-        x0: Math.min(a, b),
-        x1: Math.max(a, b),
-        y: actor.y + s * (pose.sy * (sh.y - rig.height) + pose.dy),
+        x0: Math.min(a.x, b.x),
+        x1: Math.max(a.x, b.x),
+        y: (a.y + b.y) / 2,
         key: `${actor.id}:${i}`,
       },
     ];

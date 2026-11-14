@@ -1362,9 +1362,32 @@ at 0.55 of the strike.
   films' scenes give no `waterline` yet, so their splashes and rings stay
   faint until they do. Finding them costs under 0.35 s a film.
 
-Not done: a held flag or umbrella leaning in the wind (it would have to
-move the arm), a swimmer's bow wave (only rings), footprints left in the
-ground. Birds taking off at a roar are the author's, since they leave
+- **Held sails** (timeline.ts, actor.ts, weather.ts). A carried prop
+  marked `sail` (0 to 1: an umbrella 1, a flag 0.6) leans downwind about
+  its grip, gusting by the springs' own gust model (moved to weather.ts
+  as `gusting`, so the two cannot drift apart), in the prop's own phase:
+  20° times the sail and the gust, eased by a tanh into 32° so a gale's
+  top gust bends on rather than stopping dead, about 24° at most. The
+  lean is a function of time, not a spring: a held pole is stiff, and
+  the gusts' swell and flutter already move it, so there is nothing to
+  start at equilibrium. The holder's state carries the lean (`blown`),
+  so poseFor turns the holding arm about the shoulder by 0.4 of it, the
+  way that takes the hand downwind (back for a hand below the shoulder),
+  and the prop is placed from that hand and turned about it. Grip and
+  hand are one point by construction, which every check reading
+  holdPoint (contact, give, pickup) sees too. A marker on the character
+  rather than a guess from the shape: an umbrella and a parasol look
+  alike, and only the author knows a banner from a board. The first
+  render showed a flag held by someone facing left streaming into the
+  wind, since props are drawn facing right and carried facing the way
+  their holder does; a sail in a wind now faces downwind instead. A
+  shelter (the canopy's dry span) follows the tilt, as it does a swing.
+  No library prop is an umbrella or a flag, and no story carries one yet
+  (the films' flags are painted into the scenery).
+
+Not done: a swimmer's bow wave (only rings), footprints left in the
+ground, the body leaning into a gale, a planted flag (the scene's `sway`
+moves it, without facing downwind). Birds taking off at a roar are the author's, since they leave
 the shot.
 
 ## Render speed

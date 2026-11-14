@@ -101,6 +101,31 @@ export type SheltersAt = (t: number) => Span[];
 /** Seconds a `weather` action takes to turn the weather when it gives no duration. */
 export const WEATHER_TURN = 2;
 
+/** A thing's own phase in the wind's gusts, so no two in a shot gust together. */
+export const gustPhase = (id: string): [number, number, number] => [
+  hash01(`gust:${id}:a`),
+  hash01(`gust:${id}:b`),
+  hash01(`gust:${id}:c`),
+];
+
+/**
+ * The wind as it blows on one thing at t, gusting about the weather's `wind`: a slow swell,
+ * a quicker one and a flutter, in the thing's own phase, more gusty as the wind rises. The
+ * follow-through springs and a held sail are both pushed by it.
+ */
+export function gusting(wind: number, t: number, [a, b, c]: [number, number, number]): number {
+  if (!wind) return 0;
+  const gusty = 0.5 + 0.5 * Math.min(1, Math.abs(wind));
+  return (
+    wind *
+    (1 +
+      gusty *
+        (0.3 * Math.sin(TAU * (0.45 * t + a)) +
+          0.18 * Math.sin(TAU * (1.3 * t + b)) +
+          0.1 * Math.sin(TAU * (2.9 * t + c))))
+  );
+}
+
 /**
  * The weather in force at shot time t: the shot's own or the scene's, turned by each
  * `weather` action as it plays. A turn blends every amount from what was there to what is

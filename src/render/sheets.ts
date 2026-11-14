@@ -16,7 +16,7 @@ import {
 } from '../engine/actor.js';
 import { MAX_TURN, springParts } from '../engine/springs.js';
 import { SWAY_FAR, swayMost, swayTip } from '../engine/sway.js';
-import { LOOK_LIMIT } from '../engine/timeline.js';
+import { LOOK_LIMIT, sailLean } from '../engine/timeline.js';
 import { composeFrame, layerTransform, PARALLAX } from '../engine/compose.js';
 import { CAST_DEFS, castLights, floorMap, throwOf } from '../engine/cast.js';
 import { effectsSvg, fireLights, type EffectLayer } from '../engine/effects.js';
@@ -70,6 +70,8 @@ interface Cell {
   nearOver?: boolean;
   /** A bow drawn with its limbs bent back this far (`bowFlex`), its string pulled. */
   flex?: number;
+  /** A prop turned this far about its grip, degrees clockwise: a sail leaned by the wind. */
+  tilt?: number;
 }
 
 /** A bow with its string drawn into its main part, straight from tip to tip, for a sheet. */
@@ -375,6 +377,16 @@ export function characterSheetSvg(character: Character): string {
           })
         )
       : []),
+    // A sail carried in a gale, leaned about its grip as far as the wind ever leans it. In
+    // the hand it is turned to face downwind, so it only ever leans toward its drawn right.
+    ...(character.sail
+      ? [
+          {
+            ...make(`in a gale +${Math.round(sailLean(character.sail))}°`, () => base('idle', 0)),
+            tilt: sailLean(character.sail),
+          },
+        ]
+      : []),
     emotionCell('happy'),
     emotionCell('sad'),
     emotionCell('surprised'),
@@ -419,6 +431,10 @@ export function characterSheetSvg(character: Character): string {
       ? characterBody(strung, cell.pose, undefined, 1, (part) => !near(part))
       : characterBody(strung, cell.pose);
     if (cell.flex) body = `<g transform='${bowFlex(character, cell.flex).tf}'>${body}</g>`;
+    if (cell.tilt) {
+      const [gx, gy] = character.grip ?? [rig.width / 2, rig.height / 2];
+      body = `<g transform='rotate(${n(cell.tilt)} ${gx} ${gy})'>${body}</g>`;
+    }
     if (cell.under) body = cell.under + body;
     if (cell.extra) body += cell.extra;
     if (cell.nearOver) body += characterBody(strung, cell.pose, undefined, 1, near);

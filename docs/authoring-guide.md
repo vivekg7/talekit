@@ -821,8 +821,10 @@ them brings the blue back.
   close-up scene drawn large.
 - `wind` (-1 to 1, positive blows right) slants rain, carries snow, smoke,
   sparks and leaves, moves the clouds, and from 0.3 draws gusts. It blows
-  the cast's springs too: tails, ears, plaits, a turban's tail.
-  A held flag or umbrella does not lean in it.
+  the cast's springs too: tails, ears, plaits, a turban's tail. A carried
+  prop with `sail` (an umbrella, a flag, a banner) leans downwind about
+  the hand and gusts, and the arm gives with it (see
+  [Carrying](#carrying-attach)).
   `leaves: { "amount": 0.5 }` sends leaves tumbling (`colors` recolours).
 - `clouds` drift across the sky band (down to `low`, default 0.32 ×
   height). `dark` 0 is white, 1 a storm that darkens the sky and dims the
@@ -1201,8 +1203,20 @@ is drawn just in front; its own moves are ignored.
   lantern's handle); default its middle. The construction sheet marks a
   character's `hold` and a prop's `grip` (and `tip`, a tool's working end;
   a bow's string and `nock`; a target's `mark`).
+- `sail` (0 to 1) is how much of the weather's `wind` a prop catches while
+  it is carried: an open umbrella or a banner 1, a flag on a pole about
+  0.6; a stick or a lantern none (leave it out). In a wind it leans
+  downwind about its grip, gusting, up to about 25° in a gale at sail 1,
+  and the holding arm gives with it, turned about the shoulder so the hand
+  goes downwind with the grip still in it. Put the grip at the foot of the
+  handle or the pole. A flag is drawn streaming right like every prop; in
+  a wind the engine turns it in the hand to stream downwind whichever way
+  its holder faces (in still air it faces the way they do), so a wind
+  that turns round flips it over as it passes through calm. Only what is
+  carried leans: a flag planted in the ground is the scene's `sway`. The
+  pose sheet shows the prop leaned as far as a gale ever leans it.
 - One thing at a time; never carry a carrier. An umbrella with a `shelter`
-  keeps its carrier dry. An arrow is not carried: an `aim` puts it on the
+  keeps its carrier dry, under the canopy where it leans. An arrow is not carried: an `aim` puts it on the
   string of the bow in the hand (see [Archery](#archery-aim-shoot)).
 
 Carrying holds across cuts only if staged: whoever ends a shot carrying

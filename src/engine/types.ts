@@ -220,6 +220,19 @@ export const CharacterSchema = z.object({
       "The working end of a tool, [x, y] in the character's own box (the edge of a hoe's blade, the point of a spade): what a `dig` brings down onto the floor. Default: the top of the box straight above the grip"
     ),
   /**
+   * How much of the weather's wind this prop catches when it is carried, 0..1: an open
+   * umbrella or a banner 1, a flag on a pole about 0.6. Carried in a wind it leans downwind
+   * about its grip and gusts, and the arm that holds it gives with it.
+   */
+  sail: z
+    .number()
+    .min(0)
+    .max(1)
+    .optional()
+    .describe(
+      "How much of the weather's `wind` this prop catches while it is carried (attach), 0..1: an open umbrella or a banner 1, a flag on a pole about 0.6, a stick or a lantern none (leave it out). Carried in a wind, it leans downwind about its grip (up to about 25° in a gale, at sail 1) and gusts, and the holding arm gives with it, so the hand stays on the grip. Put the grip at the bottom of the handle or pole, the part that catches the wind above it"
+    ),
+  /**
    * A bow: the two ends of its string, in its own canonical coordinates, the top one first.
    * The engine draws the string itself between them, straight, or pulled back to the
    * archer's hand in an `aim`; the bow is turned to stand across the line of the aim.
