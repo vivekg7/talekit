@@ -299,6 +299,8 @@ export function characterSheetSvg(character: Character): string {
             return p;
           }),
           make('wipe', withVerb('wipe', 0.4)),
+          // Handing something over: the near hand out in front, where the other's meets it.
+          make('give', withVerb('give', 0.5)),
           // Up a ladder, from behind: one hand reaching for the next rung, the other foot up.
           make('climb', () => {
             const p = base('climb', 0.28);

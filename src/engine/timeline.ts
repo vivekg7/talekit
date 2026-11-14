@@ -401,10 +401,73 @@ const isStoop = (a: Action): boolean => a.do === 'pickup' || a.do === 'putdown';
 
 /**
  * When an `attach` takes effect: at once, or for a pickup or putdown when the stooping
- * hand reaches the floor.
+ * hand reaches the floor, for a give when the two hands meet.
  */
 export const attachTime = (a: Action): number =>
-  isStoop(a) ? a.t + STOOP.grab * actionDuration(a) : a.t;
+  isStoop(a) || a.do === 'give' ? a.t + STOOP.grab * actionDuration(a) : a.t;
+
+/** A prop handed from one hand to another: who gives it and who takes it. */
+export function giveParties(shot: Shot, a: Action): { giver: string; taker: string } | undefined {
+  if (a.do !== 'give' || !a.actor || !a.attach) return undefined;
+  const giver = holderAt(shot, a.actor, a.t);
+  return giver && giver !== a.attach ? { giver, taker: a.attach } : undefined;
+}
+
+const MEETINGS = new WeakMap<Shot, Map<Action, XY | null>>();
+
+/**
+ * Where the hands meet in a give, in the scene: between the two, each reaching its share
+ * of the way by the length of its arm, a little under the shoulders (lower the closer they
+ * stand, as hands meet in front of the chest); at the mouth of one with no arms. Worked
+ * out once, from where the two stand at the hand-over.
+ */
+function meetingPoint(project: Project, scene: Scene, shot: Shot, a: Action): XY | undefined {
+  let known = MEETINGS.get(shot);
+  if (!known) MEETINGS.set(shot, (known = new Map()));
+  if (known.has(a)) return known.get(a) ?? undefined;
+  const who = giveParties(shot, a);
+  if (!who) return undefined;
+  // Working it out resolves the two, whose give asks for it again: nowhere, meanwhile.
+  known.set(a, null);
+  const at = attachTime(a);
+  const reach = (id: string) => {
+    const st = resolveActor(project, scene, shot, id, at, 1);
+    const rig = rigOf(st.character);
+    const arm = rig.parts.armR;
+    const elbow = rig.bends.armR;
+    if (rig.name !== 'humanoid' || !arm || !elbow) {
+      const mouth = holdPoint(st, poseFor(st, at));
+      return { x: mouth.x, y: mouth.y, arm: 0 };
+    }
+    const k = (st.character.height / rig.height) * st.scale;
+    const side = st.facing === 'left' ? -1 : 1;
+    const hand = rig.hold.point;
+    const length =
+      Math.hypot(elbow[0] - arm.pivot[0], elbow[1] - arm.pivot[1]) +
+      Math.hypot(hand[0] - elbow[0], hand[1] - elbow[1]);
+    return {
+      x: st.x + k * side * (arm.pivot[0] - rig.width / 2),
+      y: st.y + k * (arm.pivot[1] - rig.height),
+      arm: 0.96 * length * k,
+    };
+  };
+  const g = reach(who.giver);
+  const r = reach(who.taker);
+  let meet: XY;
+  if (!g.arm && !r.arm) meet = { x: (g.x + r.x) / 2, y: (g.y + r.y) / 2 };
+  else if (!g.arm) meet = { x: g.x, y: g.y };
+  else if (!r.arm) meet = { x: r.x, y: r.y };
+  else {
+    const f = g.arm / (g.arm + r.arm);
+    const x = lerp(g.x, r.x, f);
+    const short = Math.min(g.arm, r.arm);
+    const across = Math.max(Math.abs(x - g.x), Math.abs(x - r.x));
+    const drop = Math.min(0.55 * short, Math.sqrt(Math.max(0, (0.9 * short) ** 2 - across ** 2)));
+    meet = { x, y: lerp(g.y, r.y, f) + drop };
+  }
+  known.set(a, meet);
+  return meet;
+}
 
 /** Seconds a prop taken up (from the floor, or from another hand) takes to reach the hand. */
 const LIFT_TIME = 0.35;
@@ -672,7 +735,10 @@ export function resolveActor(
    * where the actor stands. `stands` is where a prop taken or set down stands: the hand
    * goes to it only when that is up off the floor.
    */
-  const aims: { v: ActiveVerb; spot: () => { x: number; y: number; stands?: number } }[] = [];
+  const aims: {
+    v: ActiveVerb;
+    spot: () => { x: number; y: number; stands?: number } | undefined;
+  }[] = [];
   let bubble: Bubble | undefined;
   let talking = false;
   let mouth: boolean | undefined;
@@ -834,8 +900,9 @@ export function resolveActor(
       }
     }
 
-    // A pickup or putdown is the carrier's stoop, not something the prop does.
-    if (a.do && !isStoop(a)) {
+    // A pickup or putdown is the carrier's stoop, a give the two hands', not something the
+    // prop does.
+    if (a.do && !isStoop(a) && a.do !== 'give') {
       const verb = a.do;
       if (verb === 'fall') {
         // Off a shelf, a branch, a wall: straight down to the ground under it. A carried
@@ -1013,6 +1080,19 @@ export function resolveActor(
       });
   }
 
+  // A give: the one handing it over and the one taking it each reach out to where their
+  // hands meet.
+  for (const a of shot.actions) {
+    if (a.do !== 'give' || a.t > t) continue;
+    const who = giveParties(shot, a);
+    if (!who || (who.giver !== id && who.taker !== id)) continue;
+    const d = actionDuration(a);
+    if (t >= a.t + d) continue;
+    const v: ActiveVerb = { verb: 'give', u: (t - a.t) / d, span: d };
+    verbs.push(v);
+    if (depth < MAX_DEPTH) aims.push({ v, spot: () => meetingPoint(project, scene, shot, a) });
+  }
+
   let travel: Travel | undefined;
   if (move) {
     point = along(move, t);
@@ -1144,6 +1224,7 @@ export function resolveActor(
   const side = facing === 'left' ? -1 : 1;
   for (const { v, spot } of aims) {
     const at = spot();
+    if (!at) continue;
     // From the floor a person stoops for a prop; one standing knee high or more (on a
     // table, a shelf) is reached for.
     const knee = rig.bends.legR?.[1] ?? 0;

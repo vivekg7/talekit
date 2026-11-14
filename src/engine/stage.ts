@@ -11,7 +11,7 @@
  */
 import { waived } from './allow.js';
 import { hash01 } from './easing.js';
-import { resolveActor, type ActorState } from './timeline.js';
+import { giveParties, resolveActor, type ActorState } from './timeline.js';
 import type { Action, Facing, Project, Scene, Shot, Verb } from './types.js';
 import { isMoveVerb } from './types.js';
 import { lineEnd } from './voice.js';
@@ -31,6 +31,7 @@ export const BUSY: ReadonlySet<Verb> = new Set([
   'kick',
   'pickup',
   'putdown',
+  'give',
   'hold',
   'spin',
 ]);
@@ -46,6 +47,8 @@ const RECHECK = 0.5;
 const STEP = 0.1;
 /** Verbs that hold the eyes on something else: an archer's on the mark. */
 export const FOCUSED: ReadonlySet<Verb> = new Set(['aim']);
+/** Seconds before a give that the two turn to face each other, to be round when they reach. */
+const GIVE_LEAD = 0.3;
 /** Closer than this across the stage, which side the other is on does not read. */
 const SIDE_MIN = 8;
 
@@ -161,6 +164,22 @@ export function staging(project: Project, scene: Scene, shot: Shot): StagedActio
     const t = r.t - REACT_LEAD;
     if (waived(allow, 'attention.reacts', id) || directs(shot, id, t, r.t - 0.01)) continue;
     beats.push({ t, run: () => turn(id, r.reacts!, t, r.t, `sees ${r.reacts}`) });
+  }
+  // A give: the two face each other to hand it over.
+  for (const g of shot.actions) {
+    const who = giveParties(shot, g);
+    if (!who) continue;
+    const t = Math.max(0, g.t - GIVE_LEAD);
+    for (const [id, other] of [
+      [who.giver, who.taker],
+      [who.taker, who.giver],
+    ])
+      if (!directs(shot, id, t, g.t))
+        beats.push({
+          t,
+          run: () =>
+            turn(id, other, t, g.t, `${id === who.giver ? 'gives' : 'takes'} ${g.actor}`, true),
+        });
   }
   // In time order, so each turn sees the facing the turns before it left.
   for (const b of beats.sort((x, y) => x.t - y.t)) b.run();

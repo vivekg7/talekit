@@ -144,6 +144,7 @@ export const VERB_DURATION: Partial<Record<Verb, number>> = {
   disappear: 0.4,
   pickup: 1.2,
   putdown: 1.2,
+  give: 1.4,
   wipe: 2.4,
   kick: 0.9,
   eat: 1.6,
@@ -1117,6 +1118,9 @@ function lean(rig: Rig, pose: Pose, l: number): void {
  */
 const EAT_AT: Pt = [136, 132];
 
+/** Where a `give` reaches with nowhere worked out: out in front, a little under the chest. */
+const GIVE_AT: Pt = [206, 228];
+
 /** Where a `wipe` with nothing named goes: in front of the chest (box units). */
 const WIPE_AT: Pt = [206, 214];
 
@@ -1125,9 +1129,9 @@ const WIPE_AT: Pt = [206, 214];
  * `k`, 0 at rest and 1 there. The body leans over as for a stoop, but only as far as it
  * must to bring the shoulder within an arm's length of it; then the arm swings from the
  * shoulder and folds forward at the elbow to put the hand on it. Out of reach, the hand
- * gets as near as it can.
+ * gets as near as it can. With `stoop` false it stands upright and only the arm goes out.
  */
-export function reachTo(rig: Rig, pose: Pose, to: Pt, k: number): void {
+export function reachTo(rig: Rig, pose: Pose, to: Pt, k: number, stoop = true): void {
   const arm = rig.parts.armR;
   const elbow = rig.bends.armR;
   if (!arm || !elbow) return;
@@ -1147,7 +1151,7 @@ export function reachTo(rig: Rig, pose: Pose, to: Pt, k: number): void {
   // above the shoulder).
   let l = 0;
   let best = Infinity;
-  for (let step = 0; step <= 20; step++) {
+  for (let step = 0; step <= (stoop ? 20 : 0); step++) {
     const miss = Math.hypot(...gap(leaned(step / 20))) - 0.96 * (upper + fore);
     if (miss < best) [l, best] = [step / 20, miss];
     if (miss <= 0) break;
@@ -1302,6 +1306,18 @@ export function applyVerb(
         pose.rot.body = (pose.rot.body ?? 0) + 22 * k;
         pose.dx += 8 * k;
         pose.sy *= 1 - 0.08 * k;
+      }
+      break;
+    }
+    case 'give': {
+      // Handing a thing over, or taking it: the near hand out to where the two hands meet
+      // (`to`) by the hand-over half way through, a beat there, and back, timed as a stoop
+      // is; standing upright, only the arm going out, unless it is lower than the hand hangs
+      // (an animal's mouth) and the body bends down to it. No arm, nothing moves: the other
+      // comes to the mouth.
+      if (humanoid) {
+        const at = to ?? GIVE_AT;
+        reachTo(rig, pose, at, stoopDepth(u), at[1] > rig.hold.point[1]);
       }
       break;
     }

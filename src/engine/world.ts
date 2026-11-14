@@ -10,7 +10,8 @@
 import { waived } from './allow.js';
 import { groundOf, habitatOf, inArea, nearestIn, type Ground, type XY } from './area.js';
 import { BUSY, directs, FOCUSED, sideOf } from './stage.js';
-import { resolveActor, type ActorState } from './timeline.js';
+import { holdPoint, poseFor } from './actor.js';
+import { attachTime, giveParties, resolveActor, type ActorState } from './timeline.js';
 import { lineEnd } from './voice.js';
 
 export { waived };
@@ -46,6 +47,7 @@ export const CODES: Record<string, string> = {
   'attention.speaker': 'a speaker faces away from who the line is said to',
   'attention.reacts': 'someone reacts to what they face away from',
   'continuity.jump': 'something jumps across the stage between frames, in sight',
+  'give.reach': 'the two in a give stand too far apart, or face away, for their hands to meet',
   'speech.mismatch': 'no voiced take of a line, heard by speech recognition, says it',
 };
 
@@ -421,7 +423,7 @@ function jumpRule(project: Project, shot: Shot, samples: Sample[]): Finding[] {
       const placed = shot.actions.some((x) => x.actor === id && x.set?.at && x.t > t0 && x.t <= t1);
       const why =
         a.heldBy !== b.heldBy && b.heldBy
-          ? `passes ${a.heldBy ? `from '${a.heldBy}'` : 'from where it was'} to '${b.heldBy}' from too far away, so it jumps rather than being handed over. Bring them within reach first (the receiver's height apart at most), or have '${b.heldBy}' walk over and pickup`
+          ? `passes ${a.heldBy ? `from '${a.heldBy}'` : 'from where it was'} to '${b.heldBy}' from too far away, so it jumps rather than being handed over. ${a.heldBy ? `Stand them close and hand it over with do: 'give'` : `Have '${b.heldBy}' walk over and pickup`}`
           : placed
             ? 'is put somewhere else with set.at while in sight. Hide it first (set.visible false), move it with a verb, or cut'
             : b.locomotion === 'move' || a.locomotion === 'move'
@@ -440,12 +442,53 @@ function jumpRule(project: Project, shot: Shot, samples: Sample[]): Finding[] {
   return out;
 }
 
+/**
+ * A give whose hands do not meet: the two stand too far apart (or one is turned away), so
+ * the prop floats across the gap between them. Measured at the hand-over, hand to hand.
+ */
+function giveRule(project: Project, shot: Shot): Finding[] {
+  const scene = project.scenes[shot.scene];
+  const allow = [shot.allow, scene.allow];
+  const out: Finding[] = [];
+  for (const a of shot.actions) {
+    const who = giveParties(shot, a);
+    if (!who || !project.characters[who.giver] || !project.characters[who.taker]) continue;
+    if ([a.actor!, who.giver, who.taker].some((id) => waived(allow, 'give.reach', id))) continue;
+    const t = attachTime(a);
+    const g = resolveActor(project, scene, shot, who.giver, t);
+    const k = resolveActor(project, scene, shot, who.taker, t);
+    const hg = holdPoint(g, poseFor(g, t));
+    const hk = holdPoint(k, poseFor(k, t));
+    const gap = Math.hypot(hg.x - hk.x, hg.y - hk.y);
+    const small = Math.min(g.character.height * g.scale, k.character.height * k.scale);
+    // Turned away, a hand can still get there, behind the back: that is no hand-over.
+    const faces = (me: ActorState, them: ActorState) => {
+      const side = sideOf(me, them);
+      return !side || side === me.facing;
+    };
+    const facing = faces(g, k) && faces(k, g);
+    if (facing && gap <= Math.max(6, 0.06 * small)) continue;
+    const apart = Math.abs(g.x - k.x);
+    out.push({
+      code: 'give.reach',
+      shot: shot.id,
+      t: [r1(a.t), r1(t)],
+      actors: [who.giver, who.taker],
+      at: { x: (hg.x + hk.x) / 2, y: (hg.y + hk.y) / 2 },
+      message: facing
+        ? `'${who.giver}' hands '${a.actor}' to '${who.taker}', but their hands stay ${r(gap)} px apart, so it floats across. They stand ${r(apart)} px apart: bring them to about ${r(Math.max(0, apart - gap))} px (walk one over first).`
+        : `'${who.giver}' hands '${a.actor}' to '${who.taker}', but they are not facing each other, so it cannot pass from hand to hand. Turn them to each other before the give (the engine turns them only when they are idle then).`,
+    });
+  }
+  return out;
+}
+
 const RULES = [supportRule, attentionRule, jumpRule];
 
 /** Every finding in a shot, waivers applied. */
 export function shotFindings(project: Project, shot: Shot): Finding[] {
   const samples = sampleShot(project, shot);
-  return RULES.flatMap((rule) => rule(project, shot, samples));
+  return [...RULES.flatMap((rule) => rule(project, shot, samples)), ...giveRule(project, shot)];
 }
 
 const r = (v: number) => Math.round(v);

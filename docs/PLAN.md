@@ -914,7 +914,21 @@ no walk areas, so they were run over all 36 projects.
   through an archer's turn; the rule's exemption for nocked arrows was cut
   down to that.
 
-Still to do in 8.1: `give`, a hand-over with both arms reaching.
+- **Give** (`do: 'give'` on a held prop, `attach` the taker). Handing a thing
+  over used to be an `attach` to the other hand, with no arm moving. Now the
+  two face each other first (staged, like a listener's turn), and each
+  reaches its near hand out to a meeting point, its share of the way by the
+  length of its arm, standing upright. The prop changes hands there half way
+  through, so it never leaves a hand. The point is worked out once, from
+  where the two stand at the hand-over. An animal's mouth is the meeting
+  point, and the person stoops to it, since it is lower than the hand
+  hangs. A stoop for a hand at chest height was tried first and dropped: at
+  the limit the two crouched into each other. `give.reach` flags two
+  whose hands do not meet: too far apart (over about 0.7 of their average
+  height) or facing away, where a hand would get there only behind the
+  back.
+
+8.1 is done; 8.2 (continuity) is next.
 
 ## Render speed
 

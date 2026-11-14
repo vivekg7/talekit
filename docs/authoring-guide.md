@@ -676,6 +676,7 @@ every finding is fixed or waived.
 | `attention.reacts`   | someone reacts to what they face away from                                                                                                         |
 | `continuity.jump`    | something jumps across the stage between frames, in sight: a prop handed over from too far, a `set.at` while it shows, a `move` too fast to be one |
 | `speech.mismatch`    | no voiced take of a line, heard by speech recognition, says it (see [Sound](#sound))                                                               |
+| `give.reach`         | the two in a `give` stand too far apart, or face away, so their hands do not meet and the prop floats across                                       |
 
 Waive a finding only when the film means it, in the shot's (or the
 scene's, for every shot there) `allow`. The key is the code, or the code
@@ -930,6 +931,7 @@ falling the same way.
 | `bounce`, `spin`      | squashy hop / full rotation (best on the simple rig)                                                                       | 1s / 0.8s               |
 | `appear`, `disappear` | pop in past full size and settle / swell a touch and shrink away                                                           | 0.4s                    |
 | `pickup`, `putdown`   | on a prop, with `attach`: its carrier stoops or reaches for it (below)                                                     | 1.2s                    |
+| `give`                | on a held prop, with `attach`: its holder and the taker reach out and it changes hands where their hands meet (below)      | 1.4s                    |
 | `wipe`                | near hand out to `to` (an actor or a spot), going round on it: dusting                                                     | 2.4s                    |
 | `kick`                | near leg draws back, snaps out forward and up (lying: up off the bed; four legs: buck)                                     | 0.9s                    |
 | `eat`                 | near hand and what it holds to the mouth, chewing (four legs: head down; simple: peck)                                     | 1.6s                    |
@@ -1032,8 +1034,19 @@ is drawn just in front; its own moves are ignored.
   0.55 of the way through (0.385 s into the default 0.7 s): put the `thud`
   and the victim's `tremble` there. A beating is several `strike`s about
   0.75 s apart.
-- **Hand to hand**: attaching a prop already held passes it over. One
-  attached from more than the carrier's height away is taken at once.
+- **Hand to hand**: `{ "t": 4, "actor": "roti", "attach": "sita", "do":
+"give" }` hands the roti from whoever holds it to Sita. Just before, the
+  engine turns the two to face each other (if they are idle). Both reach
+  out with the near hand to a point between them, each its share of the way
+  by the length of its arm, a little under the shoulders, standing
+  upright. The roti changes hands there half way through (0.7 s into the
+  default 1.4 s), and both arms come back. An animal takes it in its mouth,
+  and the person bends down to that. Stand them close: at most about 0.7 of
+  their average height apart (160 px for two 220 px children, 220 px for
+  two 300 px adults). Further apart, or facing away, their hands do not
+  meet: that is a `give.reach` finding, which says how close to bring them. Attaching a held prop without `give`
+  passes it with no reach at all, and one attached from more than the
+  carrier's height away jumps (`continuity.jump`).
 - `grip` is the point in the prop's box the hand holds (`[100, 22]` for a
   lantern's handle); default its middle. The construction sheet marks a
   character's `hold` and a prop's `grip` (and `tip`, a tool's working end;

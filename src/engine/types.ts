@@ -736,6 +736,7 @@ export const VerbSchema = z.enum([
   'disappear',
   'pickup',
   'putdown',
+  'give',
   'wipe',
   'kick',
   'eat',
@@ -863,7 +864,7 @@ export const ActionSchema = z
       .union([IdSchema, z.literal(false)])
       .optional()
       .describe(
-        "Carry this actor (a prop): the id of the carrier, whose near hand (or a four-legged animal's mouth) holds it at the prop's grip; false lets go, and it falls straight down to the floor its carrier stands on. With do: 'pickup' the carrier takes it from where it is, stooping to the floor for it or reaching out to it on a table or a shelf; with attach false and do: 'putdown' the carrier sets it down (at `to`, a table top reached out to, else on the floor under the hand)"
+        "Carry this actor (a prop): the id of the carrier, whose near hand (or a four-legged animal's mouth) holds it at the prop's grip; false lets go, and it falls straight down to the floor its carrier stands on. With do: 'pickup' the carrier takes it from where it is, stooping to the floor for it or reaching out to it on a table or a shelf; with attach false and do: 'putdown' the carrier sets it down (at `to`, a table top reached out to, else on the floor under the hand); with do: 'give' whoever holds it hands it over: both reach out, it changes hands where their hands meet, half way through, and both arms come back (stand them close enough for their hands to meet)"
       ),
     /** The weather changes, over `duration`, to this. */
     weather: WeatherSchema.optional().describe(

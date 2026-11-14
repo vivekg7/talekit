@@ -595,6 +595,27 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
         where: w,
         message: `pickup needs attach: the id of who picks '${a.actor}' up`,
       });
+    if (a.do === 'give' && a.actor) {
+      const holder = holderAt(shot, a.actor, a.t);
+      if (!a.attach)
+        out.push({
+          level: 'error',
+          where: w,
+          message: `give needs attach: the id of who '${a.actor}' is handed to`,
+        });
+      else if (!holder)
+        out.push({
+          level: 'error',
+          where: w,
+          message: `give: no one holds '${a.actor}' at ${a.t}s to hand it over; attach it to the giver first (or use pickup)`,
+        });
+      else if (holder === a.attach)
+        out.push({
+          level: 'error',
+          where: w,
+          message: `give: '${a.attach}' already holds '${a.actor}'`,
+        });
+    }
     if (a.do === 'putdown' && a.attach !== false)
       out.push({
         level: 'error',
@@ -607,7 +628,8 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
       a.do !== 'appear' &&
       a.do !== 'disappear' &&
       a.do !== 'pickup' &&
-      a.do !== 'putdown'
+      a.do !== 'putdown' &&
+      a.do !== 'give'
     )
       out.push({
         level: 'warning',
