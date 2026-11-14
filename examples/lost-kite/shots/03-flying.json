@@ -3,6 +3,7 @@
   "scene": "park",
   "description": "The kite flies high, then the wind takes it.",
   "duration": 14,
+  "cut": "later",
   "cast": {
     "mia": { "at": "gate", "facing": "right", "emotion": "happy" },
     "dad": { "at": "tree", "facing": "right", "emotion": "happy" },

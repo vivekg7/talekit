@@ -116,3 +116,71 @@ describe('a cut that carries straight on', () => {
     expect(staging(own, own.scenes.park, own.shots[1])).toEqual([]);
   });
 });
+
+describe('screen direction', () => {
+  const codes = (p: Project, code: string) =>
+    shotFindings(p, p.shots[1]).filter((f) => f.code === code);
+  /** The kid walks off the park to the left; the street shot brings it on from `from` to `to`. */
+  const trip = (from: number, to: number, b: Raw = {}, scene = 'street') =>
+    film(
+      {
+        cast: { kid: { at: { x: 300, y: 640 }, facing: 'left' } },
+        actions: [{ t: 0.5, actor: 'kid', do: 'walk', to: { x: -200, y: 640 } }],
+      },
+      {
+        cast: { kid: { at: { x: from, y: 640 } } },
+        actions: [{ t: 0, actor: 'kid', do: 'walk', to: { x: to, y: 640 } }],
+        ...b,
+      },
+      scene
+    );
+
+  it('finds someone who goes off one way and comes on moving back', () => {
+    const [f] = codes(trip(-100, 600), 'continuity.direction');
+    expect(f.actors).toEqual(['kid']);
+    expect(f.message).toMatch(/goes off to the left at the end of 'a' and comes on moving right/);
+    expect(f.message).toMatch(/bring it on from the right, moving left/);
+    // On from the far side, still going left: the same journey.
+    expect(codes(trip(1400, 800), 'continuity.direction')).toEqual([]);
+    // A dissolve skips time, not the way the journey goes.
+    expect(codes(trip(-100, 600, { crossfade: 1 }), 'continuity.direction')).toHaveLength(1);
+    // A new trip is waived; in the same place the continuity check holds them instead.
+    const waived = { allow: { 'continuity.direction:kid': 'the next day' } };
+    expect(codes(trip(-100, 600, waived), 'continuity.direction')).toEqual([]);
+    expect(codes(trip(-100, 600, {}, 'park'), 'continuity.direction')).toEqual([]);
+  });
+
+  it('leaves someone who stops in sight, or stands still in the next place', () => {
+    const stays = film(
+      {
+        cast: { kid: { at: { x: 300, y: 640 } } },
+        actions: [{ t: 0, actor: 'kid', do: 'walk', to: { x: 600, y: 640 } }],
+      },
+      {
+        cast: { kid: { at: { x: 900, y: 640 } } },
+        actions: [{ t: 0, actor: 'kid', do: 'walk', to: { x: 400, y: 640 } }],
+      },
+      'street'
+    );
+    expect(codes(stays, 'continuity.direction')).toEqual([]);
+    const still = trip(400, 400);
+    expect(codes(still, 'continuity.direction')).toEqual([]);
+  });
+
+  it('finds two who swap sides across a closer view of the same moment', () => {
+    const two = (kid: number, grownup: number) => ({
+      cast: { kid: { at: { x: kid, y: 640 } }, grownup: { at: { x: grownup, y: 640 } } },
+    });
+    const [f] = codes(film(two(400, 800), two(900, 500), 'street'), 'continuity.line');
+    expect(f.actors).toEqual(['kid', 'grownup']);
+    expect(f.message).toMatch(/'kid' was left of 'grownup' and is right of it/);
+    expect(f.message).toMatch(/180° rule/);
+    // Kept on their sides, or time has passed, or one stands behind the other.
+    expect(codes(film(two(400, 800), two(300, 900), 'street'), 'continuity.line')).toEqual([]);
+    const later = { ...two(900, 500), cut: 'later' };
+    expect(codes(film(two(400, 800), later, 'street'), 'continuity.line')).toEqual([]);
+    const fade = { ...two(900, 500), crossfade: 1 };
+    expect(codes(film(two(400, 800), fade, 'street'), 'continuity.line')).toEqual([]);
+    expect(codes(film(two(400, 800), two(610, 600), 'street'), 'continuity.line')).toEqual([]);
+  });
+});

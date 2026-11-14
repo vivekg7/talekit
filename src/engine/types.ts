@@ -993,7 +993,7 @@ export const ShotSchema = z.object({
     .enum(['next', 'later'])
     .optional()
     .describe(
-      "In the same scene as the shot before: 'next' (the default for a cut) if it carries straight on, so everyone starts where, how and as they were left (a turn shown as a turn); 'later' (the default with a crossfade) if time has passed, so the cast starts afresh. A shot in another scene always starts afresh"
+      "Whether time passes at the cut from the shot before: 'next' (the default for a cut) if it carries straight on, 'later' (the default with a crossfade) if not. In the same scene, 'next' starts everyone where, how and as they were left (a turn shown as a turn), and 'later' starts the cast afresh. In another scene the cast always starts afresh, but 'next' (a closer view, an insert of the same moment) keeps two who show on both sides on the sides they were on (the 180° rule)"
     ),
   /** Replaces the scene's weather for this shot: the rain stops, a storm starts. */
   weather: WeatherSchema.optional().describe(

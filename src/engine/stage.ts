@@ -245,12 +245,22 @@ export function directs(shot: Shot, id: string, from: number, to: number): boole
  * not a title card.
  */
 export function follows(project: Project, shot: Shot): Shot | undefined {
+  const prev = shotBefore(project, shot);
+  if (!prev || prev.scene !== shot.scene || !project.scenes[prev.scene]) return undefined;
+  return carriesOn(shot) ? prev : undefined;
+}
+
+/** The shot before this one in the film, unless that is the title card: the story starts after it. */
+export function shotBefore(project: Project, shot: Shot): Shot | undefined {
   const i = project.shots.findIndex((s) => s.id === shot.id);
   const prev = i > 0 ? project.shots[i - 1] : undefined;
-  if (!prev || prev.scene !== shot.scene || !project.scenes[prev.scene]) return undefined;
-  // A title card is the overture: the story starts after it.
-  if (prev.actions.some((a) => a.caption && a.captionStyle === 'title')) return undefined;
-  return (shot.cut ?? (shot.crossfade > 0 ? 'later' : 'next')) === 'next' ? prev : undefined;
+  if (!prev || prev.actions.some((a) => a.caption && a.captionStyle === 'title')) return undefined;
+  return prev;
+}
+
+/** Whether no time passes at the cut into this shot: `cut`, else a hard cut does and a dissolve does not. */
+export function carriesOn(shot: Shot): boolean {
+  return (shot.cut ?? (shot.crossfade > 0 ? 'later' : 'next')) === 'next';
 }
 
 /** How `id` was left at the end of the shot before, if this one carries on from it. */

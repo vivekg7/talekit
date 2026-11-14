@@ -9,7 +9,7 @@
  */
 import { waived } from './allow.js';
 import { groundOf, habitatOf, inArea, nearestIn, type Ground, type XY } from './area.js';
-import { BUSY, directs, FOCUSED, follows, leftAs, sideOf } from './stage.js';
+import { BUSY, carriesOn, directs, FOCUSED, follows, leftAs, shotBefore, sideOf } from './stage.js';
 import { holdPoint, poseFor } from './actor.js';
 import {
   attachTime,
@@ -55,9 +55,19 @@ export const CODES: Record<string, string> = {
   'continuity.jump': 'something jumps across the stage between frames, in sight',
   'continuity.cut':
     'across a cut that carries straight on in the same place, someone is not as the last shot left them',
+  'continuity.direction':
+    'someone goes off one side and comes on in the next place moving back the way they came',
+  'continuity.line':
+    'across a cut to a closer or other view of the same moment, two swap sides (the 180° rule)',
   'give.reach': 'the two in a give stand too far apart, or face away, for their hands to meet',
   'speech.mismatch': 'no voiced take of a line, heard by speech recognition, says it',
 };
+
+/** Moving at least this far, scene pixels, over a shot's first seconds is going somewhere. */
+export const TRAVEL_MIN = 60;
+
+/** Closer than this across, scene pixels, two stand one behind the other: neither side. */
+const LINE_GAP = 30;
 
 /** Further than this from where the last shot left it, scene pixels, reads as a jump cut. */
 export const CUT_SHIFT = 12;
@@ -583,6 +593,95 @@ function cutRule(project: Project, shot: Shot): Finding[] {
   return out;
 }
 
+/**
+ * Screen direction across a cut to another place. Someone who goes off one side of the
+ * frame and is moving in the next shot keeps going the same way (off to the right, on
+ * moving right), dissolve or not: coming on the other way reads as turning back. And
+ * across a cut that carries straight on (an insert, a closer view of the same moment),
+ * two in sight on both sides keep their sides: swapping crosses the line between them,
+ * the 180° rule, and they seem to jump past each other. In the same place `cutRule`
+ * holds everyone to where they were already.
+ */
+function axisRule(project: Project, shot: Shot): Finding[] {
+  const prev = shotBefore(project, shot);
+  const sceneA = prev && project.scenes[prev.scene];
+  const sceneB = project.scenes[shot.scene];
+  if (!prev || !sceneA || !sceneB || prev.scene === shot.scene) return [];
+  const allow = [shot.allow, sceneB.allow];
+  const { width: W, height: H } = project.meta;
+  const end = prev.duration - 1e-3;
+  const viewA = resolveCamera(project, sceneA, prev, end);
+  const viewB = resolveCamera(project, sceneB, shot, 0);
+  const inView = (v: View, s: ActorState) =>
+    s.visible &&
+    s.opacity > 0.05 &&
+    Math.abs(s.x - v.x) <= W / 2 / v.zoom &&
+    Math.abs(s.y - v.y) <= H / 2 / v.zoom;
+  const A = (id: string, t: number) => resolveActor(project, sceneA, prev, id, t);
+  const B = (id: string, t: number) =>
+    resolveActor(project, sceneB, shot, id, Math.min(t, shot.duration - 1e-3));
+  const both = Object.keys(shot.cast).filter((id) => prev.cast[id] && project.characters[id]);
+  const side = (d: number) => (d > 0 ? 'right' : 'left');
+  const out: Finding[] = [];
+
+  for (const id of both) {
+    if (waived(allow, 'continuity.direction', id)) continue;
+    const a = A(id, end);
+    // Carried or riding, it goes where its carrier goes: the carrier answers for it.
+    if (a.heldBy || a.on || inView(viewA, a)) continue;
+    // Gone off a side: seen in the shot before, and out past that side at its end.
+    let seen = false;
+    for (let t = end; t > 0 && !seen; t -= 0.25) seen = inView(viewA, A(id, t));
+    const off = a.x - viewA.x;
+    if (!seen || Math.abs(off) <= W / 2 / viewA.zoom) continue;
+    const b0 = B(id, 0);
+    const moved = B(id, 2).x - b0.x;
+    if (b0.heldBy || b0.on || Math.abs(moved) < TRAVEL_MIN || Math.sign(moved) === Math.sign(off))
+      continue;
+    out.push({
+      code: 'continuity.direction',
+      shot: shot.id,
+      t: [0, Math.min(2, shot.duration)],
+      actors: [id],
+      at: { x: b0.x, y: b0.y },
+      message: `'${id}' goes off to the ${side(off)} at the end of '${prev.id}' and comes on moving ${side(moved)} in '${shot.id}', which reads as turning back. Keep the way it was going: bring it on from the ${side(-off)}, moving ${side(off)}. If it really is going back, waive this with allow.`,
+    });
+  }
+
+  if (!carriesOn(shot)) return out;
+  const animate = (id: string) => !!project.characters[id].parts.eyes;
+  const ends = Object.fromEntries(both.map((id) => [id, A(id, end)]));
+  const starts = Object.fromEntries(both.map((id) => [id, B(id, 0)]));
+  const seenBoth = both.filter(
+    (id) =>
+      animate(id) &&
+      !waived(allow, 'continuity.line', id) &&
+      !ends[id].heldBy &&
+      inView(viewA, ends[id]) &&
+      inView(viewB, starts[id])
+  );
+  const swapped: [string, string][] = [];
+  for (let i = 0; i < seenBoth.length; i++)
+    for (let j = i + 1; j < seenBoth.length; j++) {
+      const [x, y] = [seenBoth[i], seenBoth[j]];
+      const was = ends[y].x - ends[x].x;
+      const now = starts[y].x - starts[x].x;
+      // Side by side on both sides of the cut, not one behind the other.
+      if (Math.abs(was) > LINE_GAP && Math.abs(now) > LINE_GAP && Math.sign(was) !== Math.sign(now))
+        swapped.push(was < 0 ? [y, x] : [x, y]);
+    }
+  if (!swapped.length) return out;
+  const pairs = swapped.map(([l, rt]) => `'${l}' was left of '${rt}' and is right of it`);
+  out.push({
+    code: 'continuity.line',
+    shot: shot.id,
+    t: [0, 0],
+    actors: [...new Set(swapped.flat())],
+    message: `Across a cut that carries straight on from '${prev.id}', ${pairs.join('; ')}. That crosses the line between them (the 180° rule): they seem to jump past each other. Keep each on the side it was on, or set cut: 'later' on '${shot.id}' if time has passed.`,
+  });
+  return out;
+}
+
 const RULES = [supportRule, attentionRule, jumpRule];
 
 /** Every finding in a shot, waivers applied. */
@@ -592,6 +691,7 @@ export function shotFindings(project: Project, shot: Shot): Finding[] {
     ...RULES.flatMap((rule) => rule(project, shot, samples)),
     ...giveRule(project, shot),
     ...cutRule(project, shot),
+    ...axisRule(project, shot),
   ];
 }
 

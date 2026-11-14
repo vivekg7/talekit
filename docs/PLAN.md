@@ -990,7 +990,51 @@ lighthouse, Gus started in the sky in plain sight and now flies in from
 off the frame, and Grandma vanished from the beach while Pip found the
 lantern and now stays.
 
-Next in 8.2: the 180° rule across cuts, smart objects, contact verbs.
+- **Screen direction.** Held across a cut to another place; in the same
+  place the continuity check holds everyone already.
+  - **A journey keeps its direction** (`continuity.direction`). Someone
+    who goes off one side of the frame and is moving in the next place must
+    keep going the same way. Off to the right means on from the left,
+    moving right; coming on the other way reads as turning back. A dissolve
+    does not excuse it: "they walked for days" skips time, not the way they
+    were going. A new trip after a skip (the next morning) is the one real
+    exception, and the engine cannot tell it from the same trip, so it is
+    waived with a reason rather than keyed to `cut`.
+  - **The 180° rule** (`continuity.line`). Across a cut to another scene
+    that carries straight on, a closer view or an insert of the same moment,
+    two in sight on both sides keep their sides. A 2D stage has no camera
+    to swing round, so a swap is only ever the cast moved, and they seem to
+    jump past each other. `cut: 'later'` marks a time skip, as it does in
+    the same place, and a hard cut is read as `next` here too.
+  - **Eyelines were tried and dropped.** The check was: someone faces
+    another, then a cut to them alone shows them facing away. It found 23
+    cuts in the released films. The one checked frame by frame was a rabbit
+    turning to lead the lion on, and 20 of the 23 are dissolves to another
+    place, where a turn to lead, leave or look elsewhere is as common as a
+    broken eyeline.
+
+**Calibration.** Over the 36 projects and the examples, 17 direction
+findings and 2 line findings.
+
+- **Direction.** Nearly all are the same habit: the agent sends people off
+  to the left and brings them on moving right, as if left to right meant
+  forward. About 13 are one journey. Seen in frames: the cats set off
+  from their tree for the village and come on moving the other way
+  (`billi-hi`), and the mouse runs to keep its promise and comes in from
+  the side it left by (`lion-mouse-hi` reel). Read in the scripts: the
+  mouse going to see the lion (`lion-mouse-hi`), the cats running off with
+  the roti (`billi-hi`), the servant sent for Birbal (`khichdi-hi`), the
+  rabbit setting off for the lion (`khargosh-hi`), Birbal sent to search
+  the bazaars (`bachcha-hi`), the brahman walking home with his alms
+  (`sapna-hi`). The rest are new trips after a skip, the donkey's routine
+  montage and his next morning (`gadha-hi`), which are what the waiver is
+  for.
+- **Line.** Both are time skips with a hard cut: the fields to the courtyard
+  (`sticks-hi`), and the walk down the street to the park in lost-kite,
+  now marked `cut: 'later'`. No film yet cuts to an insert of two people,
+  so the rule has found no real swap; it is there for when they do.
+
+Next in 8.2: smart objects, contact verbs.
 
 ## Render speed
 
