@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { composeFrame } from '../src/engine/compose.js';
-import { swayAngle, swayLayer } from '../src/engine/sway.js';
+import { SWAY_FAR, swayAngle, swayLayer, swayMost } from '../src/engine/sway.js';
 import { SceneSchema, ShotSchema, type Project } from '../src/engine/types.js';
 import { LIBRARY } from '../src/library/index.js';
 import { sceneSheetSvg } from '../src/render/sheets.js';
@@ -93,5 +93,39 @@ describe('sway', () => {
         .map((p) => p.message)
         .join()
     ).toMatch(/anchor 'branch' is on swaying 'park-crown'/);
+  });
+
+  it('flags a group whose far end swings too far, and marks the swing on the sheet', () => {
+    const scene = (amount: number, wind = 0) =>
+      SceneSchema.parse({
+        id: 'w',
+        name: 'w',
+        svg: ART,
+        sway: { ...SWAY, crown: { ...SWAY.crown, amount } },
+        weather: { wind },
+      });
+    const far = (s: ReturnType<typeof scene>) =>
+      validateScene(s, 1280, 720)
+        .map((p) => p.message)
+        .filter((m) => /swings its far end/.test(m));
+    // The crown reaches about 300 px from its pivot: a degree or two moves its edge ~10 px.
+    expect(swayMost(300, 1)).toBeCloseTo(28 / Math.sqrt(300));
+    expect(far(scene(1))).toEqual([]);
+    expect(far(scene(1, 0.3))).toEqual([]);
+    // Floppy, in a gale: rubber.
+    const [m] = far(scene(3, 1));
+    expect(m).toMatch(
+      /sway 'crown' swings its far end about \d+ px \(it reaches \d+ px from its pivot 300,440\)/
+    );
+    expect(Number(/about (\d+) px/.exec(m)![1])).toBeGreaterThan(SWAY_FAR);
+    const project: Project = {
+      meta: { title: 't', width: 1280, height: 720, fps: 24, font: 'sans-serif' },
+      characters: {},
+      scenes: { w: scene(3, 1) },
+      shots: [],
+    };
+    const sheet = sceneSheetSvg(project, project.scenes.w);
+    expect(sheet).toMatch(/~crown ±\d+ px/);
+    expect(sheet).toContain(`stroke='#ff3b30'`);
   });
 });

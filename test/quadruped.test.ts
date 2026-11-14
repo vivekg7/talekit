@@ -8,6 +8,7 @@ import type { ActorState } from '../src/engine/timeline.js';
 import { LIBRARY } from '../src/library/index.js';
 import { lintCharacter } from '../src/project/construction.js';
 import { validateCharacter } from '../src/project/validate.js';
+import { characterSheetSvg } from '../src/render/sheets.js';
 
 const LEGS = ['legFL', 'legFR', 'legBL', 'legBR'] as const;
 
@@ -101,6 +102,15 @@ describe('quadruped motion', () => {
     const leap = emptyPose();
     applyVerb(QUADRUPED, leap, 'jump', 0.51);
     for (const leg of LEGS) expect(foot(leap, leg)[1]).toBeLessThan(150);
+  });
+
+  it('shows the tail and ears thrown as far as follow-through throws them, on the sheet', () => {
+    const sheet = characterSheetSvg(LIBRARY.characters.dog);
+    expect(sheet).toContain('>follow-through −28°<');
+    expect(sheet).toContain('>follow-through +28°<');
+    // A kid's pigtails swing too; a grown-up has nothing that follows through.
+    expect(characterSheetSvg(LIBRARY.characters.kid)).toContain('follow-through');
+    expect(characterSheetSvg(LIBRARY.characters.grownup)).not.toContain('follow-through');
   });
 
   it('points speech bubbles at the head, mirrored when facing left', () => {

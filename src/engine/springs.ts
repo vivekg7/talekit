@@ -17,7 +17,7 @@ const STEP = 1 / 120;
 /** Natural frequency (Hz), damping ratio, and how far a part may be thrown. */
 const HZ = 2.2;
 const DAMPING = 0.24;
-const MAX_TURN = 28;
+export const MAX_TURN = 28;
 const MAX_SWAY = 6;
 /** Canonical units per step beyond which a move is a cut or a teleport, not motion. */
 const JUMP_CUT = 30;

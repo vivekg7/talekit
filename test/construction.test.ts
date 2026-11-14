@@ -107,6 +107,34 @@ describe('construction linter', () => {
     expect(messages).not.toMatch(/legR/);
   });
 
+  it('finds an arm drawn wider at the elbow than the joint it bends about', () => {
+    // A broad arm, 28 across, hanging 7 to the right of the rig's elbow (127, 226): bent
+    // about the rig's elbow, the corners of the cut stick out (a split elbow).
+    const parts = {
+      torso: `<rect x='70' y='150' width='60' height='130' fill='#48c'/>`,
+      head: `<circle cx='100' cy='110' r='50' fill='#fc9'/>`,
+      armR: `<path d='M134 170 L134 284' stroke='#c96' stroke-width='28' stroke-linecap='round' fill='none'/>`,
+    };
+    const placed = CharacterSchema.parse({
+      id: 'x',
+      name: 'X',
+      rig: 'humanoid',
+      parts,
+      bends: { armR: [127, 226] },
+    });
+    const messages = lintCharacter(placed)
+      .problems.map((p) => p.message)
+      .join('\n');
+    expect(messages).toMatch(/'armR' is drawn x 120–148 across its elbow \(y 226\)/);
+    expect(messages).toMatch(/"bends": \{ "armR": \[134, 226\] \}/);
+    // Left to the engine, the elbow moves to the middle of the arm, and the disc covers it.
+    expect(
+      lintCharacter(blob(parts, 'humanoid'))
+        .problems.map((p) => p.message)
+        .join()
+    ).not.toMatch(/stick out/);
+  });
+
   it('asks for a nose or cheeks drawn in the head to move into the turning face', () => {
     const c = blob(
       {

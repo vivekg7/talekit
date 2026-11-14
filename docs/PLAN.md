@@ -1103,7 +1103,7 @@ explain` lists them. A doer cast there and working from the first moment
 8.2 is done: same-place continuity, screen direction, blows that land,
 places that say how they are used, and the bow carried across a cut.
 
-### 8.3 so far
+### 8.3 as built
 
 - **Bubbles off every face** (`src/engine/place.ts`). A bubble used to go
   above its speaker, centred, and kept clear only of the speaker. Now each
@@ -1186,7 +1186,43 @@ places that say how they are used, and the bow carried across a cut.
     enclosures with insides on screen.
   - **No released film changes.** Their scenes have no solids, and none
     of their 767 walks leaves the walk areas, so none is routed.
-- **Next in 8.3**: the art checks on the sheets.
+- **Art checks** (`src/project/construction.ts`, the scene check in
+  `validate.ts`). Both are warnings, like the rest of construction, and
+  show on the sheets.
+  - **A split elbow.** A bent limb is cut across its joint, and the lower
+    half turns under a disc as wide as the limb is drawn there. Where the
+    drawing reaches more than 4 units past that disc on either side, the
+    corners of the cut stick out of the bend. That is what Bhim's arms did
+    (lakshya-hi, review): before the elbows were centred on the drawing
+    they spilled about 10 units, and the check finds them again when his
+    elbows are put back at the rig's x with `bends`. Since then no elbow or
+    knee in the library, the examples or the released casts spills more
+    than 3.3 (a wide skirt's knees), so nothing is flagged. The message
+    gives the `bends` that centres the joint on the drawing.
+  - **A loose tail.** The pose sheet now shows the follow-through parts
+    thrown to their limit (28° each way), so a tail or an ear rooted
+    shallow is seen coming off. A check of every joint in every pose of
+    the sheet, each part drawn alone, was built and dropped. Over 316
+    released characters it found nothing, and on tails and ears moved off
+    their roots on purpose it fired only where the standing check already
+    had: a body is big, so a part that overlaps it standing still overlaps
+    it turned 28°. It added a quarter to `check`. Checking every variant of
+    a limb standing was tried too, and only flagged drooped ears in
+    approved films and the library farmer's back view.
+  - **A sway that moves too far.** The far end of a swaying group, at its
+    furthest turn in the scene's own wind, may move 40 px. The released
+    films' biggest crowns, approved, move 33 (lakshya-hi's `daal`), so
+    nothing there is flagged. The scene sheet draws the arc each far end
+    sweeps and labels it with the distance.
+  - **What pixels could not tell**: the gadha-hi clothes on a line,
+    swung as one group about the line's end, lifted off the rope by an
+    estimated 10 to 20 px, no more than a crown's edge moves. A check for
+    still art that a group touches away from its pivot was tried. The art
+    behind every group touches it too: the fixed per-cloth groups still
+    scored 12 px against the river bank, and the fireflies 17 against a
+    post. So the guide says to sway pieces held where they hang, and the
+    sheet's arcs let the eye see a cloth leave its rope.
+- **8.3 is done.** Next is 8.4, the vision critic.
 
 ## Render speed
 

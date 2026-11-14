@@ -1,4 +1,5 @@
 import { Resvg } from '@resvg/resvg-js';
+import { jointRadius } from '../engine/actor.js';
 import { rigOf, type Rig } from '../engine/rigs.js';
 import { applyColors, topLevelPieces } from '../engine/svg.js';
 
@@ -17,6 +18,8 @@ import type { Problem } from './validate.js';
 const M = 60;
 /** Overlap, in canonical units, below which a joint shows a gap once the part moves. */
 export const MIN_OVERLAP = 12;
+/** Units a limb may be drawn past the disc round its knee or elbow before the bend shows it. */
+export const JOINT_SPILL = 4;
 const FACE = new Set(['eyes', 'mouth', 'face']);
 
 interface Mask {
@@ -142,6 +145,30 @@ function covers(m: Mask, x: number, y: number, r: number): boolean {
   return false;
 }
 
+/**
+ * The run of drawn pixels across row y through x (or the nearest within 12 units), as
+ * canonical [left, right], or undefined when nothing is drawn there.
+ */
+function runAt(m: Mask, x: number, y: number): [number, number] | undefined {
+  const row = Math.round(y) + M;
+  if (row < 0 || row >= m.h) return undefined;
+  const on = (px: number) => px >= 0 && px < m.w && m.data[row * m.w + px] === 1;
+  let at = Math.round(x) + M;
+  if (!on(at)) {
+    const near = [...Array(12).keys()]
+      .map((d) => d + 1)
+      .flatMap((d) => [at - d, at + d])
+      .find(on);
+    if (near === undefined) return undefined;
+    at = near;
+  }
+  let a = at;
+  let b = at;
+  while (on(a - 1)) a--;
+  while (on(b + 1)) b++;
+  return [a - M, b + 1 - M];
+}
+
 const firstVariant = (part: Character['parts'][string]): string =>
   typeof part === 'string' ? part : (Object.values(part).find((v) => v.trim()) ?? '');
 
@@ -164,7 +191,7 @@ const cache = new Map<string, Construction>();
 
 /** Construction problems of a character at rest. Errors only for drawing outside the box. */
 export function lintCharacter(c: Character): Construction {
-  const key = JSON.stringify([c.rig, c.colors, c.parts, c.belly, c.hem]);
+  const key = JSON.stringify([c.rig, c.colors, c.parts, c.belly, c.hem, c.bends, c.hangs]);
   const hit = cache.get(key);
   if (hit) return hit;
   const rig = rigOf(c);
@@ -363,6 +390,34 @@ export function lintCharacter(c: Character): Construction {
       warn(
         `${r.what} ends at y=${at}, but ${r.how} rests y=${r.at} on the ${r.part === 'body' ? 'floor' : 'seat'}, so it would ${at < r.at ? 'float' : 'sink'} ${Math.abs(at - r.at)} units: set "${r.field}": ${at}`
       );
+  }
+
+  // 7. Knees and elbows: a bent limb is cut across its joint, and the lower half turns under
+  // a disc round the joint (actor.ts `bentLimb`). Drawn wider there than the disc, or off to
+  // one side of it, the corners of the cut stick out of the bend: a split elbow.
+  for (const [name, joint] of Object.entries(rig.bends)) {
+    const part = c.parts[name];
+    if (!part) continue;
+    const [kx, ky] = joint;
+    const variants = typeof part === 'string' ? { '': part } : part;
+    for (const [variant, raw] of Object.entries(variants)) {
+      if (!raw.trim()) continue;
+      const svg = applyColors(raw, c.colors);
+      const run = runAt(draw(svg), kx, ky);
+      if (!run) continue;
+      const r = jointRadius(svg, joint);
+      const spill = Math.max(kx - run[0], run[1] - kx) - r;
+      if (spill <= JOINT_SPILL) continue;
+      const knee = name.startsWith('leg') ? 'knee' : 'elbow';
+      const mid = Math.round((run[0] + run[1]) / 2);
+      warn(
+        `'${name}'${variant ? ` variant '${variant}'` : ''} is drawn x ${run[0]}–${run[1]} across its ${knee} (y ${ky}), past the round joint the engine bends it about (x ${Math.round(kx - r)}–${Math.round(kx + r)}): when it bends, the corners of the cut stick out. ` +
+          (Math.abs(mid - kx) > 2
+            ? `Set "bends": { "${name}": [${mid}, ${ky}] } to bend it about the middle of the drawing, or draw it centred on x ${Math.round(kx)} there`
+            : `Draw it narrower at the ${knee}`),
+        { x0: run[0], y0: ky - 6, x1: run[1], y1: ky + 6 }
+      );
+    }
   }
 
   const result = { problems, marks };

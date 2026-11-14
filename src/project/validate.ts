@@ -3,7 +3,7 @@ import { lintCharacter } from './construction.js';
 import { sightFindings } from './sight.js';
 import { follows } from '../engine/stage.js';
 import { effectLayer } from '../engine/effects.js';
-import { swayBox, swayMissing } from '../engine/sway.js';
+import { SWAY_FAR, swayBox, swayMissing, swayMost, swayReach } from '../engine/sway.js';
 import { RIGS, rigOf } from '../engine/rigs.js';
 import { holdPoint, poseFor } from '../engine/actor.js';
 import {
@@ -335,9 +335,20 @@ function swayProblems(s: Scene): Problem[] {
       where,
       message: `sway: no <g id='${id}'> in svg, far, near or foreground`,
     });
-  for (const [id, { at }] of Object.entries(s.sway ?? {})) {
+  for (const [id, { at, amount }] of Object.entries(s.sway ?? {})) {
     const box = swayBox(s, id);
     if (!box) continue;
+    // Its far end, at its furthest turn in the scene's own wind.
+    const reach = swayReach(s, id) ?? 0;
+    const far = (reach * swayMost(reach, amount ?? 1, s.weather?.wind ?? 0) * Math.PI) / 180;
+    if (far > SWAY_FAR)
+      out.push({
+        level: 'warning',
+        where,
+        message:
+          `sway '${id}' swings its far end about ${Math.round(far)} px (it reaches ${Math.round(reach)} px from its pivot ${at[0]},${at[1]}): ` +
+          `more than ${SWAY_FAR} px reads as rubber, not a sway. Lower its amount, or sway it in smaller pieces, each from where it is held`,
+      });
     for (const [name, a] of Object.entries(s.anchors)) {
       const inside = a.x >= box[0] && a.x <= box[2] && a.y >= box[1] && a.y <= box[3];
       // Well above the pivot, not at its foot: a clump of grass at someone's feet is fine.

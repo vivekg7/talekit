@@ -252,6 +252,17 @@ function turnPart(rig: Rig, pose: Pose, name: string): string {
 }
 
 /**
+ * The radius of the disc a bent limb keeps round its joint (`bentLimb`): as wide as the limb
+ * is drawn across the joint, so a thick arm's disc covers it edge to edge; a drawing that
+ * cannot be measured there takes its stroke, or a typical width. A limb drawn wider at the
+ * joint than this, or off to one side of it, shows the corners of its cut when it bends.
+ */
+export function jointRadius(svg: string, [kx, ky]: [number, number]): number {
+  const span = spanAt(svg, ky, kx);
+  return (span ? (span[1] - span[0]) / 2 : limbWidth(svg) / 2 || 9) + 1.5;
+}
+
+/**
  * A limb bent at the knee or elbow: the part drawn twice, cut across the joint, the lower
  * half turned by `bend`. Each half keeps a disc as wide as the limb round the joint, so the
  * turn opens no gap and the joint is round; both outlines go down before either fill, so no
@@ -268,10 +279,7 @@ function bentLimb(
   draw: 'all' | 'lines' | 'fills' = 'all'
 ): string {
   const [kx, ky] = joint;
-  // As wide as the limb is drawn across the joint, so a thick arm's disc covers it edge to
-  // edge; a drawing that cannot be measured there takes its stroke, or a typical width.
-  const span = spanAt(svg, ky, kx);
-  const r = (span ? (span[1] - span[0]) / 2 : limbWidth(svg) / 2 || 9) + 1.5;
+  const r = jointRadius(svg, joint);
   const clip = (key: string, lower: boolean, radius: number) =>
     `<clipPath id='${id}-${key}'><rect x='-1000' y='${lower ? ky : -1000}' width='3000' height='${lower ? 2000 : ky + 1000}'/><circle cx='${kx}' cy='${ky}' r='${n(radius)}'/></clipPath>`;
   const half = (key: string, inner: string) => `<g clip-path='url(#${id}-${key})'>${inner}</g>`;

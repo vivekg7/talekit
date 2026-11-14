@@ -14,7 +14,8 @@ import {
   SHADOW_DEFS,
   shadowSvg,
 } from '../engine/actor.js';
-import { springParts } from '../engine/springs.js';
+import { MAX_TURN, springParts } from '../engine/springs.js';
+import { SWAY_FAR, swayBox, swayMost } from '../engine/sway.js';
 import { LOOK_LIMIT } from '../engine/timeline.js';
 import { composeFrame, layerTransform, PARALLAX } from '../engine/compose.js';
 import { CAST_DEFS, castLights, floorMap, throwOf } from '../engine/cast.js';
@@ -256,6 +257,8 @@ export function characterSheetSvg(character: Character): string {
   const emotionCell = (emotion: Emotion) =>
     make(emotionLabel(emotion), () => base('idle', 0), emotion);
   const quad = rig.name === 'quadruped';
+  // The follow-through parts that turn about a pivot of the rig's.
+  const thrown = springParts(character).filter((part) => rig.parts[part]);
   const cells: Cell[] = [
     make('idle', () => base('idle', 0)),
     make('walk', () => base('walk', quad ? 0.175 : 0.16)),
@@ -360,6 +363,17 @@ export function characterSheetSvg(character: Character): string {
             return p;
           }),
         ]
+      : []),
+    // A tail and ears thrown as far as follow-through ever throws them, each way: a part
+    // rooted shallow in the body comes away at one end of the swing.
+    ...(thrown.length
+      ? ([-MAX_TURN, MAX_TURN] as const).map((deg) =>
+          make(`follow-through ${deg > 0 ? '+' : '−'}${MAX_TURN}°`, () => {
+            const p = base('idle', 0);
+            for (const part of thrown) p.rot[part] = (p.rot[part] ?? 0) + deg;
+            return p;
+          })
+        )
       : []),
     emotionCell('happy'),
     emotionCell('sad'),
@@ -476,10 +490,33 @@ export function sceneSheetSvg(project: Project, scene: Scene): string {
   marks = world + marks;
   // Each swaying group's pivot, a pink ring, labelled with its id (on far or near, in that
   // layer's own coordinates, which line up with the frame when the camera is at rest).
-  for (const [id, { at }] of Object.entries(scene.sway ?? {}))
+  // The arc its far end sweeps at its furthest turn in the scene's wind, and how far that is
+  // (red past what reads as a sway, validate.ts SWAY_FAR).
+  for (const [id, { at, amount }] of Object.entries(scene.sway ?? {})) {
+    const box = swayBox(scene, id);
+    let arc = '';
+    let far = 0;
+    if (box) {
+      const corners = [box[0], box[2]].flatMap((x) => [box[1], box[3]].map((y) => [x, y]));
+      const [fx, fy] = corners.sort(
+        (a, b) => Math.hypot(b[0] - at[0], b[1] - at[1]) - Math.hypot(a[0] - at[0], a[1] - at[1])
+      )[0];
+      const reach = Math.hypot(fx - at[0], fy - at[1]);
+      const most = (swayMost(reach, amount ?? 1, scene.weather?.wind ?? 0) * Math.PI) / 180;
+      far = reach * most;
+      const turn = (a: number) => {
+        const [dx, dy] = [fx - at[0], fy - at[1]];
+        return `${n(at[0] + dx * Math.cos(a) - dy * Math.sin(a))} ${n(at[1] + dx * Math.sin(a) + dy * Math.cos(a))}`;
+      };
+      const colour = far > SWAY_FAR ? '#ff3b30' : '#ff70c8';
+      arc =
+        `<path d='M${n(at[0])} ${n(at[1])} L${n(fx)} ${n(fy)}' stroke='#ff70c8' stroke-width='1.5' stroke-dasharray='6 6' opacity='0.7'/>` +
+        `<path d='M${turn(-most)} A${n(reach)} ${n(reach)} 0 0 1 ${turn(most)}' fill='none' stroke='${colour}' stroke-width='4'/>`;
+    }
     marks +=
-      `<g><circle cx='${n(at[0])}' cy='${n(at[1])}' r='8' fill='none' stroke='#ff70c8' stroke-width='3'/>` +
-      `<text x='${n(at[0] + 11)}' y='${n(at[1] + 18)}' font-family='${LABEL_FONT}' font-size='16' font-weight='bold' fill='#ff70c8' stroke='#000' stroke-width='4' paint-order='stroke'>~${escapeXml(id)}</text></g>`;
+      `<g>${arc}<circle cx='${n(at[0])}' cy='${n(at[1])}' r='8' fill='none' stroke='#ff70c8' stroke-width='3'/>` +
+      `<text x='${n(at[0] + 11)}' y='${n(at[1] + 18)}' font-family='${LABEL_FONT}' font-size='16' font-weight='bold' fill='${far > SWAY_FAR ? '#ff3b30' : '#ff70c8'}' stroke='#000' stroke-width='4' paint-order='stroke'>~${escapeXml(id)}${box ? ` ±${Math.round(far)} px` : ''}</text></g>`;
+  }
   for (const sh of scene.shelters)
     marks +=
       `<path d='M${n(sh.x)} ${n(sh.y)} L${n(sh.x + sh.width)} ${n(sh.y)}' stroke='#4ea8ff' stroke-width='5' stroke-dasharray='14 6'/>` +

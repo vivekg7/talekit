@@ -395,7 +395,9 @@ landing. The quadruped's default is `["tail", "earL", "earR"]`; other rigs
 have none; `[]` keeps every part rigid. A part the rig places turns about
 its pivot; one it does not know sways in place by a few units, unless you
 hang it. Nothing in a shot drives a spring. The construction sheet marks
-spring parts with `~`.
+spring parts with `~`, and the pose sheet shows them thrown as far as they
+ever go, 28° each way (`follow-through −28°` and `+28°`): a tail rooted
+shallow in the rump comes off it at one end of that swing.
 
 `hangs` places a part the rig does not know: the part that carries it
 (`from`) and the point in the box it turns about (`at`). It moves with
@@ -431,7 +433,10 @@ engine finds where the arm is drawn across the elbow's height and bends it
 about the middle of it, with a round joint as wide as the arm is there.
 A broad strongman's thick arms, hanging out past the rig's elbows, bend as
 one shape instead of stepping apart at the joint. Give `bends` only for an
-elbow drawn higher or lower than y 226.
+elbow drawn higher or lower than y 226. A limb drawn wider across its knee
+or elbow than that round joint, or off to one side of a joint you placed,
+shows the corners of the cut when it bends; the construction check says so
+and gives the `bends` that centres it.
 
 `chains` bends a part along its length, the way a leg bends at the knee,
 instead of turning it stiff about one hinge. The engine cuts it into
@@ -529,6 +534,11 @@ stroke='{skin}' stroke-width='18' stroke-linecap='round' fill='none'/>`,
   mouse's leg, a lion's tail) sinks three quarters of its width. Inside a
   part every piece sinks the same into what it hangs from. Shapes that only
   touch read as stickers and gap as soon as they move.
+- **Bend where the limb is drawn.** A bent limb is cut across its knee or
+  elbow and the lower half turns under a round joint as wide as the limb is
+  there. Drawn more than 4 units past that joint on either side (a wide
+  sleeve's cuff at the elbow, an arm hanging off the joint you gave in
+  `bends`), the corners of the cut stick out of the bend: a split elbow.
 - **Draw order is depth.** Inside a part, far side first, then the body,
   then the near side.
 - **Inner SVG only** (`<path>`, `<circle>`, `<rect>`, `<g>`…): never
@@ -890,8 +900,17 @@ and list the groups in `sway` with the point each is fixed at:
   on one moves with it: a bird on a branch that sways would hang in the air
   beside it. Leave a branch that carries someone out of `sway` (the scene
   check warns about an anchor up in a swaying group).
-- The scene sheet rings each pivot in pink, and its strip of the empty
-  scene at a few moments shows the crowns in different places.
+- **Sway what is free, in pieces held where they hang.** Each group turns
+  rigidly about one point, so a group fixed to still art anywhere else
+  leaves it: clothes on a line swung as one group about the line's end lift
+  off the rope. Make each piece its own group, pivoted where it is held
+  (each cloth at its pegs).
+- The scene sheet rings each pivot in pink, draws the arc the group's far
+  end sweeps at its furthest turn in the scene's wind, and says how far
+  (`~crown-left ±12 px`); its strip of the empty scene at a few moments
+  shows the crowns in different places. A far end that moves more than 40
+  px reads as rubber, not a sway, and the scene check warns: lower the
+  `amount`, or sway the group in smaller pieces.
 
 ### Lights and cast shadows
 

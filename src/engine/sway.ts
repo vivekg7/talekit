@@ -67,6 +67,24 @@ function closeOf(svg: string, from: number): number {
 }
 
 /**
+ * Scene pixels a swaying group's far end may move from where it is drawn before it reads as
+ * rubber (a check, validate.ts). The released films' biggest crowns, approved, move about 33.
+ */
+export const SWAY_FAR = 40;
+
+/** How far either way a group sways about its lean, degrees (`swayAngle`). */
+function swing(reach: number, amount: number, wind: number): number {
+  const w = Math.min(1, Math.abs(wind));
+  return amount * Math.min(6, Math.max(0.5, 28 / Math.sqrt(reach))) * (1 + 2.5 * w);
+}
+
+/** The furthest a group is ever turned from how it is drawn, degrees: its lean and swing. */
+export function swayMost(reach: number, amount: number, wind = 0): number {
+  const amp = swing(reach, amount, wind);
+  return amp * (1 + 0.8 * Math.min(1, Math.abs(wind)));
+}
+
+/**
  * How far a swaying group is turned at t, degrees clockwise: a slow sway either way, a
  * second, quicker one on top so it never looks like a pendulum, each group in its own
  * phase. The bigger it is (`reach`, scene pixels from its pivot to its far edge) the less
@@ -76,7 +94,7 @@ function closeOf(svg: string, from: number): number {
  */
 export function swayAngle(id: string, reach: number, amount: number, t: number, wind = 0): number {
   const w = Math.min(1, Math.abs(wind));
-  const amp = amount * Math.min(6, Math.max(0.5, 28 / Math.sqrt(reach))) * (1 + 2.5 * w);
+  const amp = swing(reach, amount, wind);
   const period = (2.6 + 0.9 * Math.sqrt(reach / 50)) / (1 + 1.2 * w);
   const phi = hash01(`sway:${id}`);
   const lean = 0.8 * amp * Math.sign(wind) * w;
@@ -118,6 +136,13 @@ export function swayMissing(scene: Scene): string[] {
   if (!scene.sway) return [];
   const layers = [scene.svg, scene.far, scene.near, scene.foreground].filter(Boolean) as string[];
   return Object.keys(scene.sway).filter((id) => !layers.some((l) => locate(l, [id]).has(id)));
+}
+
+/** How far a swaying group reaches from its pivot, scene pixels (as `swayLayer` judges it). */
+export function swayReach(scene: Scene, id: string): number | undefined {
+  const box = swayBox(scene, id);
+  const at = scene.sway?.[id]?.at;
+  return box && at ? reachOf(box, at[0], at[1]) : undefined;
 }
 
 /** Where a swaying group is, in its layer: its box, for the checks. */
