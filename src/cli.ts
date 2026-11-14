@@ -11,6 +11,8 @@ import { createProject, loadProject, projectPaths } from './project/store.js';
 import { formatProblems, hasErrors, speechProblems, validateProject } from './project/validate.js';
 import { postProblems } from './project/posts.js';
 import { rasterize } from './render/raster.js';
+import { criticSheetsSvg, readThrough } from './render/critic.js';
+import { guideSection } from './project/guide.js';
 import { coverSvg, coverWidth } from './render/cover.js';
 import {
   characterSheetSvg,
@@ -38,6 +40,9 @@ const USAGE = `talekit — story video generation for AI agents
   talekit sheet <dir> <id> [-o file.png]       pose + construction sheet (character) or anchor sheet (scene)
   talekit frame <dir> <shotId> [-t 1.5] [-o file.png] [--svg] [--debug]
   talekit contact <dir> <shotId> [-n 6] [-o file.png]
+  talekit critic <dir> [shotId] [-o dir]       what the critic looks at (authoring guide, The critic): its
+                                               checklist, the read-through (out/critic/readthrough.md) and
+                                               each shot's frames at its beats, captioned (out/critic/*.png)
   talekit cover <dir> <shotId> -t <sec> --title "…" [--sub "…"] [--tag "…"] [--zoom 1.3 --focus x,y] [--quiet] [--banner] [-o file.png]
                                                the thumbnail: a frame with the title over it (out/thumbnail.png),
                                                and the command that drew it (out/thumbnail.txt); --banner draws a
@@ -219,6 +224,27 @@ async function main(argv: string[]): Promise<void> {
         values.out ?? path.join(p.out, `contact-${shotId}.png`),
         contactSheetSvg(project, shot, num(values.count) ?? 6)
       );
+      return;
+    }
+    case 'critic': {
+      const [dir, shotId] = rest;
+      if (!dir) throw new Error('usage: talekit critic <dir> [shotId] [-o dir]');
+      const project = await loadProject(dir);
+      const shots = project.shots.filter((s) => !shotId || s.id === shotId);
+      if (shotId && !shots.length) throw new Error(`no shot '${shotId}'`);
+      const out = values.out ?? path.join(projectPaths(dir).out, 'critic');
+      await mkdir(out, { recursive: true });
+      console.log(await guideSection('The critic'));
+      if (!shotId) {
+        const file = path.join(out, 'readthrough.md');
+        await writeFile(file, readThrough(project));
+        console.log(file);
+      }
+      for (const shot of shots) {
+        const sheets = criticSheetsSvg(project, shot);
+        for (let i = 0; i < sheets.length; i++)
+          await savePng(path.join(out, `${shot.id}-${i + 1}.png`), sheets[i]);
+      }
       return;
     }
     case 'cover': {

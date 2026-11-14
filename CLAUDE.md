@@ -39,7 +39,8 @@ reasoning are in `docs/PLAN.md`. Read both before changing the data model.
   saying a line again when its take does not say it;
   `posts.ts` lints the text a video is posted with (`out/youtube.txt`,
   `out/instagram.txt`) for `talekit check`.
-- `src/render/` — resvg rasteriser, ffmpeg encoder (frames drawn on worker
+- `src/render/` — the critic's sheets and read-through (`critic.ts`: a
+  shot's frames at its beats, captioned with what is meant then), resvg rasteriser, ffmpeg encoder (frames drawn on worker
   threads, `frame-worker.ts`), the sound mixer (`audio.ts`), the .mkv with
   its extra sound and subtitle tracks (`mkv.ts`), preview sheets.
 - `src/library/` — built-in characters and scenes (TypeScript modules holding

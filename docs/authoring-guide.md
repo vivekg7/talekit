@@ -48,8 +48,9 @@ frames)` are full size. To fix a shot, `patch_shot(path, shotId, …)`:
    actions before the patch, as `get_item` lists them. It validates like
    `write_shot`, keeps the shot's place and returns a sheet of the stretch
    that changed. Restaging from the beginning is `write_shot`.
-6. **`render(path, shotId?)`** one shot early to check motion, then the
-   whole film, which returns a film sheet (one frame per shot) and, unless
+6. **`render(path, shotId?)`** one shot early to check motion. Before the
+   whole film, put it through [the critic](#the-critic): `critique`
+   without a shot, then with each. Then render the whole film, which returns a film sheet (one frame per shot) and, unless
    it is a reel, `out/movie.mkv` (see
    [Subtitles and the .mkv](#subtitles-and-the-mkv)). Render the reel the
    same way.
@@ -1541,6 +1542,77 @@ copied; the scenes and shots are new.
   large. Before the cut, make the character look (`point`, `emotion:
 surprised`). See `examples/clever-rabbit` shots 07 to 09.
 
+## The critic
+
+Before the person sees a film, look at it the way they will. The checks
+catch what has one right answer; what is left is what a person saw in
+eighteen films' reviews and no rule could: a tail that comes off, a moon
+in front of the trees, a hut said to hold a sleeping man that shows
+empty, a moral said in a hurry. `critique(path, shotId)` (from a shell,
+`talekit critic <dir> [shotId]`) returns, for a shot, its frames at its
+beats: the first and last, the middle of every line, every verb at its
+work or done, and the last frame of the shot before, across the cut. Under
+each frame is what the shot means to be happening then (who says what, in
+English where the film has a translation, to whom; who walks where; who
+is sitting, lying asleep, hidden or held, and facing which way). Without a
+shot it returns the read-through: every line in the order it is heard,
+with its time, speaker, voice and English, and the stretches where nobody
+speaks. Go through the read-through once and each shot's sheets once,
+against the list below.
+
+It is best done by an agent that has not written the film, given only the
+project's path and this section: the author sees what was meant. Write
+down each finding as the shot, the time, the item, what is wrong and how
+sure you are; fix the sure ones, look again at the unsure ones full size
+(`preview_frame`), and ask the person about what is still unsure. It is
+judgment, not a check: it adds to `talekit check` and replaces none of it.
+
+**In the pictures**
+
+1. **Every character is drawn as what it is.** A crocodile sprawls on a
+   reptile's legs, not a bear's; a camel's head is a camel's; people look
+   like the people of the story.
+2. **Nothing comes apart.** No tail stuck on by its middle or hanging off
+   the rump, no neck that kinks or stubs when the head turns, no split at
+   an elbow or a knee, no leg folded wrong lying down.
+3. **What is in front is what would be.** A sun or a moon is behind the
+   trees and the hills; an animal in water shows only what is above it; a
+   garland's or a strap's far side is hidden behind the neck; a stove or a
+   rock hides the legs of whoever is behind it.
+4. **The scenery stands.** A trunk reaches the ground, a stove stands on
+   the floor, two pieces of scenery do not run into each other, bars and a
+   jail door close the gap they are meant to.
+5. **Work looks like work.** Hands are on what they wash, scrub, dig or
+   carry; the body bends to it; a blow lands on its target, from the side
+   the striker faces; eating puts the food at the mouth.
+6. **The picture says what the words say.** A hut said to hold a sleeping
+   man shows him in it; guards said to be asleep over there are there,
+   asleep; helpers said to lift a wounded man lift him; a struggle in the
+   water looks like one.
+7. **What changed stays changed.** A bed dug stays dug, a pot broken stays
+   broken, work done in one shot shows in the next.
+8. **One place keeps its layout.** What is far off in one shot of a place
+   is far off in the next.
+9. **The main thing can be seen.** No caption, bubble or prop over the
+   faces or the action that matters; a reel uses its tall frame.
+10. **The world is alive.** Extras and animals where the story allows,
+    reacting to what happens; water that moves; a time of day that shows.
+
+**In the read-through**
+
+11. **Every step of the story is said.** Nothing a character does next
+    lacks its reason: a warning the ending looks back to is in the film; a
+    man who goes against his wife's word is said to have decided to.
+12. **The turning points have room.** A realisation, a bargain, a moral
+    is not one hurried sentence, and has a beat after it.
+13. **The words fit who says them, and to whom.** "Brother" is not said to
+    a female voice, nor "sister" to a male one; names are simple and of
+    the story's region; a line said in anger has `emotion: angry`.
+14. **Each voice is its own.** Two characters who talk to each other do
+    not share a voice (or give one a `pitch`).
+15. **It moves.** No stretch drags with nothing said or done; a long scene
+    in one view cuts away once; a reel ends promptly after its moral.
+
 ## Checklist before `render`
 
 - `project_info` shows no validation or construction warnings you did not
@@ -1562,4 +1634,6 @@ surprised`). See `examples/clever-rabbit` shots 07 to 09.
 - Total duration matches the ask: a short fable 60–120 s, a picture-book
   story 5–10 minutes, a reel at most 3 minutes.
 - There is a reel beside the film, unless the person asked for one only.
+- The critic has been through the read-through and every shot, and what
+  it was sure of is fixed.
 - The film sheet from `render` shows every shot as intended.

@@ -1222,7 +1222,62 @@ places that say how they are used, and the bow carried across a cut.
     scored 12 px against the river bank, and the fireflies 17 against a
     post. So the guide says to sway pieces held where they hang, and the
     sheet's arcs let the eye see a cloth leave its rope.
-- **8.3 is done.** Next is 8.4, the vision critic.
+- **8.3 is done.**
+
+### 8.4 as built
+
+- **What the critic is given** (`src/render/critic.ts`, `critique` in the
+  MCP, `talekit critic`). A shot's frames at its beats, not evenly spaced:
+  the first and last frame, the middle of every line, every verb at its
+  work (a blow, a scrub) or done (a walk arrived, a sit), and the last frame
+  of the shot before, across the cut. A verb done over and over (a blow a
+  second) is looked at once, beats within half a second are one look at
+  the later moment (so a walk is seen arrived), nothing is taken inside a
+  dissolve or a fade in, and a shot keeps at most eleven, lines first.
+  Under each frame is what the shot means then: who says what to whom, in
+  English where there is a translation, the verbs, the engine's own staging,
+  and how each actor in it is (walking, sitting, lying asleep, hidden, held,
+  facing). That caption is the point: the critic judges the picture against
+  what was meant, which is how a hut that should hold a sleeping man is
+  seen to be empty. Six landscape frames of 630 px (four portrait of 375)
+  go on a sheet, big enough to see a tail, small enough not to be shrunk.
+  The whole film gets a read-through: every line in the order it is heard,
+  with time, speaker, voice and English, and the silences of 4 s or more.
+- **The checklist** is a section of the authoring guide, "The critic",
+  which the tool and the CLI print from the guide, so there is one copy.
+  It has fifteen items, ten for the pictures and five for the
+  read-through, each from the review notes no check catches: drawing
+  (a crocodile on a bear's legs), parts that come apart, what is in front
+  (a moon before the trees, a garland's far strand), scenery that floats
+  or can be walked round, work that does not touch its work, picture
+  against words, changed things that change back, a place's layout, what
+  hides the action, a dead world; a missing step of the story, a turning
+  point said in a hurry, words that do not fit the speaker or the
+  listener, shared voices, and a film that drags.
+- **It is best done by a fresh agent**, given only the project's path and
+  the guide's section: the author knows what was meant and sees that.
+  It is judgment and not deterministic, so it gates nothing; the guide puts
+  it before the full render and in the checklist before `render`.
+- **The trial.** Five mistakes from real notes were planted in a copy of
+  gadha-hi (R18): the jackal's warning cut while the ending looks back to
+  it, "sister" said to the male donkey, the guards gone from the machaan
+  the jackal says they sleep on, the moon moved in front of the treeline,
+  and the garland given its far strand. A loose tail was tried first and
+  dropped as a fixture: the construction check already finds it. A fresh
+  agent with only the sheets, the read-through and the checklist found
+  the first four, sure, and the garland as unsure. It also found things
+  the person's review had not noted. Four were looked at and are true: a
+  hard-edged pale box round the buffalo's legs (the ghat's water band), an
+  evening shot under a midday sun, a shout bubble over a guard's head, and
+  the guards' heads in the machaan's thatch. Others (eating with no
+  vegetable at the mouth, a lathi raised a body length off) were not
+  checked.
+  Two of its findings were the sheet's fault: frames taken inside a 1 s
+  dissolve showed the shot before, so the bundles seemed to jump and the
+  donkey to change colour. Beats now start after the dissolve. One run on
+  one film is a sign, not a measure: how often it cries wolf will show
+  over the next films.
+- **8.4 is done, and with it phase 8.**
 
 ## Render speed
 

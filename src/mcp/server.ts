@@ -3,7 +3,6 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { readFile, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { composeFrame } from '../engine/compose.js';
 import { movieDuration, STAGE_SHORTCUTS } from '../engine/timeline.js';
@@ -51,6 +50,8 @@ import {
   type Problem,
 } from '../project/validate.js';
 import { rasterize } from '../render/raster.js';
+import { criticSheetsSvg, readThrough } from '../render/critic.js';
+import { guidePath, guideSection } from '../project/guide.js';
 import {
   audioMapSvg,
   characterSheetSvg,
@@ -170,16 +171,6 @@ function libraryItemForReading(item: Character | Scene): object {
         `(${v.length} characters of painted SVG, left out; copy_from_library uses it as it is)`;
   }
   return out;
-}
-
-function guidePath(): string {
-  const here = path.dirname(fileURLToPath(import.meta.url));
-  for (const candidate of [
-    path.join(here, '..', '..', 'docs', 'authoring-guide.md'),
-    path.join(here, '..', 'docs', 'authoring-guide.md'),
-  ])
-    if (existsSync(candidate)) return candidate;
-  throw new Error('authoring-guide.md not found');
 }
 
 function soundSummary(project: Project): string {
@@ -770,6 +761,38 @@ export function buildServer(): McpServer {
             `rendered ${outPath}: ${r.seconds.toFixed(1)}s, ${r.frames} frames, in ${((Date.now() - started) / 1000).toFixed(1)}s${spoken}${mkv}\n${formatProblems(problems)}`
           ),
           image(filmSheetSvg(project, shots))
+        );
+      } catch (e) {
+        return fail((e as Error).message);
+      }
+    }
+  );
+
+  server.registerTool(
+    'critique',
+    {
+      title: 'Critique a film',
+      description:
+        "Look at the film the way the person will, before they do (authoring guide, The critic): the checks catch what has one right answer, this is for the rest (a tail that comes off, a moon in front of the trees, a hut said to hold a sleeping man that shows empty, a moral said in a hurry). Without shotId: the critic's checklist and the read-through, every line in the order it is heard with its time, speaker, voice and English, and the stretches where nobody speaks. With shotId: that shot's frames at its beats (first and last, the middle of every line, every verb at its work or done, and the last frame of the shot before, across the cut), each captioned with what is meant to happen then, a few frames to an image. Go through the read-through once and every shot once against the checklist; it is best done by an agent that has not written the film. It is judgment: it adds to `talekit check` and replaces none of it.",
+      inputSchema: { path: pathArg, shotId: z.string().optional() },
+    },
+    async ({ path: root, shotId }) => {
+      try {
+        const project = await loadProject(root);
+        if (!shotId)
+          return ok(
+            text(
+              `${await guideSection('The critic')}\nShots, in order: ${project.shots.map((s) => s.id).join(', ')}\n\n${readThrough(project)}`
+            )
+          );
+        const shot = project.shots.find((s) => s.id === shotId);
+        if (!shot) return fail(`no shot '${shotId}'`);
+        const sheets = criticSheetsSvg(project, shot);
+        return ok(
+          text(
+            `${shot.id}: ${sheets.length} image${sheets.length === 1 ? '' : 's'} of its beats, each frame captioned with what is meant to happen then. Check them against the critic's checklist (critique without shotId).`
+          ),
+          ...sheets.map((svg) => image(svg))
         );
       } catch (e) {
         return fail((e as Error).message);
