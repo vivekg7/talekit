@@ -157,6 +157,36 @@ def project_dir(script, up=1):
     return d
 
 
+def option(project, question, choice, ask=None, label=None, shot=None, t=None):
+    """The folder one choice of an option is written into: <project>/options/<question>/<choice>,
+    laid out like the project, so write(option(...), c) and scenes.write(option(...), s)
+    save a second way of drawing it there, and Film.option() a second way of staging a
+    shot. Only for a real open choice the person should make: otherwise just make it.
+    ask (the question), label (a line on this choice), shot and t (where it shows best)
+    go to the question's question.json for the review app."""
+    qdir = os.path.join(project, "options", question)
+    folder = os.path.join(qdir, choice)
+    os.makedirs(folder, exist_ok=True)
+    qfile = os.path.join(qdir, "question.json")
+    about = {}
+    if os.path.exists(qfile):
+        with open(qfile) as fh:
+            about = json.load(fh)
+    if ask:
+        about["ask"] = ask
+    if label:
+        about.setdefault("choices", {})[choice] = label
+    if shot:
+        about["shot"] = shot
+    if t is not None:
+        about["t"] = t
+    if about:
+        with open(qfile, "w") as fh:
+            json.dump(about, fh, indent=2, ensure_ascii=False)
+            fh.write("\n")
+    return folder
+
+
 def write(project, c):
     """Save the character as <project>/characters/<id>.json and say so."""
     folder = os.path.join(project, "characters")

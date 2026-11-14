@@ -33,7 +33,7 @@ import glob
 import json
 import os
 
-from .characters import project_dir
+from .characters import option, project_dir
 
 __all__ = [
     "Film",
@@ -45,6 +45,7 @@ __all__ = [
     "do",
     "feel",
     "keep",
+    "option",
     "pickup",
     "project_dir",
     "pt",
@@ -85,6 +86,7 @@ class Film:
         self.linger = linger
         self.rate = rate
         self.shots = []
+        self.parent = None
         self.voiced = {}
         for f in glob.glob(os.path.join(project, "audio", "voices", "*.json")):
             with open(f) as fh:
@@ -130,6 +132,17 @@ class Film:
             }
         )
 
+    def option(self, question, choice, **about):
+        """A Film for a second way of staging some shots, written into the option's choice
+        (characters.option(); `about`: ask, label, shot, t). Add only the shots this choice
+        changes, with the same ids, and write(): each replaces its namesake in the review
+        app when the choice is looked at; a new id plays after the shot before it in this
+        Film. Call it once this Film has its own shots. It is paced by the same voices."""
+        alt = Film(self.project, self.gap, self.linger, self.rate)
+        alt.project = option(self.project, question, choice, **about)
+        alt.parent = self
+        return alt
+
     def write(self):
         """Replace the project's shots with these, in order, and print the running time."""
         folder = os.path.join(self.project, "shots")
@@ -137,11 +150,15 @@ class Film:
         for f in glob.glob(os.path.join(folder, "*.json")):
             os.remove(f)
         total = 0
+        # An option's shot takes its namesake's number, so it lands in its place.
+        ids = [p["id"] for p in self.parent.shots] if self.parent else []
+        n = "00"
         for i, s in enumerate(self.shots):
-            with open(os.path.join(folder, f"{i + 1:02d}-{s['id']}.json"), "w") as fh:
+            n = f"{ids.index(s['id']) + 1:02d}" if s["id"] in ids else n + "b" if self.parent else f"{i + 1:02d}"
+            with open(os.path.join(folder, f"{n}-{s['id']}.json"), "w") as fh:
                 json.dump(s, fh, ensure_ascii=False, indent=1)
             total += s["duration"]
-            print(f"{i + 1:02d} {s['id']:12s} {s['duration']:6.2f}")
+            print(f"{n} {s['id']:12s} {s['duration']:6.2f}")
         print(len(self.shots), "shots,", round(total, 1), "s,", len(self.voiced), "voiced lines known")
 
 
