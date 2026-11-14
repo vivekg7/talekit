@@ -134,7 +134,7 @@ const blocking = (problems: Problem[]) => problems.filter((p) => p.level === 'er
 async function voice(root: string, project: Project, shots: Shot[]): Promise<string> {
   try {
     const r = await makeVoices(root, project, shots);
-    if (!r.made && !r.failed.length && !r.heard && !r.doubtful.length) return '';
+    if (!r.made && !r.failed.length && !r.heard && !r.doubtful.length && !r.hearError) return '';
     const failed = r.failed.map(
       (f) => `\n  failed: ${f.line.shot} action ${f.line.action}: ${f.error}`
     );
@@ -732,7 +732,7 @@ export function buildServer(): McpServer {
     {
       title: 'Render video',
       description:
-        "Render the whole movie (or one shot) to an H.264 mp4 in <project>/out/, with its sound: voices, music, ambience and effects (lines not yet spoken are spoken first). The whole movie, unless it is a portrait reel, also gets a movie.mkv: the same picture with three sound tracks (the full mix, music and effects without the dialogue, and that with the narrator), a subtitle track in the film's language and one per language the lines' `translation` gives (off until chosen), and a chapter per shot. Validation errors block rendering, world findings included (an actor standing on air, a land animal in deep water: fix the shot, or waive one in `allow` with a reason). Every voiced take is heard by speech recognition and said again (up to three takes) when it does not say its line; one that never does is a `speech.mismatch` error: reword the line, or listen to it and waive it. A minute of 720p takes about ten seconds. Returns a film sheet: one frame from the middle of each rendered shot, so you can confirm the cut without opening the file.",
+        "Render the whole movie (or one shot) to an H.264 mp4 in <project>/out/, with its sound: voices, music, ambience and effects (lines not yet spoken are spoken first). The whole movie, unless it is a portrait reel, also gets a movie.mkv: the same picture with three sound tracks (the full mix, music and effects without the dialogue, and that with the narrator), a subtitle track in the film's language and one per language the lines' `translation` gives (off until chosen), and a chapter per shot. Validation errors block rendering, world findings included (an actor standing on air, a land animal in deep water: fix the shot, or waive one in `allow` with a reason). Every voiced take is heard by speech recognition and said again (up to three takes, `chatterbox:` voices only) when it does not say its line; one that never does is a `speech.mismatch` error: reword the line, or listen to it and waive it. A minute of 720p takes about ten seconds. Returns a film sheet: one frame from the middle of each rendered shot, so you can confirm the cut without opening the file.",
       inputSchema: { path: pathArg, shotId: z.string().optional() },
     },
     async ({ path: root, shotId }) => {

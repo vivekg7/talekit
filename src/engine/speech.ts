@@ -49,7 +49,8 @@ const HINDI_NUMBERS = (
 /** A number as it is said in Hindi, up to the lakhs; as written when it is not one of those. */
 export function hindiNumber(n: number): string {
   const say = (k: number): string => (k <= 100 ? HINDI_NUMBERS[k - 1] : String(k));
-  if (n >= 1 && n <= 100) return say(n);
+  if (!Number.isInteger(n) || n < 1) return String(n);
+  if (n <= 100) return say(n);
   if (n % 100000 === 0 && n / 100000 <= 100) return `${say(n / 100000)} लाख`;
   if (n % 1000 === 0 && n / 1000 <= 100) return `${say(n / 1000)} हज़ार`;
   if (n % 100 === 0 && n / 100 <= 10) return `${say(n / 100)} सौ`;

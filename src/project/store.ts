@@ -148,6 +148,12 @@ export interface VoiceEntry {
   /** Which take this is, when not the first: the line was said again (see voices.ts). */
   take?: number;
   /**
+   * The file's size as talekit wrote it. A file of another size (or an entry without one,
+   * from before takes were checked) was made or changed by hand, and is never said again
+   * over: a trembled line, a shout re-voiced by ear.
+   */
+  bytes?: number;
+  /**
    * What speech recognition heard it say, and how that compared with the line then. Whether
    * it says the line is judged again from `heard` each time (engine/speech.ts).
    */

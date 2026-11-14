@@ -303,7 +303,8 @@ async function main(argv: string[]): Promise<void> {
       );
       process.stderr.write('\n');
       console.log(voiceSummary(r));
-      if (r.failed.length) process.exitCode = 1;
+      // A line no take says stops the render, so it fails here too.
+      if (r.failed.length || r.doubtful.length) process.exitCode = 1;
       return;
     }
     case 'render': {
@@ -321,7 +322,7 @@ async function main(argv: string[]): Promise<void> {
       if (!values.silent)
         await makeVoices(dir, project, shots).then(
           (r) =>
-            r.made + r.failed.length + r.heard + r.doubtful.length &&
+            (r.made || r.failed.length || r.heard || r.doubtful.length || r.hearError) &&
             console.error(voiceSummary(r)),
           (e) => console.error(`voices: ${(e as Error).message}; unvoiced lines stay silent`)
         );

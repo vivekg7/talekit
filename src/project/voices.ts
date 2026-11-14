@@ -1,6 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
+import { existsSync, statSync } from 'node:fs';
+import { mkdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
@@ -44,10 +44,15 @@ export interface VoiceReport {
   heard: number;
   /** Lines said again because the take did not say them, and a later take did better. */
   redone: number;
-  /** Lines no take said, after MAX_TAKES: what the best of them was heard to say. */
-  doubtful: { line: Line; heard: string }[];
-  /** Nothing could hear the takes (no whisper-cli): they were not checked. */
+  /**
+   * Lines no take said: what the best of them was heard to say, after how many takes, and
+   * whether the take was kept as made by hand (see VoiceEntry.bytes) rather than said again.
+   */
+  doubtful: { line: Line; heard: string; takes: number; byHand: boolean }[];
+  /** Nothing could hear the takes (no whisper-cli, or `hearError`): they were not checked. */
   unheard?: boolean;
+  /** Why hearing failed when whisper is there (no model download, whisper-cli failing). */
+  hearError?: string;
 }
 
 /** Semitones as a ffmpeg chain: shift the pitch, keep the length. */
@@ -141,7 +146,8 @@ function envelope(samples: Float32Array): Buffer {
 /** What the speech check did, in lines for a report; empty when it heard nothing. */
 export function hearingLines(r: VoiceReport): string[] {
   const out: string[] = [];
-  if (r.unheard && r.made)
+  if (r.hearError) out.push(`  takes not heard: ${r.hearError}`);
+  else if (r.unheard && r.made)
     out.push(
       '  takes not heard: install whisper.cpp (brew install whisper-cpp) and each take is checked against its line'
     );
@@ -151,7 +157,7 @@ export function hearingLines(r: VoiceReport): string[] {
     );
   for (const d of r.doubtful)
     out.push(
-      `  speech.mismatch: ${d.line.shot} action ${d.line.action}: '${d.line.text}' was heard as '${d.heard}' (best of ${MAX_TAKES} takes)`
+      `  speech.mismatch: ${d.line.shot} action ${d.line.action}: '${d.line.text}' was heard as '${d.heard}' (${d.byHand ? 'a take made or changed by hand, kept: delete it to have it said again' : `best of ${d.takes} take${d.takes === 1 ? '' : 's'}`})`
     );
   return out;
 }
@@ -189,9 +195,15 @@ export async function makeVoices(
       report.failed.push(...r.failed);
       if (!r.made) break;
     }
-    const hear = hearer === undefined ? await whisperHearer() : (hearer ?? undefined);
-    if (hear) await listen(tts, hear, root, project, shots, report);
-    else report.unheard = true;
+    // The lines are spoken and saved by now: hearing that fails costs the check, not them.
+    try {
+      const hear = hearer === undefined ? await whisperHearer() : (hearer ?? undefined);
+      if (hear) await listen(tts, hear, root, project, shots, report);
+      else report.unheard = true;
+    } catch (e) {
+      report.unheard = true;
+      report.hearError = (e as Error).message;
+    }
   } finally {
     tts.close();
   }
@@ -269,6 +281,7 @@ async function sayLine(
   const samples = level(await decode(raw, 1, 'ffmpeg', chain));
   await encode(samples, path.join(voicesDir, file));
   await rm(raw, { force: true });
+  const bytes = (await stat(path.join(voicesDir, file))).size;
   return {
     file,
     voice: `${line.voice.engine}:${line.voice.name}`,
@@ -280,6 +293,7 @@ async function sayLine(
     duration: Math.round((samples.length / RATE) * 1000) / 1000,
     envelope: envelope(samples).toString('base64'),
     ...(take > 1 ? { take } : {}),
+    bytes,
   };
 }
 
@@ -367,6 +381,11 @@ async function listen(
     return out;
   };
   const wrong = (l: Line) => badTake(l.text, index[l.key].match!);
+  /** A take as talekit made it, which it may say again over; one changed by hand it keeps. */
+  const ours = (l: Line) => {
+    const e = index[l.key];
+    return e.bytes !== undefined && statSync(path.join(voicesDir, e.file)).size === e.bytes;
+  };
   try {
     if (fresh.length) {
       const first = await judge(fresh.map((line) => ({ line, file: index[line.key].file })));
@@ -383,7 +402,7 @@ async function listen(
       const tries: { line: Line; file: string; entry: VoiceEntry }[] = [];
       for (const line of bad) {
         const take = (index[line.key].take ?? 1) + 1;
-        if (take > MAX_TAKES || !SAMPLED.has(line.voice.engine)) continue;
+        if (take > MAX_TAKES || !SAMPLED.has(line.voice.engine) || !ours(line)) continue;
         const file = `${line.key}.take${take}.ogg`;
         const entry = await sayLine(tts, voicesDir, line, file, take);
         if ('error' in entry) continue;
@@ -392,7 +411,17 @@ async function listen(
         tries.push({ line, file, entry });
       }
       if (!tries.length) break;
-      const heard = await judge(tries);
+      let heard: Awaited<ReturnType<typeof judge>>;
+      try {
+        heard = await judge(tries);
+      } catch (e) {
+        // Unheard, a retake is no take: its file goes and its turn is given back.
+        for (const t of tries) {
+          await rm(path.join(voicesDir, t.file), { force: true });
+          index[t.line.key].take = t.entry.take! - 1 > 1 ? t.entry.take! - 1 : undefined;
+        }
+        throw e;
+      }
       bad = [];
       for (const [i, t] of tries.entries()) {
         const best = index[t.line.key];
@@ -406,7 +435,12 @@ async function listen(
     }
     for (const line of lines)
       if (index[line.key].heard !== undefined && wrong(line))
-        report.doubtful.push({ line, heard: index[line.key].heard! });
+        report.doubtful.push({
+          line,
+          heard: index[line.key].heard!,
+          takes: index[line.key].take ?? 1,
+          byHand: SAMPLED.has(line.voice.engine) && !ours(line),
+        });
   } finally {
     await writeFile(voiceIndexPath(dir), JSON.stringify(sortKeys(index), null, 1) + '\n');
   }

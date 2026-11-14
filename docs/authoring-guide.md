@@ -1394,8 +1394,10 @@ A film has six layers of sound. You choose four; the engine makes the rest.
 - **Every take is heard.** Speech recognition (whisper.cpp) listens to each
   line once it is spoken and compares it with the text. A take that skips
   a word, babbles past its end or garbles a stretch is said again, up to
-  three takes (`chatterbox:` only), and the best is kept. The voicing
-  report says how many were heard and said again. A line no take says is a
+  three takes (`chatterbox:` only), and the best is kept. A take made or
+  changed by hand (a trembled line put in its place) is heard but never
+  said again over. The voicing report says how many were heard and said
+  again, and why if they could not be heard. A line no take says is a
   `speech.mismatch` error that blocks the render. Usually a word the voice
   stumbles on is the cause: spell it the way it is said, or split a long
   line, and it is spoken afresh. If you have listened and the take is

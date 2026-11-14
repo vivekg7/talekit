@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, existsSync, readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -8,7 +8,7 @@ import { voiceLines } from '../src/engine/voice.js';
 import { LIBRARY } from '../src/library/index.js';
 import type { Hearer } from '../src/project/hear.js';
 import { speechProblems } from '../src/project/validate.js';
-import { makeVoices } from '../src/project/voices.js';
+import { hearingLines, makeVoices } from '../src/project/voices.js';
 
 describe('the speech check', () => {
   // What whisper made of real takes from the released films, and of takes broken on purpose.
@@ -48,6 +48,7 @@ describe('the speech check', () => {
     expect(hindiNumber(500)).toBe('पाँच सौ');
     expect(hindiNumber(2000)).toBe('दो हज़ार');
     expect(hindiNumber(123)).toBe('123');
+    expect(hindiNumber(0)).toBe('0');
   });
   it('hears हंस in the respelling the voice is given', () => {
     expect(skeleton('हन्स')).toBe(skeleton('हंस'));
@@ -149,6 +150,31 @@ describe('hearing voiced takes', () => {
     });
     waived.audio = p.audio;
     expect(speechProblems(waived)).toEqual([]);
+  });
+
+  it('never says again over a take changed by hand', async () => {
+    const r = root();
+    const p = project(['one two three', 'seven eight nine ten']);
+    // The first voicing goes unheard; then the take is replaced by hand (a trembled line).
+    await run(p, r, null);
+    const key = voiceLines(p).find((l) => l.text === 'seven eight nine ten')!.key;
+    const file = path.join(r, 'audio', 'voices', `${key}.ogg`);
+    writeFileSync(file, Buffer.concat([readFileSync(file), Buffer.alloc(64)]));
+    const { hear, asked } = hearer(p, 'seven eight nine ten', Infinity);
+    const report = await run(p, r, hear);
+    expect(report.redone).toBe(0);
+    expect(report.doubtful).toMatchObject([{ byHand: true, takes: 1 }]);
+    expect(asked.some((f) => f.includes('.take'))).toBe(false);
+  });
+
+  it('keeps the voicing when hearing fails, and says why', async () => {
+    const r = root();
+    const failing: Hearer = async () => {
+      throw new Error('no model');
+    };
+    const report = await run(project(['one two three']), r, failing);
+    expect(report).toMatchObject({ made: 1, unheard: true, hearError: 'no model' });
+    expect(hearingLines(report)).toEqual(['  takes not heard: no model']);
   });
 
   it('says so when nothing can hear the takes', async () => {

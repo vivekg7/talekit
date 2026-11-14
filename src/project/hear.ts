@@ -9,7 +9,7 @@
  */
 import { spawn } from 'node:child_process';
 import { createWriteStream, existsSync } from 'node:fs';
-import { mkdir, mkdtemp, readFile, rename, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rename, rm, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { Readable } from 'node:stream';
@@ -43,8 +43,14 @@ async function ensureModel(): Promise<string> {
   process.stderr.write(`hearing: fetching the speech model (570 MB) into ${file}\n`);
   const res = await fetch(MODEL_URL);
   if (!res.ok || !res.body) throw new Error(`could not fetch ${MODEL_URL}: ${res.status}`);
-  const part = `${file}.part`;
+  // Each fetch its own part file, so a film and its reel voiced at once do not interleave.
+  const part = `${file}.${process.pid}.part`;
   await pipeline(Readable.fromWeb(res.body as never), createWriteStream(part));
+  const want = Number(res.headers.get('content-length'));
+  if (want && (await stat(part)).size !== want) {
+    await rm(part, { force: true });
+    throw new Error(`the speech model came short; it is fetched again next time`);
+  }
   await rename(part, file);
   return file;
 }
