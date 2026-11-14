@@ -2,6 +2,7 @@ import { linkAngles, type Link } from './chain.js';
 import { clamp01, easeInOut, easeOut, hash01 } from './easing.js';
 import { bodyWidth, footPoint, partOffset, swingOf, toRoot } from './gait.js';
 import {
+  applyKnock,
   applyTake,
   applyVerb,
   basePose,
@@ -48,6 +49,7 @@ export function poseFor(actor: ActorState, t: number): Pose {
   const head = rig.name === 'simple' ? 'body' : 'head';
   if (actor.look) pose.rot[head] = (pose.rot[head] ?? 0) + actor.look;
   if (actor.take) applyTake(rig, pose, actor.take.emotion, actor.take.u);
+  if (actor.knock) applyKnock(rig, pose, actor.knock.away, actor.knock.u);
   for (const v of actor.verbs)
     applyVerb(rig, pose, v.verb, v.u, 0, v.to, v.span, v.loose, v.handOver, v.reach);
   // An arrow left on the string of a lowered bow: the bow held so it points at the floor.
@@ -647,7 +649,8 @@ const SOIL = ['#4f3521', '#6b4a2e', '#8a6440', '#a98457'];
 /**
  * The clods a `dig` throws up where the blade went in (`ActorState.soil`): a spray of lumps
  * flung up and mostly back toward the digger, falling and settling on the floor, and a low
- * puff of dust spreading and thinning. Each blow's spray is its own (hash01 of its salt).
+ * puff of dust spreading and thinning; a `strike` on the ground throws the dust and a few
+ * lumps. Each blow's spray is its own (hash01 of its salt).
  */
 export function renderSoil(actor: ActorState): string {
   if (!actor.soil || !actor.visible) return '';
@@ -659,7 +662,7 @@ export function renderSoil(actor: ActorState): string {
     const dr = (18 + 34 * easeOut(u)) * s;
     const dop = 0.55 * (1 - u) * Math.min(1, u * 6);
     out += `<ellipse cx='${n(b.x - b.side * 6 * s * u)}' cy='${n(b.y - 6 * s - 4 * s * u)}' rx='${n(dr)}' ry='${n(dr * 0.38)}' fill='#b99a72' opacity='${n(dop)}'/>`;
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < b.clods; i++) {
       const h = (k: string) => hash01(`${b.salt}:clod:${i}:${k}`);
       // Launched up and out, most of them back toward the digger; under gravity they come
       // down onto the floor by the spot and lie there a moment before the next blow.

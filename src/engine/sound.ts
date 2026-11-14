@@ -1,7 +1,7 @@
 import { clamp01, hash01 } from './easing.js';
 import { footfalls, gaitPhase } from './gait.js';
 import { rigOf } from './rigs.js';
-import { digHits } from './motion.js';
+import { digHits, STRIKE_HIT } from './motion.js';
 import { staged } from './stage.js';
 import {
   actionDuration,
@@ -192,6 +192,8 @@ const STEP: Partial<Record<Character['rig'], string>> = {
 };
 /** Footsteps sit under everything else: a person of the default height walking at 1. */
 const STEP_GAIN = 0.3;
+/** Seconds either side of a blow's landing in which the shot's own sound stands in for the thud. */
+const OWN_SOUND = 0.3;
 /** Samples a second when finding where feet land. */
 const STEP_RATE = 60;
 
@@ -305,6 +307,13 @@ function verbSounds(project: Project, shot: Shot, at0: number): Cue[] {
       const d = actionDuration(a);
       const size = Math.min(1.2, project.characters[a.actor].height / 250);
       digHits(d).forEach((h, i) => push('land', a.t + h, 0.55 * size, a.actor, `${k}:dig:${i}`));
+    }
+    // A blow at something lands with a thud, unless the shot puts a sound of its own there
+    // (a bonk, a crack, a hand-placed thud).
+    if (a.do === 'strike' && a.to !== undefined) {
+      const hit = a.t + actionDuration(a) * STRIKE_HIT;
+      if (!shot.actions.some((b) => b.sound && Math.abs(b.t - hit) <= OWN_SOUND))
+        push('thud', hit, 0.7, a.actor, `${k}:thud`);
     }
     // An arrow loosed: the arrow's whoosh as it goes, and the string's twang when it leaves
     // a bow; one sent off no bow (cut to as it arrives) only flies.

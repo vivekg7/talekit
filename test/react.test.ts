@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { STRIKE_HIT } from '../src/engine/motion.js';
+import { cueSheet } from '../src/engine/sound.js';
 import { resolveSound, soundTraits } from '../src/engine/sources.js';
 import { stagedWhat, staging } from '../src/engine/stage.js';
-import { resolveFrame, type ActorState } from '../src/engine/timeline.js';
+import { KNOCK_TIME, resolveFrame, type ActorState } from '../src/engine/timeline.js';
 import { CharacterSchema, ShotSchema, type Project } from '../src/engine/types.js';
 import { LIBRARY } from '../src/library/index.js';
 import { MOUTH_SOUNDS, STARTLES } from '../src/library/sounds.js';
@@ -134,5 +136,59 @@ describe('a sound that startles', () => {
       expect(resolveSound(p, name), name).toBeDefined();
     expect(soundTraits('lion-roar-2')).toEqual({ startles: 'scared', mouth: true });
     expect(soundTraits('thud')).toEqual({ startles: undefined, mouth: false });
+  });
+});
+
+/** The grown-up, a stick in hand, strikes at `to` from x 450; the kid stands at 620. */
+const blow = (to: unknown, more: unknown[] = [], kidFacing = 'left') =>
+  film(
+    {
+      grownup: { at: { x: 450, y: 640 }, facing: 'right' },
+      kid: { at: { x: 620, y: 640 }, facing: kidFacing },
+      stick: { at: { x: 450, y: 640 } },
+    },
+    [
+      { t: 0, actor: 'stick', attach: 'grownup' },
+      { t: 1, actor: 'grownup', do: 'strike', to },
+      ...more,
+    ],
+    'park'
+  );
+const HIT = 1 + 0.7 * STRIKE_HIT;
+
+describe('a blow that lands', () => {
+  it('knocks someone back from it, wincing, and lets them steady', () => {
+    const p = blow('kid');
+    expect(at(p, 'kid', HIT - 0.02).knock).toBeUndefined();
+    const hit = at(p, 'kid', HIT + 0.05);
+    // Struck from in front: thrown backward, eyes shut, the head going back.
+    expect(hit.knock?.away).toBe(-1);
+    expect(hit.face.eyes).toBe('closed');
+    expect(hit.take?.emotion).toBe('scared');
+    expect(at(p, 'kid', HIT + KNOCK_TIME + 0.01).knock).toBeUndefined();
+    expect(at(p, 'kid', HIT + KNOCK_TIME + 0.01).face.eyes).toBeUndefined();
+    // Where it stands does not move: the knock is in the pose.
+    expect(hit.x).toBe(at(p, 'kid', HIT - 0.02).x);
+    // From behind, thrown forward.
+    expect(at(blow('kid', [], 'right'), 'kid', HIT + 0.05).knock?.away).toBe(1);
+  });
+
+  it('lands with a thud, unless the shot puts a sound there', () => {
+    const thuds = (p: Project) => cueSheet(p).filter((c) => c.label === 'thud');
+    expect(thuds(blow('kid'))).toHaveLength(1);
+    expect(thuds(blow('kid'))[0].at).toBeCloseTo(HIT, 2);
+    expect(thuds(blow({ x: 600, y: 650 }))).toHaveLength(1);
+    expect(thuds(blow('kid', [{ t: HIT, actor: 'kid', sound: 'bonk' }]))).toEqual([]);
+    // A blow at the air in front lands on nothing.
+    expect(thuds(blow(undefined))).toEqual([]);
+  });
+
+  it('raises dust where it hits the ground, and none off someone', () => {
+    const soil = (p: Project) => at(p, 'stick', HIT + 0.1).soil ?? [];
+    const ground = soil(blow({ x: 600, y: 650 }));
+    expect(ground).toHaveLength(1);
+    expect(ground[0].clods).toBeLessThan(6);
+    expect(Math.abs(ground[0].x - 600)).toBeLessThan(15);
+    expect(soil(blow('kid'))).toEqual([]);
   });
 });

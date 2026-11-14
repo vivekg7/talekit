@@ -16,6 +16,7 @@ import {
   JUMP,
   SOIL_TIME,
   SPEED,
+  STRIKE_HIT,
   STOOP,
   VERB_DURATION,
   type Locomotion,
@@ -94,6 +95,8 @@ export interface SoilBurst {
   /** Which way the digger faces, the clods mostly thrown back toward them. */
   side: number;
   salt: string;
+  /** How many clods fly: a dig's blade throws up a spray, a blow on the ground a few. */
+  clods: number;
 }
 
 export interface ActorState {
@@ -178,6 +181,11 @@ export interface ActorState {
   look: number;
   /** A short take after an emotion change: progress 0..1 and the new emotion. */
   take?: { u: number; emotion: Emotion };
+  /**
+   * Struck by a `strike` at it: thrown back from the blow and back again, progress 0..1
+   * over KNOCK_TIME; `away` is the way it goes in its own frame (-1 backward, 1 forward).
+   */
+  knock?: { u: number; away: 1 | -1 };
   emotion: Emotion;
   face: Record<string, string>;
   verbs: ActiveVerb[];
@@ -454,6 +462,9 @@ function movePoint(m: Move, t: number): Point {
 
 /** Seconds an emotion take lasts, and a look takes to settle on a new target. */
 const TAKE_TIME = 0.6;
+/** Seconds a blow's knock takes, out and back; the wince is the first WINCE_TIME of it. */
+export const KNOCK_TIME = 0.45;
+const WINCE_TIME = 0.3;
 /** The longest a sound made with the mouth (a roar) holds it open, seconds. */
 const MOUTH_SOUND_MAX = 3;
 const LOOK_TIME = 0.35;
@@ -765,9 +776,21 @@ function heldFrom(holder: ActorState, pose: Pose, prop: Character, propScale: nu
   };
 }
 
+/** Clods a dig's blow throws up, and a blow struck on the ground. */
+const DIG_CLODS = 14;
+const BLOW_CLODS = 4;
+
+/** Whether a `strike` at `to` comes down on the floor: a spot or a plain place, not someone or a worktop. */
+function onTheGround(shot: Shot, scene: Scene, to: Position | undefined): boolean {
+  if (to === undefined) return false;
+  if (typeof to !== 'string') return true;
+  return !shot.cast[to] && !scene.anchors[to]?.use?.at;
+}
+
 /**
- * The clods still in the air from the blows a held tool has struck in its holder's `dig`s:
- * thrown up where its tip went into the soil, for SOIL_TIME after each blow.
+ * The clods still in the air from the blows a held tool has struck in its holder's `dig`s,
+ * thrown up where its tip went into the soil, and the dust of a `strike` on the ground: for
+ * SOIL_TIME after each blow.
  */
 function soilBursts(
   project: Project,
@@ -782,10 +805,12 @@ function soilBursts(
 ): SoilBurst[] {
   const out: SoilBurst[] = [];
   shot.actions.forEach((a, n) => {
-    if (a.actor !== holderId || a.do !== 'dig' || a.t > t) return;
+    if (a.actor !== holderId || a.t > t) return;
+    const blow = a.do === 'strike' && onTheGround(shot, scene, a.to);
+    if (a.do !== 'dig' && !blow) return;
     const d = actionDuration(a);
     if (t > a.t + d + SOIL_TIME) return;
-    digHits(d).forEach((h, i) => {
+    (blow ? [d * STRIKE_HIT] : digHits(d)).forEach((h, i) => {
       const at = a.t + h;
       if (at > t || t - at >= SOIL_TIME || holderAt(shot, propId, at) !== holderId) return;
       const held = heldPoint(project, scene, shot, prop, propScale, holderId, at, depth);
@@ -797,6 +822,7 @@ function soilBursts(
         scale: holder.scale * (holder.character.height / 250),
         side: holder.facing === 'left' ? -1 : 1,
         salt: `${shot.id}:${n}:${i}`,
+        clods: blow ? BLOW_CLODS : DIG_CLODS,
       });
     });
   });
@@ -889,6 +915,8 @@ export function resolveActor(
   /** Taken up mid-shot: how far it was from the hand that took it, when it did. */
   let lift: { at: number; dx: number; dy: number } | undefined;
   let takeAt = -Infinity;
+  // The take a blow gives, whatever the face shows.
+  let takeEmotion: Emotion | undefined;
   /** An arrow left on the string of a bow lowered without a shot. */
   let nocked: string | undefined;
   let move: Move | undefined;
@@ -1368,6 +1396,20 @@ export function resolveActor(
     if (y !== undefined) point = { ...point, y };
   }
   const holding = Object.keys(shot.cast).some((other) => holderAt(shot, other, t) === id);
+  // Struck: knocked back from the blow, wincing, then steady again.
+  const blow = heldBy || on ? undefined : blowOn(project, scene, shot, id, point, t, depth);
+  let knock: ActorState['knock'];
+  if (blow) {
+    const age = t - blow.at;
+    knock = { u: age / KNOCK_TIME, away: blow.from === facing ? -1 : 1 };
+    const eyes = character.parts.eyes;
+    if (age < WINCE_TIME && !face.eyes && typeof eyes === 'object' && eyes.closed !== undefined)
+      face = { ...face, eyes: 'closed' };
+    if (t - takeAt >= TAKE_TIME) {
+      takeAt = blow.at;
+      takeEmotion = 'scared';
+    }
+  }
   const state: ActorState = {
     id,
     character,
@@ -1402,7 +1444,11 @@ export function resolveActor(
     behind: bowHeld?.far || undefined,
     holding,
     look: 0,
-    take: t - takeAt < TAKE_TIME ? { u: (t - takeAt) / TAKE_TIME, emotion } : undefined,
+    take:
+      t - takeAt < TAKE_TIME
+        ? { u: (t - takeAt) / TAKE_TIME, emotion: takeEmotion ?? emotion }
+        : undefined,
+    knock,
     emotion,
     face,
     verbs,
@@ -1446,6 +1492,37 @@ const HOLD_AT = 0.62;
 const STRIKE_AT = 0.72;
 /** Where a blow on an animal lands, in the quadruped box: the middle of its back. */
 const BACK: Pt = [124, 86];
+
+/**
+ * The last blow landed on `id` that it is still reeling from: when it landed (STRIKE_HIT of
+ * the way through the `strike` at it) and the side the striker stood on, which the blow
+ * throws it away from.
+ */
+function blowOn(
+  project: Project,
+  scene: Scene,
+  shot: Shot,
+  id: string,
+  here: { x: number },
+  t: number,
+  depth: number
+): { at: number; from: Facing } | undefined {
+  let last: { a: Action; at: number } | undefined;
+  for (const a of shot.actions) {
+    if (a.do !== 'strike' || a.to !== id || !a.actor || a.actor === id) continue;
+    if (!shot.cast[a.actor] || !project.characters[a.actor]) continue;
+    const at = a.t + actionDuration(a) * STRIKE_HIT;
+    if (at <= t && t - at < KNOCK_TIME && (!last || at > last.at)) last = { a, at };
+  }
+  if (!last) return undefined;
+  const by = last.a.actor!;
+  // Too deep to play the striker through: where the shot puts it.
+  const x =
+    depth < MAX_DEPTH
+      ? resolveActor(project, scene, shot, by, last.at, depth + 1).x
+      : resolvePosition(project, scene, shot.cast[by].at).x;
+  return { at: last.at, from: x <= here.x ? 'left' : 'right' };
+}
 
 /**
  * Where a blow on `o` lands: a person's shoulders, along the body as it is now (standing,

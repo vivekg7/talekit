@@ -1584,6 +1584,25 @@ export function applyTake(rig: Rig, pose: Pose, emotion: Emotion, u: number): vo
   pose.sx *= 1 - stretch * 0.5 * k;
 }
 
+/** How far a blow throws someone, in rig units, and how far it leans them, degrees. */
+const KNOCK = { shift: 14, lean: 7 };
+
+/**
+ * A blow landing: the whole body thrown `away` (-1 backward, 1 forward, in its own frame)
+ * at once, leaning with it about the feet, then easing back to where it stood. The springs
+ * see the jolt, so a tail or a dupatta flicks with it.
+ */
+export function applyKnock(rig: Rig, pose: Pose, away: 1 | -1, u: number): void {
+  const k = u < 0.12 ? easeOut(u / 0.12) : 1 - easeInOut((u - 0.12) / 0.88);
+  // Leaning back, the top goes the way it is thrown; rotate about the box centre, then put
+  // the feet back where they were (as a climb's tilt does).
+  const deg = away * KNOCK.lean * k;
+  const a = (deg * Math.PI) / 180;
+  pose.spin += deg;
+  pose.dx += away * KNOCK.shift * k + (rig.height / 2) * Math.sin(a);
+  pose.dy += (rig.height / 2) * (1 - Math.cos(a));
+}
+
 /** Choose a variant for a multi-variant part, with graceful fallback. */
 export function pickVariant(
   variants: Record<string, string>,

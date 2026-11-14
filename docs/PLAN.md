@@ -1296,9 +1296,9 @@ Checked against "every action has a reaction": wind already moved rain,
 snow, leaves, clouds, smoke, fire and the scenery's sway, and a `dig`
 threw up clods with a thud. Two causes reached nothing. A roar was only
 audio: in one film the author staged eleven animals' fright by hand, and
-two shots later six animals stood through the next roar unmoved. A blow was a pose: the
-thud and the victim's tremble were the author's to add, at 0.55 of the
-strike; that is the next step.
+two shots later six animals stood through the next roar unmoved. A blow
+was a pose: the thud and the victim's tremble were the author's to add,
+at 0.55 of the strike.
 
 - **Startles** (stage.ts). The loud bundled sounds carry the face they
   startle into (`STARTLES` in library/sounds.ts: a roar or a hiss
@@ -1325,6 +1325,15 @@ strike; that is the next step.
 - **The mouth of a sound** (timeline.ts). A sound made with the mouth
   (`MOUTH_SOUNDS`) holds its actor's mouth open while it plays, up to
   3 s, as a line's growl does.
+- **Hits that land** (timeline.ts, motion.ts, sound.ts). A `strike` with
+  a `to` gets a thud at the landing unless the shot has a sound within
+  0.3 s of it (99 hand-placed thuds in the films so far, none on a
+  strike with `to`, so no film doubles). Someone struck is thrown back
+  from the striker's side and leans with it, the eyes shut for 0.3 s
+  and a scared take, back to rest in 0.45 s. The knock is in the pose,
+  not the position, so the support and continuity checks never see an
+  actor shoved off its walk area for a moment. A blow on the ground
+  throws the dig's dust and four clods.
 
 Not done: wind on the springs (tails, hair and cloth hang still in a
 gale), dust where a jump or a fall lands, a splash and rings where

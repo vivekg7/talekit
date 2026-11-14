@@ -1165,8 +1165,13 @@ is drawn just in front; its own moves are ignored.
   standing so close a long stick passes over, is a `contact.reach`
   finding, which says where to stand. Put the `grip` of anything swung
   near its foot, so most of it is above the hand. The blow lands
-  0.55 of the way through (0.385 s into the default 0.7 s): put the `thud`
-  and the victim's `tremble` there. A beating is several `strike`s about
+  0.55 of the way through (0.385 s into the default 0.7 s). With `to` it
+  lands on its own: a `thud` there (unless the shot puts a sound of its
+  own within 0.3 s, a `bonk` or a `crack`), someone struck is knocked
+  back from it and winces, eyes shut, then steadies, and a blow on the
+  ground (a spot, or a place with no `use`) throws up dust and a few
+  clods from what is swung. Without `to` it chops the air and lands on
+  nothing: any sound is yours. A beating is several `strike`s about
   0.75 s apart.
 - **Hand to hand**: `{ "t": 4, "actor": "roti", "attach": "sita", "do":
 "give" }` hands the roti from whoever holds it to Sita. Just before, the
@@ -1460,8 +1465,9 @@ it" }` (the narrator's as `speech.mismatch:narrator`).
   `t` from the actor's side of the frame; `volume` 0.5 far off, 1.5 close.
   A name with several takes picks one each time. `list_sounds` has the
   names. Footsteps, jump whooshes and landings, the `appear`/`disappear`
-  sparkle, the pickup/putdown tap and a shot's twang, whoosh and thunk are
-  the engine's: never add them.
+  sparkle, the pickup/putdown tap, a shot's twang, whoosh and thunk and
+  the thud of a `strike` with a `to` are the engine's: never add them. A
+  loud one startles everyone else in the shot (see "Startles").
 - **Mix.** The engine sets every layer's level. Only when a listener finds
   a layer wrong, `set_audio(path, mix: { "music": 0.5 })` scales `voices`,
   `music`, `ambience` or `effects` for the whole film (1 as set, 0.5 is
