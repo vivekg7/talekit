@@ -977,10 +977,19 @@ that changed something, the rule finds 91 things.
   they would slide against the set (`vase-hi`). A seated jackal stands at the
   cut (`siyar-hi`), and so does a seated man (`sapna-hi`). The lion edges
   40 to 70 px between two shots (`lion-mouse-hi`).
-- **Not found yet.** A bow held after an `aim` is in the far hand, but the
-  next shot starts it back in the near one, so it jumps 40 px at the cut.
-  The rule lets held props go where their holder's hand goes, so it misses
-  this. The engine should carry that state across the cut too.
+- **Not found by the rule.** A bow held after an `aim` is in the far hand,
+  but the next shot started it back in the near one, so it jumped 40 px at
+  the cut. The rule lets held props go where their holder's hand goes, so
+  it misses this. The engine now carries it: an archer left aimed, bow in
+  hand, at the end of the shot a cut carries straight on from starts the
+  next one with the bow in the far hand, and a later `aim` there does not
+  hand it over again. In `lakshya-hi` and its reel that is 9 cuts where the
+  bow jumped 38 to 46 px, now 0 to 4 px. The aimed state now carries down
+  each chain of carry-on shots, so the survey now finds 16 aimed archers at those cuts. On the
+  first cut, frame by frame, the bow stays behind Yudhishthir's far side.
+  It changes angle a little at the cut (lowered and slanted at the end of
+  the aim, hanging upright at the start of the next shot): the lowered
+  angle is not carried.
 - **False alarms.** The cuts after a title card were the only class of
   them, now exempt.
 
@@ -1091,7 +1100,8 @@ explain` lists them. A doer cast there and working from the first moment
   facing on a bed.
 - **No released film changes.** None of their anchors has a `use`.
 
-Next in 8.2: the bow's far-hand aimed state carried across a cut.
+8.2 is done: same-place continuity, screen direction, blows that land,
+places that say how they are used, and the bow carried across a cut.
 
 ## Render speed
 

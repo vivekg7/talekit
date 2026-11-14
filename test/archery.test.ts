@@ -384,3 +384,49 @@ describe('archery', () => {
     expect(characterSheetSvg(BOW)).toContain('drawn (in an aim)');
   });
 });
+
+describe('a bow across a cut', () => {
+  /** The kid aims in a first shot; a second carries on from it (or, `later`, does not). */
+  const film = (cut: 'next' | 'later', b: unknown[] = []) => {
+    const p = project(cast, [
+      { t: 0, actor: 'bow', attach: 'kid' },
+      { t: 1, actor: 'kid', do: 'aim', to: { x: 1000, y: 300 }, duration: 2 },
+    ]);
+    p.shots[0].duration = 4;
+    const second = ShotSchema.parse({
+      id: 's2',
+      scene: 'park',
+      duration: 4,
+      cut,
+      cast: { kid: cast.kid, bow: cast.bow },
+      actions: [{ t: 0, actor: 'bow', attach: 'kid' }, ...b],
+    });
+    p.shots.push(second);
+    return p;
+  };
+  const inB = (p: Project, id: string, t: number) =>
+    resolveFrame(p, p.shots[1], t).actors.find((a) => a.id === id)!;
+
+  it('stays in the far hand where the last shot left it, not back in the near one', () => {
+    const p = film('next');
+    const end = at(p, 'bow', 4 - 1e-3);
+    const start = inB(p, 'bow', 0);
+    expect(inB(p, 'kid', 0).aimed).toBe(true);
+    expect(dist(end, start)).toBeLessThan(6);
+    // Time passed: a fresh start, the bow carried in the near hand.
+    expect(inB(film('later'), 'kid', 0).aimed).toBeUndefined();
+    expect(dist(end, inB(film('later'), 'bow', 0))).toBeGreaterThan(20);
+  });
+
+  it('aims again without handing the bow over a second time', () => {
+    const aim = { t: 1, actor: 'kid', do: 'aim', to: { x: 1000, y: 300 }, duration: 2 };
+    const p = film('next', [aim]);
+    // Already in the bow hand: it stays there through the raise.
+    for (const t of [1, 1.2, 1.5]) {
+      const kid = inB(p, 'kid', t);
+      expect(dist(holdPoint(kid, poseFor(kid, t), true), inB(p, 'bow', t))).toBeLessThan(
+        dist(near(kid, t), inB(p, 'bow', t)) + 1
+      );
+    }
+  });
+});

@@ -1162,7 +1162,8 @@ fades there) before it shows on the new one.
   Then it holds still for the rest of the `duration` (lines said meanwhile
   are fine) and lowers the bow over its last 0.5 s, the drawing elbow
   dropping first. The bow stays in the far hand, by his side behind him,
-  for the rest of the shot (a later `aim` starts from there). `to` is an
+  for the rest of the shot (a later `aim` starts from there), and into the
+  next one when it carries straight on (`cut: 'next'`, the same place). `to` is an
   actor in the cast (it aims at its `mark`, and follows it if it moves), an
   anchor or a spot; a person aims from level to well up (a bird up a tree),
   not behind.

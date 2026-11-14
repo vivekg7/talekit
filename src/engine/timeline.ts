@@ -24,7 +24,7 @@ import {
 import { defaultGround, isPortrait, stageSides, uiScale } from './format.js';
 import { textWidth, wrapText } from './bubble.js';
 import { rigOf } from './rigs.js';
-import { staged } from './stage.js';
+import { follows, leftAs, staged } from './stage.js';
 import { groundOf, habitatOf, landing, snapDown } from './area.js';
 import { clipFor, lineDuration, lineLead, mouthOpen, sayDuration, shownText } from './voice.js';
 import type {
@@ -490,6 +490,32 @@ export const APPROACH = 24;
 const OPENING = 0.05;
 /** Verbs that sit, lie or stand: one of them cuts short a walk to a seat. */
 const SETTLE_VERBS = new Set<Verb>(['sit', 'lie', 'stand']);
+
+const AIMED_IN = new WeakMap<Project, WeakMap<Shot, Map<string, boolean>>>();
+
+/**
+ * Whether `id` comes into this shot with its bow in the far hand: an archer who had aimed in
+ * the shot this one carries straight on from (follows), still holding a bow at its end. The
+ * bow stays where the aim put it rather than jumping back to the near hand at the cut.
+ */
+function aimedIn(project: Project, shot: Shot, id: string): boolean {
+  // Per project as well as shot: what comes before a shot depends on the film it is in.
+  let byShot = AIMED_IN.get(project);
+  if (!byShot) AIMED_IN.set(project, (byShot = new WeakMap()));
+  let byId = byShot.get(shot);
+  if (!byId) byShot.set(shot, (byId = new Map()));
+  const hit = byId.get(id);
+  if (hit !== undefined) return hit;
+  // Guards against asking again while working it out (a shot followed by itself).
+  byId.set(id, false);
+  const prev = shot.cast[id] ? follows(project, shot) : undefined;
+  const out =
+    !!prev &&
+    !!leftAs(project, shot, id)?.aimed &&
+    !!bowOf(project, prev, id, prev.duration - 1e-3);
+  byId.set(id, out);
+  return out;
+}
 
 /** Who is carrying `prop` at time t, if anyone. */
 export function holderAt(shot: Shot, prop: string, t: number): string | undefined {
@@ -1068,9 +1094,9 @@ export function resolveActor(
       } else if (verb === 'aim') {
         // Drawing a bow at `to`, turned to face it; cut short by a shot, followed through.
         // The first takes the bow into the far hand, where it stays.
-        const aimed = shot.actions.some(
-          (o) => o !== a && o.actor === a.actor && o.do === 'aim' && o.t < a.t
-        );
+        const aimed =
+          aimedIn(project, shot, id) ||
+          shot.actions.some((o) => o !== a && o.actor === a.actor && o.do === 'aim' && o.t < a.t);
         const d = aimSpan(shot, a);
         const lo = looseOf(shot, a);
         const to = a.to;
@@ -1264,7 +1290,10 @@ export function resolveActor(
     tilt,
     soil,
     nocked: nocked && bowOf(project, shot, id, t) ? nocked : undefined,
-    aimed: shot.actions.some((a) => a.actor === id && a.do === 'aim' && a.t <= t) || undefined,
+    aimed:
+      aimedIn(project, shot, id) ||
+      shot.actions.some((a) => a.actor === id && a.do === 'aim' && a.t <= t) ||
+      undefined,
     behind: bowHeld?.far || undefined,
     holding,
     look: 0,
@@ -2008,9 +2037,9 @@ export function flightOf(
  * string, after taking the bow into the bow hand on a first aim.
  */
 function nockTime(project: Project, scene: Scene, shot: Shot, aim: Action, depth: number): number {
-  const handOver = !shot.actions.some(
-    (o) => o !== aim && o.actor === aim.actor && o.do === 'aim' && o.t < aim.t
-  );
+  const handOver =
+    !aimedIn(project, shot, aim.actor!) &&
+    !shot.actions.some((o) => o !== aim && o.actor === aim.actor && o.do === 'aim' && o.t < aim.t);
   const archer = resolveActor(project, scene, shot, aim.actor!, aim.t + 1e-3, depth + 1);
   const time = archer.character.rig === 'quadruped' ? QUAD_TURN_TIME : TURN_TIME;
   const turning = archer.turn ? (1 - archer.turn.u) * time : 0;
