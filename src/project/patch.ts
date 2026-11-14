@@ -27,7 +27,10 @@ export const SETTABLE = [
   'fadeIn',
   'fadeOut',
   'crossfade',
+  'cut',
   'weather',
+  'music',
+  'allow',
 ] as const;
 
 export interface Patched {

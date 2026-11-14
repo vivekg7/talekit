@@ -573,7 +573,7 @@ export function buildServer(): McpServer {
           .partialRecord(z.enum(SETTABLE), z.unknown())
           .optional()
           .describe(
-            `Top-level fields replaced whole (${SETTABLE.join(', ')}), as in write_shot; weather: null drops the shot's own weather`
+            `Top-level fields replaced whole (${SETTABLE.join(', ')}), as in write_shot; null drops the shot's own (weather, music, cut, allow)`
           ),
         cast: z
           .record(z.string(), z.unknown())

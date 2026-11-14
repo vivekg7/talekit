@@ -62,6 +62,17 @@ describe('patch_shot', () => {
     expect(() => patchShot(shot, { set: { id: 'x' } as never })).toThrow(/cannot be set/);
   });
 
+  it('sets and drops the fields a world finding is fixed or waived with', () => {
+    const { shot: set } = patchShot(shot, {
+      set: { cut: 'later', allow: { 'support.air:dog': 'the dog is a ghost' } },
+    });
+    expect(set.cut).toBe('later');
+    expect(set.allow).toEqual({ 'support.air:dog': 'the dog is a ghost' });
+    const { shot: dropped } = patchShot(set, { set: { cut: null, allow: null } });
+    expect(dropped.cut).toBeUndefined();
+    expect(dropped.allow).toBeUndefined();
+  });
+
   it('lists actions one per line with their index', () => {
     expect(listActions(shot).split('\n')).toEqual([
       '0: t=0.5 kid walk → center',

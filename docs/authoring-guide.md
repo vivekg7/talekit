@@ -43,7 +43,8 @@ colors)` (tokens such as hair, skin, dress); without `name` the copy is
 frames)` are full size. To fix a shot, `patch_shot(path, shotId, …)`:
    `edit` merges fields into an action by index (`{ index: 3, fields: { t:
 4.5 } }`, null removes a field), `remove` takes actions out, `add` puts
-   new ones in, `set` replaces top-level fields (`duration`, `camera`), and
+   new ones in, `set` replaces top-level fields (`duration`, `camera`,
+   `cut`, `allow`; null drops one), and
    `cast` replaces, adds or (null) removes cast members. Indices are the
    actions before the patch, as `get_item` lists them. It validates like
    `write_shot`, keeps the shot's place and returns a sheet of the stretch
