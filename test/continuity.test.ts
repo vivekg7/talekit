@@ -42,6 +42,12 @@ describe('a cut that carries straight on', () => {
     expect(f.message).toMatch(/stands 120 px from where it was left, \(500, 640\)/);
     expect(f.message).toMatch(/cut: 'later'/);
     expect(f.fix).toEqual({ path: '/cast/kid/at', value: { x: 500, y: 640 } });
+    // Left far off, at a smaller scale: the spot it gives keeps the scale too.
+    const far = { kid: { at: { x: 500, y: 600, scale: 0.7 } } };
+    const [g] = cuts(
+      film({ cast: far }, { cast: { kid: { at: { x: 620, y: 600, scale: 0.7 } } } })
+    );
+    expect(g.fix).toEqual({ path: '/cast/kid/at', value: { x: 500, y: 600, scale: 0.7 } });
     // Not when time has passed, which a crossfade says on its own, or in another place.
     const later = { cast: { kid: { at: { x: 620, y: 640 } } } };
     expect(cuts(film({ cast: KID }, { ...later, cut: 'later' }))).toEqual([]);

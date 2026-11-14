@@ -154,6 +154,12 @@ function restingPoint(a: ActorState): XY {
   return { x: a.x, y: a.y };
 }
 
+/** Where an actor was left, as a cast `at`: with the perspective scale it had there. */
+function spotOf(a: ActorState): { x: number; y: number; scale?: number } {
+  const k = r2(a.perspective);
+  return { x: r(a.x), y: r(a.y), ...(k !== 1 ? { scale: k } : {}) };
+}
+
 /** Held up by something the engine itself places it on, or out of sight: no check. */
 function heldUp(a: ActorState, width: number): boolean {
   if (!a.visible || a.opacity <= 0.01) return true;
@@ -573,7 +579,7 @@ function cutRule(project: Project, shot: Shot): Finding[] {
           what.push(`stands ${r(d)} px from where it was left, (${r(a.x)}, ${r(a.y)})`);
           const up = (s: ActorState) => s.sit < 0.5 && s.lie < 0.5;
           if (up(a) && up(b) && !shot.cast[id].on && !b.heldBy)
-            fix = { path: `/cast/${id}/at`, value: { x: r(a.x), y: r(a.y) } };
+            fix = { path: `/cast/${id}/at`, value: spotOf(a) };
         }
         if (a.lie >= 0.5 !== b.lie >= 0.5)
           what.push(a.lie >= 0.5 ? 'was lying down and is up' : 'is lying down, and was not');
@@ -596,7 +602,7 @@ function cutRule(project: Project, shot: Shot): Finding[] {
       );
       fix = {
         path: `/cast/${id}`,
-        value: { at: { x: r(a.x), y: r(a.y) }, facing: a.facing },
+        value: { at: spotOf(a), facing: a.facing },
       };
     } else if (!a && b && shows(b) && inView(viewA, b) && inView(viewB, b)) {
       what.push(

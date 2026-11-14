@@ -285,7 +285,9 @@ export function actionDuration(a: Action, from?: Point, to?: Point, scene?: Scen
   if (a.say) return sayDuration(a.say);
   if (a.caption) return 3;
   if (a.camera) return 1;
-  if (a.do && isMoveVerb(a.do) && from && to) return moveDuration(a.do, from, to, undefined, scene);
+  // A walk onto someone goes straight there (viaOf): timed so too.
+  if (a.do && isMoveVerb(a.do) && from && to)
+    return moveDuration(a.do, from, to, undefined, a.on ? undefined : scene);
   if (a.do && VERB_DURATION[a.do]) return VERB_DURATION[a.do]!;
   return 0;
 }

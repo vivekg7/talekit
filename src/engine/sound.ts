@@ -2,6 +2,7 @@ import { clamp01, hash01 } from './easing.js';
 import { footfalls, gaitPhase } from './gait.js';
 import { rigOf } from './rigs.js';
 import { digHits } from './motion.js';
+import { staged } from './stage.js';
 import {
   actionDuration,
   attachTime,
@@ -13,6 +14,7 @@ import {
   resolvePosition,
 } from './timeline.js';
 import type {
+  Action,
   Character,
   Effect,
   Mix,
@@ -203,7 +205,12 @@ function footsteps(project: Project, shot: Shot, at0: number): Cue[] {
     const name =
       ch && (ch.rig === 'humanoid' && scene.surface === 'grass' ? 'step-grass' : STEP[ch.rig]);
     if (!name) continue;
-    if (!shot.actions.some((a) => a.actor === id && (a.do === 'walk' || a.do === 'run'))) continue;
+    // Whoever goes anywhere: a walk or run, a sit or lie that walks over first, or a walk
+    // the engine stages on its own (to a `use` anchor).
+    const goes = (a: Action) =>
+      a.actor === id &&
+      (a.do === 'walk' || a.do === 'run' || ((a.do === 'sit' || a.do === 'lie') && !!a.to));
+    if (!staged(project, scene, shot).actions.some(goes)) continue;
     const rig = rigOf(ch);
     let prev: { loco: string; phase: number; t: number } | undefined;
     let n = 0;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { holdPoint, poseFor } from '../src/engine/actor.js';
 import { STRIKE_HIT } from '../src/engine/motion.js';
+import { cueSheet } from '../src/engine/sound.js';
 import { staging } from '../src/engine/stage.js';
 import { resolveFrame, touchPoint, type ActorState } from '../src/engine/timeline.js';
 import { CharacterSchema, SceneSchema, ShotSchema, type Project } from '../src/engine/types.js';
@@ -143,6 +144,10 @@ describe('a place that says how it is used', () => {
     const g = at(p, 'grownup', 3);
     expect([g.x, g.y, g.sit, g.facing]).toEqual([450, 640, 1, 'right']);
     expect(reach(p)).toEqual([]);
+    // The walk the engine added is heard as one.
+    p.audio = { dir: '.', files: { 'step-grass': 'step.wav' }, voices: {} };
+    const steps = cueSheet(p).filter((c) => c.label === 'step-grass');
+    expect(steps.length).toBeGreaterThan(2);
   });
 
   it('leaves a doer busy elsewhere, and says it never got there', () => {
