@@ -14,13 +14,19 @@ reasoning are in `docs/PLAN.md`. Read both before changing the data model.
   tree crowns and grass turning about their pivots), `shade.ts` (the engine-drawn
   light and shadow on every part), `cast.ts` (each actor's shadow thrown
   across the floor by the scene's lights), `timeline.ts` (actions →
-  actor state at time t), `actor.ts` + `compose.ts` (state → SVG), `cull.ts`
+  actor state at time t), `stage.ts` (the staging the engine adds on its
+  own: listeners turning to a speaker, a reaction looking at its cause, the
+  face-off before a `give`, a worker walked to a `use` anchor, facing carried
+  across a `cut`; `talekit explain` lists it), `actor.ts` + `compose.ts` (state → SVG), `cull.ts`
   (leaves out what resvg would panic on: shapes far off the frame, canvases
   outside the bounds of the one they are drawn on),
   `outline.ts` (the engine-drawn outline under every part),
   `world.ts` (the world model: where feet can stand and the water is, each
   actor's habitat, and the rules every shot is played against, whose
-  findings block the render until fixed or waived with `allow`),
+  findings block the render until fixed or waived with `allow`, looked up
+  in `allow.ts`), `area.ts` (the polygons behind it: which ground a foot is
+  on, the default habitat, the snap onto a walk area, where a dropped prop
+  lands),
   `speech.ts` (whether a voiced take says its line: what speech
   recognition heard, reduced to the sounds a listener tells apart),
   `format.ts` (a film's frame or a portrait reel's: text scale, the safe
@@ -34,6 +40,8 @@ reasoning are in `docs/PLAN.md`. Read both before changing the data model.
   is the character linter (rasterises parts, checks box, feet, joints);
   `sight.ts` renders masks of a frame to check what shows (a speaker's
   face behind the foreground, a `hidden` actor who can be seen);
+  `guide.ts` prints one section of the authoring guide (the critic's
+  checklist), so the guide stays its one copy;
   `notes.ts` is the review-note store shared by the viewer and the MCP;
   `voices.ts` speaks the lines and `hear.ts` hears each take (whisper.cpp),
   saying a line again when its take does not say it;

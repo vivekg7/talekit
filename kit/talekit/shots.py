@@ -115,7 +115,8 @@ class Film:
         """Add a shot that runs to `end` plus `tail`. `more` takes any other shot field:
         music, crossfade, cut ('later' when time has passed since the last shot; else,
         in the same scene, its cast starts as that one left them, and in another, two
-        who show in both keep their sides), fadeIn, fadeOut, weather, ambience."""
+        who show in both keep their sides), fadeIn, fadeOut, weather, description, allow
+        (world findings waived on purpose, each with its reason)."""
         self.shots.append(
             {
                 "id": id,

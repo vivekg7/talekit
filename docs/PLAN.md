@@ -746,6 +746,11 @@ contract. Proven parts go inside instead: Rapier 2D for falling and
 settling, a 2D navmesh for routing, Clipper2 for polygon overlap, resvg
 (already here) for pixel-exact occlusion, and whisper.cpp for speech.
 
+As built, only resvg and whisper.cpp went in. Falling and settling turned
+out simple enough to work out directly (8.1), routing is a visibility graph
+round the solids (8.3), and the polygon tests are a few lines of our own;
+the plan above keeps the parts it was written with.
+
 ### 8.0 as built
 
 - **What a scene is.** Scenes take `walk` (polygons where feet can stand)
@@ -756,8 +761,8 @@ settling, a 2D navmesh for routing, Clipper2 for polygon overlap, resvg
   waives nothing.
 - **The rules.** `src/engine/world.ts` samples each shot every 0.1 s
   through `resolveActor` and runs the rules. `support` holds every actor
-  to what it can rest on. Carried, ridden (`on`), mid-jump, hidden and
-  off-frame actors are held up already. On the scene itself, `world.walk`
+  to what it can rest on. Carried, ridden (`on`), mid-jump, falling,
+  invisible (`visible: false`) and off-frame actors are held up already. On the scene itself, `world.walk`
   (no walk areas) and `world.anchor` (an anchor on no ground or water) are
   checked.
 - **How findings come back.** A finding is a `Problem` with a `code` and
@@ -797,7 +802,7 @@ three things about the model:
   gliding with `move`, gravity for what is let go (8.1), and `climb` for
   ladders and trees (added to 8.1).
 
-### 8.1 so far
+### 8.1 as built
 
 - **Attention** (`src/engine/stage.ts`). Before a shot plays, the engine adds
   `set.facing` actions. Everything downstream sees them, and the file is

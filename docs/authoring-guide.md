@@ -694,7 +694,9 @@ kit has `below(line, bottom)` (everything under a ground line) and
 `ledge(x0, x1, y)` (a thin strip along a branch or a wall top), and
 `rail(foot, top)` (a climb area up a ladder or a trunk, which may lean),
 and `solid(x, y, width, depth)` (an oval footprint round the foot of a
-well, a trunk or a boulder).
+well, a trunk or a boulder), and `used(x, y, at, facing, pose)` (an anchor
+with a `use`: where a worker stands or sits, and the spot its hands work
+on).
 
 A character's **`habitat`** says where it can be with nothing holding it
 up:
@@ -721,12 +723,14 @@ off the ground is a `support.air` finding that says so.
 
 Once a shot is saved, the engine plays it and checks every actor at each
 tenth of a second. An actor carried (`attach`), standing on someone (`on`),
-mid-`jump`, out of sight or past the frame's edge is held up already. A
+mid-`jump`, falling, invisible (`visible: false`) or past the frame's left
+or right edge is held up already; one marked `hidden` is still held to the
+ground. A
 climber is held to the scene's `climb` areas instead of its walk areas. Each
 finding is an error with a code, the shot, the time span, who, where, and
 a fix when the fix is mechanical. `write_shot`, `patch_shot`, `render` and
-`talekit check` all report them, the first two with a frame of each, the
-spot ringed (`talekit check --frames dir` saves those frames too). The
+`talekit check` all report them, the first two with a frame of each of the
+first three, the spot ringed (`talekit check --frames dir` saves those frames too). The
 shot is saved anyway, so you can look at it, but nothing renders until
 every finding is fixed or waived.
 
@@ -984,7 +988,9 @@ falling the same way.
   sinking into a well behind a `foreground`. Anchors survive a scene
   redraw; use points for spots with no name, like a kite in the sky.
 - `t` is seconds from the shot's start. One actor's actions can overlap
-  (walk and say at once). Nothing carries across shots.
+  (walk and say at once). Only a cut that carries straight on in the same
+  place carries anything over (see "A cut in the same scene carries
+  straight on" below); otherwise the cast starts as written.
 - `after` in place of `t` starts an action that many seconds after the
   line listed before it (the nearest earlier `say` or `caption`) stops
   being spoken: dad answers 0.4 s after mia finishes, however long her
@@ -1342,7 +1348,8 @@ Facing away from the cause at the reaction, unable to turn, is
 `attention.reacts`. Someone who should ignore a speaker on purpose (it
 sulks) is waived: `"allow": { "attention.listener:kid": "sulks" }`.
 
-`talekit explain <dir> [shot]` lists every turn the engine added, and why.
+`talekit explain <dir> [shot]` lists every turn, walk and sit the engine
+added, and why.
 Walking, jumping and pointing look straight ahead.
 
 ### Emotion, face, captions, camera, set
@@ -1553,14 +1560,15 @@ eighteen films' reviews and no rule could: a tail that comes off, a moon
 in front of the trees, a hut said to hold a sleeping man that shows
 empty, a moral said in a hurry. `critique(path, shotId)` (from a shell,
 `talekit critic <dir> [shotId]`) returns, for a shot, its frames at its
-beats: the first and last, the middle of every line, every verb at its
-work or done, and the last frame of the shot before, across the cut. Under
+beats: the first and last, every line as it is said (2 s in, or its middle
+if shorter), every verb at its work or done, and the last frame of the shot before, across the cut. Under
 each frame is what the shot means to be happening then (who says what, in
 English where the film has a translation, to whom; who walks where; who
 is sitting, lying asleep, hidden or held, and facing which way). Without a
 shot it returns the read-through: every line in the order it is heard,
 with its time, speaker, voice and English, and the stretches where nobody
-speaks. Go through the read-through once and each shot's sheets once,
+speaks (`talekit critic <dir>` with no shot writes it, and every shot's
+sheets too). Go through the read-through once and each shot's sheets once,
 against the list below.
 
 It is best done by an agent that has not written the film, given only the

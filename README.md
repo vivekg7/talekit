@@ -117,14 +117,17 @@ with no .mkv.
   drawn in the rig's fixed box, with variant maps for `mouth` and `eyes` and
   colour tokens (`{skin}`) for recolouring. Rigs: `humanoid`, `quadruped`
   (walks in diagonal pairs, gallops, sits, lies) and `simple` (birds, props).
-- **Scene** — a background SVG with named floor **anchors**, optional
+- **Scene** — a background SVG with named floor **anchors**, the `walk`
+  areas where feet can stand (and any `water`, `climb` and `solids`), optional
   `foreground`, `far` and `near` layers with parallax, `weather` and
   `effects` the engine animates, and `lights` that cast shadows.
 - **Shot** — one scene, a cast, and timed actions: verbs (`walk`, `run`,
   `jump`, `sit`, `lie`, `pickup`…), `say` (speech, thought or shout; drives
   the mouth, and listeners look at the speaker), `emotion`, `attach` (carry
   a prop), `caption`, `camera` (including `follow`), `sound`, `set`. A shot
-  can `crossfade` in.
+  can `crossfade` in. Every shot is played against the world (what stands
+  on what, who faces whom, what reaches what), and its findings block the
+  render until fixed or waived in the shot's `allow`.
 - **Sound** — a `voice` per character, a narrator for captions, music, and
   scene `ambience`. Footsteps, rain, fire, thunder and the like come from
   what is on screen.
@@ -148,40 +151,42 @@ scripts" in the guide.
 
 ## MCP tools
 
-| tool                       | returns                                                                 |
-| -------------------------- | ----------------------------------------------------------------------- |
-| `get_guide`                | the authoring guide (read first)                                        |
-| `create_project`           | a new project directory                                                 |
-| `project_info`             | characters, scenes, shots, validation problems, open review notes       |
-| `list_library`             | built-in characters and scenes (park, jungle, pond and others)          |
-| `get_library_item`         | the JSON of a built-in, to learn a rig's layout before drawing          |
-| `copy_from_library`        | copies a built-in with a new id, name, colours or anchors; its sheet    |
-| `write_character`          | validates, saves, returns a **pose sheet** and a **construction sheet** |
-| `write_scene`              | validates, saves, returns the scene with **anchors marked**             |
-| `write_shot`               | validates cross references, saves, returns a **contact sheet**          |
-| `patch_shot`               | changes fields, cast or actions of a saved shot without rewriting it    |
-| `get_item` / `delete_item` | read back or remove one file                                            |
-| `preview_frame`            | one frame at a time `t`, optional debug markers                         |
-| `preview_shot`             | contact sheet of a shot                                                 |
-| `list_voices`              | voices for characters and the narrator, by language                     |
-| `list_sounds`              | bundled music, ambience and sound effects                               |
-| `set_audio`                | sets the music, narrator and mix, returns a **map of the film's sound** |
-| `render`                   | mp4 of one shot or the whole film, plus a **film sheet** (frame/shot)   |
-| `open_review`              | review apps for the film and the reel, opened in the browser            |
-| `list_notes`               | review notes left in the app, each with the frame or sheet it points at |
-| `resolve_note`             | marks a note done once the fix is in                                    |
+| tool                       | returns                                                                  |
+| -------------------------- | ------------------------------------------------------------------------ |
+| `get_guide`                | the authoring guide (read first)                                         |
+| `create_project`           | a new project directory                                                  |
+| `project_info`             | characters, scenes, shots, validation problems, open review notes        |
+| `list_library`             | built-in characters and scenes (park, jungle, pond and others)           |
+| `get_library_item`         | the JSON of a built-in, to learn a rig's layout before drawing           |
+| `copy_from_library`        | copies a built-in with a new id, name, colours or anchors; its sheet     |
+| `write_character`          | validates, saves, returns a **pose sheet** and a **construction sheet**  |
+| `write_scene`              | validates, saves, returns the scene with **anchors marked**              |
+| `write_shot`               | validates, checks the world, saves, returns a **contact sheet**          |
+| `patch_shot`               | changes fields, cast or actions of a saved shot without rewriting it     |
+| `get_item` / `delete_item` | read back or remove one file                                             |
+| `preview_frame`            | one frame at a time `t`, optional debug markers                          |
+| `preview_shot`             | contact sheet of a shot                                                  |
+| `list_voices`              | voices for characters and the narrator, by language                      |
+| `list_sounds`              | bundled music, ambience and sound effects                                |
+| `set_audio`                | sets the music, narrator and mix, returns a **map of the film's sound**  |
+| `critique`                 | the critic's checklist and read-through, or a shot's frames at its beats |
+| `render`                   | mp4 of one shot or the whole film, plus a **film sheet** (frame/shot)    |
+| `open_review`              | review apps for the film and the reel, opened in the browser             |
+| `list_notes`               | review notes left in the app, each with the frame or sheet it points at  |
+| `resolve_note`             | marks a note done once the fix is in                                     |
 
 ## CLI
 
 ```
 talekit init <dir> --title "…"       talekit sheet <dir> <id>
-talekit check <dir>                  talekit frame <dir> <shot> -t 2.5 [--debug] [--svg]
+talekit check <dir> [--frames dir]   talekit frame <dir> <shot> -t 2.5 [--debug] [--svg]
 talekit library                      talekit contact <dir> <shot> -n 6
 talekit copy <dir> <libraryId>       talekit render <dir> [shot] [--silent]
 talekit serve <dir> [dir…] [--open] [--lan]
                                      talekit voice <dir> [shot]
-talekit mcp                          talekit remix <dir> [-o file.mp4]
-                                     talekit mkv <dir> [-o file.mp4]
+talekit explain <dir> [shot]         talekit remix <dir> [-o file.mp4]
+talekit critic <dir> [shot] [-o dir] talekit mkv <dir> [-o file.mp4]
+talekit mcp
 talekit cover <dir> <shot> -t 3 --title "…"   (out/thumbnail.png)
 talekit cover <dir> <shot> -t 3 --title "…" --banner   (out/banner.png, 2560 × 1440)
 ```
