@@ -3,10 +3,10 @@ import { holdPoint, poseFor } from '../src/engine/actor.js';
 import { STRIKE_HIT } from '../src/engine/motion.js';
 import { staging } from '../src/engine/stage.js';
 import { resolveFrame, touchPoint, type ActorState } from '../src/engine/timeline.js';
-import { CharacterSchema, ShotSchema, type Project } from '../src/engine/types.js';
+import { CharacterSchema, SceneSchema, ShotSchema, type Project } from '../src/engine/types.js';
 import { CONTACT_MISS, shotFindings } from '../src/engine/world.js';
 import { LIBRARY } from '../src/library/index.js';
-import { validateShot } from '../src/project/validate.js';
+import { validateScene, validateShot } from '../src/project/validate.js';
 
 const STICK = CharacterSchema.parse({
   id: 'stick',
@@ -95,5 +95,76 @@ describe('strike at something', () => {
   it('takes an actor in the cast as its target', () => {
     const p = blow('kid');
     expect(validateShot(p.shots[0], p).map((x) => x.message)).toEqual([]);
+  });
+});
+
+/** The park with a washing stone used sitting, facing right, the cloth landing at `use`. */
+const STONE = { x: 450, y: 640, use: { pose: 'sit', facing: 'right', at: [560, 610] } };
+const washer = (fromX: number, t: number, more: unknown[] = [], at = STONE.use.at) => {
+  const p = project(
+    { grownup: { at: { x: fromX, y: 640 }, facing: 'left' }, stick: { at: { x: fromX, y: 640 } } },
+    [
+      { t: 0, actor: 'stick', attach: 'grownup' },
+      ...more,
+      { t, actor: 'grownup', do: 'strike', to: 'stone' },
+    ]
+  );
+  p.shots[0].duration = 5;
+  const park = LIBRARY.scenes.park;
+  p.scenes.park = SceneSchema.parse({
+    ...park,
+    anchors: { ...park.anchors, stone: { ...STONE, use: { ...STONE.use, at } } },
+  });
+  return p;
+};
+const hitAt = (t: number) => t + 0.7 * STRIKE_HIT;
+
+describe('a place that says how it is used', () => {
+  it('opens the shot sat at it, facing its way, when the work starts at once', () => {
+    const p = washer(450, 0.2);
+    const added = staging(p, p.scenes.park, p.shots[0]);
+    expect(added.map((a) => [a.do ?? a.set?.facing, a.t, a.staged])).toEqual([
+      ['sit', 0, 'sits at stone to strike'],
+      ['right', 0, 'strikes stone'],
+    ]);
+    const g = at(p, 'grownup', 0);
+    expect(g.sit).toBe(1);
+    // The blow lands on the work point, not on the anchor where the washer sits.
+    expect(dist(touch(p, hitAt(0.2)), { x: 560, y: 610 })).toBeLessThan(
+      CONTACT_MISS * g.character.height
+    );
+    expect(reach(p)).toEqual([]);
+  });
+
+  it('walks its doer over and sits it down in time for the work', () => {
+    const p = washer(150, 3);
+    const [go] = staging(p, p.scenes.park, p.shots[0]);
+    expect(go).toMatchObject({ do: 'sit', to: 'stone', staged: 'sits at stone to strike' });
+    const g = at(p, 'grownup', 3);
+    expect([g.x, g.y, g.sit, g.facing]).toEqual([450, 640, 1, 'right']);
+    expect(reach(p)).toEqual([]);
+  });
+
+  it('leaves a doer busy elsewhere, and says it never got there', () => {
+    const p = washer(150, 3, [{ t: 1, actor: 'grownup', do: 'wave', duration: 1.8 }]);
+    expect(staging(p, p.scenes.park, p.shots[0]).filter((a) => a.do)).toEqual([]);
+    const [f] = reach(p);
+    expect(f.message).toMatch(/from 300 px away: it had no time to go there first, or was busy/);
+    expect(f.message).toMatch(/Give it a `sit` to 'stone'/);
+  });
+
+  it('says where to put a work point out of reach', () => {
+    const [f] = reach(washer(450, 0.2, [], [900, 610]));
+    expect(f.message).toMatch(/its `use.at` is out of reach.*about \[\d+, \d+\]/);
+  });
+
+  it('warns of a place that faces away from its own work point', () => {
+    const scene = SceneSchema.parse({
+      ...LIBRARY.scenes.park,
+      anchors: { stone: { ...STONE, use: { ...STONE.use, facing: 'left' } } },
+    });
+    expect(validateScene(scene, 1280, 720).map((x) => x.message)).toContain(
+      "anchor 'stone' faces left, away from its use.at [560, 610]"
+    );
   });
 });

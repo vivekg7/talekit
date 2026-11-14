@@ -12,11 +12,22 @@
  * Continuity (phase 8.2): a shot that carries straight on from the last one in the same
  * place (`follows`) starts everyone facing the way they were left; one the shot has facing
  * the other way turns at its start, rather than flipping at the cut.
+ *
+ * Places (phase 8.2): a blow, a wipe or a hold at an anchor that says how it is used (`use`)
+ * walks its doer there and sits it down first, then turns it to the place's facing.
  */
 import { waived } from './allow.js';
 import { hash01 } from './easing.js';
-import { giveParties, resolveActor, resolvePosition, type ActorState } from './timeline.js';
-import type { Action, Facing, Project, Scene, Shot, Verb } from './types.js';
+import {
+  APPROACH,
+  SIT_TIME,
+  giveParties,
+  moveDuration,
+  resolveActor,
+  resolvePosition,
+  type ActorState,
+} from './timeline.js';
+import type { Action, Anchor, Facing, Project, Scene, Shot, Verb } from './types.js';
 import { isMoveVerb } from './types.js';
 import { lineEnd } from './voice.js';
 
@@ -111,7 +122,7 @@ export function staging(project: Project, scene: Scene, shot: Shot): StagedActio
    */
   const turn = (
     id: string,
-    toward: string | { x: number },
+    toward: string | { x: number } | { facing: Facing },
     from: number,
     until: number,
     why: string,
@@ -124,12 +135,25 @@ export function staging(project: Project, scene: Scene, shot: Shot): StagedActio
       me = at(id, t);
     }
     if (t >= shot.duration || !free(me, speaking)) return;
-    const them = typeof toward === 'string' ? at(toward, t) : toward;
     if (typeof toward === 'string' && !at(toward, t).visible) return;
-    const facing = sideOf(me, them);
+    const facing =
+      typeof toward === 'object' && 'facing' in toward
+        ? toward.facing
+        : sideOf(me, typeof toward === 'string' ? at(toward, t) : toward);
     if (!facing || facing === me.facing) return;
     add({ t: round(t), actor: id, set: { facing }, staged: why } as StagedAction);
   };
+
+  // A blow, a wipe or a hold at a place that says how it is used (a washing stone): its
+  // doer goes there and sits down first, if it has the time and nothing else to do.
+  for (const w of shot.actions) {
+    const id = w.actor;
+    if (!id || !w.do || !CONTACT.has(w.do) || typeof w.to !== 'string' || !shot.cast[id]) continue;
+    const use = scene.anchors[w.to]?.use;
+    if (!use || !project.characters[id] || waived(allow, 'contact.reach', id)) continue;
+    const go = approach(shot, at, id, w.to, scene.anchors[w.to], w.t, w.do);
+    if (go) add(go);
+  }
 
   const lines = shot.actions
     .filter((a) => a.say && a.actor && shot.cast[a.actor] && a.bubble !== 'thought')
@@ -211,14 +235,84 @@ export function staging(project: Project, scene: Scene, shot: Shot): StagedActio
     const to = w.to;
     const t = Math.max(0, w.t - WORK_LEAD);
     if (to === id || directs(shot, id, t, w.t)) continue;
+    const use = typeof to === 'string' && !shot.cast[to] ? scene.anchors[to]?.use : undefined;
     const target =
-      typeof to === 'string' && shot.cast[to] ? to : resolvePosition(project, scene, to);
+      typeof to === 'string' && shot.cast[to]
+        ? to
+        : use?.facing
+          ? { facing: use.facing }
+          : use?.at
+            ? { x: use.at[0] }
+            : resolvePosition(project, scene, to);
     const name = typeof to === 'string' ? to : `(${to.x}, ${to.y})`;
     beats.push({ t, run: () => turn(id, target, t, w.t, `${w.do}s ${name}`, true) });
   }
   // In time order, so each turn sees the facing the turns before it left.
   for (const b of beats.sort((x, y) => x.t - y.t)) b.run();
   return added;
+}
+
+/**
+ * Getting `id` to the anchor it works at by `t`: a walk there (pose stand) or a sit there,
+ * which walks over first (pose sit), timed to be done a turn's time before the work. None
+ * when it is there already in the pose, when it is busy, moving or sat elsewhere in the time
+ * that takes, or when there is no time for it; a doer cast standing at the anchor of a seated
+ * place, working from the start of the shot, opens the shot sat there.
+ */
+function approach(
+  shot: Shot,
+  at: (id: string, t: number) => ActorState,
+  id: string,
+  anchorId: string,
+  anchor: Anchor,
+  t: number,
+  verb: Verb
+): StagedAction | undefined {
+  const sits = anchor.use?.pose === 'sit';
+  const now = at(id, t);
+  const foot = { x: anchor.x, y: anchor.floor ?? anchor.y, scale: anchor.scale };
+  const near =
+    Math.hypot(now.x - anchor.x, now.y - anchor.y) <= APPROACH ||
+    Math.hypot(now.x - foot.x, now.y - foot.y) <= APPROACH;
+  if (near && (!sits || now.sit > 0.5)) return undefined;
+  if (!near && now.sit > 0.05) return undefined;
+  const walk = near ? 0 : moveDuration('walk', now, foot);
+  const start = t - WORK_LEAD - walk - (sits ? SIT_TIME : 0) - STEP;
+  const why = `${sits ? 'sits at' : 'goes to'} ${anchorId} to ${verb}`;
+  const act = (from: number, extra: Partial<Action> = {}) =>
+    ({
+      t: round(from),
+      actor: id,
+      do: sits ? 'sit' : 'walk',
+      to: anchorId,
+      ...extra,
+      staged: why,
+    }) as StagedAction;
+  if (start < 0) {
+    // Working from the first moment, where it was cast: it is sat there when the shot opens.
+    if (!near || !sits || !idleOver(shot, at, id, 0, t)) return undefined;
+    return act(0, { duration: 0.05 });
+  }
+  if (!idleOver(shot, at, id, start, t)) return undefined;
+  return act(start);
+}
+
+/** Whether `id` stands idle, doing nothing else, from `from` to `to` (none of its own actions). */
+function idleOver(
+  shot: Shot,
+  at: (id: string, t: number) => ActorState,
+  id: string,
+  from: number,
+  to: number
+): boolean {
+  if (shot.actions.some((a) => a.actor === id && a.do && a.t >= from - 0.05 && a.t < to))
+    return false;
+  for (let t = from; t < to; t += STEP) {
+    const a = at(id, t);
+    if (!a.visible || a.heldBy || a.locomotion !== 'idle' || a.lie > 0.05 || a.verbs.length)
+      return false;
+  }
+  return true;
 }
 
 /** Idle and awake, with eyes and its hands free: someone who can turn to look. */

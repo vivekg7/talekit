@@ -332,6 +332,26 @@ export const AnchorSchema = z.object({
     .describe(
       'On a seat anchor (y on the seat surface): the y of the floor under it, so a character sat there bends its knees to put its feet on the floor. Without it, sitting down onto a seat from where the actor stood uses that spot as the floor, and sitting where it stands is sitting on the ground'
     ),
+  use: z
+    .object({
+      pose: z
+        .enum(['stand', 'sit'])
+        .default('stand')
+        .describe(
+          'How it is used: standing there, or sat (on the ground at the anchor, or on the seat with `floor`)'
+        ),
+      facing: z.enum(['left', 'right']).optional().describe('Which way whoever uses it faces'),
+      at: z
+        .tuple([z.number(), z.number()])
+        .optional()
+        .describe(
+          'The work point, [x, y] in the scene: where a blow, a wipe or a hand with this anchor as its `to` lands (the top of a washing stone, where the cloth is)'
+        ),
+    })
+    .optional()
+    .describe(
+      "What is done here and how: a washing stone is { pose: 'sit', facing: 'right', at: [1040, 640] }. A strike, wipe or hold with this anchor as its `to` lands on `at`, and its doer is first walked here, sat down (pose sit) and turned to `facing`, if it has the time and nothing else to do"
+    ),
 });
 export type Anchor = z.infer<typeof AnchorSchema>;
 
@@ -811,7 +831,7 @@ export const ActionSchema = z
      * with no `do`, the id of the actor being spoken to.
      */
     to: PositionSchema.optional().describe(
-      "walk/run/move/fly/jump/climb/sit/lie/putdown: where to (anchor, stage shortcut or {x, y}); a sit or lie there walks over first. climb: the top (or foot) of the ladder or trunk, straight above (below) where the climber stands, inside one of the scene's `climb` areas. wipe: what the hand goes round on, an actor in the cast (its middle) or a spot. hold: what the hand rests on, an actor in the cast (its shoulder) or a spot. strike: what the blow lands on, an actor in the cast (its shoulders, an animal's back) or a spot (the top of a washing stone); without it the blow chops the air in front. aim: what the archer aims at, an actor in the cast (its `mark`), an anchor or a spot. shoot: where the arrow goes, if not where the aim was (a miss); on an arrow not on a bow, where it flies to. On a say without do: the id of the actor spoken to, when the engine would guess wrong"
+      "walk/run/move/fly/jump/climb/sit/lie/putdown: where to (anchor, stage shortcut or {x, y}); a sit or lie there walks over first. climb: the top (or foot) of the ladder or trunk, straight above (below) where the climber stands, inside one of the scene's `climb` areas. wipe: what the hand goes round on, an actor in the cast (its middle), an anchor with a `use` (its work point) or a spot. hold: what the hand rests on, an actor in the cast (its shoulder), an anchor with a `use` or a spot. strike: what the blow lands on, an actor in the cast (its shoulders, an animal's back), an anchor with a `use` (its work point, the top of a washing stone; the striker is walked there and sat down first) or a spot; without it the blow chops the air in front. aim: what the archer aims at, an actor in the cast (its `mark`), an anchor or a spot. shoot: where the arrow goes, if not where the aim was (a miss); on an arrow not on a bow, where it flies to. On a say without do: the id of the actor spoken to, when the engine would guess wrong"
     ),
     /** On an `aim`: the arrow (a cast actor) the engine puts on the string for it. */
     arrow: IdSchema.optional().describe(

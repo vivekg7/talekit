@@ -558,6 +558,35 @@ there) sits down from there and gets up there again, so a `jump` back down
 leaves from the branch. A `sit` or `lie` with a `to` more than 24 px away
 walks there first.
 
+**Places used a certain way (`use`).** An anchor can say what is done
+there and how: where the work lands, and how its user sits or stands and
+faces. A washer sits on the ground beside a raised washing stone, facing
+it, and the cloth comes down on the stone's top:
+
+```json
+"pathar": { "x": 960, "y": 684,
+  "use": { "pose": "sit", "facing": "right", "at": [1068, 604] } }
+```
+
+`pose` is `stand` (the default) or `sit`: on the ground at the anchor, or
+on the seat when the anchor has a `floor`. `at` is the work point in the
+scene. A `strike`, `wipe` or `hold` whose `to` names the anchor lands on
+`at`, not on the anchor, which is where the user's feet go. Before the
+work, the engine gets the doer there: a walk to the anchor (`stand`) or a
+`sit` to it, which walks over first (`sit`), timed to finish just before
+the work starts, then a turn to `facing`. A doer cast at the anchor that
+works from the shot's first moment opens the shot sat there. The engine
+leaves a doer busy with something else in that time, or one sat
+elsewhere, where it is; the `contact.reach` finding then says it never got
+there. A work point out of reach of anyone using the place is
+`contact.reach` too, and the finding gives the point where the blow or the
+hand lands from the anchor, to put in `at`. The scene sheet draws the
+facing as an arrow under the anchor and `at` as a pink cross, so check the
+cross sits on the drawing (the top of the stone, the wet cloth). Draw the
+work about a third of a seated user's height above the floor and half
+their height in front of them. Seated nearer, the hand comes down in front
+of the face.
+
 Keep anchors two people use at once a character's width apart (about 150
 px, more at a smaller `scale`), or one hides the other and their bubbles
 collide.
@@ -1027,7 +1056,8 @@ is drawn just in front; its own moves are ignored.
   fifth of their height from it. Never attach a prop off a table without
   `pickup`: it would fly to a hand that has not moved.
 - **Dusting, polishing, scrubbing**: `{ "do": "wipe", "to": "vase" }`
-  puts the near hand on the middle of the named actor (or on a spot) and
+  puts the near hand on the middle of the named actor (or on an anchor's
+  `use` point, or a spot) and
   rubs round in small circles; stand them as close as for a pickup. Like a
   `hold` and a `strike` with `to`, the engine turns them to it first, and a
   hand that cannot reach is a `contact.reach` finding.
@@ -1058,14 +1088,15 @@ is drawn just in front; its own moves are ignored.
 "camel" }` is one blow: the near arm winds up over the head and chops
   down, and a carried stick, sword or broom swings with it, back over the
   shoulder and then down onto the target. With `to` (an actor in the cast,
-  or a spot) the blow lands there: the engine turns the striker to it,
+  an anchor with a `use`, or a spot) the blow lands there: the engine turns the striker to it,
   stops the hand up and back from it by the length of what it swings, and
   turns that so its working end (`tip`) comes down on it from above (level,
   on something as high as the striker's shoulder). On a person that is the
   shoulders, standing, sitting or lying; on an animal the middle of its
-  back; on a spot it is the spot, so beat washing on a stone with a `to` on
-  the stone's top where the cloth lands, low down, and the body bends over
-  to it. Without `to` it chops at the air in front. Stand the striker
+  back; on an anchor with a `use`, its work point; on a spot, the spot. So
+  beat washing with a `to` on the stone's place (see "Places used a certain
+  way"), or on a spot at the stone's top where the cloth lands, low down,
+  and the body bends over to it. Without `to` it chops at the air in front. Stand the striker
   close enough for the arm and the stick to reach: falling short, or
   standing so close a long stick passes over, is a `contact.reach`
   finding, which says where to stand. Put the `grip` of anything swung

@@ -1059,9 +1059,39 @@ findings and 2 line findings.
     turn in place it finds nothing in the released films, where no strike
     had a `to`; it is there for the ones that will.
 
-Next in 8.2: smart objects (an anchor's `use`: the pose, facing and work
-point at a washing stone or a cot), and contact verbs that walk their doer
-to it.
+Places used a certain way (smart objects):
+
+- **An anchor's `use`** says how the place is used: `pose` (`stand`, or
+  `sit` on the ground there, or on the seat with a `floor`), `facing`, and
+  `at`, the work point. A washing stone is the anchor where the washer sits
+  plus the spot on the stone's top where the cloth lands. Before this, the
+  `gadha-hi` washers were cast at a bare anchor, given an opening `sit` by
+  hand, and beat with no `to`; the stones were then drawn where that blow
+  happened to fall.
+- **A `strike`, `wipe` or `hold` whose `to` names the anchor** lands on
+  `at`, not on the feet point. Its doer is walked there, or sat there (a
+  `sit` to it walks over first), timed to finish a turn's time before the
+  work, then turned to `facing`. These are staged actions, so `talekit
+explain` lists them. A doer cast there and working from the first moment
+  opens the shot sat. A doer busy in that time, or sat somewhere else, is
+  left alone, and `contact.reach` says it never got there. A work point out
+  of reach is reported with where the blow lands from the anchor, which is
+  the value to put in `at`.
+- **Checked on a copy of `gadha-hi`'s ghat**, with Kallu's anchor given a
+  `use`, frame by frame:
+  - Cast at the anchor, he opens sat and turned to the stone, and the cloth
+    comes down from above on the slab's far end, where the scene draws the
+    wet cloth.
+  - Cast 240 px away, he walks over, sits and then beats.
+  - With `at` on the stone's near end, 45 px in front of him, the blow came
+    down almost straight, with the hand in front of his face. The guide
+    says to put the work about half the user's height in front.
+- **A cot was left out.** Lying is already `lie` with a `to`, and a turn
+  while lying flips the body, so `use` has no `lie` pose and gives no
+  facing on a bed.
+- **No released film changes.** None of their anchors has a `use`.
+
+Next in 8.2: the bow's far-hand aimed state carried across a cut.
 
 ## Render speed
 

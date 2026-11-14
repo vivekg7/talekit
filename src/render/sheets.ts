@@ -432,7 +432,23 @@ export function sceneSheetSvg(project: Project, scene: Scene): string {
     const p = resolvePosition(project, scene, s);
     if (p.x >= 0 && p.x <= W) marks += mark(s, p.x, p.y, '#ffd166');
   }
-  for (const [name, a] of Object.entries(scene.anchors)) marks += mark(name, a.x, a.y, '#06d6a0');
+  for (const [name, a] of Object.entries(scene.anchors)) {
+    marks += mark(name, a.x, a.y, '#06d6a0');
+    // A place used a certain way: an arrow the way its user faces, and its work point
+    // crossed in pink, tied to the anchor, so a stone's cloth spot can be checked on the art.
+    const u = a.use;
+    if (u?.facing) {
+      const s = u.facing === 'right' ? 1 : -1;
+      marks += `<path d='M${n(a.x)} ${n(a.y + 16)} h${s * 26} m${-s * 8} -6 l${s * 8} 6 l${-s * 8} 6' fill='none' stroke='#06d6a0' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/>`;
+    }
+    if (u?.at) {
+      const [x, y] = u.at;
+      marks +=
+        `<line x1='${n(a.x)}' y1='${n(a.y)}' x2='${n(x)}' y2='${n(y)}' stroke='#ff4fa3' stroke-width='2' stroke-dasharray='5 4'/>` +
+        `<path d='M${n(x - 8)} ${n(y - 8)} l16 16 m0 -16 l-16 16' stroke='#fff' stroke-width='6' stroke-linecap='round'/>` +
+        `<path d='M${n(x - 8)} ${n(y - 8)} l16 16 m0 -16 l-16 16' stroke='#ff4fa3' stroke-width='3' stroke-linecap='round'/>`;
+    }
+  }
   // The world: where feet can stand (green), the water (blue, paler where it can be
   // waded) and what can be climbed (orange), hatched over the art so what it covers shows.
   const ground = groundOf(scene);

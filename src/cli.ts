@@ -151,7 +151,9 @@ async function main(argv: string[]): Promise<void> {
         const added = staging(project, project.scenes[shot.scene], shot);
         console.log(`${shot.id}: ${added.length ? '' : 'nothing added'}`);
         for (const a of added)
-          console.log(`  t=${a.t.toFixed(2)}  ${a.actor} turns ${a.set?.facing}  (${a.staged})`);
+          console.log(
+            `  t=${a.t.toFixed(2)}  ${a.actor} ${a.do ? `${a.do}${typeof a.to === 'string' ? ` to ${a.to}` : ''}` : `turns ${a.set?.facing}`}  (${a.staged})`
+          );
       }
       return;
     }

@@ -235,8 +235,11 @@ export function resolvePosition(project: Project, scene: Scene, pos: Position): 
  */
 function seatHeight(scene: Scene, from: Point, at: Point): number {
   for (const a of Object.values(scene.anchors))
-    if (a.floor !== undefined && Math.abs(a.x - at.x) < 1 && Math.abs(a.y - at.y) < 1)
-      return Math.max(0, a.floor - a.y);
+    if (Math.abs(a.x - at.x) < 1 && Math.abs(a.y - at.y) < 1) {
+      if (a.floor !== undefined) return Math.max(0, a.floor - a.y);
+      // A place used sitting with no seat under it (at a washing stone): on the ground.
+      if (a.use?.pose === 'sit') return 0;
+    }
   return Math.max(0, from.y - at.y);
 }
 
@@ -309,7 +312,7 @@ const TURN_TIME = 0.2;
  * first and steps its body after, where a person swivels on the spot.
  */
 const QUAD_TURN_TIME = 0.7;
-const SIT_TIME = 0.4;
+export const SIT_TIME = 0.4;
 /** Seconds to lie back from sitting, or sit up again. */
 const LIE_TIME = 0.9;
 /** Seconds to turn into or out of the screen as a move starts, and back as it ends. */
@@ -482,7 +485,7 @@ const SETTLE_TIME = 0.25;
  * Scene pixels from where it stands to the foot of a seat (or a bed) beyond which it walks
  * there first; nearer, it shifts across as it sits.
  */
-const APPROACH = 24;
+export const APPROACH = 24;
 /** A sit or lie at a shot's start this quick is how the shot opens, not something seen. */
 const OPENING = 0.05;
 /** Verbs that sit, lie or stand: one of them cuts short a walk to a seat. */
@@ -1329,8 +1332,9 @@ function struckAt(o: ActorState, t: number): { x: number; y: number } {
 }
 
 /**
- * What a `wipe` wipes or a `hold` rests on, in the scene: the middle of an actor named in
- * `to` (for a hold, its shoulder), or the spot.
+ * What a `wipe` wipes, a `hold` rests on or a `strike` lands on, in the scene: an actor
+ * named in `to` (its middle; for a hold its shoulder, for a blow see struckAt), an anchor's
+ * work point (`use.at`), or the spot.
  */
 export function wipeSpot(
   project: Project,
@@ -1352,6 +1356,9 @@ export function wipeSpot(
     if (verb === 'strike') return struckAt(o, t);
     return { x: o.x, y: o.y - (o.character.height * o.scale) / 2 };
   }
+  // A place that says where its work is done (a washing stone's top): there.
+  const at = typeof to === 'string' ? scene.anchors[to]?.use?.at : undefined;
+  if (at) return { x: at[0], y: at[1] };
   return resolvePosition(project, scene, to);
 }
 

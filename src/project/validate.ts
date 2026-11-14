@@ -294,6 +294,19 @@ export function validateScene(s: Scene, width: number, height: number): Problem[
         where,
         message: `anchor '${name}' at (${a.x}, ${a.y}) is far outside the frame`,
       });
+    // Facing away from its own work point: the turn to `facing` would put the work behind.
+    const u = a.use;
+    if (
+      u?.at &&
+      u.facing &&
+      Math.abs(u.at[0] - a.x) > 8 &&
+      u.at[0] > a.x !== (u.facing === 'right')
+    )
+      out.push({
+        level: 'warning',
+        where,
+        message: `anchor '${name}' faces ${u.facing}, away from its use.at [${u.at[0]}, ${u.at[1]}]`,
+      });
   }
   if (Object.keys(s.anchors).length === 0)
     out.push({

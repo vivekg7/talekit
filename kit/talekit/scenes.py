@@ -146,6 +146,18 @@ def rail(foot, top, width=40):
     ]
 
 
+def used(x, y, at, facing=None, pose="stand", **more):
+    """An anchor for a place used a certain way: whoever works there stands (or, pose="sit",
+    sits on the ground; give floor= for a seat) at (x, y) facing `facing`, and a strike, wipe
+    or hold with this anchor as its `to` lands on `at`, (x, y) in the scene. The engine walks
+    the doer over and sits it down first. used(960, 684, (1068, 604), "right", "sit") is a
+    washer beside a raised stone. `more`: scale, floor."""
+    use = {"pose": pose, "at": [round(at[0]), round(at[1])]}
+    if facing:
+        use["facing"] = facing
+    return {"x": round(x), "y": round(y), **more, "use": use}
+
+
 def write(project, scene):
     """Save the scene as <project>/scenes/<id>.json and print each layer's size. A scene
     needs `walk` (see below() and ledge()), or allow {'world.walk': reason}."""

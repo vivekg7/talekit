@@ -23,6 +23,7 @@ import {
 import { holdPoint, poseFor } from './actor.js';
 import {
   actionDuration,
+  APPROACH,
   attachTime,
   giveParties,
   resolveActor,
@@ -735,13 +736,25 @@ function contactRule(project: Project, shot: Shot): Finding[] {
         : dist(hand, target) > dist(hand, end);
     const what = typeof a.to === 'string' ? `'${a.to}'` : `(${r(target.x)}, ${r(target.y)})`;
     const gap = r(Math.abs(target.x - me.x));
+    const place = typeof a.to === 'string' ? scene.anchors[a.to] : undefined;
+    const lands = `it lands ${r(miss)} px ${short ? 'short of it' : 'past it'}`;
+    let message = `'${id}' ${a.do}s at ${what} from ${gap} px away, but ${lands}. Stand '${id}' ${short ? 'closer' : 'further back'}, about ${r(Math.max(0, short ? gap - miss : gap + miss))} px from it (walk it over first).`;
+    if (place?.use) {
+      const there =
+        Math.hypot(me.x - place.x, me.y - place.y) <= APPROACH ||
+        Math.hypot(me.x - place.x, me.y - (place.floor ?? place.y)) <= APPROACH;
+      const how = place.use.pose === 'sit' ? 'sit' : 'walk';
+      message = there
+        ? `'${id}' ${a.do}s at ${what} from where it is used, but ${lands}: its \`use.at\` is out of reach of whoever uses it. Put \`at\` where the ${a.do === 'strike' ? 'blow' : 'hand'} lands, about [${r(end.x)}, ${r(end.y)}], or move the anchor ${short ? 'nearer to' : 'further from'} it.`
+        : `'${id}' ${a.do}s at ${what} from ${r(Math.hypot(me.x - place.x, me.y - place.y))} px away: it had no time to go there first, or was busy. Give it a \`${how}\` to '${a.to}' that ends before the ${a.do}.`;
+    }
     out.push({
       code: 'contact.reach',
       shot: shot.id,
       t: [r1(t), r1(t)],
       actors: [id],
       at: { x: target.x, y: target.y },
-      message: `'${id}' ${a.do}s at ${what} from ${gap} px away, but it lands ${r(miss)} px ${short ? 'short of it' : 'past it'}. Stand '${id}' ${short ? 'closer' : 'further back'}, about ${r(Math.max(0, short ? gap - miss : gap + miss))} px from it (walk it over first).`,
+      message,
     });
   }
   return out;
