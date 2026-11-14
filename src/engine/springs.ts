@@ -1,9 +1,11 @@
 import { poseFor } from './actor.js';
+import { hash01, TAU } from './easing.js';
 import { toRoot } from './gait.js';
 import type { Pose } from './motion.js';
 import { rigPart, rigOf, type Rig } from './rigs.js';
 import { resolveActor, type ActorState } from './timeline.js';
 import type { Character, Project, Shot } from './types.js';
+import { weatherAt } from './weather.js';
 
 /**
  * Follow-through. Each spring part is a damped spring about its rest pose, pushed by the
@@ -11,6 +13,9 @@ import type { Character, Project, Shot } from './types.js';
  * on the stop, bounces with a landing. Integrated at a fixed step from the start of the
  * shot, so the same frame always renders the same, whatever order frames are asked for.
  * Parts the rig places turn about their pivot; parts it does not know sway in place.
+ * The weather's wind blows on each as a push the way it goes, gusting: a tail or a plait
+ * hangs downwind and flutters, more as the wind rises. A shot opens with them already
+ * blown, not swinging into the wind from hanging straight.
  */
 
 const STEP = 1 / 120;
@@ -26,8 +31,18 @@ const LEVER = 40;
 const RAD = Math.PI / 180;
 /** Seconds a swing takes to reach each next link down a chain. */
 const CHAIN_LAG = 0.07;
+/**
+ * At wind 1, how far a part hanging straight down is blown (degrees), and a part that
+ * sways in place (canonical units). A part held out along the wind (a tail held straight
+ * back) is not turned by it, as a weathervane is not.
+ */
+const WIND_LEAN = 14;
+const WIND_SHIFT = 3;
+const W0 = 2 * Math.PI * HZ;
 
 type Pt = [number, number];
+/** Where the pivots are, how far what they hang from is turned, and which way it faces. */
+type Sample = { pos: Pt[]; turn: number[]; side: number };
 
 /** Rough middle of an SVG fragment from its absolute coordinates; enough to aim a lever. */
 function roughCentre(svg: string): Pt | undefined {
@@ -74,7 +89,9 @@ interface Sim {
   project: Project;
   springs: Spring[];
   /** The last three driver samples: pivot positions and parent angles per spring. */
-  samples: { pos: Pt[]; turn: number[] }[];
+  samples: Sample[];
+  /** The actor's own phase in the wind's gusts. */
+  gust: [number, number, number];
   /** Steps integrated so far. */
   done: number;
 }
@@ -104,7 +121,7 @@ function turnOf(rig: Rig, pose: Pose, part: string, own: boolean): number {
 }
 
 /** Where each spring's pivot is, in canonical units in the actor's own facing frame. */
-function sample(project: Project, shot: Shot, id: string, springs: Spring[], t: number) {
+function sample(project: Project, shot: Shot, id: string, springs: Spring[], t: number): Sample {
   const scene = project.scenes[shot.scene];
   const actor: ActorState = resolveActor(project, scene, shot, id, t);
   const rig = rigOf(actor.character);
@@ -122,7 +139,40 @@ function sample(project: Project, shot: Shot, id: string, springs: Spring[], t: 
     pos.push([(actor.x * side) / k + px, actor.y / k + py]);
     turn.push(turnOf(rig, pose, s.part, s.turns));
   }
-  return { pos, turn };
+  return { pos, turn, side };
+}
+
+/**
+ * The wind's push at t, in the actor's facing frame (canonical units a second squared, to
+ * the right), as the acceleration of a pivot that would throw the part the same way: the
+ * weather's wind at t, gusting about it in a slow swell, a quicker one and a flutter.
+ */
+function windPush(
+  scene: Project['scenes'][string],
+  shot: Shot,
+  sim: Sim,
+  t: number,
+  side: number
+): number {
+  const wind = scene ? (weatherAt(scene, shot, t).wind ?? 0) : 0;
+  if (!wind) return 0;
+  const [a, b, c] = sim.gust;
+  const gusty = 0.5 + 0.5 * Math.min(1, Math.abs(wind));
+  const g =
+    1 +
+    gusty *
+      (0.3 * Math.sin(TAU * (0.45 * t + a)) +
+        0.18 * Math.sin(TAU * (1.3 * t + b)) +
+        0.1 * Math.sin(TAU * (2.9 * t + c)));
+  return -side * wind * g * W0 * W0;
+}
+
+/** A spring's turn (radians) or sway thrown by a push, before the spring answers it. */
+function pushOf(s: Spring, turn: number, ax: number, ay: number): number {
+  const r = turn * RAD;
+  const lx = s.lever[0] * Math.cos(r) - s.lever[1] * Math.sin(r);
+  const ly = s.lever[0] * Math.sin(r) + s.lever[1] * Math.cos(r);
+  return -(lx * ay - ly * ax) / LEVER;
 }
 
 function simFor(project: Project, shot: Shot, id: string): Sim {
@@ -140,7 +190,30 @@ function simFor(project: Project, shot: Shot, id: string): Sim {
     v: [0, 0],
     x: [0, 0],
   }));
-  sim = { project, springs, samples: [], done: 0 };
+  sim = {
+    project,
+    springs,
+    samples: [],
+    done: 0,
+    gust: [hash01(`gust:${id}:a`), hash01(`gust:${id}:b`), hash01(`gust:${id}:c`)],
+  };
+  // Already blown as the shot opens: each spring at rest where the wind holds it.
+  const scene = project.scenes[shot.scene];
+  const first = sample(project, shot, id, springs, 0);
+  const wind = windPush(scene, shot, sim, 0, first.side);
+  if (wind)
+    springs.forEach((s, j) => {
+      if (s.turns) {
+        const lim = MAX_TURN * RAD;
+        const x = pushOf(s, first.turn[j], wind * WIND_LEAN * RAD * LEVER, 0) / (W0 * W0);
+        s.x = [Math.max(-lim, Math.min(lim, x)), 0];
+        s.values = [[s.x[0] / RAD, 0]];
+      } else {
+        const x = Math.max(-MAX_SWAY, Math.min(MAX_SWAY, (-wind * WIND_SHIFT) / (W0 * W0)));
+        s.x = [x, 0];
+        s.values = [[x, 0]];
+      }
+    });
   byActor.set(id, sim);
   return sim;
 }
@@ -153,7 +226,8 @@ function advance(sim: Sim, project: Project, shot: Shot, id: string): void {
     sim.samples.push(sample(project, shot, id, sim.springs, Math.max(0, i) * STEP));
   }
   const [a, b, c] = sim.samples;
-  const w = 2 * Math.PI * HZ;
+  const w = W0;
+  const wind = windPush(project.scenes[shot.scene], shot, sim, n * STEP, b.side);
   sim.springs.forEach((s, j) => {
     let ax = (c.pos[j][0] - 2 * b.pos[j][0] + a.pos[j][0]) / (STEP * STEP);
     let ay = (c.pos[j][1] - 2 * b.pos[j][1] + a.pos[j][1]) / (STEP * STEP);
@@ -162,13 +236,10 @@ function advance(sim: Sim, project: Project, shot: Shot, id: string): void {
       Math.hypot(b.pos[j][0] - a.pos[j][0], b.pos[j][1] - a.pos[j][1]) > JUMP_CUT;
     if (cut) ax = ay = 0;
     if (s.turns) {
-      // The lever, turned with its parent, pushed sideways by the acceleration; and the
-      // parent's own spin, which the part lags behind.
-      const r = b.turn[j] * RAD;
-      const lx = s.lever[0] * Math.cos(r) - s.lever[1] * Math.sin(r);
-      const ly = s.lever[0] * Math.sin(r) + s.lever[1] * Math.cos(r);
+      // The lever, turned with its parent, pushed sideways by the acceleration and the
+      // wind; and the parent's own spin, which the part lags behind.
       const spin = cut ? 0 : ((c.turn[j] - 2 * b.turn[j] + a.turn[j]) * RAD) / (STEP * STEP);
-      const push = -(lx * ay - ly * ax) / LEVER - spin;
+      const push = pushOf(s, b.turn[j], ax + wind * WIND_LEAN * RAD * LEVER, ay) - spin;
       s.v[0] += (push - w * w * s.x[0] - 2 * DAMPING * w * s.v[0]) * STEP;
       s.x[0] += s.v[0] * STEP;
       const lim = MAX_TURN * RAD;
@@ -176,7 +247,7 @@ function advance(sim: Sim, project: Project, shot: Shot, id: string): void {
       s.values.push([s.x[0] / RAD, 0]);
     } else {
       for (const i of [0, 1]) {
-        const acc = i === 0 ? ax : ay;
+        const acc = i === 0 ? ax + wind * WIND_SHIFT : ay;
         s.v[i] += (-acc - w * w * s.x[i] - 2 * DAMPING * w * s.v[i]) * STEP;
         s.x[i] = Math.max(-MAX_SWAY, Math.min(MAX_SWAY, s.x[i] + s.v[i] * STEP));
       }

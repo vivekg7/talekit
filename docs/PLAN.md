@@ -1335,10 +1335,19 @@ at 0.55 of the strike.
   actor shoved off its walk area for a moment. A blow on the ground
   throws the dig's dust and four clods.
 
-Not done: wind on the springs (tails, hair and cloth hang still in a
-gale), dust where a jump or a fall lands, a splash and rings where
-something enters water. Birds taking off at a roar are the author's,
-since they leave the shot.
+- **Wind on the springs** (springs.ts). The weather's wind pushes each
+  spring as an acceleration of its pivot would, gusting about it (a slow
+  swell, a quicker one, a flutter, each actor in its own phase, more
+  gusty as the wind rises): 14° for a part hanging straight down at wind
+  1, nothing for one held along the wind, never past the 28° the
+  follow-through cells show. Each spring starts the shot where the wind
+  holds it. Otherwise every shot in a gale opened with the plaits hanging
+  straight and swinging out over the first half second.
+
+Not done: a held flag or umbrella leaning in the wind (it would have to
+move the arm), dust where a jump or a fall lands, a splash and rings
+where something enters water. Birds taking off at a roar are the
+author's, since they leave the shot.
 
 ## Render speed
 

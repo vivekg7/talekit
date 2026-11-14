@@ -396,7 +396,11 @@ trails when a walk starts and flicks past on the stop, ears bounce on a
 landing. The quadruped's default is `["tail", "earL", "earR"]`; other rigs
 have none; `[]` keeps every part rigid. A part the rig places turns about
 its pivot; one it does not know sways in place by a few units, unless you
-hang it. Nothing in a shot drives a spring. The construction sheet marks
+hang it. Nothing in a shot drives a spring but the weather's `wind`, which
+blows each one downwind and gusts it, more as the wind rises: a plait
+streams out in a gale, already so in a shot's first frame. A part held
+out along the wind (a tail straight back into it) is not turned by it. The
+construction sheet marks
 spring parts with `~`, and the pose sheet shows them thrown as far as they
 ever go, 28° each way (`follow-through −28°` and `+28°`): a tail rooted
 shallow in the rump comes off it at one end of that swing.
@@ -811,7 +815,9 @@ them brings the blue back.
   across the whole frame top), and `scale`, the anchors' scale in a
   close-up scene drawn large.
 - `wind` (-1 to 1, positive blows right) slants rain, carries snow, smoke,
-  sparks and leaves, moves the clouds, and from 0.3 draws gusts.
+  sparks and leaves, moves the clouds, and from 0.3 draws gusts. It blows
+  the cast's springs too: tails, ears, plaits, a turban's tail.
+  A held flag or umbrella does not lean in it.
   `leaves: { "amount": 0.5 }` sends leaves tumbling (`colors` recolours).
 - `clouds` drift across the sky band (down to `low`, default 0.32 ×
   height). `dark` 0 is white, 1 a storm that darkens the sky and dims the
