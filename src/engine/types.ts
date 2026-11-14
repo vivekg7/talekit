@@ -814,7 +814,7 @@ export const ActionSchema = z
     ),
     /** On an `aim`: the arrow (a cast actor) the engine puts on the string for it. */
     arrow: IdSchema.optional().describe(
-      'aim only: the id of the arrow in the cast (a prop with `grip` at its nock and `tip` at its head, drawn pointing right). The engine puts it on the string as the aim begins, shows it drawn back with the string, and a `shoot` looses it; aimed and lowered without a shot, it stays on the bow, pointing down'
+      'aim only: the id of the arrow in the cast (a prop with `grip` at its nock and `tip` at its head, drawn pointing right). The engine puts it on the string once the archer has turned to `to` and has a hand on the string (taking it off any bow it was on), shows it drawn back with the string, and a `shoot` looses it; aimed and lowered without a shot, it stays on the bow, pointing down'
     ),
     /** Dialogue shown in a bubble above the actor's head; also animates the mouth. */
     say: z

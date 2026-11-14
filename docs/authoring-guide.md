@@ -1052,7 +1052,12 @@ it on the floor and pick it up.
 
 A bow and an arrow are two props. The bow is carried (`attach`) like any
 other, in the near hand, in front; the arrow is never attached: the `aim`
-names it and the engine puts it on the string.
+names it and the engine puts it on the string. It shows there once the
+archer has turned to face `to` and has a hand on the string (about 0.35 s
+into a first aim, once the bow has passed to the bow hand), so it never
+swings round with the drawing as he turns. One arrow can serve several
+archers in turn: a later `aim` that names it takes it off the last bow (it
+fades there) before it shows on the new one.
 
 ```json
 { "t": 0, "actor": "dhanush", "attach": "arjun" },

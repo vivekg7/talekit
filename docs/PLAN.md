@@ -894,19 +894,27 @@ no walk areas, so they were run over all 36 projects.
   carrying the arrow stuck in it.
 - Before the exemptions they also found two more real glitches, in the
   engine itself, not in any shot:
-  - an arrow on the string jumps 150 to 480 px as an `aim` raises the
-    bow, or when one arrow is reused by the next archer;
+  - an arrow on the string jumps 150 to 480 px as an `aim` begins, or
+    when one arrow is reused by the next archer;
   - a prop carried in a long animal's mouth swaps sides at mid-turn, with
     the head.
 
-  Neither can be fixed from a shot, so they are exempt from the rule and
-  are engine work: animate the arrow onto the string and along the raise.
-  The turn is how a side-on drawing turns, so it stays.
+  The turn is how a side-on drawing turns, so the second stays, and
+  anything held, an arrow on a string among them, is exempt through its
+  holder's turn.
 
-Still to do in 8.1:
+- **The arrow fix.** The first came from the turn. An aim turns the
+  archer to face the mark, and half way round the side-on drawing mirrors,
+  the bow in hand with it; the arrow was already fading in on the string
+  and went too. Now it shows on the string only once the turn is done and
+  a hand is on the string (after the hand-over of a first aim). A reused
+  arrow fades off the last bow first and is out of sight for a moment
+  before it shows on the new one, where it used to cross the stage in one
+  frame. Run over the archery films again, the only arrow jumps left are
+  through an archer's turn; the rule's exemption for nocked arrows was cut
+  down to that.
 
-- `give`, a hand-over with both arms reaching;
-- the arrow fix above.
+Still to do in 8.1: `give`, a hand-over with both arms reaching.
 
 ## Render speed
 

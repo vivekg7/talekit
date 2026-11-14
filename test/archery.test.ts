@@ -6,6 +6,7 @@ import { ANCHOR } from '../src/engine/motion.js';
 import { RIGS } from '../src/engine/rigs.js';
 import { cueSheet } from '../src/engine/sound.js';
 import { ARROW_SPEED, resolveFrame, type ActorState } from '../src/engine/timeline.js';
+import { JUMP_SPEED, shotFindings } from '../src/engine/world.js';
 import { CharacterSchema, ShotSchema, type Project } from '../src/engine/types.js';
 import { LIBRARY } from '../src/library/index.js';
 import { characterSheetSvg } from '../src/render/sheets.js';
@@ -43,7 +44,14 @@ function project(cast: Record<string, unknown>, actions: unknown[]): Project {
   const shot = ShotSchema.parse({ id: 's', scene: 'park', duration: 12, cast, actions });
   return {
     meta: { title: 't', width: 1280, height: 720, fps: 24, font: 'sans-serif' },
-    characters: { kid: LIBRARY.characters.kid, bow: BOW, arrow: ARROW, bird: BIRD },
+    characters: {
+      kid: LIBRARY.characters.kid,
+      kid2: LIBRARY.characters.kid,
+      bow: BOW,
+      bow2: BOW,
+      arrow: ARROW,
+      bird: BIRD,
+    },
     scenes: { park: LIBRARY.scenes.park },
     shots: [shot],
   };
@@ -236,6 +244,62 @@ describe('archery', () => {
     expect(dist(nock, near(kid, 2))).toBeLessThan(3);
     // The bow out in front of the face, on the far side of the drawing hand.
     expect(far(kid, 2).x).toBeLessThan(near(kid, 2).x - 20);
+  });
+
+  const shows = (a: ActorState) => a.visible && a.opacity > 0.01;
+  /** Frame by frame, how far the arrow goes while it shows, at most, in pixels a second. */
+  const fastest = (p: Project, from: number, to: number) => {
+    let most = 0;
+    const dt = 1 / 96;
+    for (let t = from; t < to; t += dt) {
+      const [a, b] = [at(p, 'arrow', t), at(p, 'arrow', t + dt)];
+      if (a.visible && b.visible && a.opacity > 0.01 && b.opacity > 0.01)
+        most = Math.max(most, dist(a, b) / dt);
+    }
+    return most;
+  };
+  const jumps = (p: Project) =>
+    shotFindings(p, p.shots[0]).filter((f) => f.code === 'continuity.jump');
+
+  it('nocks the arrow once the archer has turned and has a hand on the string', () => {
+    // Turning to a target behind, half way round the drawing mirrors, and the bow in hand
+    // with it: the arrow is not on the string yet, so it does not go with them.
+    const p = project(cast, [
+      { t: 0, actor: 'bow', attach: 'kid' },
+      { t: 1, actor: 'kid', do: 'aim', to: { x: 0, y: 400 }, arrow: 'arrow', duration: 3 },
+    ]);
+    for (let t = 1; t < 1.3; t += 1 / 48) {
+      if (at(p, 'kid', t).turn) expect(shows(at(p, 'arrow', t))).toBe(false);
+    }
+    expect(at(p, 'arrow', 2).opacity).toBe(1);
+    expect(fastest(p, 0.9, 2)).toBeLessThan(JUMP_SPEED);
+    expect(jumps(p)).toEqual([]);
+  });
+
+  it('takes an arrow off one bow before the next archer nocks it', () => {
+    const p = project(
+      {
+        ...cast,
+        kid2: { at: { x: 800, y: 640 }, facing: 'left' },
+        bow2: { at: { x: 850, y: 640 } },
+      },
+      [
+        { t: 0, actor: 'bow', attach: 'kid' },
+        { t: 0, actor: 'bow2', attach: 'kid2' },
+        { t: 0.5, actor: 'kid', do: 'aim', to: { x: 1200, y: 300 }, arrow: 'arrow', duration: 2 },
+        { t: 3, actor: 'kid2', do: 'aim', to: { x: 0, y: 300 }, arrow: 'arrow', duration: 3 },
+      ]
+    );
+    expect(at(p, 'arrow', 2.9).nockedOn).toBe('kid');
+    // Gone from the first bow before it shows on the second.
+    const gone = [...Array(48).keys()]
+      .map((i) => 3 + i / 48)
+      .filter((t) => !shows(at(p, 'arrow', t)));
+    expect(gone.length).toBeGreaterThan(3);
+    expect(at(p, 'arrow', 5).nockedOn).toBe('kid2');
+    expect(at(p, 'arrow', 5).opacity).toBe(1);
+    expect(fastest(p, 2.5, 5)).toBeLessThan(JUMP_SPEED);
+    expect(jumps(p)).toEqual([]);
   });
 
   it('carries the bow in the near hand until an aim hands it to the far one', () => {

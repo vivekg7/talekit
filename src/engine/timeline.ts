@@ -11,6 +11,7 @@ import {
 import type { Pt, Travel } from './gait.js';
 import {
   AIM,
+  nockDelay,
   digHits,
   JUMP,
   SOIL_TIME,
@@ -1159,7 +1160,8 @@ export function resolveActor(
   // An arrow on a bow, in flight or stuck in something: archery puts it there.
   if (!heldBy) {
     const arrow = arrowAt(project, scene, shot, id, t, depth);
-    if (arrow) Object.assign(state, arrow, { turn: undefined, travel: undefined, view: 0 });
+    if (arrow && 'fade' in arrow) state.opacity *= arrow.fade;
+    else if (arrow) Object.assign(state, arrow, { turn: undefined, travel: undefined, view: 0 });
   }
   return state;
 }
@@ -1834,9 +1836,28 @@ export function flightOf(
 }
 
 /**
+ * When the arrow of `aim` comes onto the string: once its archer has turned to the mark
+ * (half way round, a side-on drawing mirrors, and the bow with it) and has a hand on the
+ * string, after taking the bow into the bow hand on a first aim.
+ */
+function nockTime(project: Project, scene: Scene, shot: Shot, aim: Action, depth: number): number {
+  const handOver = !shot.actions.some(
+    (o) => o !== aim && o.actor === aim.actor && o.do === 'aim' && o.t < aim.t
+  );
+  const archer = resolveActor(project, scene, shot, aim.actor!, aim.t + 1e-3, depth + 1);
+  const time = archer.character.rig === 'quadruped' ? QUAD_TURN_TIME : TURN_TIME;
+  const turning = archer.turn ? (1 - archer.turn.u) * time : 0;
+  return aim.t + Math.max(turning, nockDelay(handOver));
+}
+
+/** What archery makes of an arrow: where it is, or only how far it has faded where it was. */
+type ArrowAt = Partial<ActorState> | { fade: number };
+
+/**
  * Where an arrow is at t, when archery has it: on the string of a bow in an aim (or left on a
  * lowered one), in flight, or stuck in what it hit and going where that goes. Nothing when
- * something since (an attach, a set, a move of its own) has taken it.
+ * something since (an attach, a set, a move of its own) has taken it. Only what was done
+ * before `before` counts: where it was when an aim took it.
  */
 function arrowAt(
   project: Project,
@@ -1844,8 +1865,9 @@ function arrowAt(
   shot: Shot,
   id: string,
   t: number,
-  depth: number
-): Partial<ActorState> | undefined {
+  depth: number,
+  before = Infinity
+): ArrowAt | undefined {
   if (depth >= MAX_DEPTH) return undefined;
   const arrow = project.characters[id];
   const cast = shot.cast[id];
@@ -1853,16 +1875,17 @@ function arrowAt(
   for (const a of shot.actions)
     if (
       a.actor === id &&
+      a.t < before &&
       (a.attach !== undefined || a.set?.at || (a.do && isMoveVerb(a.do))) &&
       attachTime(a) <= t
     )
       since = Math.max(since, attachTime(a));
   const nock = shot.actions
-    .filter((a) => a.do === 'aim' && a.arrow === id && a.actor && a.t <= t)
+    .filter((a) => a.do === 'aim' && a.arrow === id && a.actor && a.t <= t && a.t < before)
     .sort((a, b) => a.t - b.t)
     .at(-1);
   const shotOff = releases(shot)
-    .filter((r) => r.arrow === id && r.t <= t)
+    .filter((r) => r.arrow === id && r.t <= t && r.t < before)
     .at(-1);
   if (shotOff && shotOff.t >= (nock?.t ?? -Infinity) && shotOff.t >= since) {
     const f = flightOf(project, scene, shot, shotOff, depth);
@@ -1942,6 +1965,17 @@ function arrowAt(
   }
   if (!nock || nock.t < since) return undefined;
   const archer = nock.actor!;
+  const nocked = nockTime(project, scene, shot, nock, depth);
+  if (t < nocked) {
+    // Not on the string yet: it fades from where it was (another archer's bow, the
+    // ground), and shows on this one once the archer has turned and has a hand on it, so
+    // it neither jumps across the stage nor goes round with the drawing as it turns.
+    const fade = 1 - clamp01((t - nock.t) / NOCK_FADE);
+    const was = arrowAt(project, scene, shot, id, t, depth + 1, nock.t);
+    if (!was) return { fade };
+    if ('fade' in was) return { fade: was.fade * fade };
+    return { ...was, opacity: (was.opacity ?? 1) * fade };
+  }
   // On the string: while the aim lasts, and after it on a lowered bow, while the archer
   // still holds one.
   const on = onTheString(project, scene, shot, archer, t, depth);
@@ -1952,7 +1986,7 @@ function arrowAt(
     scale,
     perspective: on.perspective,
     visible: true,
-    opacity: clamp01((t - nock.t) / NOCK_FADE),
+    opacity: clamp01((t - nocked) / NOCK_FADE),
     locomotion: 'idle',
     nockedOn: archer,
   };

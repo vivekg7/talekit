@@ -627,6 +627,12 @@ const BOW_SHOULDER: Pt = [14, -4];
  * leaves it from `leave` and is on the string `toString` later.
  */
 const HAND_OVER = { meet: 0.26, pass: 0.21, passing: 0.08, leave: 0.28, toString: 0.14 };
+/**
+ * Seconds into an aim the drawing hand is on the string, so the arrow can be nocked: once
+ * the hand-over is done, if there is one; at once on a bow already in the bow hand.
+ */
+export const nockDelay = (handOver: boolean): number =>
+  handOver ? HAND_OVER.leave + HAND_OVER.toString / 2 : 0;
 /** Box units from the bow hand back to the string at rest, about: where the draw starts. */
 const BRACE = 30;
 /** How far the drawing hand flicks back past the anchor as it lets go (box units). */

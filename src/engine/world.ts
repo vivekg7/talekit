@@ -402,12 +402,15 @@ function jumpRule(project: Project, shot: Shot, samples: Sample[]): Finding[] {
       const b = samples[i].actors.find((x) => x.id === id)!;
       if (!seen(a) || !seen(b) || a.streak || b.streak || a.falling || b.falling) continue;
       // Carried through its carrier's turn or swung in a blow, it goes where the drawing
-      // goes; an arrow on a bowstring goes where the engine's aim puts it (its jumps there are
-      // engine work, listed in docs/PLAN.md 8.1).
+      // goes; so does an arrow on the string of a bow through its archer's turn.
+      const archer = (s: Sample, x: ActorState) =>
+        x.nockedOn ? s.actors.find((o) => o.id === x.nockedOn) : undefined;
+      const turning = (s: Sample, x: ActorState) => !!archer(s, x)?.turn;
       if (
         (a.heldBy && a.heldBy === b.heldBy && (a.turn || b.turn || a.tilt || b.tilt)) ||
-        a.nockedOn ||
-        b.nockedOn
+        (a.nockedOn &&
+          a.nockedOn === b.nockedOn &&
+          (turning(samples[i - 1], a) || turning(samples[i], b)))
       )
         continue;
       const dt = samples[i].t - samples[i - 1].t;
