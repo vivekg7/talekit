@@ -1,9 +1,9 @@
-import { cp, mkdtemp, rm, stat, utimes } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { NOTES_FILE } from '../src/project/notes.js';
+import { loadNotes, NOTES_FILE } from '../src/project/notes.js';
 import { serve } from '../src/viewer/server.js';
 
 describe('review app', () => {
@@ -26,10 +26,15 @@ describe('review app', () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'talekit-viewer-'));
     await cp('examples/lost-kite', root, { recursive: true });
     await rm(path.join(root, NOTES_FILE), { force: true });
-    const a = await serve(root, 4860);
-    const b = await serve('examples/lighthouse', 4860);
+    // The film and the other one on one port, each under its own path.
+    const app = await serve([root, 'examples/lighthouse'], 4860);
+    expect(app.urls.map((u) => new URL(u).port)).toEqual([
+      new URL(app.url).port,
+      new URL(app.url).port,
+    ]);
+    expect(new URL(app.urls[1]).pathname).toBe('/lighthouse/');
     const call = (url: string, method = 'GET', body?: unknown) =>
-      fetch(new URL(url, a.url), {
+      fetch(new URL(url, app.url), {
         method,
         headers: { 'content-type': 'application/json' },
         body: body === undefined ? undefined : JSON.stringify(body),
@@ -37,6 +42,7 @@ describe('review app', () => {
     try {
       const info = await call('api/project');
       expect(info.apps.map((x: { here: boolean }) => x.here)).toEqual([true, false]);
+      expect(info.apps[1].slug).toBe('lighthouse');
       expect(info.safe).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
       const line = info.lines[0];
       expect(line.end).toBeGreaterThan(line.t);
@@ -54,9 +60,128 @@ describe('review app', () => {
       const closed = await call(`api/notes/${n.id}`, 'PATCH', { status: 'done', checked: true });
       expect([closed.status, closed.toCheck]).toEqual(['done', undefined]);
     } finally {
-      a.close();
-      b.close();
+      app.close();
       await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('lays a choice of an option over the film, and keeps only the last pick', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'talekit-options-'));
+    await cp('examples/lost-kite', root, { recursive: true });
+    await rm(path.join(root, NOTES_FILE), { force: true });
+    const mia = JSON.parse(await readFile(path.join(root, 'characters/mia.json'), 'utf8'));
+    mia.colors.dress = '#d62828';
+    await mkdir(path.join(root, 'options/dress/red/characters'), { recursive: true });
+    await writeFile(path.join(root, 'options/dress/red/characters/mia.json'), JSON.stringify(mia));
+    await writeFile(
+      path.join(root, 'options/dress/question.json'),
+      JSON.stringify({ ask: 'Which dress?', choices: { red: 'stands out' } })
+    );
+    const shot = JSON.parse(await readFile(path.join(root, 'shots/03-flying.json'), 'utf8'));
+    await mkdir(path.join(root, 'options/take/long/shots'), { recursive: true });
+    await writeFile(
+      path.join(root, 'options/take/long/shots/x.json'),
+      JSON.stringify({ ...shot, duration: shot.duration + 5 })
+    );
+    const app = await serve(root, 4880);
+    const get = (url: string) => fetch(new URL(url, app.url));
+    const post = (url: string, body: unknown) =>
+      fetch(new URL(url, app.url), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      }).then((r) => r.json());
+    try {
+      const info = await (await get('api/project')).json();
+      const dress = info.options.find((q: { id: string }) => q.id === 'dress');
+      expect(dress.ask).toBe('Which dress?');
+      expect(dress.choices).toEqual([
+        expect.objectContaining({ id: 'red', label: 'stands out', characters: ['mia'] }),
+      ]);
+      // Mia is in every shot, so the dress shows in all of them; the take in its own.
+      expect(dress.touches).toHaveLength(info.shots.length);
+      expect(info.options.find((q: { id: string }) => q.id === 'take').touches).toEqual(['flying']);
+      // The take replaces its shot in place, whatever its file is called.
+      const long = await (await get('api/project?opt=take:long')).json();
+      expect(long.shots.map((s: { id: string }) => s.id)).toEqual(
+        info.shots.map((s: { id: string }) => s.id)
+      );
+      expect(long.duration).toBeCloseTo(info.duration + 5);
+      const sheet = (q: string) => get(`api/sheet?id=mia${q}`).then((r) => r.text());
+      expect(await sheet('&opt=dress:red')).toContain('#d62828');
+      expect(await sheet('')).not.toContain('#d62828');
+      // A choice that is gone (the agent wrote the pick in) is the film as it is.
+      expect((await (await get('api/project?opt=dress:blue')).json()).duration).toBe(info.duration);
+
+      await post('api/pick', { target: { kind: 'option', id: 'dress', choice: 'red' } });
+      const last = await post('api/pick', {
+        target: { kind: 'option', id: 'dress' },
+        text: 'keep it',
+      });
+      const notes = await loadNotes(root);
+      expect(notes.map((n) => n.id)).toEqual([last.id]);
+      expect(last.id).toBe('n2');
+      expect(
+        (await post('api/notes', { target: { kind: 'file', id: 'a.wav' }, text: 'x' })).error
+      ).toMatch(/board/);
+    } finally {
+      app.close();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('serves a board of samples beside the film, and its sample projects', async () => {
+    const board = await mkdtemp(path.join(os.tmpdir(), 'talekit-board-'));
+    await mkdir(path.join(board, 'tunes'));
+    await cp('sounds/music/calm.ogg', path.join(board, 'tunes/a.ogg'));
+    await cp('sounds/music/chase.ogg', path.join(board, 'tunes/b.ogg'));
+    await cp('examples/lighthouse', path.join(board, 'walk'), { recursive: true });
+    await writeFile(
+      path.join(board, 'board.json'),
+      JSON.stringify({ title: 'Music', labels: { tunes: 'Which tune?' } })
+    );
+    const app = await serve(['examples/lost-kite', board], 4890);
+    const at = app.urls[1];
+    const get = (url: string) => fetch(new URL(url, at));
+    const post = (url: string, body: unknown) =>
+      fetch(new URL(url, at), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      }).then((r) => r.json());
+    try {
+      expect(await (await get('')).text()).toContain('talekit samples');
+      const info = await (await get('api/board')).json();
+      expect(info.title).toBe('Music');
+      const tunes = info.groups.find((g: { dir: string }) => g.dir === 'tunes');
+      expect(tunes.label).toBe('Which tune?');
+      expect(tunes.entries.map((e: { path: string }) => e.path)).toEqual([
+        'tunes/a.ogg',
+        'tunes/b.ogg',
+      ]);
+      const walk = info.groups[0].entries.find((e: { kind: string }) => e.kind === 'project');
+      // The sample project has its own review page on the same server.
+      const sample = await fetch(new URL(`/${walk.slug}/api/project`, app.url)).then((r) =>
+        r.json()
+      );
+      expect(sample.shots.length).toBeGreaterThan(0);
+      const file = await get('file?path=tunes/a.ogg');
+      expect(file.headers.get('content-type')).toBe('audio/ogg');
+      expect((await get('file?path=../board.json')).status).toBe(500);
+      await post('api/pick', { target: { kind: 'file', id: 'tunes/a.ogg' } });
+      const b = await post('api/pick', {
+        target: { kind: 'file', id: 'tunes/b.ogg' },
+        text: 'livelier',
+      });
+      expect((await loadNotes(board)).map((n) => n.id)).toEqual([b.id]);
+      expect((await post('api/pick', { target: { kind: 'file', id: '../x' } })).error).toBeTruthy();
+      // The index lists the film and the board, not the board's sample.
+      const index = await fetch(app.url.replace(/[^/]+\/$/, '')).then((r) => r.text());
+      expect(index).toContain('Music');
+      expect(index).not.toContain(`/${walk.slug}/`);
+    } finally {
+      app.close();
+      await rm(board, { recursive: true, force: true });
     }
   });
 

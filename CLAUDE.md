@@ -48,6 +48,9 @@ reasoning are in `docs/PLAN.md`. Read both before changing the data model.
   `guide.ts` prints one section of the authoring guide (the critic's
   checklist), so the guide stays its one copy;
   `notes.ts` is the review-note store shared by the viewer and the MCP;
+  `options.ts` lists a film's options (`options/<question>/<choice>/`, a
+  second way of drawing or staging something for the person to pick),
+  which `loadProject(root, dirs)` in `store.ts` lays over the project;
   `voices.ts` speaks the lines and `hear.ts` hears each take (whisper.cpp),
   saying a line again when its take does not say it;
   `posts.ts` lints the text a video is posted with (`out/youtube.txt`,
@@ -65,9 +68,11 @@ reasoning are in `docs/PLAN.md`. Read both before changing the data model.
   the source, so a helper's docstring is its documentation. `test/kit.test.ts`
   runs both through `talekit check`; keep its output in the file format.
 - `src/mcp/server.ts`, `src/cli.ts`, `src/viewer/` — thin interfaces over
-  the same code. The viewer is one embedded page (`page.ts`, no framework, no
-  build) plus a small HTTP server (`server.ts`), which draws its frames and
-  sheets in `draw-worker.ts`, started afresh when the source changes.
+  the same code. The viewer is one small HTTP server (`server.ts`) that
+  serves every film, reel and board of samples under its own path, with
+  two embedded pages (no framework, no build): `page.ts` for a project,
+  `board-page.ts` for a board. It draws frames and sheets in
+  `draw-worker.ts`, started afresh when the source changes.
 - `examples/lost-kite/` — one-minute story used as the integration check.
   `examples/lighthouse/` — written through the MCP tools as the phase 6 run;
   it exercises from-scratch characters, custom variants, carrying a prop

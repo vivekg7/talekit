@@ -56,10 +56,12 @@ frames)` are full size. To fix a shot, `patch_shot(path, shotId, …)`:
    [Subtitles and the .mkv](#subtitles-and-the-mkv)). Render the reel the
    same way.
 7. **Review notes.** Once both are rendered, `open_review([film, reel])`
-   (from a shell, `talekit serve <film> <reel> --open`) serves a review app
-   for each and opens the first in the person's browser (each page switches
-   to the other); give them the two addresses it returns. They watch and
-   leave notes on a character, a scene or a moment of a shot. Pass
+   (from a shell, `talekit serve <film> <reel> --open`) serves both from
+   one review server, each under its own path (`…:4848/<folder>/`), and
+   opens the first in the person's browser; each page switches to the
+   others. Give them the addresses it returns. They watch and
+   leave notes on a character, a scene or a moment of a shot, and pick
+   among the film's [options](#options-and-samples) if it has any. Pass
    `lan: true` only when they ask to review on their phone.
    When `project_info` reports open notes, or you are asked to "fix my
    notes", `list_notes(path)` gives each with the picture the person saw.
@@ -70,6 +72,9 @@ frames)` are full size. To fix a shot, `patch_shot(path, shotId, …)`:
    Fix it, check the new picture, then `resolve_note(path, id)`; the person
    then confirms the fix or reopens it. Do not resolve a note you did not
    act on; say why instead.
+   `looking at option q:c` means they wrote it with that choice laid over
+   the film, and its picture has it; `picked c` on an option is their pick
+   (see [Options](#options-and-samples)).
 8. **Cover and post text.** Every film and reel ships with a thumbnail
    and the words to post it with, both in its `out/`. From a shell,
    `talekit cover <dir> <shotId> -t <sec> --title "…" [--sub "…"] [--tag
@@ -1616,6 +1621,53 @@ copied; the scenes and shots are new.
 - **One file to post.** `render` writes only `out/movie.mp4`, one picture
   and one sound track, bubbles and captions in the picture; no .mkv, since
   the apps play neither extra sound nor subtitle tracks.
+
+## Options and samples
+
+Make a thing one way: the right way, as well as you can judge it. Write it
+more than one way only where you cannot tell which the person wants and
+guessing wrong costs a round of notes: two ways to stage the turn of the
+story, two drawings of a new animal, a slow and a quick chase. Not for
+small things, and never as a menu for each shot; most films have none.
+
+**An option** is a folder in the project, `options/<question>/`, with one
+folder per choice beside a `question.json`. A choice is laid out like the
+project (`characters/`, `scenes/`, `shots/`, a partial `talekit.json`,
+`audio/`) and holds only what it changes: an item there replaces the
+project's one of the same id, a new id joins it (a shot plays in its file
+name's place, `03b-x.json` after `03-y.json`), its `talekit.json` is laid
+over the meta and its `audio/` files over the project's. The project as it
+is stays the first choice ("as it is"), so write only the alternatives.
+`question.json` is optional: `{ "ask": "Which tail for the camel?",
+"choices": { "long": "rooted deep, hangs clear" }, "shot": "khet", "t":
+3.2 }`, where `shot` and `t` are where the difference shows best. From a
+kit script, `write(option(PROJ, "tail", "long", ask=…, label=…), camel)`
+writes a character into a choice, and `F.option("chase", "slow")` gives a
+`Film` whose shots (same ids as the film's) go into one. `talekit voice`
+speaks the choices' lines too.
+
+Nothing renders an option, and `talekit check` and `render` look only at
+the project. The review app lists the questions a shot shows beside its
+picture: the person switches between the choices in the film (`O`), sees
+them side by side under Options, and picks one. A link can open on a
+choice: `…/<folder>/?opt=tail:long&view=options`. The pick comes back as
+a note, `option tail · picked long`; write that choice into the film (into
+the story's `src/` too, when the JSON is generated), delete
+`options/tail/`, and resolve the note. A pick of "as it is" needs only the
+folder deleted.
+
+**Samples** are for what is not in a film yet: two voices for the
+narrator, three tunes for the opening, a verb tried on a sample project.
+Put them in a folder of their own, outside the projects, and serve it:
+`open_review([film, reel, folder])`. Any folder that is not a project is a
+board: each sound, video and picture gets a player, each folder of them is
+one choice to pick from, and a folder inside it that is a talekit project
+(a sample animation) plays its `out/movie.mp4`, or a frame, and opens in
+its own review page. An optional `board.json`, `{ "title": …, "ask": …,
+"labels": { "voices": "Which narrator?", "voices/a.wav": "hf_alpha,
+slower" } }`, says what to decide and what each one is. Notes and picks
+land in the board's `notes.json`; `list_notes(folder)` reads them
+(`file voices/a.wav · picked · warmer`).
 
 ## Pacing a children's story
 

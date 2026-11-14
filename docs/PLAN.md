@@ -113,6 +113,20 @@ The full schema is the authoring guide.
       lost the first ask, so a resolved note waits for the person to agree,
       and reopening it adds a reply to the same note. Notes done before
       `toCheck` existed count as checked, so released films stay quiet.
+      One server and options, 2026-11-14. A film and its reel were two
+      servers on two ports, and voice and music trials were hand-made HTML
+      pages beside the stories, so a person had several tabs and no notes
+      on the trials. Now one server holds every film, reel and board, each
+      under its own path. A board is any folder that is not a project: its
+      sounds, videos, pictures and sample projects, each with a player,
+      notes and a pick. Where the agent cannot tell which of two ways the
+      person wants, it writes an option (`options/<question>/<choice>/`,
+      laid like the project and over it by `loadProject`), which the person
+      switches between in the film and picks; the pick is a note, and the
+      agent writes it into the source and deletes the folder. Options stay
+      out of the file format proper (`check` and `render` never see them),
+      because the films are generated from Python sources a server could
+      not write back to.
 - [ ] **Phase 6 — Polish loop.** Run the MCP on a fresh story, watch where
       the agent struggles, fix the guide or the engine. Two passes so far.
       `examples/lighthouse` led to empty variants, custom variants on the

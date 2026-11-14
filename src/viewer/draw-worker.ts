@@ -9,14 +9,14 @@ import { characterSheetSvg, constructionSheetSvg, sceneSheetSvg } from '../rende
  * without restarting the app: the server starts a fresh worker, which imports the code as
  * it now is, whenever a source file changes (see `drawSvg` in server.ts).
  */
-export type DrawRequest = { root: string } & (
+export type DrawRequest = { root: string; /** option choices laid over it */ over: string[] } & (
   | { kind: 'frame'; shot: string; t: number; debug: boolean }
   | { kind: 'sheet'; id: string; construction: boolean }
 );
 type DrawJob = DrawRequest & { seq: number };
 
 async function draw(job: DrawJob): Promise<string> {
-  const project = await loadProject(job.root);
+  const project = await loadProject(job.root, job.over);
   if (job.kind === 'frame') {
     const shot = project.shots.find((s) => s.id === job.shot);
     if (!shot) throw new Error('unknown shot');

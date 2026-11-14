@@ -66,11 +66,13 @@ import { writeMkv } from '../render/mkv.js';
 import { isPortrait } from '../engine/format.js';
 import { renderVideo } from '../render/video.js';
 import { openInBrowser } from '../viewer/open.js';
-import { serve } from '../viewer/server.js';
+import { startReview, type Review } from '../viewer/server.js';
 import { hearingLines, makeVoices } from '../project/voices.js';
 import { MOUTH_SOUNDS, SOUNDS, STARTLES } from '../library/sounds.js';
 import { VOICES } from '../library/voices.js';
 import { describeNote, loadNotes, markSpot, setNoteStatus, type Note } from '../project/notes.js';
+import { choiceDirs, listOptions, type Question } from '../project/options.js';
+import { isProject } from '../project/store.js';
 
 type Content =
   { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: 'image/png' };
@@ -190,11 +192,25 @@ function soundSummary(project: Project): string {
   ].join('\n');
 }
 
+/** The open questions, for project_info: each choice, and whether it has been picked. */
+function optionLines(options: Question[]): string[] {
+  if (!options.length) return [];
+  return [
+    '',
+    '## Options (options/: the person picks one in the review app; list_notes has the pick)',
+    ...options.map(
+      (q) =>
+        `- ${q.id}${q.ask ? ` (${q.ask})` : ''}: as it is, ${q.choices.map((c) => c.id).join(', ')} · shows in ${q.touches.join(', ') || 'no shot'}`
+    ),
+  ];
+}
+
 function describeProject(
   root: string,
   project: Project,
   problems: Problem[],
-  notes: Note[]
+  notes: Note[],
+  options: Question[] = []
 ): string {
   const open = notes.filter((n) => n.status === 'open');
   const lines = [
@@ -234,6 +250,7 @@ function describeProject(
       ? `${open.length} open — call list_notes to see them with pictures, fix each, then resolve_note.`
       : 'none open',
     `Review app: open_review, or \`talekit serve ${projectPaths(root).root} --open\` (the person leaves notes there)`,
+    ...optionLines(options),
   ];
   return lines.join('\n');
 }
@@ -301,7 +318,15 @@ export function buildServer(): McpServer {
       try {
         const project = await loadProject(root);
         return ok(
-          text(describeProject(root, project, validateProject(project), await loadNotes(root)))
+          text(
+            describeProject(
+              root,
+              project,
+              validateProject(project),
+              await loadNotes(root),
+              await listOptions(root, project)
+            )
+          )
         );
       } catch (e) {
         return fail((e as Error).message);
@@ -800,19 +825,19 @@ export function buildServer(): McpServer {
     }
   );
 
-  // Review apps started by open_review, by project root; they live as long as this server.
-  const reviews = new Map<string, string>();
+  // The review server open_review started; it lives as long as this server.
+  let review: Review | undefined;
   server.registerTool(
     'open_review',
     {
-      title: 'Open the review apps',
+      title: 'Open the review app',
       description:
-        "Serve the review app for each project (the film and its reel, after both are rendered) on 127.0.0.1 and open the first in the person's browser (Firefox when it is running, else the default), so they can watch and leave notes; each page has a switch to the others. A project already served by this call keeps its address. With lan, also on the local network, for reviewing a reel on a phone (anyone on that network can open it): only when the person asks. Returns the addresses: tell the person.",
+        "Serve the review app for each folder on one server at 127.0.0.1, each under its own path, and open the first in the person's browser (Firefox when it is running, else the default), so they can watch and leave notes; each page has a switch to the others. A project (the film and its reel, after both are rendered) gets the film review with its options; any other folder is a board of samples (sounds, videos, pictures, sample projects) to listen to, note and pick from. A folder already served keeps its address. With lan, also on the local network, for reviewing a reel on a phone (anyone on that network can open it): only when the person asks. Returns the addresses: tell the person.",
       inputSchema: {
         paths: z
           .array(z.string())
           .min(1)
-          .describe('Absolute project directories, the landscape film first'),
+          .describe('Absolute directories: projects, the landscape film first, or boards'),
         lan: z
           .boolean()
           .optional()
@@ -821,21 +846,17 @@ export function buildServer(): McpServer {
     },
     async ({ paths, lan }) => {
       try {
-        const urls: string[] = [];
-        for (const root of paths) {
-          // Asked again with lan, a project served on 127.0.0.1 only is served afresh.
-          const key = projectPaths(root).root + (lan ? ' lan' : '');
-          let url = reviews.get(key);
-          if (!url) {
-            const last = [...reviews.values()].at(-1);
-            const port = last ? Number(new URL(last).port) + 1 : 4848;
-            url = (await serve(projectPaths(root).root, port, { lan })).url;
-            reviews.set(key, url);
-          }
-          if (!urls.length) openInBrowser(url);
-          urls.push(`${url}  ${projectPaths(root).root}`);
+        // Asked for lan, a server on 127.0.0.1 only is started afresh with what it had.
+        if (!review || (lan && !review.lan)) {
+          const had = review?.roots() ?? [];
+          review?.close();
+          review = await startReview(4848, { lan: lan || review?.lan });
+          for (const root of had) await review.add(root);
         }
-        return ok(text(`review apps open:\n${urls.join('\n')}`));
+        const urls: string[] = [];
+        for (const root of paths) urls.push(`${await review.add(root)}  ${path.resolve(root)}`);
+        openInBrowser(urls[0].split('  ')[0]);
+        return ok(text(`review open:\n${urls.join('\n')}`));
       } catch (e) {
         return fail((e as Error).message);
       }
@@ -972,7 +993,7 @@ export function buildServer(): McpServer {
     {
       title: 'List review notes',
       description:
-        'Notes a person left in the review app (open_review) on a character, a scene, or one moment of a shot. Each open note comes with a picture of what they were looking at: the frame at that moment for a shot note, the pose or anchor sheet for an asset note. A shot note may name a spot they clicked, "at (x, y)" in frame pixels, ringed on its picture: that is what the note is about. "reopened: ..." is what they added when an earlier fix did not settle it; fix that too. Fix what the note asks, check the result, then call resolve_note.',
+        'Notes a person left in the review app (open_review) on a character, a scene, one moment of a shot, an option, or (on a board of samples) a file. Each open note on a project comes with a picture of what they were looking at: the frame at that moment for a shot note, the pose or anchor sheet for an asset note. A shot note may name a spot they clicked, "at (x, y)" in frame pixels, ringed on its picture: that is what the note is about. "looking at option q:c" means they wrote it with that choice laid over the film; the picture has it. "picked c" on an option is their choice: write it into the film (into its source too, if the story is generated), delete options/<question>/, then resolve the note; "picked" on a file is the sample they chose. "reopened: ..." is what they added when an earlier fix did not settle it; fix that too. Fix what the note asks, check the result, then call resolve_note.',
       inputSchema: {
         path: pathArg,
         all: z.boolean().optional().describe('Include resolved notes (default: open only)'),
@@ -982,13 +1003,33 @@ export function buildServer(): McpServer {
       try {
         const notes = (await loadNotes(root)).filter((n) => all || n.status === 'open');
         if (!notes.length) return ok(text(all ? 'no notes' : 'no open notes'));
-        const project = await loadProject(root);
+        // A board of samples has no pictures to draw: its notes name the file.
+        if (!isProject(root)) return ok(...notes.map((n) => text(describeNote(n))));
+        const base = await loadProject(root);
         const content: Content[] = [];
         let pictures = 0;
         for (const n of notes) {
           content.push(text(describeNote(n)));
           if (n.status !== 'open' || pictures >= 8) continue;
-          const { kind, id, t, at } = n.target;
+          const { kind, id, t, at, choice } = n.target;
+          // Drawn with the options the person was looking at, or the choice they picked.
+          const picks =
+            kind === 'option' ? (choice ? { [id]: choice } : {}) : (n.target.options ?? {});
+          const over = choiceDirs(root, picks);
+          const project = over.length ? await loadProject(root, over) : base;
+          if (kind === 'option') {
+            const q = (await listOptions(root, base)).find((x) => x.id === id);
+            if (!q) {
+              content.push(text(`  (option '${id}' is no longer in options/)`));
+              continue;
+            }
+            const shot = project.shots.find((s) => s.id === (q.shot ?? q.touches[0]));
+            if (shot) {
+              content.push(image(composeFrame(project, shot, q.t ?? shot.duration / 2)));
+              pictures++;
+            }
+            continue;
+          }
           const shot = kind === 'shot' ? project.shots.find((s) => s.id === id) : undefined;
           const frame = shot && composeFrame(project, shot, t ?? shot.duration / 2);
           const svg = frame

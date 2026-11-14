@@ -1,6 +1,7 @@
 /**
  * The review app, as one self-contained page. No framework, no build step: the server
- * embeds it, and everything dynamic comes from /api/*. Written without backticks or `${`
+ * embeds it at /<slug>/, and everything dynamic comes from its api/*, by relative address so
+ * one server can hold the film, its reel and a board. Written without backticks or `${`
  * so it can live inside a template literal.
  *
  * The watch view is a grid: the picture takes all the room the controls leave, at the film's
@@ -16,7 +17,7 @@ export const PAGE = String.raw`<!doctype html><html><head><meta charset='utf-8'>
 body{margin:0;font:14px system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;height:100vh}
 header{display:flex;gap:12px;align-items:center;padding:8px 14px;background:var(--panel);flex-wrap:wrap}
 header strong{font-size:16px}
-#apps{display:flex;gap:2px;background:var(--bg);border-radius:7px;padding:2px}
+#apps{display:flex;flex-wrap:wrap;max-width:100%;gap:2px;background:var(--bg);border-radius:7px;padding:2px}
 #apps:empty{display:none}
 #apps a{color:var(--dim);text-decoration:none;padding:4px 10px;border-radius:5px}
 #apps a.on{background:var(--panel);color:var(--text)}
@@ -140,6 +141,32 @@ body.portrait #shots .shot b{white-space:normal}
 #lightbox.on{display:flex}
 #lightbox img{max-width:none;background:#e9eef3;border-radius:6px}
 
+/* ---- options: the choices a question offers, looked at in the film and picked ---- */
+#looking{display:flex;gap:6px;align-items:center;font-size:12px}
+#looking:empty{display:none}
+#looking .chip{background:var(--pin);color:#fff;border-radius:4px;padding:1px 6px}
+#looking button{background:none;border:0;color:var(--dim);cursor:pointer}
+.opt{background:var(--panel);border-radius:6px;padding:8px 9px;display:flex;flex-direction:column;gap:6px;border-left:3px solid var(--pin)}
+.opt.picked{border-left-color:var(--ok)}
+.opt .ask{font-weight:600}
+.opt .qid{color:var(--dim);font-size:12px;font-family:ui-monospace,monospace;margin-left:6px;font-weight:normal}
+.opt .choices{display:flex;gap:4px;flex-wrap:wrap}
+.opt .choices button{background:none;border:1px solid var(--line);color:var(--text);padding:3px 9px;border-radius:5px;cursor:pointer}
+.opt .choices button.on{border-color:var(--pin);background:var(--pin);color:#fff}
+.opt .choices button.won{box-shadow:inset 0 -3px 0 var(--ok)}
+.opt .say{color:var(--dim);font-size:12px}
+.opt .state{color:var(--ok);font-size:12px}
+#options-list{padding:14px;display:flex;flex-direction:column;gap:18px}
+#options-list .opt{background:none;padding:0 0 0 12px}
+#options-list .cands{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+#options-list .cand{background:var(--panel);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;border:2px solid transparent}
+#options-list .cand.won{border-color:var(--ok)}
+#options-list .cand img{width:100%;display:block;background:#000;cursor:zoom-in}
+#options-list .cand img.sheet{background:#e9eef3;max-height:260px;object-fit:cover;object-position:top}
+#options-list .cand .body{padding:8px 10px;display:flex;flex-direction:column;gap:6px}
+#options-list .cand .what{color:var(--dim);font-size:12px}
+body.portrait #options-list .cands{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+
 /* ---- a phone, or a narrow window: one column, the page scrolls ---- */
 @media (max-width:860px){
   #film,body.portrait #film{display:flex;flex-direction:column;flex:none}
@@ -153,11 +180,12 @@ body.portrait #shots .shot b{white-space:normal}
 }
 </style></head><body>
 <header>
-  <strong>talekit</strong><span id='apps'></span><span id='title'></span><span id='live' title='watching the project directory'></span>
+  <strong>talekit</strong><span id='apps'></span><span id='title'></span><span id='live' title='watching the project directory'></span><span id='looking'></span>
   <nav>
     <button data-view='film' class='on'>Watch</button>
     <button data-view='characters'>Characters</button>
     <button data-view='scenes'>Scenes</button>
+    <button data-view='options' id='nav-options' hidden>Options<span class='n' id='nopt' hidden></span></button>
     <button data-view='notes'>Notes<span class='n' id='nopen' hidden></span><span class='n check' id='ncheck' hidden></span></button>
   </nav>
 </header>
@@ -179,8 +207,8 @@ body.portrait #shots .shot b{white-space:normal}
       <span class='gap'></span>
       <button class='ghost' id='sound-btn' title='The sound levels, one slider per layer'>Sound</button>
       <button class='ghost' id='help-btn' title='Keys and how notes work'>?</button>
-      <div id='help'><span class='keys'><kbd>Space</kbd> plays · <kbd>←</kbd> <kbd>→</kbd> step one frame · <kbd>[</kbd> <kbd>]</kbd> change shot · <kbd>N</kbd> writes a note · <kbd>L</kbd> loops the shot · <kbd>S</kbd> shows the safe area · <kbd>Esc</kbd> lets go of the pin.<br></span>
-        Click the picture to pin a spot: the note points at it, and the agent sees it ringed. Click a line in the script to jump to it, or its ❝ to quote it in the note. A fix the agent closed waits under <i>fixed: check it</i> until you agree or reopen it with what is still wrong. The sound is the film's, played through the sliders: move one while it plays to hear the change.</div>
+      <div id='help'><span class='keys'><kbd>Space</kbd> plays · <kbd>←</kbd> <kbd>→</kbd> step one frame · <kbd>[</kbd> <kbd>]</kbd> change shot · <kbd>N</kbd> writes a note · <kbd>L</kbd> loops the shot · <kbd>O</kbd> switches between a shot's options · <kbd>S</kbd> shows the safe area · <kbd>Esc</kbd> lets go of the pin.<br></span>
+        Click the picture to pin a spot: the note points at it, and the agent sees it ringed. Click a line in the script to jump to it, or its ❝ to quote it in the note. A fix the agent closed waits under <i>fixed: check it</i> until you agree or reopen it with what is still wrong. The sound is the film's, played through the sliders: move one while it plays to hear the change. Where the agent wrote something more than one way, the shot lists the options: look at each in the film, then pick one (the Options tab shows them side by side).</div>
     </div>
     <div id='mixer' hidden><b>Sound</b>
       <label>Voices <input type='range' data-k='voices' min='-30' max='12' step='0.5' value='0'><output></output></label>
@@ -198,12 +226,14 @@ body.portrait #shots .shot b{white-space:normal}
       <div id='note-where'></div>
       <textarea id='note-text' placeholder='What is wrong at this moment? Click the picture to point at it. (Enter adds, Shift+Enter for a new line)'></textarea>
       <div class='row'><button class='act' id='note-add'>Add note</button><span class='hint' id='note-hint'></span></div>
+      <div id='shot-options'></div>
       <h3>Notes on this shot</h3><div id='shot-notes'></div>
       <h3>Script</h3><div id='script'></div>
     </aside>
   </div></section>
   <section class='view' id='view-characters'><div class='grid' id='characters'></div></section>
   <section class='view' id='view-scenes'><div class='grid' id='scenes'></div></section>
+  <section class='view' id='view-options'><div id='options-list'></div></section>
   <section class='view' id='view-notes'>
     <div id='notes-bar'><button class='ghost on' data-f='todo'>Open and to check</button><button class='ghost' data-f='all'>All</button></div>
     <div id='notes-list'></div>
@@ -221,19 +251,29 @@ var store = function (k, v) { try { if (v === undefined) return JSON.parse(local
 var shotStart = function (s) { var sum = 0; for (var i = 0; i < info.shots.length; i++) { if (info.shots[i].id === s.id) break; sum += info.shots[i].duration; } return sum; };
 var rate = function () { return Number($('rate').value); };
 var fine = matchMedia('(pointer: fine)').matches;
+/* The options being looked at, { question: choice }: every picture and the project come with them. */
+var sel = store('opt:' + location.pathname) || {};
+// A link can carry them (?opt=tail:b), and the view to open on (?view=options).
+var asked = new URLSearchParams(location.search);
+if (asked.has('opt')) { sel = {}; asked.get('opt').split(',').forEach(function (p) { var qc = p.split(':'); if (qc[0] && qc[1]) sel[qc[0]] = qc[1]; }); }
+var looking = function () { return Object.keys(sel).length > 0; };
+var optOf = function (picks) { var k = Object.keys(picks); return k.length ? 'opt=' + encodeURIComponent(k.map(function (q) { return q + ':' + picks[q]; }).join(',')) : ''; };
+var withOpt = function (url, picks) { var o = optOf(picks || sel); return o ? url + (url.indexOf('?') < 0 ? '?' : '&') + o : url; };
 
 /* ---- notes: open, fixed by the agent and waiting for the person, or checked ---- */
 var stateOf = function (n) { return n.status === 'open' ? 'open' : n.toCheck ? 'check' : 'checked'; };
 var notesOn = function (kind, id) { return info.notes.filter(function (n) { return n.target.kind === kind && n.target.id === id; }); };
 var todo = function (n) { return stateOf(n) !== 'checked'; };
 function patchNote(id, body) {
-  return api('/api/notes/' + id, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then(function (r) { if (r.error) alert(r.error); return load(); });
+  return api('api/notes/' + id, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then(function (r) { if (r.error) alert(r.error); return load(); });
 }
 function whereOf(n, full) {
   var g = n.target, w = '';
-  if (full) w = g.kind + ' ' + g.id;
+  if (full || g.kind === 'option') w = g.kind + ' ' + g.id;
+  if (g.kind === 'option') w += ' · ' + (n.pick ? 'picked ' : '') + (g.choice || 'as it is');
   if (g.t !== undefined) w += (w ? ' @ ' : '') + g.t.toFixed(2) + 's';
   if (g.at) w += (w ? ' · ' : '') + 'pinned';
+  if (g.options) w += (w ? ' · ' : '') + 'with ' + Object.keys(g.options).map(function (q) { return q + ': ' + g.options[q]; }).join(', ');
   return w;
 }
 function noteItem(n, full) {
@@ -243,7 +283,13 @@ function noteItem(n, full) {
   d.innerHTML = "<div class='nh'><span class='id'>" + esc(n.id) + "</span><span class='where" + (shotNote ? ' go' : '') + "'>" + esc(whereOf(n, full)) + "</span><span class='st'>" + { open: 'open', check: 'fixed: check it', checked: 'done' }[st] + '</span></div>' +
     '<div>' + esc(n.text) + '</div>' +
     (n.replies || []).map(function (r) { return "<div class='nr'>reopened: " + esc(r.text) + '</div>'; }).join('') + "<div class='nb'></div>";
-  if (shotNote) d.querySelector('.where').onclick = function () { focusNote = n.id; show('film'); jumpTo(n.target.id, n.target.t || 0); };
+  if (n.target.kind === 'option') { d.querySelector('.where').classList.add('go'); d.querySelector('.where').onclick = function () { show('options'); }; }
+  if (shotNote) d.querySelector('.where').onclick = function () {
+    focusNote = n.id; show('film');
+    // What the person was looking at when they wrote it.
+    if (JSON.stringify(n.target.options || {}) !== JSON.stringify(sel)) { setSel(n.target.options || {}).then(function () { jumpTo(n.target.id, n.target.t || 0); }); return; }
+    jumpTo(n.target.id, n.target.t || 0);
+  };
   var nb = d.querySelector('.nb');
   var btn = function (label, cls, fn) { var b = document.createElement('button'); b.className = cls; b.textContent = label; b.onclick = fn; nb.appendChild(b); };
   var reopen = function () {
@@ -260,7 +306,7 @@ function noteItem(n, full) {
     else if (st === 'checked') btn('Reopen', 'ghost', reopen);
     // Closing your own note needs no second look.
     else btn('Close', 'ghost', function () { patchNote(n.id, { status: 'done', checked: true }); });
-    if (full || st === 'open') btn('Delete', 'ghost', function () { if (confirm('Delete ' + n.id + '?')) api('/api/notes/' + n.id, { method: 'DELETE' }).then(load); });
+    if (full || st === 'open') btn('Delete', 'ghost', function () { if (confirm('Delete ' + n.id + '?')) api('api/notes/' + n.id, { method: 'DELETE' }).then(load); });
   };
   render();
   return d;
@@ -276,11 +322,17 @@ function show(v) {
 document.querySelectorAll('nav button').forEach(function (b) { b.onclick = function () { show(b.dataset.view); }; });
 
 function load() {
-  return api('/api/project').then(function (data) {
+  return api(withOpt('api/project')).then(function (data) {
     if (data.error) { $('problems').textContent = data.error; $('live').classList.add('off'); return; }
     $('live').classList.remove('off');
     var first = !info;
     info = data;
+    // A question the agent has settled (and deleted) is no longer looked at.
+    Object.keys(sel).forEach(function (q) {
+      var qq = info.options.find(function (o) { return o.id === q; });
+      if (!qq || !qq.choices.some(function (c) { return c.id === sel[q]; })) delete sel[q];
+    });
+    store('opt:' + location.pathname, sel);
     document.body.classList.toggle('portrait', info.height > info.width);
     document.title = info.title + ' · talekit review';
     $('title').textContent = info.title + ' · ' + info.duration.toFixed(1) + 's · ' + info.shots.length + ' shots';
@@ -289,36 +341,38 @@ function load() {
     var check = info.notes.filter(function (n) { return stateOf(n) === 'check'; }).length;
     $('nopen').hidden = !open; $('nopen').textContent = open; $('nopen').title = open + ' open';
     $('ncheck').hidden = !check; $('ncheck').textContent = check; $('ncheck').title = check + ' fixed, to check';
-    $('source').style.display = info.movie ? '' : 'none';
+    // The video is the film as it is: an option is looked at in live frames.
+    $('source').style.display = info.movie && !looking() ? '' : 'none';
     $('source').options[1].textContent = info.movie ? 'rendered video' + (info.movie.stale ? ' (older than the shots)' : '') : '';
-    if (!info.movie && $('source').value === 'video') $('source').value = 'live';
+    if ((!info.movie || looking()) && $('source').value === 'video') $('source').value = 'live';
     $('safe-label').style.display = info.safe.bottom ? '' : 'none';
-    renderApps(); renderShots(); renderCards('characters'); renderCards('scenes'); renderNotes(); setupSound(); drawSafe();
+    renderApps(); renderShots(); renderCards('characters'); renderCards('scenes'); renderNotes(); renderOptions(); setupSound(); drawSafe();
     var cur = shot && info.shots.find(function (s) { return s.id === shot.id; });
     if (first) {
       // Back where this page was, after a reload or a trip to the film's other cut.
       // A link to a moment (#hua@3.9) wins over that.
       var m = /^#([^@]+)@([\d.]+)$/.exec(decodeURIComponent(location.hash));
-      var was = m ? { shot: m[1], t: Number(m[2]) } : store('at:' + location.port);
+      var was = m ? { shot: m[1], t: Number(m[2]) } : store('at:' + location.pathname);
       cur = was && info.shots.find(function (s) { return s.id === was.shot; });
       if (cur) t = was.t;
     }
     shot = cur || info.shots[0] || null;
     if (shot) { t = Math.min(t, shot.duration); $('scrub').max = shot.duration; }
     renderSide(); syncStage(); fit(); draw();
+    if (first && asked.get('view') && $('view-' + asked.get('view'))) show(asked.get('view'));
   });
 }
 
-/* ---- the film and its reel, switched between from the header ---- */
+/* ---- the film, its reel and any board of samples, switched between from the header ---- */
 function renderApps() {
   var el = $('apps');
   if (info.apps.length < 2) { el.innerHTML = ''; return; }
+  var kindOf = function (a) { return a.kind === 'board' ? 'Samples' : a.portrait ? 'Reel' : 'Film'; };
   var count = {};
-  info.apps.forEach(function (a) { var k = a.portrait ? 'Reel' : 'Film'; count[k] = (count[k] || 0) + 1; });
+  info.apps.forEach(function (a) { var k = kindOf(a); count[k] = (count[k] || 0) + 1; });
   el.innerHTML = info.apps.map(function (a) {
-    var k = a.portrait ? 'Reel' : 'Film';
-    var name = count[k] > 1 ? k + ': ' + a.title : k;
-    return "<a href='" + location.protocol + '//' + location.hostname + ':' + a.port + "/'" + (a.here ? " class='on'" : '') + " title='" + esc(a.title) + "'>" + esc(name) + '</a>';
+    var k = kindOf(a), name = count[k] > 1 ? k + ': ' + a.title : k;
+    return "<a href='../" + encodeURIComponent(a.slug) + "/'" + (a.here ? " class='on'" : '') + " title='" + esc(a.title) + "'>" + esc(name) + '</a>';
   }).join('');
 }
 
@@ -327,7 +381,7 @@ function renderShots() {
   info.shots.forEach(function (s, i) {
     var d = document.createElement('div'); d.className = 'shot'; d.dataset.id = s.id;
     var n = notesOn('shot', s.id).filter(function (x) { return stateOf(x) === 'open'; }).length;
-    d.innerHTML = "<img loading='lazy' src='/api/frame?shot=" + encodeURIComponent(s.id) + '&t=' + (s.duration / 2) + '&v=' + info.version + "'><b>" + (i + 1) + '. ' + esc(s.id) + ' · ' + s.duration + 's' + (n ? " <span class='dots'>" + '●'.repeat(Math.min(n, 5)) + '</span>' : '') + '</b>';
+    d.innerHTML = "<img loading='lazy' src='" + withOpt('api/frame?shot=' + encodeURIComponent(s.id) + '&t=' + (s.duration / 2) + '&v=' + info.version) + "'><b>" + (i + 1) + '. ' + esc(s.id) + ' · ' + s.duration + 's' + (n ? " <span class='dots'>" + '●'.repeat(Math.min(n, 5)) + '</span>' : '') + '</b>';
     d.onclick = function () { jumpTo(s.id, 0); };
     el.appendChild(d);
   });
@@ -354,6 +408,7 @@ function renderSide() {
   var list = shot ? notesOn('shot', shot.id).filter(todo).sort(function (a, b) { return (a.target.t || 0) - (b.target.t || 0); }) : [];
   if (!list.length) el.innerHTML = "<div class='empty'>None open.</div>";
   list.forEach(function (n) { el.appendChild(noteItem(n, false)); });
+  renderShotOptions();
   var sc = $('script'); sc.innerHTML = '';
   var lines = linesHere();
   if (!lines.length) sc.innerHTML = "<div class='empty'>No lines in this shot.</div>";
@@ -400,7 +455,7 @@ function moment() {
 // The address follows the moment too, so a copied link opens on it.
 setInterval(function () {
   if (!shot) return;
-  store('at:' + location.port, { shot: shot.id, t: t });
+  store('at:' + location.pathname, { shot: shot.id, t: t });
   history.replaceState(null, '', '#' + encodeURIComponent(shot.id) + '@' + t.toFixed(2));
 }, 1000);
 function drawPins() {
@@ -454,7 +509,7 @@ function renderCards(kind) {
   items.forEach(function (c) {
     var card = document.createElement('div'); card.className = 'card';
     var meta = kind === 'characters' ? c.rig + ' rig · ' + c.height + 'px' : 'anchors: ' + (c.anchors.join(', ') || 'none');
-    var sheet = '/api/sheet?id=' + encodeURIComponent(c.id) + '&v=' + info.version;
+    var sheet = withOpt('api/sheet?id=' + encodeURIComponent(c.id) + '&v=' + info.version);
     card.innerHTML = "<img loading='lazy' src='" + sheet + "'>" +
       (kind === 'characters' ? "<img loading='lazy' class='construction' title='Construction: what the linter checked' src='" + sheet + "&kind=construction'>" : '') +
       "<div class='body'><div class='title'><b>" + esc(c.name) + '</b><span>' + esc(c.id) + ' · ' + esc(meta) + "</span></div><div class='list'></div>" +
@@ -482,7 +537,8 @@ document.querySelectorAll('#notes-bar button').forEach(function (b) {
 });
 
 function postNote(target, text) {
-  return api('/api/notes', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ target: target, text: text }) }).then(function (r) {
+  if (looking() && target.kind !== 'option') target.options = JSON.parse(JSON.stringify(sel));
+  return api('api/notes', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ target: target, text: text }) }).then(function (r) {
     if (r.error) alert(r.error); else return load();
   });
 }
@@ -498,6 +554,132 @@ $('note-text').onkeydown = function (e) {
   if (e.key === 'Escape') this.blur();
 };
 $('note-text').onfocus = function () { if (playing) $('play').click(); };
+
+/* ---- options: a question the agent wrote more than one way, to look at in the film and pick ---- */
+var AS_IS = 'as it is';
+function setSel(picks) {
+  sel = picks; store('opt:' + location.pathname, sel);
+  if (playing) $('play').click();
+  return load();
+}
+function choose(q, c) {
+  var next = JSON.parse(JSON.stringify(sel));
+  if (c) next[q] = c; else delete next[q];
+  return setSel(next);
+}
+/** The person's last pick on a question, if any. */
+function pickOf(q) {
+  var p = info.notes.filter(function (n) { return n.pick && n.target.kind === 'option' && n.target.id === q; });
+  return p[p.length - 1];
+}
+function pickState(q) {
+  var p = pickOf(q.id);
+  if (!p) return '';
+  return 'picked ' + (p.target.choice || AS_IS) + (p.status === 'open' ? ': the agent writes it into the film' : ', done');
+}
+function postPick(q, c, text) {
+  var target = { kind: 'option', id: q };
+  if (c) target.choice = c;
+  return api('api/pick', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ target: target, text: text || '' }) }).then(function (r) { if (r.error) alert(r.error); return load(); });
+}
+/** Pick, with an optional word on why, in place of the buttons in el. */
+function pickFlow(el, q, c, done) {
+  el.innerHTML = "<textarea placeholder='Why this one? (optional)'></textarea><div class='row'><button class='act'>Pick " + esc(c || AS_IS) + "</button><button class='ghost'>Cancel</button></div>";
+  var ta = el.querySelector('textarea');
+  var go = function () { postPick(q, c, ta.value); };
+  el.querySelector('.act').onclick = go;
+  el.querySelector('.ghost').onclick = done;
+  ta.onkeydown = function (e) { e.stopPropagation(); if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); go(); } if (e.key === 'Escape') done(); };
+  ta.focus();
+}
+var choicesOf = function (q) { return [{ id: '', label: 'the film as it is now' }].concat(q.choices); };
+function changesOf(c) {
+  var bits = [];
+  if (c.shots.length) bits.push('shots ' + c.shots.join(', '));
+  if (c.characters.length) bits.push('characters ' + c.characters.join(', '));
+  if (c.scenes.length) bits.push('scenes ' + c.scenes.join(', '));
+  if (c.meta) bits.push('talekit.json');
+  if (c.audio) bits.push('sounds');
+  return bits.join(' · ');
+}
+/** One question as a row of buttons: look at a choice in the film, then pick it. */
+function optionBox(q) {
+  var d = document.createElement('div'), won = pickOf(q.id);
+  d.className = 'opt' + (won ? ' picked' : '');
+  var cur = sel[q.id] || '', c = choicesOf(q).find(function (x) { return x.id === cur; });
+  d.innerHTML = "<div class='ask'>" + esc(q.ask || 'Which one?') + "<span class='qid'>" + esc(q.id) + "</span></div><div class='choices'></div><div class='say'></div><div class='state'></div><div class='nb'></div>";
+  choicesOf(q).forEach(function (x) {
+    var b = document.createElement('button');
+    b.textContent = x.id || AS_IS; b.title = x.label || '';
+    if (x.id === cur) b.classList.add('on');
+    if (won && (won.target.choice || '') === x.id) b.classList.add('won');
+    b.onclick = function () { choose(q.id, x.id); };
+    d.querySelector('.choices').appendChild(b);
+  });
+  d.querySelector('.say').textContent = (c && c.label) || '';
+  d.querySelector('.state').textContent = pickState(q);
+  var nb = d.querySelector('.nb');
+  var buttons = function () {
+    nb.innerHTML = "<button class='ghost'>Pick " + esc(cur || AS_IS) + '</button>';
+    nb.querySelector('button').onclick = function () { pickFlow(nb, q.id, cur, buttons); };
+  };
+  buttons();
+  return d;
+}
+/** The questions this shot shows, beside the picture. */
+function renderShotOptions() {
+  var el = $('shot-options'); el.innerHTML = '';
+  if (!shot) return;
+  var here = info.options.filter(function (q) { return q.touches.indexOf(shot.id) >= 0; });
+  if (here.length) { var h = document.createElement('h3'); h.textContent = 'Options in this shot (O switches)'; el.appendChild(h); }
+  here.forEach(function (q) { el.appendChild(optionBox(q)); });
+}
+/** Every question side by side, a picture of each choice, in the Options view. */
+function renderOptions() {
+  var undecided = info.options.filter(function (q) { var p = pickOf(q.id); return !p; }).length;
+  $('nav-options').hidden = !info.options.length;
+  $('nopt').hidden = !undecided; $('nopt').textContent = undecided; $('nopt').title = undecided + ' to pick';
+  var bar = $('looking'); bar.innerHTML = '';
+  Object.keys(sel).forEach(function (q) {
+    var chip = document.createElement('span'); chip.className = 'chip'; chip.title = 'Looking at this option; the rendered video is the film as it is';
+    chip.innerHTML = esc(q + ': ' + sel[q]) + " <button title='Back to the film as it is'>×</button>";
+    chip.querySelector('button').onclick = function () { choose(q, ''); };
+    bar.appendChild(chip);
+  });
+  var el = $('options-list'); el.innerHTML = '';
+  if (!info.options.length) { el.innerHTML = "<div class='empty'>No options. The agent writes one only when there is a real choice to make.</div>"; return; }
+  info.options.forEach(function (q) {
+    var won = pickOf(q.id), box = document.createElement('div');
+    box.className = 'opt' + (won ? ' picked' : '');
+    box.innerHTML = "<div class='ask'>" + esc(q.ask || 'Which one?') + "<span class='qid'>" + esc(q.id) + "</span></div><div class='state'>" + esc(pickState(q)) + "</div><div class='cands'></div>";
+    var at = q.shot || q.touches[0], s0 = info.shots.find(function (s) { return s.id === at; });
+    var tt = q.t !== undefined ? q.t : s0 ? s0.duration / 2 : 1;
+    var chars = [];
+    q.choices.forEach(function (c) { c.characters.forEach(function (id) { if (chars.indexOf(id) < 0) chars.push(id); }); });
+    choicesOf(q).forEach(function (c) {
+      var picks = {}; if (c.id) picks[q.id] = c.id;
+      var card = document.createElement('div');
+      card.className = 'cand' + (won && (won.target.choice || '') === c.id ? ' won' : '');
+      var pics = at ? "<img loading='lazy' title='" + esc(at) + ' at ' + tt.toFixed(1) + "s' src='" + withOpt('api/frame?shot=' + encodeURIComponent(at) + '&t=' + tt + '&v=' + info.version, picks) + "'>" : '';
+      chars.forEach(function (id) { pics += "<img loading='lazy' class='sheet' title='" + esc(id) + "' src='" + withOpt('api/sheet?id=' + encodeURIComponent(id) + '&v=' + info.version, picks) + "'>"; });
+      card.innerHTML = pics + "<div class='body'><b>" + esc(c.id || AS_IS) + '</b>' + (c.label ? '<div>' + esc(c.label) + '</div>' : '') +
+        (c.id ? "<div class='what'>" + esc(changesOf(c)) + '</div>' : '') + "<div class='nb'></div></div>";
+      card.querySelectorAll('img').forEach(function (img) { img.onclick = function () { lightbox(this.src); }; });
+      var nb = card.querySelector('.nb');
+      var buttons = function () {
+        nb.innerHTML = '';
+        var watch = document.createElement('button'); watch.className = 'ghost'; watch.textContent = 'Watch it';
+        watch.onclick = function () { choose(q.id, c.id).then(function () { show('film'); if (at) jumpTo(at, q.t !== undefined ? q.t : 0); }); };
+        var pick = document.createElement('button'); pick.className = 'act'; pick.textContent = 'Pick';
+        pick.onclick = function () { pickFlow(nb, q.id, c.id, buttons); };
+        nb.appendChild(watch); nb.appendChild(pick);
+      };
+      buttons();
+      box.querySelector('.cands').appendChild(card);
+    });
+    el.appendChild(box);
+  });
+}
 
 function lightbox(src) { $('lightbox').classList.add('on'); $('lightbox').querySelector('img').src = src; }
 $('lightbox').onclick = function () { $('lightbox').classList.remove('on'); };
@@ -540,7 +722,7 @@ function syncStage() {
     var old = pic.querySelector('video');
     if (old && old.dataset.m !== String(info.movie.mtime)) { if (playing) $('play').click(); old = null; }
     if (!old) {
-      pic.innerHTML = "<video src='/movie.mp4?v=" + info.movie.mtime + "' data-m='" + info.movie.mtime + "' preload='auto' muted playsinline></video>";
+      pic.innerHTML = "<video src='movie.mp4?v=" + info.movie.mtime + "' data-m='" + info.movie.mtime + "' preload='auto' muted playsinline></video>";
       var v = pic.querySelector('video');
       v.muted = true; v.playbackRate = rate();
       v.ontimeupdate = function () { if (!loopVideo(v)) fromVideo(v); };
@@ -559,7 +741,7 @@ function draw() {
   if (video()) return;
   if (busy) { pending = true; return; }
   busy = true;
-  fetch('/api/frame?shot=' + encodeURIComponent(shot.id) + '&t=' + t + ($('debug').checked ? '&debug=1' : '')).then(function (r) { return r.text(); }).then(function (svg) {
+  fetch(withOpt('api/frame?shot=' + encodeURIComponent(shot.id) + '&t=' + t + ($('debug').checked ? '&debug=1' : ''))).then(function (r) { return r.text(); }).then(function (svg) {
     if (!video()) $('pic').innerHTML = svg;
     busy = false; if (pending) { pending = false; draw(); }
   });
@@ -605,6 +787,11 @@ document.addEventListener('keydown', function (e) {
   else if (e.key === '[' && i > 0) jumpTo(info.shots[i - 1].id, 0);
   else if (e.key === 'n') { e.preventDefault(); $('note-text').focus(); }
   else if (e.key === 'l') { $('loop').click(); }
+  else if (e.key === 'o') {
+    // The next choice of the first question in this shot: quick A/B at the same moment.
+    var q = info.options.find(function (x) { return x.touches.indexOf(shot.id) >= 0; });
+    if (q) { var cs = choicesOf(q).map(function (c) { return c.id; }); choose(q.id, cs[(cs.indexOf(sel[q.id] || '') + 1) % cs.length]); }
+  }
   else if (e.key === 's' && info.safe.bottom) { $('safe-on').click(); }
   else if (e.key === 'Escape') { pin = null; focusNote = null; moment(); }
   else if (e.key === '?') $('help-btn').click();
@@ -647,7 +834,7 @@ function setupSound() {
       var el = new Audio(); el.preload = 'auto';
       el.oncanplaythrough = function () { el.oncanplaythrough = null; if (--waiting === 0 && sound.key === st.key) $('mix-status').textContent = ''; };
       el.onerror = function () { $('mix-status').textContent = 'the ' + b + ' layer could not be mixed'; };
-      el.src = '/api/stem?bus=' + b + '&k=' + st.key;
+      el.src = withOpt('api/stem?bus=' + b + '&k=' + st.key);
       sound.els[b] = el;
     });
     if (sound.ctx) connectSound();
@@ -689,7 +876,7 @@ $('mix-reset').onclick = function () { sliders().forEach(function (el) { el.valu
 function saveMix() {
   var mix = {};
   sliders().forEach(function (el) { mix[el.dataset.k] = Math.round(gainOf(Number(el.value)) * 1000) / 1000; });
-  return api('/api/mix', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mix: mix }) }).then(function (r) {
+  return api('api/mix', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mix: mix }) }).then(function (r) {
     if (r.error) throw new Error(r.error);
     sound.dirty = false;
   });
@@ -701,7 +888,7 @@ $('mix-remix').onclick = function () {
   var b = this; b.disabled = true;
   saveMix().then(function () {
     $('mix-status').textContent = 'mixing the sound under out/movie.mp4…';
-    return api('/api/remix', { method: 'POST' });
+    return api('api/remix', { method: 'POST' });
   }).then(function (r) {
     if (r.error) throw new Error(r.error);
     $('mix-status').textContent = 'saved, and out/movie.mp4 has the new sound';
@@ -711,7 +898,7 @@ $('mix-remix').onclick = function () {
 /* ---- follow the agent: reload whenever a project file changes ---- */
 var version = null;
 setInterval(function () {
-  api('/api/version').then(function (r) {
+  api('api/version').then(function (r) {
     if (version !== null && r.version !== version) load();
     version = r.version; $('live').classList.remove('off');
   }).catch(function () { $('live').classList.add('off'); });

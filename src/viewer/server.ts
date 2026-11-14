@@ -3,10 +3,11 @@ import { createHash } from 'node:crypto';
 import http from 'node:http';
 import os from 'node:os';
 import { createReadStream, existsSync } from 'node:fs';
-import { mkdir, readdir, rename, stat } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
+import { z } from 'zod';
 import { cueSheet, type Bus } from '../engine/sound.js';
 import { movieDuration } from '../engine/timeline.js';
 import { MixSchema, type Project } from '../engine/types.js';
@@ -16,10 +17,14 @@ import {
   deleteNote,
   loadNotes,
   NOTES_FILE,
+  NoteTargetSchema,
+  pickNote,
+  type NoteTarget,
   reopenNote,
   setNoteStatus,
 } from '../project/notes.js';
-import { loadProject, projectPaths, saveMeta } from '../project/store.js';
+import { choiceDirs, listOptions, OPTIONS_DIR, parsePicks } from '../project/options.js';
+import { isProject, loadProject, projectPaths, saveMeta } from '../project/store.js';
 import { formatProblems, validateProject } from '../project/validate.js';
 import { mixAudio, RATE } from '../render/audio.js';
 import { writeMkv } from '../render/mkv.js';
@@ -27,6 +32,7 @@ import { isPortrait, safeInsets } from '../engine/format.js';
 import { lineDuration, shownText } from '../engine/voice.js';
 import { remixVideo } from '../render/video.js';
 import type { DrawRequest } from './draw-worker.js';
+import { BOARD } from './board-page.js';
 import { PAGE } from './page.js';
 
 /** The source tree this file runs from: src/ under tsx, dist/ once built. */
@@ -143,6 +149,12 @@ async function projectVersion(root: string): Promise<number> {
     await touch(dir);
     for (const f of await readdir(dir)) await touch(path.join(dir, f));
   }
+  // Options are folders of folders: a choice written, changed or deleted moves it too.
+  const options = path.join(p.root, OPTIONS_DIR);
+  if (existsSync(options)) {
+    await touch(options);
+    for (const f of await readdir(options, { recursive: true })) await touch(path.join(options, f));
+  }
   return Math.round(latest);
 }
 
@@ -153,12 +165,12 @@ async function projectVersion(root: string): Promise<number> {
  * so its JSON is the key.
  */
 const PROBLEMS = new Map<string, { key: string; report: string }>();
-function problemsOf(root: string, project: Project): string {
+function problemsOf(root: string, project: Project, opt = ''): string {
   const key = createHash('sha1').update(JSON.stringify(project)).digest('hex');
-  const known = PROBLEMS.get(root);
+  const known = PROBLEMS.get(root + opt);
   if (known?.key === key) return known.report;
   const report = formatProblems(validateProject(project));
-  PROBLEMS.set(root, { key, report });
+  PROBLEMS.set(root + opt, { key, report });
   return report;
 }
 
@@ -250,12 +262,6 @@ function linesOf(project: Project) {
   );
 }
 
-/**
- * The review apps this process serves, so each page can switch to the others: a film and
- * its reel are reviewed as one, from one tab. Title and shape are read once, when served.
- */
-const apps: { port: number; title: string; portrait: boolean }[] = [];
-
 /** This machine's address on the local network, for a phone to reach a LAN review app. */
 function lanAddress(): string {
   for (const list of Object.values(os.networkInterfaces()))
@@ -308,167 +314,490 @@ function readBody(req: http.IncomingMessage): Promise<unknown> {
   });
 }
 
+type Res = http.ServerResponse;
+const json = (res: Res, body: unknown, status = 200) =>
+  res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(body));
+
+/** One thing the review server shows: a film or reel, or a board of samples. */
+interface Item {
+  slug: string;
+  root: string;
+  kind: 'project' | 'board';
+  title: string;
+  portrait: boolean;
+  /** The board a sample project was found on. */
+  board?: string;
+}
+
 /**
- * The review app: live frames of every shot, the assets as pose and anchor sheets, and notes
- * a person leaves on any of them for the agent to pick up with `list_notes`. The project is
- * reloaded on every request so edits show up immediately. A port already taken (often an
- * earlier review app) moves it to the next free one; it resolves to the address it got.
- * With `lan` it listens on every interface and resolves to this machine's network address,
- * for a phone on the same Wi-Fi.
+ * The notes routes every item has, project or board: add, pick, reopen, close, delete.
+ * True when the request was one of them.
  */
-export async function serve(
+async function noteRoute(
   root: string,
-  port: number,
-  opts: { lan?: boolean } = {}
-): Promise<{ url: string; close: () => void }> {
-  const first = await loadProject(root); // fail fast if the directory is not a project
-  const app = { port: 0, title: first.meta.title, portrait: isPortrait(first.meta) };
-  const json = (res: http.ServerResponse, body: unknown, status = 200) =>
-    res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(body));
+  rel: string,
+  method: string,
+  req: http.IncomingMessage,
+  res: Res,
+  check: (target: NoteTarget) => void
+): Promise<boolean> {
+  if (rel === '/api/notes' && method === 'POST') {
+    const body = (await readBody(req)) as { target: unknown; text: string };
+    const target = NoteTargetSchema.parse(body.target);
+    check(target);
+    json(res, await addNote(root, target, body.text));
+    return true;
+  }
+  if (rel === '/api/pick' && method === 'POST') {
+    const body = (await readBody(req)) as { target: unknown; text?: string };
+    const target = NoteTargetSchema.parse(body.target);
+    check(target);
+    json(res, await pickNote(root, target, body.text));
+    return true;
+  }
+  const noteMatch = /^\/api\/notes\/([^/]+)$/.exec(rel);
+  if (noteMatch && method === 'PATCH') {
+    // The person reopens a note with what is still wrong (status open and a reply),
+    // closes one (done), and agrees a fix (checked): closing their own note is both.
+    const body = (await readBody(req)) as {
+      status?: 'open' | 'done';
+      checked?: boolean;
+      reply?: string;
+    };
+    const id = noteMatch[1];
+    let note =
+      body.status === 'open'
+        ? await reopenNote(root, id, body.reply)
+        : body.status === 'done'
+          ? await setNoteStatus(root, id, 'done')
+          : undefined;
+    if (body.checked) note = await checkNote(root, id);
+    json(res, note ?? { error: 'nothing to change' }, note ? 200 : 400);
+    return true;
+  }
+  if (noteMatch && method === 'DELETE') {
+    await deleteNote(root, noteMatch[1]);
+    json(res, { ok: true });
+    return true;
+  }
+  return false;
+}
+
+/** The film or reel's review app: live frames, sheets, the mix, options and notes. */
+async function projectRoute(
+  item: Item,
+  items: Item[],
+  rel: string,
+  url: URL,
+  req: http.IncomingMessage,
+  res: Res
+): Promise<void> {
+  const root = item.root;
+  const method = req.method ?? 'GET';
+  // The options the page is looking at (`tail:b,chase:a`), laid over the project.
+  const opt = url.searchParams.get('opt') ?? '';
+  const over = () => choiceDirs(root, parsePicks(opt));
+  const load = () => loadProject(root, over());
+  if (rel === '/') {
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(PAGE);
+    return;
+  }
+  if (rel === '/api/version') {
+    json(res, { version: await projectVersion(root) });
+    return;
+  }
+  if (rel === '/movie.mp4') {
+    const file = path.join(projectPaths(root).out, 'movie.mp4');
+    if (!existsSync(file)) throw new Error('no rendered movie');
+    await serveFile(file, 'video/mp4', req, res);
+    return;
+  }
+  if (rel === '/api/stem') {
+    const bus = url.searchParams.get('bus') as Bus;
+    if (!STEMS.includes(bus)) throw new Error('unknown bus');
+    await serveFile(await makeStem(root, await load(), bus), 'audio/mp4', req, res);
+    return;
+  }
+  if (rel === '/api/mix' && method === 'POST') {
+    // Layers at 1 are left out: a project at the engine's levels has no `mix` at all.
+    const asked = MixSchema.parse(((await readBody(req)) as { mix: unknown }).mix);
+    const mix = Object.fromEntries(Object.entries(asked).filter(([, v]) => v !== 1));
+    const project = await loadProject(root);
+    await saveMeta(root, { ...project.meta, mix: Object.keys(mix).length ? mix : undefined });
+    json(res, { ok: true });
+    return;
+  }
+  if (rel === '/api/remix' && method === 'POST') {
+    const file = path.join(projectPaths(root).out, 'movie.mp4');
+    if (!existsSync(file)) throw new Error('no rendered movie');
+    const project = await loadProject(root);
+    const r = await remixVideo(project, file);
+    // The .mkv carries the same sound, and more of it: it is built again from the mp4.
+    if (!isPortrait(project.meta)) await writeMkv(project, file, file.replace(/\.mp4$/, '.mkv'));
+    json(res, r);
+    return;
+  }
+  const projectNote = (t: NoteTarget) => {
+    if (t.kind === 'file') throw new Error('a file note is for a board');
+  };
+  if (await noteRoute(root, rel, method, req, res, projectNote)) return;
+  if (rel === '/api/project') {
+    // A half-written file from the agent must not take the page down: report, keep polling.
+    let project, base;
+    let optError = '';
+    try {
+      base = await loadProject(root);
+    } catch (e) {
+      json(res, { error: (e as Error).message });
+      return;
+    }
+    try {
+      project = opt ? await load() : base;
+    } catch (e) {
+      // A choice that does not load says why, over the film as it is, and can be let go of.
+      project = base;
+      optError = `options: ${(e as Error).message}\n`;
+    }
+    json(res, {
+      title: project.meta.title,
+      fps: project.meta.fps,
+      width: project.meta.width,
+      height: project.meta.height,
+      duration: movieDuration(project),
+      shots: project.shots.map((s) => ({ id: s.id, duration: s.duration, scene: s.scene })),
+      characters: Object.values(project.characters).map((c) => ({
+        id: c.id,
+        name: c.name,
+        rig: c.rig,
+        height: c.height,
+      })),
+      scenes: Object.values(project.scenes).map((s) => ({
+        id: s.id,
+        name: s.name,
+        anchors: Object.keys(s.anchors),
+      })),
+      lines: linesOf(project),
+      safe: safeInsets(project.meta),
+      apps: switcher(items, item),
+      options: (await listOptions(root, base)).map(({ choices, ...q }) => ({
+        ...q,
+        choices: choices.map(({ dir: _dir, ...c }) => c),
+      })),
+      problems: optError + problemsOf(root, project, opt),
+      notes: await loadNotes(root),
+      movie: await movieInfo(root),
+      mix: project.meta.mix ?? {},
+      stems: (({ key, buses }) => ({ key, buses }))(stemsOf(project) ?? { key: '', buses: [] }),
+      version: await projectVersion(root),
+    });
+    return;
+  }
+  if (rel === '/api/frame') {
+    const svg = await drawSvg({
+      kind: 'frame',
+      root,
+      over: over(),
+      shot: url.searchParams.get('shot') ?? '',
+      t: Number(url.searchParams.get('t') ?? 0),
+      debug: url.searchParams.has('debug'),
+    });
+    res.writeHead(200, { 'content-type': 'image/svg+xml' }).end(svg);
+    return;
+  }
+  if (rel === '/api/sheet') {
+    const svg = await drawSvg({
+      kind: 'sheet',
+      root,
+      over: over(),
+      id: url.searchParams.get('id') ?? '',
+      construction: url.searchParams.get('kind') === 'construction',
+    });
+    res.writeHead(200, { 'content-type': 'image/svg+xml' }).end(svg);
+    return;
+  }
+  res.writeHead(404).end('not found');
+}
+
+/* ---- boards: a folder of samples to listen to, watch and pick from ---- */
+
+const MEDIA: Record<string, { kind: 'audio' | 'video' | 'image'; type: string }> = {
+  '.wav': { kind: 'audio', type: 'audio/wav' },
+  '.mp3': { kind: 'audio', type: 'audio/mpeg' },
+  '.m4a': { kind: 'audio', type: 'audio/mp4' },
+  '.aac': { kind: 'audio', type: 'audio/aac' },
+  '.ogg': { kind: 'audio', type: 'audio/ogg' },
+  '.opus': { kind: 'audio', type: 'audio/ogg' },
+  '.flac': { kind: 'audio', type: 'audio/flac' },
+  '.mp4': { kind: 'video', type: 'video/mp4' },
+  '.webm': { kind: 'video', type: 'video/webm' },
+  '.mov': { kind: 'video', type: 'video/quicktime' },
+  '.png': { kind: 'image', type: 'image/png' },
+  '.jpg': { kind: 'image', type: 'image/jpeg' },
+  '.jpeg': { kind: 'image', type: 'image/jpeg' },
+  '.gif': { kind: 'image', type: 'image/gif' },
+  '.webp': { kind: 'image', type: 'image/webp' },
+  '.svg': { kind: 'image', type: 'image/svg+xml' },
+};
+const BOARD_FILE = 'board.json';
+
+/** `board.json`, all optional: a title, what to decide, and a line on any file or folder. */
+const BoardFileSchema = z.object({
+  title: z.string().optional(),
+  ask: z.string().optional(),
+  labels: z.record(z.string(), z.string()).optional(),
+});
+
+interface BoardEntry {
+  path: string;
+  name: string;
+  kind: 'audio' | 'video' | 'image' | 'project';
+  label?: string;
+  /** A sample project's own review page, and its rendered video if it has one. */
+  slug?: string;
+  movie?: boolean;
+  mtime: number;
+}
+interface BoardGroup {
+  dir: string;
+  label?: string;
+  entries: BoardEntry[];
+}
+
+/**
+ * The board's samples by folder, three deep: every sound, video and picture, and every
+ * folder that is a talekit project (a sample animation), which gets its own review page.
+ * Each folder with something in it is a group to pick one from.
+ */
+async function scanBoard(root: string): Promise<{ groups: BoardGroup[]; projects: string[] }> {
+  const groups: BoardGroup[] = [];
+  const projects: string[] = [];
+  const walk = async (rel: string, depth: number) => {
+    const dir = path.join(root, rel);
+    const group: BoardGroup = { dir: rel, entries: [] };
+    const subs: string[] = [];
+    for (const d of (await readdir(dir, { withFileTypes: true })).sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { numeric: true })
+    )) {
+      if (d.name.startsWith('.') || d.name.startsWith('_')) continue;
+      const p = rel ? `${rel}/${d.name}` : d.name;
+      const full = path.join(dir, d.name);
+      if (d.isDirectory()) {
+        if (isProject(full)) {
+          projects.push(full);
+          group.entries.push({
+            path: p,
+            name: d.name,
+            kind: 'project',
+            movie: existsSync(path.join(full, 'out', 'movie.mp4')),
+            mtime: Math.round((await stat(full)).mtimeMs),
+          });
+        } else if (depth < 3) subs.push(p);
+        continue;
+      }
+      const media = MEDIA[path.extname(d.name).toLowerCase()];
+      if (media)
+        group.entries.push({
+          path: p,
+          name: d.name,
+          kind: media.kind,
+          mtime: Math.round((await stat(full)).mtimeMs),
+        });
+    }
+    if (group.entries.length) groups.push(group);
+    for (const sub of subs) await walk(sub, depth + 1);
+  };
+  await walk('', 0);
+  return { groups, projects };
+}
+
+async function boardVersion(root: string): Promise<number> {
+  let latest = 0;
+  for (const f of [NOTES_FILE, BOARD_FILE, '.'])
+    if (existsSync(path.join(root, f)))
+      latest = Math.max(latest, (await stat(path.join(root, f))).mtimeMs);
+  const { groups } = await scanBoard(root);
+  for (const g of groups) for (const e of g.entries) latest = Math.max(latest, e.mtime);
+  // A sample project's frames are drawn by the engine as it now is.
+  latest = Math.max(latest, await codeVersion());
+  return Math.round(latest);
+}
+
+/** A board path from the page, kept inside the board. */
+function boardFile(root: string, rel: string): string {
+  const file = path.resolve(root, rel);
+  if (path.relative(root, file).startsWith('..') || path.isAbsolute(path.relative(root, file)))
+    throw new Error('outside the board');
+  return file;
+}
+
+async function boardRoute(
+  item: Item,
+  items: Item[],
+  add: (root: string, board?: string) => Item,
+  rel: string,
+  url: URL,
+  req: http.IncomingMessage,
+  res: Res
+): Promise<void> {
+  const root = item.root;
+  const method = req.method ?? 'GET';
+  if (rel === '/') {
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(BOARD);
+    return;
+  }
+  if (rel === '/api/version') {
+    json(res, { version: await boardVersion(root) });
+    return;
+  }
+  if (rel === '/file') {
+    const file = boardFile(root, url.searchParams.get('path') ?? '');
+    const media = MEDIA[path.extname(file).toLowerCase()];
+    if (!media || !existsSync(file)) throw new Error('no such sample');
+    await serveFile(file, media.type, req, res);
+    return;
+  }
+  // A board's notes are on its files and folders, and only those that are there.
+  const boardNote = (t: NoteTarget) => {
+    if (t.kind !== 'file' || !existsSync(boardFile(root, t.id)))
+      throw new Error(`no '${t.id}' on this board`);
+  };
+  if (await noteRoute(root, rel, method, req, res, boardNote)) return;
+  if (rel === '/api/board') {
+    const file = path.join(root, BOARD_FILE);
+    const about = existsSync(file)
+      ? BoardFileSchema.parse(JSON.parse(await readFile(file, 'utf8')))
+      : {};
+    item.title = about.title ?? path.basename(root);
+    const { groups, projects } = await scanBoard(root);
+    // A sample animation is a project: served beside the board, under its own page.
+    const slugs = new Map(projects.map((p) => [p, add(p, item.slug).slug]));
+    for (const g of groups) {
+      g.label = about.labels?.[g.dir || '.'];
+      for (const e of g.entries) {
+        e.label = about.labels?.[e.path];
+        if (e.kind === 'project') e.slug = slugs.get(path.join(root, e.path));
+      }
+    }
+    json(res, {
+      title: about.title ?? item.title,
+      ask: about.ask,
+      groups,
+      apps: switcher(items, item),
+      notes: await loadNotes(root),
+      version: await boardVersion(root),
+    });
+    return;
+  }
+  res.writeHead(404).end('not found');
+}
+
+/** The header's switch: every film, reel and board served, this one marked. */
+function switcher(items: Item[], here: Item) {
+  return items
+    .filter((i) => !i.board)
+    .map((i) => ({
+      slug: i.slug,
+      title: i.title,
+      kind: i.kind,
+      portrait: i.portrait,
+      here: i === here || here.board === i.slug,
+    }));
+}
+
+const escHtml = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+/** `/` with more than one thing served: a list of them. */
+function indexPage(items: Item[]): string {
+  const rows = items
+    .filter((i) => !i.board)
+    .map(
+      (i) =>
+        `<li><a href='/${i.slug}/'>${escHtml(i.title)}</a> <span>${i.kind === 'board' ? 'samples' : i.portrait ? 'reel' : 'film'} · ${escHtml(i.root)}</span></li>`
+    )
+    .join('');
+  return `<!doctype html><html><head><meta charset='utf-8'><title>talekit review</title><meta name='viewport' content='width=device-width, initial-scale=1'><link rel='icon' href='data:,'><style>body{margin:0;padding:24px;font:15px system-ui,sans-serif;background:#1b1f24;color:#ddd}a{color:#ffd166;font-size:17px}li{margin:10px 0}span{color:#9aa3ad;font-size:12px;margin-left:8px}ul{list-style:none;padding:0}</style></head><body><strong>talekit review</strong><ul>${rows}</ul></body></html>`;
+}
+
+export interface Review {
+  /** The server's own address; each item is at `<url><slug>/`. */
+  url: string;
+  lan: boolean;
+  /** Serve one more film, reel or board, and resolve to its page. */
+  add: (root: string) => Promise<string>;
+  roots: () => string[];
+  close: () => void;
+}
+
+/**
+ * The review server: every film, reel and sample board in one place, each under its own
+ * path (`/lost-kite/`), so the film and its reel, and whatever samples are waiting, are
+ * one tab apart. A project gets the review app: live frames of every shot, the assets as
+ * pose and anchor sheets, the options to pick from, and notes a person leaves on any of
+ * them for the agent to pick up with `list_notes`; a board, each sample with a player.
+ * Everything is read again on every request, so edits show up at once. A port already
+ * taken (often an earlier review server) moves it to the next free one. With `lan` it
+ * listens on every interface, at this machine's network address, for a phone on the same
+ * Wi-Fi.
+ */
+export async function startReview(port: number, opts: { lan?: boolean } = {}): Promise<Review> {
+  const items: Item[] = [];
+  const slugOf = (root: string) => {
+    const base =
+      path
+        .basename(root)
+        .toLowerCase()
+        .replace(/[^a-z0-9-]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'project';
+    let slug = base;
+    for (let n = 2; items.some((i) => i.slug === slug) || slug === 'api'; n++)
+      slug = `${base}-${n}`;
+    return slug;
+  };
+  /** Serve a project found on a board (no check: the board saw its talekit.json). */
+  const addFound = (root: string, board?: string): Item => {
+    const known = items.find((i) => i.root === root);
+    if (known) return known;
+    const item: Item = {
+      slug: slugOf(root),
+      root,
+      kind: 'project',
+      title: path.basename(root),
+      portrait: false,
+      board,
+    };
+    items.push(item);
+    return item;
+  };
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
-    const method = req.method ?? 'GET';
     try {
-      if (url.pathname === '/') {
-        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(PAGE);
+      const m = /^\/([^/]+)(\/.*)?$/.exec(url.pathname);
+      if (!m) {
+        const shown = items.filter((i) => !i.board);
+        if (shown.length === 1) res.writeHead(302, { location: `/${shown[0].slug}/` }).end();
+        else
+          res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(indexPage(items));
         return;
       }
-      if (url.pathname === '/api/version') {
-        json(res, { version: await projectVersion(root) });
+      const item = items.find((i) => i.slug === decodeURIComponent(m[1]));
+      if (!item) {
+        res.writeHead(404).end('not served here');
         return;
       }
-      if (url.pathname === '/movie.mp4') {
-        const file = path.join(projectPaths(root).out, 'movie.mp4');
-        if (!existsSync(file)) throw new Error('no rendered movie');
-        await serveFile(file, 'video/mp4', req, res);
+      // The page's own links are relative, so it needs the slash.
+      if (!m[2]) {
+        res.writeHead(301, { location: `/${item.slug}/${url.search}` }).end();
         return;
       }
-      if (url.pathname === '/api/stem') {
-        const bus = url.searchParams.get('bus') as Bus;
-        if (!STEMS.includes(bus)) throw new Error('unknown bus');
-        await serveFile(await makeStem(root, await loadProject(root), bus), 'audio/mp4', req, res);
-        return;
-      }
-      if (url.pathname === '/api/mix' && method === 'POST') {
-        // Layers at 1 are left out: a project at the engine's levels has no `mix` at all.
-        const asked = MixSchema.parse(((await readBody(req)) as { mix: unknown }).mix);
-        const mix = Object.fromEntries(Object.entries(asked).filter(([, v]) => v !== 1));
-        const project = await loadProject(root);
-        await saveMeta(root, {
-          ...project.meta,
-          mix: Object.keys(mix).length ? mix : undefined,
-        });
-        json(res, { ok: true });
-        return;
-      }
-      if (url.pathname === '/api/remix' && method === 'POST') {
-        const file = path.join(projectPaths(root).out, 'movie.mp4');
-        if (!existsSync(file)) throw new Error('no rendered movie');
-        const project = await loadProject(root);
-        const r = await remixVideo(project, file);
-        // The .mkv carries the same sound, and more of it: it is built again from the mp4.
-        if (!isPortrait(project.meta))
-          await writeMkv(project, file, file.replace(/\.mp4$/, '.mkv'));
-        json(res, r);
-        return;
-      }
-      if (url.pathname === '/api/notes' && method === 'POST') {
-        const body = (await readBody(req)) as { target: unknown; text: string };
-        json(res, await addNote(root, body.target as Parameters<typeof addNote>[1], body.text));
-        return;
-      }
-      const noteMatch = /^\/api\/notes\/([^/]+)$/.exec(url.pathname);
-      if (noteMatch && method === 'PATCH') {
-        // The person reopens a note with what is still wrong (status open and a reply),
-        // closes one (done), and agrees a fix (checked): closing their own note is both.
-        const body = (await readBody(req)) as {
-          status?: 'open' | 'done';
-          checked?: boolean;
-          reply?: string;
-        };
-        const id = noteMatch[1];
-        let note =
-          body.status === 'open'
-            ? await reopenNote(root, id, body.reply)
-            : body.status === 'done'
-              ? await setNoteStatus(root, id, 'done')
-              : undefined;
-        if (body.checked) note = await checkNote(root, id);
-        json(res, note ?? { error: 'nothing to change' }, note ? 200 : 400);
-        return;
-      }
-      if (noteMatch && method === 'DELETE') {
-        await deleteNote(root, noteMatch[1]);
-        json(res, { ok: true });
-        return;
-      }
-      if (url.pathname === '/api/project') {
-        // A half-written file from the agent must not take the page down: report, keep polling.
-        let project;
-        try {
-          project = await loadProject(root);
-        } catch (e) {
-          json(res, { error: (e as Error).message });
-          return;
-        }
-        json(res, {
-          title: project.meta.title,
-          fps: project.meta.fps,
-          width: project.meta.width,
-          height: project.meta.height,
-          duration: movieDuration(project),
-          shots: project.shots.map((s) => ({ id: s.id, duration: s.duration, scene: s.scene })),
-          characters: Object.values(project.characters).map((c) => ({
-            id: c.id,
-            name: c.name,
-            rig: c.rig,
-            height: c.height,
-          })),
-          scenes: Object.values(project.scenes).map((s) => ({
-            id: s.id,
-            name: s.name,
-            anchors: Object.keys(s.anchors),
-          })),
-          lines: linesOf(project),
-          safe: safeInsets(project.meta),
-          apps: apps.map((a) => ({ ...a, here: a === app })),
-          problems: problemsOf(root, project),
-          notes: await loadNotes(root),
-          movie: await movieInfo(root),
-          mix: project.meta.mix ?? {},
-          stems: (({ key, buses }) => ({ key, buses }))(stemsOf(project) ?? { key: '', buses: [] }),
-          version: await projectVersion(root),
-        });
-        return;
-      }
-      if (url.pathname === '/api/frame') {
-        const svg = await drawSvg({
-          kind: 'frame',
-          root,
-          shot: url.searchParams.get('shot') ?? '',
-          t: Number(url.searchParams.get('t') ?? 0),
-          debug: url.searchParams.has('debug'),
-        });
-        res.writeHead(200, { 'content-type': 'image/svg+xml' }).end(svg);
-        return;
-      }
-      if (url.pathname === '/api/sheet') {
-        const svg = await drawSvg({
-          kind: 'sheet',
-          root,
-          id: url.searchParams.get('id') ?? '',
-          construction: url.searchParams.get('kind') === 'construction',
-        });
-        res.writeHead(200, { 'content-type': 'image/svg+xml' }).end(svg);
-        return;
-      }
-      res.writeHead(404).end('not found');
+      if (item.kind === 'board') await boardRoute(item, items, addFound, m[2], url, req, res);
+      else await projectRoute(item, items, m[2], url, req, res);
     } catch (e) {
-      if (url.pathname.startsWith('/api/')) json(res, { error: (e as Error).message }, 500);
+      if (url.pathname.includes('/api/')) json(res, { error: (e as Error).message }, 500);
       else res.writeHead(500, { 'content-type': 'text/plain' }).end((e as Error).message);
     }
   });
+
   // On the local network only when asked: the app has no login, and it writes files.
   const host = opts.lan ? lanAddress() : '127.0.0.1';
   for (let p = port; ; p++) {
@@ -477,14 +806,53 @@ export async function serve(
       server.listen(p, opts.lan ? '0.0.0.0' : '127.0.0.1', () => resolve(undefined));
     });
     if (!err) {
-      app.port = p;
-      apps.push(app);
-      const close = () => {
-        if (apps.includes(app)) apps.splice(apps.indexOf(app), 1);
-        server.close();
+      const url = `http://${host}:${p}/`;
+      return {
+        url,
+        lan: !!opts.lan,
+        roots: () => items.filter((i) => !i.board).map((i) => i.root),
+        add: async (dir: string) => {
+          const root = path.resolve(dir);
+          let item = items.find((i) => i.root === root);
+          if (item?.board) item.board = undefined; // asked for by name: in the switch too
+          if (!item) {
+            if (!existsSync(root)) throw new Error(`${root} does not exist`);
+            // A project fails fast if it does not load; any other folder is a board.
+            const project = isProject(root) ? await loadProject(root) : undefined;
+            item = {
+              slug: slugOf(root),
+              root,
+              kind: project ? 'project' : 'board',
+              title: project?.meta.title ?? path.basename(root),
+              portrait: project ? isPortrait(project.meta) : false,
+            };
+            items.push(item);
+          }
+          return `${url}${item.slug}/`;
+        },
+        close: () => server.close(),
       };
-      return { url: `http://${host}:${p}/`, close };
     }
     if (err.code !== 'EADDRINUSE' || p >= port + 20) throw err;
+  }
+}
+
+/**
+ * Serve these folders (a film, its reel, a board of samples) from one review server.
+ * Resolves to the first one's page, every page, and the server.
+ */
+export async function serve(
+  roots: string | string[],
+  port: number,
+  opts: { lan?: boolean } = {}
+): Promise<{ url: string; urls: string[]; review: Review; close: () => void }> {
+  const review = await startReview(port, opts);
+  try {
+    const urls: string[] = [];
+    for (const root of Array.isArray(roots) ? roots : [roots]) urls.push(await review.add(root));
+    return { url: urls[0], urls, review, close: review.close };
+  } catch (e) {
+    review.close();
+    throw e;
   }
 }

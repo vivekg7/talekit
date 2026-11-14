@@ -6,15 +6,22 @@ import { projectPaths } from './store.js';
 
 /**
  * Review notes: what a person marked as wrong in the review app, for the agent to act on.
- * A note points at a character, a scene, or one moment of a shot. They live in
+ * A note points at a character, a scene, one moment of a shot, a question's choice
+ * (options.ts) or a file on a sample board; a pick is a note that says which choice or
+ * sample the person chose. They live in
  * `<project>/notes.json` so the viewer (which writes them) and the MCP server (which reads
  * and resolves them) share nothing but the directory.
  */
 export const NOTES_FILE = 'notes.json';
 
 export const NoteTargetSchema = z.object({
-  kind: z.enum(['character', 'scene', 'shot']),
+  kind: z.enum(['character', 'scene', 'shot', 'option', 'file']),
+  /** The asset's or shot's id, the option's question, or the file's path on the board. */
   id: z.string().min(1),
+  /** For an option note: which choice; none is the film as it is. */
+  choice: z.string().min(1).optional(),
+  /** The options the person had chosen to look at, { question: choice }, when they wrote it. */
+  options: z.record(z.string(), z.string()).optional(),
   /** Seconds into the shot; only for shot notes. */
   t: z.number().min(0).optional(),
   /**
@@ -29,6 +36,8 @@ export const NoteSchema = z.object({
   target: NoteTargetSchema,
   text: z.string().min(1),
   status: z.enum(['open', 'done']).default('open'),
+  /** The person chose this one: the option's choice, or the file among those beside it. */
+  pick: z.boolean().optional(),
   created: z.string(),
   /**
    * Done, and waiting for the person to look at the fix: set when a note is resolved,
@@ -76,6 +85,40 @@ export async function addNote(root: string, target: NoteTarget, text: string): P
     created: new Date().toISOString(),
   };
   if (!note.text) throw new Error('note text is empty');
+  notes.push(note);
+  await saveNotes(root, notes);
+  return note;
+}
+
+/** The choice or sample a pick is one of: a question, or the folder a file is in. */
+function pickGroup(t: NoteTarget): string {
+  return t.kind === 'option' ? `option ${t.id}` : `file ${path.posix.dirname(t.id)}`;
+}
+
+/**
+ * The person picks a choice of an option, or one sample among those in its folder. An
+ * earlier pick in the same place that the agent has not acted on yet goes: they changed
+ * their mind, and the agent should act only on the last.
+ */
+export async function pickNote(root: string, target: NoteTarget, text?: string): Promise<Note> {
+  const t = NoteTargetSchema.parse(target);
+  if (t.kind !== 'option' && t.kind !== 'file')
+    throw new Error('only an option or a file is picked');
+  const group = pickGroup(t);
+  const all = await loadNotes(root);
+  const notes = all.filter(
+    (n) => !(n.pick && n.status === 'open' && pickGroup(n.target) === group)
+  );
+  const what = t.kind === 'option' ? (t.choice ?? 'the film as it is') : t.id;
+  const note: Note = {
+    // Numbered past the pick it replaces, so an id is never used twice.
+    id: nextId(all),
+    target: t,
+    text: text?.trim() || `Picked ${what}.`,
+    status: 'open',
+    pick: true,
+    created: new Date().toISOString(),
+  };
   notes.push(note);
   await saveNotes(root, notes);
   return note;
@@ -137,10 +180,14 @@ export async function deleteNote(root: string, id: string): Promise<void> {
  * with the clicked spot and what the person added when reopening it.
  */
 export function describeNote(n: Note): string {
-  const { kind, id, t, at } = n.target;
+  const { kind, id, t, at, choice, options } = n.target;
   let where =
     kind === 'shot' && t !== undefined ? `shot ${id} @ ${t.toFixed(2)}s` : `${kind} ${id}`;
   if (at) where += `, at (${Math.round(at.x)}, ${Math.round(at.y)})`;
+  if (kind === 'option') where += ` · ${n.pick ? 'picked ' : ''}${choice ?? 'as it is'}`;
+  else if (n.pick) where += ' · picked';
+  const seen = Object.entries(options ?? {}).map(([q, c]) => `${q}:${c}`);
+  if (seen.length) where += `, looking at option ${seen.join(', ')}`;
   const replies = (n.replies ?? []).map((r) => ` · reopened: ${r.text}`).join('');
   return `${n.id} · ${where} · ${n.text}${replies}${n.status === 'done' ? ' (done)' : ''}`;
 }

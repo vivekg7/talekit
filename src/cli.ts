@@ -26,6 +26,7 @@ import { writeMkv } from './render/mkv.js';
 import { isPortrait } from './engine/format.js';
 import { remixVideo, renderVideo } from './render/video.js';
 import { hearingLines, makeVoices, type VoiceReport } from './project/voices.js';
+import { listOptions } from './project/options.js';
 
 const USAGE = `talekit — story video generation for AI agents
 
@@ -52,7 +53,7 @@ const USAGE = `talekit — story video generation for AI agents
   talekit render <dir> [shotId] [-o file.mp4] [--silent]   the whole film (not a reel) also writes a .mkv
   talekit remix <dir> [-o file.mp4]            mix the sound again under a rendered film (after a mix change)
   talekit mkv <dir> [-o file.mp4]              build the .mkv again from the rendered mp4 (after a translation)
-  talekit serve <dir> [dir...] [--port 4848] [--open] [--lan]   review apps for a film and its reel; --open opens the first, --lan for a phone
+  talekit serve <dir> [dir...] [--port 4848] [--open] [--lan]   one review server for a film, its reel and any board of samples; --open opens the first, --lan for a phone
   talekit mcp                                  start the MCP server on stdio
 `;
 
@@ -315,6 +316,19 @@ async function main(argv: string[]): Promise<void> {
         process.stderr.write(`\r${d}/${total} lines`)
       );
       process.stderr.write('\n');
+      // Each option's choices say their own lines too, so they are heard in the review app.
+      for (const q of shotId ? [] : await listOptions(dir, project))
+        for (const c of q.choices) {
+          const over = await loadProject(dir, [c.dir]);
+          const o = await makeVoices(
+            dir,
+            over,
+            over.shots.filter((s) => q.touches.includes(s.id))
+          );
+          r.made += o.made;
+          r.failed.push(...o.failed);
+          r.doubtful.push(...o.doubtful);
+        }
       console.log(voiceSummary(r));
       // A line no take says stops the render, so it fails here too.
       if (r.failed.length || r.doubtful.length) process.exitCode = 1;
@@ -383,15 +397,12 @@ async function main(argv: string[]): Promise<void> {
     case 'serve': {
       const { serve } = await import('./viewer/server.js');
       const { openInBrowser } = await import('./viewer/open.js');
-      // The film and its reel: one app each, on consecutive ports, and each page switches to
-      // the others, so only the first is opened.
-      let port = num(values.port) ?? 4848;
-      for (const [i, dir] of (rest.length ? rest : ['.']).entries()) {
-        const { url } = await serve(dir, port, { lan: values.lan });
-        console.log(`talekit review: ${url}  (${dir})`);
-        if (values.open && i === 0) openInBrowser(url);
-        port = Number(new URL(url).port) + 1;
-      }
+      // The film, its reel and any board, each under its own path on one port; each page
+      // switches to the others, so only the first is opened.
+      const dirs = rest.length ? rest : ['.'];
+      const { urls } = await serve(dirs, num(values.port) ?? 4848, { lan: values.lan });
+      for (const [i, url] of urls.entries()) console.log(`talekit review: ${url}  (${dirs[i]})`);
+      if (values.open) openInBrowser(urls[0]);
       if (values.lan)
         console.log('on the local network: anyone on it can open these and add notes');
       return;
