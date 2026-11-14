@@ -1349,8 +1349,31 @@ Facing away from the cause at the reaction, unable to turn, is
 `attention.reacts`. Someone who should ignore a speaker on purpose (it
 sulks) is waived: `"allow": { "attention.listener:kid": "sulks" }`.
 
-`talekit explain <dir> [shot]` lists every turn, walk and sit the engine
-added, and why.
+**Startles.** A loud sound makes everyone else in the shot jump, on its
+own: `{ "t": 9, "actor": "lion", "sound": "lion-roar" }` and the deer,
+the rabbit and the monkey each look scared a moment later (a roar or a
+hiss frightens; a crash, a slammed door or a bray surprises), with the
+quick take of the head a change of face brings, and whoever is free
+turns to the lion. `list_sounds` marks the sounds that do it (a growl is
+a threat, not a startle: it is not one). Roared with a line said `to`
+someone (`"Catch him!"` to the jackal), it frightens that one alone, and
+the line's `audience`. Only a calm face changes (neutral, happy, sad):
+the angry stand their ground. One with no `actor` (a crash off screen)
+changes their faces and turns nobody. Asleep, they sleep on. It is a
+jump at a noise: 1.5 s later each face settles back to what it was, so
+fright that lasts, or that follows them, is the story's to set with an
+`emotion`. Someone the shot gives its own face, emotion,
+turn or `reacts` from just before the sound to a second after is left to
+it, so a reaction written by hand stays as written. A sound at a
+`volume` under 0.6 is far off and startles nobody; `"startles": false`
+stops one (a roar they expect), `"startles": true` makes a project's own
+sound do it. What they do next is the story's: write the run, with
+`reacts` on it. A sound made with the mouth (a roar, a bark, a laugh;
+marked `mouth`) opens its actor's mouth while it sounds, up to 3 s,
+unless the shot sets the mouth itself.
+
+`talekit explain <dir> [shot]` lists every turn, walk, sit and startle
+the engine added, and why.
 Walking, jumping and pointing look straight ahead.
 
 ### Emotion, face, captions, camera, set

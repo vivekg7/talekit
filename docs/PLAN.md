@@ -1290,6 +1290,47 @@ places that say how they are used, and the bow carried across a cut.
   over the next films.
 - **8.4 is done, and with it phase 8.**
 
+### Cause and effect, as built (2026-11-14)
+
+Checked against "every action has a reaction": wind already moved rain,
+snow, leaves, clouds, smoke, fire and the scenery's sway, and a `dig`
+threw up clods with a thud. Two causes reached nothing. A roar was only
+audio: in one film the author staged eleven animals' fright by hand, and
+two shots later six animals stood through the next roar unmoved. A blow was a pose: the
+thud and the victim's tremble were the author's to add, at 0.55 of the
+strike; that is the next step.
+
+- **Startles** (stage.ts). The loud bundled sounds carry the face they
+  startle into (`STARTLES` in library/sounds.ts: a roar or a hiss
+  scares, a crash or a bray surprises). Everyone else in the shot who is
+  awake and has eyes changes face a moment after it (0.08 to 0.25 s),
+  which brings the head's take, and whoever is free turns to its actor.
+  The first cut frightened the lion's own side in the blue-jackal film:
+  his allies, angry at the jackal, looked scared when he roared "Catch
+  him!" at it. So a roar with a line said `to` someone startles that one
+  alone, only a calm face (neutral, happy, sad) changes, and a growl,
+  being a threat said low, startles nobody. Even so the mouse looked
+  scared of its friend the lion for the rest of a shot, and the lion's
+  court of him, since the engine cannot tell whose side anyone is on.
+  So the face settles back after 1.5 s: a flinch at a noise beside you
+  is physics, a lasting fear is the story's, set with an `emotion`.
+  Across the films a re-render would add about twenty such flinches,
+  each where a roar, a crash or a bray met a calm face.
+  Running away is left to the author: whether they flee is plot. So is
+  anyone the shot directs from 0.3 s before to 1 s after (a face, an
+  emotion, a turn, a `reacts`), which keeps the hand-staged films as
+  they were. A sound under volume 0.6 is far off; `startles` on the
+  action overrides the table. Asleep, they sleep on: waking someone
+  changes the story.
+- **The mouth of a sound** (timeline.ts). A sound made with the mouth
+  (`MOUTH_SOUNDS`) holds its actor's mouth open while it plays, up to
+  3 s, as a line's growl does.
+
+Not done: wind on the springs (tails, hair and cloth hang still in a
+gale), dust where a jump or a fall lands, a splash and rings where
+something enters water. Birds taking off at a roar are the author's,
+since they leave the shot.
+
 ## Render speed
 
 Measured 2026-10-23 on a 12-core M-series Mac, on the race film (273 s,

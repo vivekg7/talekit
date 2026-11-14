@@ -42,6 +42,7 @@ import type {
   View,
 } from './types.js';
 import { isMoveVerb } from './types.js';
+import { actionSalt, resolveSound, soundLength, soundTraits } from './sources.js';
 import { routeLength, routeOf } from './route.js';
 
 export interface Point {
@@ -453,6 +454,8 @@ function movePoint(m: Move, t: number): Point {
 
 /** Seconds an emotion take lasts, and a look takes to settle on a new target. */
 const TAKE_TIME = 0.6;
+/** The longest a sound made with the mouth (a roar) holds it open, seconds. */
+const MOUTH_SOUND_MAX = 3;
 const LOOK_TIME = 0.35;
 /** How deep holders and look targets are resolved: a prop's carrier, a listener's speaker. */
 const MAX_DEPTH = 2;
@@ -1062,6 +1065,15 @@ export function resolveActor(
         const clip = clipFor(project, shot, a);
         const u = t - a.t - lineLead(project, shot, a);
         mouth = !talking ? undefined : u < 0 ? true : clip ? mouthOpen(clip, u) : undefined;
+      }
+    }
+    // A roar, a bark, a laugh: the mouth is open while it sounds, unless the shot sets it.
+    if (a.sound && !talking && !face.mouth && soundTraits(a.sound).mouth) {
+      const src = resolveSound(project, a.sound, actionSalt(shot, a));
+      const length = Math.min(MOUTH_SOUND_MAX, (src && soundLength(src)) ?? MOUTH_SOUND_MAX / 2);
+      if (t < a.t + length) {
+        talking = true;
+        mouth = true;
       }
     }
 

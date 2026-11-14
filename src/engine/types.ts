@@ -930,6 +930,12 @@ export const ActionSchema = z
       .max(2)
       .optional()
       .describe("The sound's loudness: 1 as recorded (default), 0.5 distant, 1.5 close"),
+    startles: z
+      .boolean()
+      .optional()
+      .describe(
+        "On a sound: whether it startles everyone else in the shot. The loud bundled ones do on their own (list_sounds marks them: a roar or a hiss scares, a crash or a bray makes them jump): each one awake with eyes looks scared or surprised at once, and turns to the sound's actor if it is free to. One at a `volume` under 0.6 is far off and startles nobody. false for one that should not (a roar they expect); true for a project's own sound that should. Whoever the shot gives a face, an emotion or a turn of its own just then is left to it. Running away is the story's: write it, with `reacts`"
+      ),
     audience: z
       .union([z.literal('all'), z.array(IdSchema)])
       .optional()

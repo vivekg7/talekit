@@ -68,7 +68,7 @@ import { renderVideo } from '../render/video.js';
 import { openInBrowser } from '../viewer/open.js';
 import { serve } from '../viewer/server.js';
 import { hearingLines, makeVoices } from '../project/voices.js';
-import { SOUNDS } from '../library/sounds.js';
+import { MOUTH_SOUNDS, SOUNDS, STARTLES } from '../library/sounds.js';
 import { VOICES } from '../library/voices.js';
 import { describeNote, loadNotes, markSpot, setNoteStatus, type Note } from '../project/notes.js';
 
@@ -885,7 +885,7 @@ export function buildServer(): McpServer {
     {
       title: 'List sounds',
       description:
-        "Bundled music, ambience and sound effects, by name. Music goes in set_audio or a shot's `music`, ambience in a scene's `ambience`, effects in a `sound` action. A project can add its own files to its audio/ folder and use them by file name without the extension. Rain, wind, fire, waterfalls, waves and thunder are heard from weather and effects on their own, and footsteps from walking; do not add them.",
+        "Bundled music, ambience and sound effects, by name. Music goes in set_audio or a shot's `music`, ambience in a scene's `ambience`, effects in a `sound` action. A project can add its own files to its audio/ folder and use them by file name without the extension. Rain, wind, fire, waterfalls, waves and thunder are heard from weather and effects on their own, and footsteps from walking; do not add them. A sound marked `startles` makes everyone else in the shot jump on its own (see a `sound` action's `startles`), and one marked `mouth` opens its actor's mouth while it sounds.",
       inputSchema: {},
     },
     async () => {
@@ -907,9 +907,14 @@ export function buildServer(): McpServer {
         return [
           '',
           `## ${title}`,
-          ...[...seen].map(
-            ([name, s]) => `- ${name}${s.n > 1 ? ` (${s.n} takes)` : ''}: ${s.description}`
-          ),
+          ...[...seen].map(([name, s]) => {
+            const marks = [
+              s.n > 1 ? `${s.n} takes` : '',
+              STARTLES[name] ? `startles: ${STARTLES[name]}` : '',
+              MOUTH_SOUNDS.has(name) ? 'mouth' : '',
+            ].filter(Boolean);
+            return `- ${name}${marks.length ? ` (${marks.join(', ')})` : ''}: ${s.description}`;
+          }),
         ];
       };
       return ok(

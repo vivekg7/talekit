@@ -1029,3 +1029,66 @@ export const SOUNDS: Record<string, SoundInfo> = {
     duration: 41.33,
   },
 };
+
+/**
+ * The bundled sounds that startle whoever hears them, and the face they are startled into:
+ * a roar or a hiss frightens, a crash or a bray makes everyone jump. Keyed by the bare
+ * name, so every take of it counts. Anything else (a knock, a bird) startles nobody, nor
+ * does a growl: it is a threat said low to someone, not a sudden noise.
+ */
+export const STARTLES: Record<string, 'scared' | 'surprised'> = {
+  'lion-roar': 'scared',
+  'tiger-growl': 'scared',
+  'snake-hiss': 'scared',
+  'thunder-near': 'surprised',
+  shatter: 'surprised',
+  'pot-break': 'surprised',
+  clang: 'surprised',
+  'door-slam': 'surprised',
+  scream: 'surprised',
+  elephant: 'surprised',
+  'donkey-bray': 'surprised',
+};
+
+/**
+ * The bundled sounds made with the mouth (a roar, a bark, a laugh): an actor given one opens
+ * its mouth while it sounds. Keyed by the bare name, as STARTLES is.
+ */
+export const MOUTH_SOUNDS: ReadonlySet<string> = new Set([
+  'lion-roar',
+  'lion-growl',
+  'tiger-growl',
+  'bear-growl',
+  'wolf-howl',
+  'snake-hiss',
+  'mouse-squeak',
+  'cat-meow',
+  'dog-bark',
+  'bird-chirp',
+  'crow-caw',
+  'owl-hoot',
+  'rooster',
+  'cow-moo',
+  'goat-bleat',
+  'horse-neigh',
+  'sheep-baa',
+  'donkey-bray',
+  'pig-oink',
+  'camel',
+  'monkey',
+  'hen',
+  'peacock',
+  'parrot',
+  'koel',
+  'fox',
+  'jackal',
+  'laugh-child',
+  'laugh-adult',
+  'laugh-woman',
+  'giggle',
+  'cry-child',
+  'cry-adult',
+  'scream',
+  'gasp',
+  'yawn',
+]);

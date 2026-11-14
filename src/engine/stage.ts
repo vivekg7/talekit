@@ -15,9 +15,18 @@
  *
  * Places (phase 8.2): a blow, a wipe or a hold at an anchor that says how it is used (`use`)
  * walks its doer there and sits it down first, then turns it to the place's facing.
+ *
+ * Startles: a loud sound (a roar, a crash; `soundTraits`) frightens or startles everyone else
+ * in the shot who is awake and has eyes, at once and each a moment apart, and whoever is
+ * free turns to where it came from; the face settles back after STARTLE_HOLD, the jump at a
+ * noise and not a change of heart. One roared with a line said `to` someone startles that
+ * one (and the line's `audience`) alone. Only a calm face changes (neutral, happy, sad): the
+ * angry stand their ground. One the shot already gives a face or a turn just then is left
+ * to it.
  */
 import { waived } from './allow.js';
 import { hash01 } from './easing.js';
+import { soundTraits } from './sources.js';
 import {
   atPlace,
   SIT_TIME,
@@ -27,7 +36,7 @@ import {
   resolvePosition,
   type ActorState,
 } from './timeline.js';
-import type { Action, Anchor, Facing, Project, Scene, Shot, Verb } from './types.js';
+import type { Action, Anchor, Emotion, Facing, Project, Scene, Shot, Verb } from './types.js';
 import { isMoveVerb } from './types.js';
 import { lineEnd } from './voice.js';
 
@@ -70,6 +79,23 @@ const WORK_LEAD = 0.3;
 export const CONTACT: ReadonlySet<Verb> = new Set(['strike', 'wipe', 'hold']);
 /** Closer than this across the stage, which side the other is on does not read. */
 const SIDE_MIN = 8;
+/** Seconds after a startling sound that those who hear it jump: this much, plus up to SPREAD. */
+const STARTLE_DELAY = 0.08;
+const STARTLE_SPREAD = 0.17;
+/**
+ * Seconds a startled face holds before it settles back to what it was: a jump at a noise,
+ * not a change of heart, since the engine cannot tell the lion's friends from his prey.
+ */
+const STARTLE_HOLD = 1.5;
+/** Seconds after the sound that someone startled may still turn to it, once free. */
+const STARTLE_TURN = 1;
+/** Below this `volume` a sound is far off and startles nobody. */
+const STARTLE_VOLUME = 0.6;
+/** The faces a startle changes: the angry stand their ground, the frightened are already. */
+const CALM: ReadonlySet<Emotion> = new Set(['neutral', 'happy', 'sad']);
+/** Seconds round a startle in which a face, an emotion or a turn of the shot's own leaves it be. */
+const OWN_BEFORE = 0.3;
+const OWN_AFTER = 1;
 
 const RAW = new WeakSet<Shot>();
 const STAGED = new WeakSet<Shot>();
@@ -99,7 +125,9 @@ export function staged(project: Project, scene: Scene, shot: Shot): Shot {
 export function stagedWhat(a: StagedAction): string {
   const what = a.do
     ? `${a.do}${typeof a.to === 'string' ? ` to ${a.to}` : ''}`
-    : `turns ${a.set?.facing}`;
+    : a.emotion
+      ? `looks ${a.emotion}`
+      : `turns ${a.set?.facing}`;
   return `${a.actor} ${what}`;
 }
 
@@ -257,6 +285,57 @@ export function staging(project: Project, scene: Scene, shot: Shot): StagedActio
     const name = typeof to === 'string' ? to : `(${to.x}, ${to.y})`;
     beats.push({ t, run: () => turn(id, target, t, w.t, `${w.do}s ${name}`, true) });
   }
+  // A loud sound: everyone else jumps, and turns to where it came from.
+  shot.actions.forEach((s, k) => {
+    if (!s.sound || (s.volume ?? 1) < STARTLE_VOLUME) return;
+    const emotion = soundTraits(s.sound, s.startles).startles;
+    if (!emotion) return;
+    const source = s.actor && shot.cast[s.actor] ? s.actor : undefined;
+    // Roared at someone with a line (the lion's "Catch him!" to the jackal): at them alone.
+    const aimed = shot.actions.find(
+      (l) =>
+        l.say &&
+        l.actor === source &&
+        typeof l.to === 'string' &&
+        shot.cast[l.to] &&
+        Math.abs(l.t - s.t) <= OWN_BEFORE
+    );
+    const hearers = aimed
+      ? [
+          aimed.to as string,
+          ...(aimed.audience === 'all' ? Object.keys(shot.cast) : (aimed.audience ?? [])),
+        ]
+      : Object.keys(shot.cast);
+    for (const id of new Set(hearers)) {
+      if (id === source || !shot.cast[id] || !project.characters[id]?.parts.eyes) continue;
+      const t = s.t + STARTLE_DELAY + STARTLE_SPREAD * hash01(`${shot.id}:${id}:startle:${k}`);
+      if (t >= shot.duration) continue;
+      const me = at(id, t);
+      const asleep = me.face.eyes === 'closed' && me.lie >= 0.5;
+      if (!me.visible || me.opacity < 0.05 || asleep) continue;
+      const own = shot.actions.filter(
+        (a) => a.actor === id && a.t >= s.t - OWN_BEFORE && a.t <= s.t + OWN_AFTER
+      );
+      const why = `startled by ${s.sound}`;
+      if (!own.some((a) => a.emotion !== undefined || a.face) && CALM.has(me.emotion)) {
+        add({ t: round(t), actor: id, emotion, staged: why } as StagedAction);
+        // Back to how it was, unless the shot gives it a face of its own before then.
+        const back = t + STARTLE_HOLD;
+        const later = shot.actions.some(
+          (a) => a.actor === id && a.t > s.t && a.t <= back && (a.emotion !== undefined || a.face)
+        );
+        if (back < shot.duration && !later)
+          add({
+            t: round(back),
+            actor: id,
+            emotion: me.emotion,
+            staged: `settles after ${s.sound}`,
+          } as StagedAction);
+      }
+      if (source && !own.some((a) => a.set?.facing !== undefined || a.reacts))
+        beats.push({ t, run: () => turn(id, source, t, t + STARTLE_TURN, why) });
+    }
+  });
   // In time order, so each turn sees the facing the turns before it left.
   for (const b of beats.sort((x, y) => x.t - y.t)) b.run();
   return added;

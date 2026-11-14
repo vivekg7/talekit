@@ -17,7 +17,8 @@ reasoning are in `docs/PLAN.md`. Read both before changing the data model.
   actor state at time t), `stage.ts` (the staging the engine adds on its
   own: listeners turning to a speaker, a reaction looking at its cause, the
   face-off before a `give`, a worker walked to a `use` anchor, facing carried
-  across a `cut`; `talekit explain` lists it), `actor.ts` + `compose.ts` (state → SVG), `cull.ts`
+  across a `cut`, everyone else startled by a loud sound; `talekit explain`
+  lists it), `actor.ts` + `compose.ts` (state → SVG), `cull.ts`
   (leaves out what resvg would panic on: shapes far off the frame, canvases
   outside the bounds of the one they are drawn on),
   `outline.ts` (the engine-drawn outline under every part),

@@ -221,7 +221,11 @@ def variant(t, actor, **parts):
 
 
 def sound(t, name, actor=None, **more):
-    """A sound effect, placed at the actor when one is given. `more`: volume."""
+    """A sound effect, placed at the actor when one is given. `more`: volume, startles.
+
+    A loud one (a roar, a crash) startles everyone else in the shot on its own, and one made
+    with the mouth opens the actor's mouth while it sounds; startles=False stops the first.
+    """
     a = {**_when(t), "sound": name, **more}
     if actor:
         a["actor"] = actor
