@@ -626,6 +626,11 @@ up:
 - `air`: anywhere. A character with `flaps` gets `["land", "air"]` by
   default. A kite, the moon, a dust cloud and stars are `["air"]`.
 
+Feet a few pixels (up to 12) above a walk area are put down on it, so a
+cast spot read a little high off the sheet still stands on the ground;
+further up is a finding. A prop let go of falls to the floor (see
+[Carrying](#carrying-attach)).
+
 These areas are flat on the screen, so they cannot tell a pot floating in
 front of the floor from one standing further back on it. Make things move
 with verbs (a `putdown` onto a table, a `jump` onto a branch), never by
@@ -643,13 +648,17 @@ spot ringed (`talekit check --frames dir` saves those frames too). The
 shot is saved anyway, so you can look at it, but nothing renders until
 every finding is fixed or waived.
 
-| Code            | Means                                              |
-| --------------- | -------------------------------------------------- |
-| `support.air`   | stands on nothing: on no walk area, and cannot fly |
-| `support.water` | in deep water, and cannot swim                     |
-| `support.dry`   | lives in water, and is out of it                   |
-| `world.walk`    | the scene has no walk areas                        |
-| `world.anchor`  | an anchor is on no walk or water area              |
+| Code                 | Means                                                                                                                                              |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `support.air`        | stands on nothing: on no walk area, and cannot fly                                                                                                 |
+| `support.water`      | in deep water, and cannot swim                                                                                                                     |
+| `support.dry`        | lives in water, and is out of it                                                                                                                   |
+| `world.walk`         | the scene has no walk areas                                                                                                                        |
+| `world.anchor`       | an anchor is on no walk or water area                                                                                                              |
+| `attention.listener` | someone spoken to faces away from the speaker                                                                                                      |
+| `attention.speaker`  | a speaker faces away from who the line is said to                                                                                                  |
+| `attention.reacts`   | someone reacts to what they face away from                                                                                                         |
+| `continuity.jump`    | something jumps across the stage between frames, in sight: a prop handed over from too far, a `set.at` while it shows, a `move` too fast to be one |
 
 Waive a finding only when the film means it, in the shot's (or the
 scene's, for every shot there) `allow`. The key is the code, or the code
@@ -888,29 +897,30 @@ falling the same way.
 
 ### Verbs (`do`)
 
-| verb                  | what happens                                                                           | duration default        |
-| --------------------- | -------------------------------------------------------------------------------------- | ----------------------- |
-| `walk` / `run`        | planted-foot cycle to `to`, easing in and out (four legs: gallop)                      | distance ÷ 220 / 420    |
-| `move`                | glide to `to` without a cycle (sliding, floating objects)                              | distance ÷ 300          |
-| `fly`                 | move with a wobble, beating any `flaps` (birds, kites); `to` may be in the sky         | distance ÷ 260          |
-| `jump`                | crouch, leap (in place, or to `to`), land with a give                                  | 0.8s                    |
-| `wave`, `point`       | near arm (or front paw) up and waving / pointing (simple rig: lean toward)             | 1.5s                    |
-| `nod`, `shake`        | head yes / no                                                                          | 0.8s                    |
-| `tremble`             | frightened shiver (head and shoulders, or the whole simple body)                       | 1.2s                    |
-| `sit` / `stand`       | persistent: seat on `to` (a seat anchor), knees bent; four legs sit down               | 0.4s ease               |
-| `lie`                 | persistent: sits, then lies back on the floor (four legs: on the belly)                | 1.3s ease               |
-| `bounce`, `spin`      | squashy hop / full rotation (best on the simple rig)                                   | 1s / 0.8s               |
-| `appear`, `disappear` | pop in past full size and settle / swell a touch and shrink away                       | 0.4s                    |
-| `pickup`, `putdown`   | on a prop, with `attach`: its carrier stoops or reaches for it (below)                 | 1.2s                    |
-| `wipe`                | near hand out to `to` (an actor or a spot), going round on it: dusting                 | 2.4s                    |
-| `kick`                | near leg draws back, snaps out forward and up (lying: up off the bed; four legs: buck) | 0.9s                    |
-| `eat`                 | near hand and what it holds to the mouth, chewing (four legs: head down; simple: peck) | 1.6s                    |
-| `strike`              | near arm up overhead, chops down forward, swinging what it holds (four legs: a butt)   | 0.7s                    |
-| `swim`                | paddles in place, legs churning under a still body, head up; pair with a `move`        | 3s                      |
-| `dig`                 | bent over, swings what it holds up and down into the floor in front, clods flying      | 2.5s (2 strokes)        |
-| `hold`                | near hand out to `to` (an actor's shoulder, or a spot) and kept there                  | 2s                      |
-| `aim`                 | draws a held bow at `to` and holds it, then lowers it; its `arrow` on the string       | 3s                      |
-| `shoot`               | looses the arrow of the aim in progress; it flies to the target and sticks there       | flight: distance ÷ 2400 |
+| verb                  | what happens                                                                                                               | duration default        |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| `walk` / `run`        | planted-foot cycle to `to`, easing in and out (four legs: gallop)                                                          | distance ÷ 220 / 420    |
+| `move`                | glide to `to` without a cycle (a boat, a sledge, a ghost); never a prop to a hand or a shelf, nor a walker through the air | distance ÷ 300          |
+| `fall`                | drops straight down under gravity to the ground under it, with one bounce (a vase off a shelf, a mango off a branch)       | from the height         |
+| `fly`                 | move with a wobble, beating any `flaps` (birds, kites); `to` may be in the sky                                             | distance ÷ 260          |
+| `jump`                | crouch, leap (in place, or to `to`), land with a give                                                                      | 0.8s                    |
+| `wave`, `point`       | near arm (or front paw) up and waving / pointing (simple rig: lean toward)                                                 | 1.5s                    |
+| `nod`, `shake`        | head yes / no                                                                                                              | 0.8s                    |
+| `tremble`             | frightened shiver (head and shoulders, or the whole simple body)                                                           | 1.2s                    |
+| `sit` / `stand`       | persistent: seat on `to` (a seat anchor), knees bent; four legs sit down                                                   | 0.4s ease               |
+| `lie`                 | persistent: sits, then lies back on the floor (four legs: on the belly)                                                    | 1.3s ease               |
+| `bounce`, `spin`      | squashy hop / full rotation (best on the simple rig)                                                                       | 1s / 0.8s               |
+| `appear`, `disappear` | pop in past full size and settle / swell a touch and shrink away                                                           | 0.4s                    |
+| `pickup`, `putdown`   | on a prop, with `attach`: its carrier stoops or reaches for it (below)                                                     | 1.2s                    |
+| `wipe`                | near hand out to `to` (an actor or a spot), going round on it: dusting                                                     | 2.4s                    |
+| `kick`                | near leg draws back, snaps out forward and up (lying: up off the bed; four legs: buck)                                     | 0.9s                    |
+| `eat`                 | near hand and what it holds to the mouth, chewing (four legs: head down; simple: peck)                                     | 1.6s                    |
+| `strike`              | near arm up overhead, chops down forward, swinging what it holds (four legs: a butt)                                       | 0.7s                    |
+| `swim`                | paddles in place, legs churning under a still body, head up; pair with a `move`                                            | 3s                      |
+| `dig`                 | bent over, swings what it holds up and down into the floor in front, clods flying                                          | 2.5s (2 strokes)        |
+| `hold`                | near hand out to `to` (an actor's shoulder, or a spot) and kept there                                                      | 2s                      |
+| `aim`                 | draws a held bow at `to` and holds it, then lowers it; its `arrow` on the string                                           | 3s                      |
+| `shoot`               | looses the arrow of the aim in progress; it flies to the target and sticks there                                           | flight: distance ÷ 2400 |
 
 Crossing the frame on foot takes 4–5 s. `duration` overrides any default,
 and every walk needs enough of it or the character sprints; the engine
@@ -949,9 +959,12 @@ Make the prop a character (usually `simple`) and attach it: `{ "t": 0,
 hand (an animal's mouth), follows every move, faces the carrier's way and
 is drawn just in front; its own moves are ignored.
 
-- **Let go**: `{ "t": 7.5, "actor": "lantern", "attach": false, "do":
-"move", "to": "pedestal-top" }` lets it go where the hand is and the
-  `move` carries on from there; a `set: { "at": … }` puts it there at once.
+- **Let go**: `{ "t": 7.5, "actor": "lantern", "attach": false }` drops
+  it. It falls straight down from the hand, faster and faster, to the
+  floor its carrier stands on, and bounces once. Dropped by someone up a
+  tree, it falls past their branch to the ground. To set it somewhere,
+  use a `putdown` (below), never a `move` that glides it through the air.
+  A `set: { "at": … }` puts it there at once.
 - **From the floor**: `{ "t": 5, "actor": "basket", "attach": "pip", "do":
 "pickup" }` stoops the carrier, the hand closing on the prop halfway.
   Stand the carrier facing it about a third of their height in front of
@@ -1126,12 +1139,40 @@ Hindi works: Devanagari is drawn in the bundled Baloo 2 whatever the
 project's `font` (a Latin stack). Write it as in a book, `"अरे कछुए, तुम
 कितने धीमे हो!"`; the same 12-word limit holds.
 
-While someone speaks the others tip their heads toward them, and the
-speaker looks at the one spoken to: whoever spoke to them last, or the
-nearest actor in front, or the one named with `to` (`{ "t": 4, "actor":
-"mia", "say": "Can we go?", "to": "dad" }`). Nobody is turned round to
-look, so set `facing` so that people who talk face each other. Walking,
-jumping and pointing look straight ahead.
+**Who looks at whom is the engine's job.** When someone speaks, the engine
+turns the speaker to the one the line is said to, and turns the listeners
+to the speaker, a moment after the line starts, each in their own time.
+Heads tip up or down toward them too. The listeners are:
+
+- the one named with `to` (`{ "t": 4, "actor": "mia", "say": "Can we
+go?", "to": "dad" }`), on its own;
+- with no `to`, the one replied to (whoever spoke last);
+- everyone in the shot, when the speaker is the only one who talks in it
+  (a lion addressing the animals);
+- plus whoever the line lists in `audience`: ids, or `"all"` (the lion
+  speaks `to` the rabbit, with `"audience": "all"` so the herd turns too).
+
+So do not stage turns for a conversation. Only someone idle turns. A
+listener who is walking, has its hands busy (`strike`, `dig`, `eat`,
+`wipe`, `pickup`…), is lying down, has its eyes `closed`, or whom the shot
+itself turns with `set.facing` or a move near the line stays as it is. If
+it is the one a line is said `to`, that is a world finding
+(`attention.listener`), and so is a speaker facing away from its `to`
+(`attention.speaker`). Let the work stop before the line, or start the line
+after.
+
+**Reactions.** Give a reaction the actor it reacts to, `reacts`: `{ "t":
+6, "actor": "deer", "do": "run", "to": "offRight", "reacts": "jackal" }`.
+The engine turns the deer to look at the jackal just before (0.45 s), so
+the audience sees it see him. A listener who only notices later (a donkey
+singing with its eyes shut while a guard speaks to it) does not turn at
+the line when its later reaction `reacts` to the speaker; it turns then.
+Facing away from the cause at the reaction, unable to turn, is
+`attention.reacts`. Someone who should ignore a speaker on purpose (it
+sulks) is waived: `"allow": { "attention.listener:kid": "sulks" }`.
+
+`talekit explain <dir> [shot]` lists every turn the engine added, and why.
+Walking, jumping and pointing look straight ahead.
 
 ### Emotion, face, captions, camera, set
 

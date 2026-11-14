@@ -77,10 +77,13 @@ describe('looking', () => {
   });
 
   it('never looks behind, walking looks ahead, and a prop looks at nobody', () => {
+    // Told not to turn (it sulks), the kid keeps its back to the speaker and its head level.
     const p = project({ ...cast, kid: { at: { x: 300, y: 640 }, facing: 'left' } }, [
       { t: 1, actor: 'grownup', say: 'Over here.' },
       { t: 3, actor: 'dog', do: 'walk', to: { x: 900, y: 640 }, duration: 2 },
     ]);
+    p.shots[0].allow = { 'attention.listener:kid': 'sulks' };
+    expect(at(p, 'kid', 2).facing).toBe('left');
     expect(at(p, 'kid', 2).look).toBe(0);
     expect(at(p, 'dog', 4).look).toBe(0);
     const prop = project({ ...cast, lantern: { at: { x: 500, y: 640 } } }, [

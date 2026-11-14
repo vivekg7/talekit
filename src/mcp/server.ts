@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { composeFrame } from '../engine/compose.js';
 import { movieDuration, STAGE_SHORTCUTS } from '../engine/timeline.js';
+import { staging } from '../engine/stage.js';
 import {
   AnchorSchema,
   CharacterSchema,
@@ -102,13 +103,18 @@ const FINDING_FRAME = 800;
  * They do not stop the write (the agent looks at the shot and fixes it), only the render.
  */
 function worldReport(project: Project, shot: Shot): { text: string; frames: Content[] } {
+  const turns = staging(project, project.scenes[shot.scene], shot);
+  const staged = turns.length
+    ? `\n\nThe engine turned: ${turns.map((a) => `${a.actor} ${a.set?.facing} at ${a.t}s (${a.staged})`).join('; ')}.`
+    : '';
   const problems = worldProblems(project, [shot]);
-  if (!problems.length) return { text: '', frames: [] };
+  if (!problems.length) return { text: staged, frames: [] };
   const frames = problems
     .slice(0, FINDING_FRAMES)
     .map((p) => reduced(findingFrameSvg(project, p.finding!), FINDING_FRAME));
   return {
     text:
+      staged +
       `\n\nWorld: ${problems.length} finding${problems.length > 1 ? 's' : ''}, each an error that blocks the render until fixed or waived in \`allow\` with a reason${problems.length > FINDING_FRAMES ? ` (the first ${FINDING_FRAMES} pictured)` : ' (pictured)'}:\n` +
       formatProblems(problems),
     frames,
@@ -517,7 +523,7 @@ export function buildServer(): McpServer {
     {
       title: 'Write shot',
       description:
-        "Validate and save a shot (shots/<NN>-<id>.json; `order` sets NN and therefore playback order). Cross-checks cast, anchors, face variants, who a line is spoken `to`, who carries what (`attach`; a `pickup` the carrier cannot reach says where to stand), who stands on whom (`on`), archery (an `aim` needs a bow in the hand and its `arrow` in the cast; a `shoot` needs an aim to loose, or on an arrow off any bow a `to`) and whether a `crossfade` has a shot to dissolve from, and warns when two actors speak at once. The project check also warns when someone ends a shot carrying a prop and starts the next empty-handed. Listeners look at the speaker on their own; do not stage looks. Lines of characters with a `voice`, and captions when the project has a narrator, are spoken now, each with the emotion its speaker has then; a spoken line lasts as long as it takes to say (give a reply `after` in place of `t` and it starts that long after the line before it ends, however long that turns out), and warnings say when one is cut off by the end of the shot, talks over the narrator or runs into the speaker's own next line, or when a growl or a laugh is written out for the voice to read (mark it *…* and add a `sound`). Returns a contact sheet of evenly spaced frames so you can check staging, timing and bubbles, with the sound under it (a row per speaker, effects, ambience, music; a line outlined in red is cut off); it is drawn smaller than preview_shot draws it, so use that when a detail is hard to make out. Once saved, the world check plays the shot and holds every actor to what it can rest on (its character's `habitat`): feet on the scene's walk areas, a swimmer in water, a flier anywhere; carried, ridden (`on`) and mid-jump actors are held up already. Each finding comes back as an error with a frame of it, the spot ringed; it blocks the render until the shot is fixed or the finding is waived in the shot's `allow` with a reason (only when the film means it: a ghost floats).",
+        "Validate and save a shot (shots/<NN>-<id>.json; `order` sets NN and therefore playback order). Cross-checks cast, anchors, face variants, who a line is spoken `to`, who carries what (`attach`; a `pickup` the carrier cannot reach says where to stand), who stands on whom (`on`), archery (an `aim` needs a bow in the hand and its `arrow` in the cast; a `shoot` needs an aim to loose, or on an arrow off any bow a `to`) and whether a `crossfade` has a shot to dissolve from, and warns when two actors speak at once. The project check also warns when someone ends a shot carrying a prop and starts the next empty-handed. Listeners turn to face the speaker on their own, and the speaker turns to its `to` (`audience` adds listeners, `reacts` makes a reaction look at its cause first); do not stage those turns, and the text lists the ones the engine added. Lines of characters with a `voice`, and captions when the project has a narrator, are spoken now, each with the emotion its speaker has then; a spoken line lasts as long as it takes to say (give a reply `after` in place of `t` and it starts that long after the line before it ends, however long that turns out), and warnings say when one is cut off by the end of the shot, talks over the narrator or runs into the speaker's own next line, or when a growl or a laugh is written out for the voice to read (mark it *…* and add a `sound`). Returns a contact sheet of evenly spaced frames so you can check staging, timing and bubbles, with the sound under it (a row per speaker, effects, ambience, music; a line outlined in red is cut off); it is drawn smaller than preview_shot draws it, so use that when a detail is hard to make out. Once saved, the world check plays the shot and holds every actor to what it can rest on (its character's `habitat`): feet on the scene's walk areas, a swimmer in water, a flier anywhere; carried, ridden (`on`) and mid-jump actors are held up already. Each finding comes back as an error with a frame of it, the spot ringed; it blocks the render until the shot is fixed or the finding is waived in the shot's `allow` with a reason (only when the film means it: a ghost floats).",
       inputSchema: {
         path: pathArg,
         shot: ShotSchema,

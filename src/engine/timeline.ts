@@ -23,6 +23,8 @@ import {
 import { defaultGround, isPortrait, stageSides, uiScale } from './format.js';
 import { textWidth, wrapText } from './bubble.js';
 import { rigOf } from './rigs.js';
+import { staged } from './stage.js';
+import { groundOf, habitatOf, landing, snapDown } from './area.js';
 import { clipFor, lineDuration, lineLead, mouthOpen, sayDuration, shownText } from './voice.js';
 import type {
   Action,
@@ -142,6 +144,8 @@ export interface ActorState {
    * was cast there), not on the floor below it: they sit down from it and get up on it.
    */
   perched: boolean;
+  /** Dropping under gravity (let go of, or a `fall`): in the air on its way down. */
+  falling?: boolean;
   /** 0 up, 1 lying down (from sitting); in between while lying back or sitting up. */
   lie: number;
   /** The anchor's perspective scale under the actor (already folded into `scale`). */
@@ -258,6 +262,23 @@ interface Move {
   t1: number;
   /** When the actor last stood still, for its idle until t0 (while it gets up). */
   rest: number;
+  /** A drop under gravity: faster and faster, then one small bounce (see fallMove). */
+  fall?: boolean;
+}
+
+/** Gravity, scene pixels a second squared at scale 1 (a 220 px child is about 1.2 m). */
+const GRAVITY = 1800;
+/** The share of a fall spent dropping; the rest is a bounce of BOUNCE of the height. */
+const DROP_SHARE = 0.8;
+const BOUNCE = 0.06;
+
+/** A drop straight down from `from` to the floor at y, starting at `at`. */
+function fallMove(from: Point, y: number, at: number, rest: number): Move | undefined {
+  const h = y - from.y;
+  if (h <= 1) return undefined;
+  const drop = Math.sqrt((2 * h) / (GRAVITY * Math.max(0.2, from.scale)));
+  const to = { x: from.x, y, scale: from.scale };
+  return { verb: 'move', from, to, t0: at, t1: at + drop / DROP_SHARE, rest, fall: true };
 }
 
 /** Seconds a walk or run takes to get up to speed, and to stop. */
@@ -299,6 +320,10 @@ function moveProgress(m: Move, t: number): number {
   const u = clamp01((t - m.t0) / d);
   if (m.verb === 'walk' || m.verb === 'run') return ramp(u, Math.min(0.3, RAMP / d));
   if (m.verb === 'jump') return clamp01((u - JUMP.launch) / (JUMP.land - JUMP.launch));
+  if (m.fall)
+    return u < DROP_SHARE
+      ? (u / DROP_SHARE) ** 2
+      : 1 - BOUNCE * Math.sin((Math.PI * (u - DROP_SHARE)) / (1 - DROP_SHARE));
   return easeInOut(u);
 }
 
@@ -540,6 +565,8 @@ export function resolveActor(
   t: number,
   depth = 0
 ): ActorState {
+  // The engine's own staging (listeners turning to a speaker) is part of the shot it plays.
+  shot = staged(project, scene, shot);
   const character = project.characters[id];
   const cast = shot.cast[id];
   const actions = shot.actions.filter((a) => a.actor === id).sort((a, b) => a.t - b.t);
@@ -618,6 +645,8 @@ export function resolveActor(
   /** An arrow left on the string of a bow lowered without a shot. */
   let nocked: string | undefined;
   let move: Move | undefined;
+  /** A prop just let go of, falling. */
+  let drop: Move | undefined;
   let locoStart = 0;
   let locomotion: Locomotion = 'idle';
   const verbs: ActiveVerb[] = [];
@@ -717,9 +746,17 @@ export function resolveActor(
         } else lift = undefined;
         holder = a.attach;
       } else if (holder && depth < MAX_DEPTH) {
-        // Let go: it stays where the hand was just before (the arm relaxes after).
+        // Let go: from where the hand was just before (the arm relaxes after).
         const before = Math.max(0, at - 1e-6);
         point = heldPoint(project, scene, shot, character, scale, holder, before, depth).point;
+        if (a.do !== 'putdown' && !a.set?.at) {
+          // Dropped, it falls straight down to the floor its carrier stands on, or past the
+          // perch a carrier up a tree stands on, to the ground.
+          const carrier = resolveActor(project, scene, shot, holder, at, depth + 1);
+          const floor = carrier.y + (carrier.sit > 0 && !carrier.perched ? carrier.seat : 0);
+          const perch = carrier.perched ? { x: carrier.x, y: carrier.y } : undefined;
+          drop = fallMove(point, landing(scene.walk ?? [], point, floor, perch), at, at);
+        }
         if (a.do === 'putdown') {
           // Set down from the low hand: onto `to`, or the floor the carrier stands on.
           const carrier = resolveActor(project, scene, shot, holder, at, depth + 1);
@@ -731,7 +768,8 @@ export function resolveActor(
         holder = undefined;
         lift = undefined;
       } else holder = undefined;
-      if (a.do !== 'putdown') move = undefined;
+      if (a.do !== 'putdown') move = drop;
+      drop = undefined;
     }
     if (offAt <= a.t) {
       on = undefined;
@@ -782,7 +820,14 @@ export function resolveActor(
     // A pickup or putdown is the carrier's stoop, not something the prop does.
     if (a.do && !isStoop(a)) {
       const verb = a.do;
-      if (isMoveVerb(verb)) {
+      if (verb === 'fall') {
+        // Off a shelf, a branch, a wall: straight down to the ground under it. A carried
+        // thing is let go of with attach false, which drops it the same way.
+        if (!holder) {
+          const floor = landing(scene.walk ?? [], point, point.y + 1, point);
+          move = fallMove(point, floor, a.t, locoStart) ?? move;
+        }
+      } else if (isMoveVerb(verb)) {
         let to = a.to ? resolvePosition(project, scene, a.to) : point;
         const d = actionDuration(a, point, to);
         const t0 = setOff(a.t);
@@ -1019,6 +1064,23 @@ export function resolveActor(
   // Standing still on someone: wherever that spot on them has got to.
   if (point.rides) point = ride(point, t);
   if (offAt <= t) on = undefined;
+  // Feet a few pixels above the ground are put on it: a walker on its own feet, on the
+  // floor (not on a seat, someone, a perch, or in the air jumping or falling).
+  const habitat = habitatOf(character);
+  if (
+    !heldBy &&
+    !on &&
+    !point.rides &&
+    !perched &&
+    seat === 0 &&
+    habitat.includes('land') &&
+    !habitat.includes('air') &&
+    !(move?.fall && t < move.t1) &&
+    !verbs.some((v) => v.verb === 'jump')
+  ) {
+    const y = snapDown(groundOf(scene), point);
+    if (y !== undefined) point = { ...point, y };
+  }
   const holding = Object.keys(shot.cast).some((other) => holderAt(shot, other, t) === id);
   const state: ActorState = {
     id,
@@ -1037,6 +1099,7 @@ export function resolveActor(
     sit: sitAmount(t),
     seat,
     perched: perched && seat > 0,
+    falling: !heldBy && !!move?.fall && t >= move.t0 && t < move.t1,
     lie: lieAmount(t),
     perspective: point.scale,
     on: heldBy ? undefined : on,

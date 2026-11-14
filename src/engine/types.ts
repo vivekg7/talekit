@@ -739,6 +739,7 @@ export const VerbSchema = z.enum([
   'hold',
   'aim',
   'shoot',
+  'fall',
 ]);
 export type Verb = z.infer<typeof VerbSchema>;
 
@@ -855,7 +856,7 @@ export const ActionSchema = z
       .union([IdSchema, z.literal(false)])
       .optional()
       .describe(
-        "Carry this actor (a prop): the id of the carrier, whose near hand (or a four-legged animal's mouth) holds it at the prop's grip; false lets go, leaving it where it is. With do: 'pickup' the carrier takes it from where it is, stooping to the floor for it or reaching out to it on a table or a shelf; with attach false and do: 'putdown' the carrier sets it down (at `to`, a table top reached out to, else on the floor under the hand)"
+        "Carry this actor (a prop): the id of the carrier, whose near hand (or a four-legged animal's mouth) holds it at the prop's grip; false lets go, and it falls straight down to the floor its carrier stands on. With do: 'pickup' the carrier takes it from where it is, stooping to the floor for it or reaching out to it on a table or a shelf; with attach false and do: 'putdown' the carrier sets it down (at `to`, a table top reached out to, else on the floor under the hand)"
       ),
     /** The weather changes, over `duration`, to this. */
     weather: WeatherSchema.optional().describe(
@@ -883,6 +884,15 @@ export const ActionSchema = z
       .optional()
       .describe("The sound's loudness: 1 as recorded (default), 0.5 distant, 1.5 close"),
     /** Standing on another actor: drawn in front of it while on it. */
+    audience: z
+      .union([z.literal('all'), z.array(IdSchema)])
+      .optional()
+      .describe(
+        "On a line: who else listens, and turns to face the speaker, besides the one it is said `to`: actor ids, or 'all' for everyone in the shot (the animals hearing the lion who speaks to one of them). Without it a line said `to` someone is heard by that one alone, a reply by the one replied to, and the only speaker in a shot by everyone"
+      ),
+    reacts: IdSchema.optional().describe(
+      'What this action is a reaction to: the id of the actor that caused it (a run away from the lion, a scared look at the bray, a laugh at the joke). The engine turns this actor to look at the cause just before, so the reaction reads as seen; one facing away that cannot turn (walking, busy, asleep) is a world finding'
+    ),
     on: IdSchema.optional().describe(
       "With a walk, run, move, fly or jump that has a `to`, or with set.at: the id of the actor this one ends up standing on (a mouse on a sleeping lion's back), so it is drawn in front of that actor from when it sets off until a later move without `on` lands somewhere else. Put `to` on the top of that actor (read where it is off a preview_frame). It rides along on that spot of its body as the other gets up, walks or turns; a hop to another spot up there needs `on` again"
     ),

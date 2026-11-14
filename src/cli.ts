@@ -4,6 +4,7 @@ import { writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { composeFrame } from './engine/compose.js';
 import { movieDuration } from './engine/timeline.js';
+import { staging } from './engine/stage.js';
 import type { Project } from './engine/types.js';
 import { LIBRARY, copyFromLibrary } from './library/index.js';
 import { createProject, loadProject, projectPaths } from './project/store.js';
@@ -30,6 +31,8 @@ const USAGE = `talekit — story video generation for AI agents
                                                (what stands on what), and the post text in out/
                                                (youtube.txt, instagram.txt); --frames saves a
                                                picture of each world finding, the spot ringed
+  talekit explain <dir> [shotId]               what the engine adds to each shot on its own
+                                               (listeners turning to a speaker, and so on)
   talekit library                              list built-in characters and scenes
   talekit copy <dir> <libraryId> [--as <id>]   copy a built-in into the project
   talekit sheet <dir> <id> [-o file.png]       pose + construction sheet (character) or anchor sheet (scene)
@@ -135,6 +138,20 @@ async function main(argv: string[]): Promise<void> {
         `${Object.keys(project.characters).length} characters, ${Object.keys(project.scenes).length} scenes, ${project.shots.length} shots, ${movieDuration(project).toFixed(1)}s`
       );
       if (hasErrors(problems)) process.exitCode = 1;
+      return;
+    }
+    case 'explain': {
+      const [dir, shotId] = rest;
+      if (!dir) throw new Error('usage: talekit explain <dir> [shotId]');
+      const project = await loadProject(dir);
+      const shots = project.shots.filter((s) => !shotId || s.id === shotId);
+      if (shotId && !shots.length) throw new Error(`no shot '${shotId}'`);
+      for (const shot of shots) {
+        const added = staging(project, project.scenes[shot.scene], shot);
+        console.log(`${shot.id}: ${added.length ? '' : 'nothing added'}`);
+        for (const a of added)
+          console.log(`  t=${a.t.toFixed(2)}  ${a.actor} turns ${a.set?.facing}  (${a.staged})`);
+      }
       return;
     }
     case 'library': {

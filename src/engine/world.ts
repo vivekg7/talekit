@@ -7,10 +7,18 @@
  * when the fix is mechanical. Findings are errors that block the render until the shot is
  * fixed or the finding is waived with a reason (`allow`). See docs/PLAN.md, phase 8.
  */
+import { waived } from './allow.js';
+import { groundOf, habitatOf, inArea, nearestIn, type Ground, type XY } from './area.js';
+import { BUSY, directs, FOCUSED, sideOf } from './stage.js';
 import { resolveActor, type ActorState } from './timeline.js';
+import { lineEnd } from './voice.js';
+
+export { waived };
 import type { Allow, Area, Character, Habitat, Project, Scene, Shot } from './types.js';
 
-export type XY = { x: number; y: number };
+export { groundOf, habitatOf, inArea, nearestIn };
+export type { Ground };
+export type { XY };
 
 export interface Finding {
   /** What kind of mistake, `support.air`: the key a waiver names. */
@@ -33,7 +41,16 @@ export const CODES: Record<string, string> = {
   'support.air': 'an actor that cannot fly is held up by nothing',
   'support.water': 'an actor that cannot swim is in deep water',
   'support.dry': 'an actor that lives in water is out of it',
+  'attention.listener': 'someone spoken to faces away from the speaker',
+  'attention.speaker': 'a speaker faces away from who the line is said to',
+  'attention.reacts': 'someone reacts to what they face away from',
+  'continuity.jump': 'something jumps across the stage between frames, in sight',
 };
+
+/** Faster than this across the stage (scene pixels a second) reads as a jump cut. */
+export const JUMP_SPEED = 1500;
+/** Seconds into a line before who is spoken to must face the speaker: time to turn. */
+export const LOOK_GRACE = 0.7;
 
 /** How far off an area's edge feet may be and still stand on it, in scene pixels. */
 export const EDGE_TOLERANCE = 6;
@@ -42,38 +59,6 @@ export const SAMPLE_STEP = 0.1;
 
 // ---------------------------------------------------------------------------------------
 // Geometry
-
-export function inArea(area: Area, p: XY): boolean {
-  let inside = false;
-  for (let i = 0, j = area.length - 1; i < area.length; j = i++) {
-    const [xi, yi] = area[i];
-    const [xj, yj] = area[j];
-    if (yi > p.y !== yj > p.y && p.x < ((xj - xi) * (p.y - yi)) / (yj - yi) + xi) inside = !inside;
-  }
-  return inside;
-}
-
-/** The nearest point of an area to p: p itself if it is inside. */
-export function nearestIn(area: Area, p: XY): XY {
-  if (inArea(area, p)) return p;
-  let best: XY = p;
-  let bestD = Infinity;
-  for (let i = 0, j = area.length - 1; i < area.length; j = i++) {
-    const [ax, ay] = area[j];
-    const [bx, by] = area[i];
-    const dx = bx - ax;
-    const dy = by - ay;
-    const len = dx * dx + dy * dy;
-    const u = len ? Math.max(0, Math.min(1, ((p.x - ax) * dx + (p.y - ay) * dy) / len)) : 0;
-    const q = { x: ax + u * dx, y: ay + u * dy };
-    const d = Math.hypot(q.x - p.x, q.y - p.y);
-    if (d < bestD) {
-      bestD = d;
-      best = q;
-    }
-  }
-  return best;
-}
 
 const dist = (a: XY, b: XY) => Math.hypot(a.x - b.x, a.y - b.y);
 
@@ -92,27 +77,6 @@ const within = (areas: Area[], p: XY) => (nearestOf(areas, p)?.d ?? Infinity) <=
 
 // ---------------------------------------------------------------------------------------
 // What the stage is, and what an actor is
-
-export interface Ground {
-  walk: Area[];
-  deep: Area[];
-  shallow: Area[];
-}
-
-/** The scene's walk and water areas; a `river` effect's outline is deep water too. */
-export function groundOf(scene: Scene): Ground {
-  const deep: Area[] = [];
-  const shallow: Area[] = [];
-  for (const w of scene.water ?? []) (w.wade ? shallow : deep).push(w.area);
-  for (const e of scene.effects ?? [])
-    if (e.kind === 'river' && e.points && !scene.water?.length) deep.push(e.points as Area);
-  return { walk: scene.walk ?? [], deep, shallow };
-}
-
-export function habitatOf(character: Character): Habitat[] {
-  if (character.habitat) return character.habitat;
-  return character.flaps?.length ? ['land', 'air'] : ['land'];
-}
 
 /**
  * What holds a character up at p, or the code of the mistake if nothing it can rest on
@@ -142,18 +106,13 @@ function restingPoint(a: ActorState): XY {
 /** Held up by something the engine itself places it on, or out of sight: no check. */
 function heldUp(a: ActorState, width: number): boolean {
   if (!a.visible || a.opacity <= 0.01) return true;
-  if (a.heldBy || a.on) return true;
+  if (a.heldBy || a.on || a.falling) return true;
   if (a.verbs.some((v) => v.verb === 'jump')) return true;
   return a.x < 0 || a.x > width;
 }
 
 // ---------------------------------------------------------------------------------------
 // Waivers
-
-/** Whether the shot or its scene waives this code, for every actor or for this one. */
-export function waived(allow: Allow[], code: string, actor?: string): boolean {
-  return allow.some((a) => a && (a[code] !== undefined || (actor && a[`${code}:${actor}`])));
-}
 
 /** A waiver key that names no check: a typo that would waive nothing. */
 export function unknownWaivers(allow: Allow): string[] {
@@ -292,7 +251,164 @@ function supportFinding(
   };
 }
 
-const RULES = [supportRule];
+/**
+ * Who a line is said to faces the speaker, the speaker faces them, and a reaction faces
+ * its cause. The engine turns whoever is free to (stage.ts); this finds the ones it could
+ * not, because they were walking, busy with their hands, or turned away by the shot itself.
+ */
+function attentionRule(project: Project, shot: Shot): Finding[] {
+  const scene = project.scenes[shot.scene];
+  const allow = [shot.allow, scene.allow];
+  const W = project.meta.width;
+  const at = (id: string, t: number) => resolveActor(project, scene, shot, id, t);
+  const out: Finding[] = [];
+  /** Whether `id` faces away from `other` at t, when that matters; the state if so. */
+  const away = (id: string, other: string, t: number) => {
+    const me = at(id, t);
+    const them = at(other, t);
+    if (!watches(me, W) || !them.visible) return undefined;
+    // Eyes on the mark (an archer's aim), or turned away by the shot itself: meant.
+    if (me.verbs.some((v) => FOCUSED.has(v.verb))) return undefined;
+    if (directs(shot, id, t - 3, t)) return undefined;
+    const want = sideOf(me, them);
+    return want && want !== me.facing ? me : undefined;
+  };
+  const report = (
+    code: string,
+    id: string,
+    other: string,
+    t: number,
+    me: ActorState,
+    what: string
+  ) =>
+    out.push({
+      code,
+      shot: shot.id,
+      t: [r1(t), r1(t)],
+      actors: [id, other],
+      at: { x: me.x, y: me.y },
+      message: `'${id}' faces ${me.facing}, away from '${other}', ${what} at ${r1(t)}s, because ${whyNot(me)}. Let it finish before the line (or start the line after), turn it with set.facing, or allow { '${code}:${id}': reason } if it means to look away.`,
+    });
+  /**
+   * Through a line, once there has been time to turn (LOOK_GRACE): facing away for more
+   * than half of it is a finding, reported where it first shows.
+   */
+  const during = (
+    code: string,
+    id: string,
+    other: string,
+    from: number,
+    to: number,
+    what: string
+  ) => {
+    if (waived(allow, code, id)) return;
+    let first: { t: number; me: ActorState } | undefined;
+    let n = 0;
+    let bad = 0;
+    for (let t = from + LOOK_GRACE; t < Math.min(to, shot.duration); t += SAMPLE_STEP) {
+      n++;
+      const me = away(id, other, t);
+      if (!me) continue;
+      bad++;
+      first ??= { t, me };
+    }
+    if (first && bad * 2 > n) report(code, id, other, first.t, first.me, what);
+  };
+  for (const a of shot.actions) {
+    if (!a.actor || !shot.cast[a.actor]) continue;
+    if (a.say && a.bubble !== 'thought' && typeof a.to === 'string' && shot.cast[a.to]) {
+      const end = lineEnd(project, shot, a);
+      during('attention.listener', a.to, a.actor, a.t, end, `while '${a.actor}' speaks to it`);
+      during('attention.speaker', a.actor, a.to, a.t, end, 'while it speaks to it');
+    }
+    if (
+      a.reacts &&
+      shot.cast[a.reacts] &&
+      a.reacts !== a.actor &&
+      !waived(allow, 'attention.reacts', a.actor)
+    ) {
+      const me = away(a.actor, a.reacts, a.t);
+      if (me) report('attention.reacts', a.actor, a.reacts, a.t, me, 'as it reacts to it');
+    }
+  }
+  return out;
+}
+
+/** Someone whose facing matters: in sight, awake, with eyes, on its own feet. */
+function watches(a: ActorState, width: number): boolean {
+  return (
+    a.visible &&
+    a.opacity > 0.01 &&
+    !a.heldBy &&
+    !!a.character.parts.eyes &&
+    a.lie < 0.5 &&
+    a.x >= 0 &&
+    a.x <= width
+  );
+}
+
+function whyNot(a: ActorState): string {
+  if (a.locomotion !== 'idle') return `it is on the move (${a.locomotion})`;
+  const busy = a.verbs.find((v) => BUSY.has(v.verb));
+  if (busy) return `its hands are busy (${busy.verb})`;
+  if (a.turn) return 'it is still turning';
+  return 'it was not free to turn while the line lasted';
+}
+
+/**
+ * Nothing in sight jumps from one place to another between frames: a roti passed between
+ * two who stand far apart, a bundle put elsewhere with set.at while it shows. A cut, an
+ * arrow, a fall and coming into or out of sight are not jumps.
+ */
+function jumpRule(project: Project, shot: Shot, samples: Sample[]): Finding[] {
+  const scene = project.scenes[shot.scene];
+  const allow = [shot.allow, scene.allow];
+  const W = project.meta.width;
+  const out: Finding[] = [];
+  const seen = (a: ActorState) => a.visible && a.opacity > 0.01 && a.x >= -40 && a.x <= W + 40;
+  for (const id of Object.keys(shot.cast)) {
+    if (waived(allow, 'continuity.jump', id)) continue;
+    for (let i = 1; i < samples.length; i++) {
+      const a = samples[i - 1].actors.find((x) => x.id === id)!;
+      const b = samples[i].actors.find((x) => x.id === id)!;
+      if (!seen(a) || !seen(b) || a.streak || b.streak || a.falling || b.falling) continue;
+      // Carried through its carrier's turn or swung in a blow, it goes where the drawing
+      // goes; an arrow on a bowstring goes where the engine's aim puts it (its jumps there are
+      // engine work, listed in docs/PLAN.md 8.1).
+      if (
+        (a.heldBy && a.heldBy === b.heldBy && (a.turn || b.turn || a.tilt || b.tilt)) ||
+        a.nockedOn ||
+        b.nockedOn
+      )
+        continue;
+      const dt = samples[i].t - samples[i - 1].t;
+      const d = Math.hypot(b.x - a.x, b.y - a.y);
+      if (dt <= 0 || d / dt < JUMP_SPEED) continue;
+      const t0 = samples[i - 1].t;
+      const t1 = samples[i].t;
+      const placed = shot.actions.some((x) => x.actor === id && x.set?.at && x.t > t0 && x.t <= t1);
+      const why =
+        a.heldBy !== b.heldBy && b.heldBy
+          ? `passes ${a.heldBy ? `from '${a.heldBy}'` : 'from where it was'} to '${b.heldBy}' from too far away, so it jumps rather than being handed over. Bring them within reach first (the receiver's height apart at most), or have '${b.heldBy}' walk over and pickup`
+          : placed
+            ? 'is put somewhere else with set.at while in sight. Hide it first (set.visible false), move it with a verb, or cut'
+            : b.locomotion === 'move' || a.locomotion === 'move'
+              ? `moves faster than anything can (${Math.round(d / dt)} px a second) in a \`move\`. If it drops, use \`fall\`; otherwise give the move more time`
+              : 'jumps across the stage between two frames. Move it with a verb, or cut';
+      out.push({
+        code: 'continuity.jump',
+        shot: shot.id,
+        t: [r1(t0), r1(t1)],
+        actors: [id],
+        at: { x: b.x, y: b.y },
+        message: `'${id}' ${why} (${Math.round(d)} px between ${r1(t0)}s and ${r1(t1)}s).`,
+      });
+    }
+  }
+  return out;
+}
+
+const RULES = [supportRule, attentionRule, jumpRule];
 
 /** Every finding in a shot, waivers applied. */
 export function shotFindings(project: Project, shot: Shot): Finding[] {

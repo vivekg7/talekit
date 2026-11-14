@@ -12,6 +12,7 @@ import {
 } from '../src/engine/world.js';
 import { validateProject, validateScene, validateShot } from '../src/project/validate.js';
 import { findingFrameSvg } from '../src/render/sheets.js';
+import { resolveActor } from '../src/engine/timeline.js';
 import { rasterize } from '../src/render/raster.js';
 
 // A floor from y 560 down, a branch top at y 330, deep water on the right, a wading strip.
@@ -238,5 +239,95 @@ describe('the scene on its own', () => {
     expect(validateScene(up, 1280, 720).filter((p) => p.code === 'world.anchor')).toHaveLength(1);
     const ok = SceneSchema.parse({ ...up, allow: { 'world.anchor:sky': 'the crow flies there' } });
     expect(validateScene(ok, 1280, 720)).toEqual([]);
+  });
+});
+
+describe('gravity', () => {
+  const pos = (p: Project, id: string, t: number) =>
+    resolveActor(p, p.scenes.stage, p.shots[0], id, t);
+  it('drops a prop let go of straight down to the floor its carrier stands on', () => {
+    const p = project({ kid: { at: 'floor' }, pot: { at: { x: 330, y: 640 } } }, [
+      { t: 0, actor: 'pot', attach: 'kid' },
+      { t: 1, actor: 'pot', attach: false },
+    ]);
+    const held = pos(p, 'pot', 0.99);
+    const mid = pos(p, 'pot', 1.1);
+    const after = pos(p, 'pot', 2);
+    expect(held.y).toBeLessThan(620);
+    expect(mid.falling).toBe(true);
+    expect(mid.y).toBeGreaterThan(held.y);
+    expect(after.y).toBeCloseTo(640, 0);
+    expect(after.x).toBeCloseTo(held.x, 0);
+    expect(shotFindings(p, p.shots[0])).toEqual([]);
+  });
+  it('drops faster and faster, then bounces once', () => {
+    const p = project({ pot: { at: { x: 700, y: 330 } } }, [{ t: 1, actor: 'pot', do: 'fall' }]);
+    const ys = [1, 1.1, 1.2, 1.3].map((t) => pos(p, 'pot', t).y);
+    expect(ys[2] - ys[1]).toBeGreaterThan(ys[1] - ys[0]);
+    expect(pos(p, 'pot', 3).y).toBeGreaterThan(559);
+    expect(pos(p, 'pot', 3).y).toBeLessThan(570);
+  });
+  it('does not drop what stands on the floor already', () => {
+    const p = project({ pot: { at: { x: 300, y: 640 } } }, [{ t: 1, actor: 'pot', do: 'fall' }]);
+    expect(pos(p, 'pot', 2).y).toBe(640);
+  });
+});
+
+describe('feet put on the ground', () => {
+  const pos = (p: Project, id: string, t: number) =>
+    resolveActor(p, p.scenes.stage, p.shots[0], id, t);
+  it('puts feet a few pixels above the floor on it, and leaves a real float to the check', () => {
+    const near = project({ kid: { at: { x: 300, y: 552 } } });
+    expect(pos(near, 'kid', 1).y).toBe(560);
+    expect(shotFindings(near, near.shots[0])).toEqual([]);
+    const far = project({ kid: { at: { x: 300, y: 540 } } });
+    expect(pos(far, 'kid', 1).y).toBe(540);
+    expect(shotFindings(far, far.shots[0]).map((f) => f.code)).toEqual(['support.air']);
+  });
+  it('leaves a bird in the air alone', () => {
+    const p = project({ crow: { at: { x: 300, y: 552 } } });
+    expect(pos(p, 'crow', 1).y).toBe(552);
+  });
+});
+
+describe('the jump rule', () => {
+  const codes = (p: Project) => shotFindings(p, p.shots[0]).map((f) => f.code);
+  it('finds a prop passed between two who stand too far apart, and says why', () => {
+    const p = project(
+      {
+        kid: { at: { x: 200, y: 640 } },
+        crow: { at: { x: 900, y: 640 } },
+        pot: { at: { x: 230, y: 640 } },
+      },
+      [
+        { t: 0, actor: 'pot', attach: 'kid' },
+        { t: 1, actor: 'pot', attach: 'crow' },
+      ]
+    );
+    const [f] = shotFindings(p, p.shots[0]).filter((x) => x.code === 'continuity.jump');
+    expect(f.actors).toEqual(['pot']);
+    expect(f.message).toMatch(/from 'kid' to 'crow'/);
+  });
+  it('finds a set.at in sight, and a move too fast to be one', () => {
+    const placed = project({ pot: { at: { x: 200, y: 640 } } }, [
+      { t: 1, actor: 'pot', set: { at: { x: 900, y: 640 } } },
+    ]);
+    expect(shotFindings(placed, placed.shots[0])[0].message).toMatch(/set\.at while in sight/);
+    const fast = project({ pot: { at: { x: 200, y: 640 } } }, [
+      { t: 1, actor: 'pot', do: 'move', to: { x: 900, y: 640 }, duration: 0.3 },
+    ]);
+    expect(shotFindings(fast, fast.shots[0])[0].message).toMatch(/faster than anything/);
+  });
+  it('leaves walks, runs, hidden moves and falls alone', () => {
+    const walk = project({ kid: { at: { x: 100, y: 640 } } }, [
+      { t: 0.5, actor: 'kid', do: 'run', to: { x: 900, y: 640 } },
+    ]);
+    expect(codes(walk)).toEqual([]);
+    const hidden = project({ pot: { at: { x: 200, y: 640 } } }, [
+      { t: 0.5, actor: 'pot', set: { visible: false } },
+      { t: 1, actor: 'pot', set: { at: { x: 900, y: 640 } } },
+      { t: 1.5, actor: 'pot', set: { visible: true } },
+    ]);
+    expect(codes(hidden)).toEqual([]);
   });
 });

@@ -797,6 +797,74 @@ three things about the model:
   gliding with `move`, gravity for what is let go (8.1), and `climb` for
   ladders and trees (added to 8.1).
 
+### 8.1 so far
+
+- **Attention** (`src/engine/stage.ts`). Before a shot plays, the engine adds
+  `set.facing` actions. Everything downstream sees them, and the file is
+  untouched.
+  - The speaker turns to its `to`, or to whoever it replies to.
+  - Listeners turn to the speaker 0.15 to 0.5 s into the line, staggered
+    by `hash01`. They are the line's `to` alone, the one replied to, or
+    everyone when the speaker is the only one who talks in the shot, plus
+    the line's `audience`.
+  - Someone walking, busy with their hands, lying down, with eyes `closed`
+    or carried does not turn. One still moving turns once its move ends,
+    and listeners are looked at again every 0.5 s through the line.
+  - Only a `set.facing` near the line counts as the agent directing it. A
+    move does not: the guards in R18 ran in and kept facing their run,
+    which was the review note.
+  - `reacts` turns an actor to the cause 0.45 s before its reaction. A
+    later `reacts` to the speaker means the listener has not noticed yet,
+    so it turns then.
+  - `attention.*` findings catch the ones that could not turn, judged over
+    the whole line: facing away for more than half of it, after 0.7 s to
+    turn. An archer's `aim` keeps its eyes on the mark and is never a
+    finding.
+  - `talekit explain` and the MCP writes list every added turn.
+- **Gravity.**
+  - A prop let go of (`attach: false`) falls straight down from the hand to
+    the floor its carrier stands on. A perched carrier's drop falls past
+    its branch to the ground.
+  - The new `fall` verb drops a thing off a shelf or a branch.
+  - The fall accelerates (1800 px/s² at scale 1) and bounces once. It is
+    exact for a straight drop, so Rapier waits for tumbling and rolling.
+- **Feet snap** onto a walk area up to 12 px below them, for a walker on its
+  own feet.
+- **The jump rule** (`continuity.jump`). Anything in sight moving faster
+  than 1500 px/s between samples is a finding: a hand-over from too far
+  (the roti), a `set.at` while it shows, a `move` too fast to be one (use
+  `fall`). Arrows, falls, a prop carried through its carrier's turn or
+  swung in a blow, and anything out of sight are left alone.
+
+**Calibration on the released stories.** The attention and jump rules need
+no walk areas, so they were run over all 36 projects.
+
+- At first they found 43 things. Most were archers who keep their eyes on
+  the bird while Drona speaks, which is right, hence the `aim` exemption.
+  The rest were listeners whose own move left them facing away, now turned
+  once the move ends.
+- Now they find 2, both one real glitch the review missed: the wooden bird
+  in the archery reel drops off its perch as a 0.55 s `move` at 1770 px/s,
+  carrying the arrow stuck in it.
+- Before the exemptions they also found two more real glitches, in the
+  engine itself, not in any shot:
+  - an arrow on the string jumps 150 to 480 px as an `aim` raises the
+    bow, or when one arrow is reused by the next archer;
+  - a prop carried in a long animal's mouth swaps sides at mid-turn, with
+    the head.
+
+  Neither can be fixed from a shot, so they are exempt from the rule and
+  are engine work: animate the arrow onto the string and along the raise.
+  The turn is how a side-on drawing turns, so it stays.
+
+Still to do in 8.1:
+
+- `give`, a hand-over with both arms reaching;
+- `climb` for ladders and trees, and a `move` that carries a walker off
+  the ground flagged as a glide;
+- the speech check on voiced takes;
+- the arrow fix above.
+
 ## Render speed
 
 Measured 2026-10-23 on a 12-core M-series Mac, on the race film (273 s,

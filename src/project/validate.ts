@@ -532,6 +532,19 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
       const err = positionOk(a.to);
       if (err) out.push({ level: 'error', where: w, message: err });
     }
+    if (Array.isArray(a.audience))
+      for (const id of a.audience.filter((x) => !shot.cast[x]))
+        out.push({ level: 'error', where: w, message: `audience: '${id}' is not in the cast` });
+    if (a.audience && !a.say)
+      out.push({ level: 'error', where: w, message: 'audience is only read on a line (say)' });
+    if (a.reacts && !shot.cast[a.reacts])
+      out.push({
+        level: 'error',
+        where: w,
+        message: `reacts: '${a.reacts}' is not in the cast; name the actor this reacts to`,
+      });
+    else if (a.reacts && a.reacts === a.actor)
+      out.push({ level: 'error', where: w, message: `'${a.actor}' reacts to itself` });
     const on = a.actor && onError(a.actor, a.on);
     if (on) out.push({ level: 'error', where: w, message: on });
     if (a.attach) {
