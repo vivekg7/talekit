@@ -123,6 +123,44 @@ describe('a walk round what is in the way', () => {
     expect(shotFindings(p, p.shots[0]).filter((f) => f.code.startsWith('support'))).toEqual([]);
   });
 
+  it('turns where the way doubles back, round to the bridge and along the far bank', () => {
+    const banks: Area[] = [
+      // The near bank, the far bank below it, and a bridge between them at the right.
+      [
+        [-400, 480],
+        [1680, 480],
+        [1680, 560],
+        [-400, 560],
+      ],
+      [
+        [-400, 640],
+        [1680, 640],
+        [1680, 720],
+        [-400, 720],
+      ],
+      [
+        [900, 540],
+        [1000, 540],
+        [1000, 660],
+        [900, 660],
+      ],
+    ];
+    const p = project({ walk: banks }, { kid: { at: { x: 300, y: 520 }, facing: 'left' } }, [
+      { t: 0.5, actor: 'kid', do: 'walk', to: { x: 300, y: 690 } },
+    ]);
+    const shot = p.shots[0];
+    const at = (t: number) => resolveActor(p, p.scenes.park, shot, 'kid', t);
+    const path = Array.from({ length: 160 }, (_, i) => ({ t: i * 0.05, ...at(i * 0.05) }));
+    const going = path.filter((s) => s.locomotion === 'walk');
+    // Facing the way it goes on every leg: right to the bridge, left back along the far bank.
+    for (let i = 1; i < going.length; i++) {
+      const dx = going[i].x - going[i - 1].x;
+      if (Math.abs(dx) > 2) expect(going[i].facing).toBe(dx > 0 ? 'right' : 'left');
+    }
+    expect(going.some((s) => s.facing === 'right')).toBe(true);
+    expect(path[path.length - 1].facing).toBe('left');
+  });
+
   it('walks straight in to a spot on the solid itself (a seat on the cot)', () => {
     const scene = { solids: { cot: { area: WELL, layer: 'svg' as const } } } as Partial<Scene>;
     const p = project(scene, {}, []);

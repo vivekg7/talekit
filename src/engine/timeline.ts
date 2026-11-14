@@ -391,6 +391,42 @@ function canonicalDistance(m: Move, e: number, k: number): number {
   return (len * f) / k;
 }
 
+/** When a move has come `e` of its way (0 to 1): its progress turned back into time. */
+function timeAt(m: Move, e: number): number {
+  let lo = m.t0;
+  let hi = m.t1;
+  for (let i = 0; i < 30; i++) {
+    const mid = (lo + hi) / 2;
+    if (moveProgress(m, mid) < e) lo = mid;
+    else hi = mid;
+  }
+  return hi;
+}
+
+/**
+ * The way a walk faces along each leg of its route, and from when: the first from `start`
+ * (it turns before it sets off), each later change as it reaches the corner where the way
+ * doubles back (round the end of a river to the bridge and back along the far bank). A
+ * straight walk, or one whose way only bends, faces one way, toward where it is going.
+ */
+function legFacings(m: Move, start: number): { at: number; facing: Facing }[] {
+  const pts = [m.from, ...(m.via ?? []), m.to];
+  const len = routeLength(m.from, m.via ?? [], m.to);
+  const out: { at: number; facing: Facing }[] = [];
+  let done = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const dx = pts[i].x - pts[i - 1].x;
+    if (Math.abs(dx) > 1) {
+      const facing: Facing = dx > 0 ? 'right' : 'left';
+      if (!out.length) out.push({ at: done ? timeAt(m, done / len) : start, facing });
+      else if (out[out.length - 1].facing !== facing)
+        out.push({ at: timeAt(m, done / len), facing });
+    }
+    done += Math.hypot(dx, pts[i].y - pts[i - 1].y);
+  }
+  return out;
+}
+
 function movePoint(m: Move, t: number): Point {
   const e = moveProgress(m, t);
   // Not yet off, or there: the end itself, still on whoever it is on.
@@ -1056,7 +1092,7 @@ export function resolveActor(
           on = a.on;
           offAt = Infinity;
         } else if (on && a.to) offAt = t0 + d;
-        if (Math.abs(to.x - point.x) > 1) turnTo(to.x > point.x ? 'right' : 'left', a.t);
+        for (const leg of legFacings(move, a.t)) if (leg.at <= t) turnTo(leg.facing, leg.at);
         if (verb === 'jump' && t >= t0 && t < t0 + d) verbs.push({ verb, u: (t - t0) / d });
       } else if (verb === 'sit' || verb === 'lie') {
         // Sitting again before it was up: still on the seat.
@@ -1095,7 +1131,7 @@ export function resolveActor(
               move = { verb: 'walk', from: point, to: foot, t0: at, t1: at + d, rest: locoStart };
               if (via.length) move.via = via;
               locoStart = at;
-              if (Math.abs(foot.x - point.x) > 1) turnTo(foot.x > point.x ? 'right' : 'left', a.t);
+              for (const leg of legFacings(move, a.t)) if (leg.at <= t) turnTo(leg.facing, leg.at);
               at += d;
             }
             const jump = up ? hop(foot, to, at) : undefined;

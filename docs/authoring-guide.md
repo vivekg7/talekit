@@ -668,7 +668,8 @@ says:
 
 A `walk` or `run` whose straight line is blocked goes round what is in the
 way on its own, by the shortest way that keeps to the walk areas and off
-the solids (on their open side), turning a step clear of each corner. It
+the solids (on their open side), turning a step clear of each corner, and
+facing the way it goes on each leg (round to a bridge and back). It
 crosses water only by a walk area laid over it, such as a bridge, and takes
 as long as the longer way takes at its pace, unless the action gives a
 `duration`. So stage a walk from where it starts to where it goes and let
