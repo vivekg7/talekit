@@ -42,14 +42,14 @@ const BUBBLE_TOUCH = 0.25;
 const MIN_FACE = 10;
 
 /** Half the head's height, scene pixels: the radius of the face kept clear. */
-export function headHalf(actor: ActorState): number {
+function headHalf(actor: ActorState): number {
   const rig = rigOf(actor.character);
   const s = (actor.character.height / rig.height) * actor.scale;
   const neck = rig.parts.head?.pivot[1] ?? rig.speaker[1] + 0.4 * rig.height;
   return (Math.min(neck - rig.speaker[1], 0.4 * rig.height) / 2) * s;
 }
 
-export function worldToScreen(frame: FrameState, W: number, H: number, x: number, y: number) {
+function worldToScreen(frame: FrameState, W: number, H: number, x: number, y: number) {
   const c = frame.camera;
   return { x: (x - c.x) * c.zoom + W / 2, y: (y - c.y) * c.zoom + H / 2 };
 }

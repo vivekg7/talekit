@@ -9,17 +9,13 @@
  * (or in front of) its footprint, as wide as it, is in the way as well. The way is found on a visibility graph: the corners of all of those, each
  * stood a step off, joined wherever the straight line between two stays on the ground.
  */
-import { groundOf, inArea, nearestIn, type XY } from './area.js';
+import { dist, EDGE_TOLERANCE, groundOf, inArea, nearestIn, type XY } from './area.js';
 import type { Area, Scene } from './types.js';
 
 /** How far off a corner the way turns, scene pixels at scale 1: room for the feet. */
 export const CLEARANCE = 14;
-/** How far off a walk area's edge, scene pixels, feet still stand on it (world.ts's too). */
-const EDGE = 6;
 /** Scene pixels between the points of a line looked at to see that it stays on the ground. */
 const STEP = 5;
-
-const dist = (a: XY, b: XY) => Math.hypot(a.x - b.x, a.y - b.y);
 
 /** The solid whose footprint holds p, by name. */
 export function solidAt(scene: Scene, p: XY): string | undefined {
@@ -31,7 +27,7 @@ export function solidAt(scene: Scene, p: XY): string | undefined {
 function footing(scene: Scene, block: Area[]): (p: XY) => boolean {
   const g = groundOf(scene);
   const ground = [...g.walk, ...g.shallow];
-  const near = (a: Area, p: XY) => inArea(a, p) || dist(nearestIn(a, p), p) <= EDGE;
+  const near = (a: Area, p: XY) => inArea(a, p) || dist(nearestIn(a, p), p) <= EDGE_TOLERANCE;
   return (p) => {
     if (block.some((a) => inArea(a, p))) return false;
     return !g.walk.length || ground.some((a) => near(a, p));

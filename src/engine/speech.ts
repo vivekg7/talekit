@@ -61,7 +61,7 @@ export function hindiNumber(n: number): string {
 const NASAL_HALF = /[नमणङञ]्(?=[क-ह])/g;
 
 /** The line as plain letters: no punctuation or spaces, one spelling for each sound. */
-export function normalise(text: string): string {
+function normalise(text: string): string {
   return (
     text
       .normalize('NFD')

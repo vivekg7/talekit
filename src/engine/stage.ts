@@ -95,6 +95,14 @@ export function staged(project: Project, scene: Scene, shot: Shot): Shot {
   return out;
 }
 
+/** What a staged action does, in words: "kid turns right", "washer sit to stone". */
+export function stagedWhat(a: StagedAction): string {
+  const what = a.do
+    ? `${a.do}${typeof a.to === 'string' ? ` to ${a.to}` : ''}`
+    : `turns ${a.set?.facing}`;
+  return `${a.actor} ${what}`;
+}
+
 /** The actions the engine adds to a shot, in time order. */
 export function staging(project: Project, scene: Scene, shot: Shot): StagedAction[] {
   let work = raw({ ...shot, cast: carriedCast(project, shot), actions: [...shot.actions] });
@@ -317,7 +325,7 @@ function idleOver(
 }
 
 /** Idle and awake, with eyes and its hands free: someone who can turn to look. */
-export function free(a: ActorState, speaking = false): boolean {
+function free(a: ActorState, speaking = false): boolean {
   return (
     a.visible &&
     a.opacity > 0.01 &&

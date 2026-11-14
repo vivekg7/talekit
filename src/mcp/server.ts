@@ -6,7 +6,7 @@ import path from 'node:path';
 import { z } from 'zod';
 import { composeFrame } from '../engine/compose.js';
 import { movieDuration, STAGE_SHORTCUTS } from '../engine/timeline.js';
-import { staging } from '../engine/stage.js';
+import { staging, stagedWhat } from '../engine/stage.js';
 import {
   AnchorSchema,
   CharacterSchema,
@@ -107,7 +107,7 @@ const FINDING_FRAME = 800;
 function worldReport(project: Project, shot: Shot): { text: string; frames: Content[] } {
   const turns = staging(project, project.scenes[shot.scene], shot);
   const staged = turns.length
-    ? `\n\nThe engine added: ${turns.map((a) => `${a.actor} ${a.do ? `${a.do}${typeof a.to === 'string' ? ` to ${a.to}` : ''}` : `turns ${a.set?.facing}`} at ${a.t}s (${a.staged})`).join('; ')}.`
+    ? `\n\nThe engine added: ${turns.map((a) => `${stagedWhat(a)} at ${a.t.toFixed(2)}s (${a.staged})`).join('; ')}.`
     : '';
   const problems = worldProblems(project, [shot]);
   if (!problems.length) return { text: staged, frames: [] };

@@ -66,11 +66,6 @@ export function layerTransform(c: View, W: number, H: number, p: number): string
   return `translate(${W / 2} ${H / 2}) scale(${n(zoom)}) translate(${n(-x)} ${n(-y)})`;
 }
 
-/**
- * Half the height of an actor's head in the world: from the top of the head (the rig's
- * speaker point) down to where it joins the neck, the head held to two fifths of the rig's
- * height for a long-necked one.
- */
 function captionSvg(
   text: string,
   style: 'title' | 'narration',

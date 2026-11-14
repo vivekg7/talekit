@@ -930,7 +930,6 @@ export const ActionSchema = z
       .max(2)
       .optional()
       .describe("The sound's loudness: 1 as recorded (default), 0.5 distant, 1.5 close"),
-    /** Standing on another actor: drawn in front of it while on it. */
     audience: z
       .union([z.literal('all'), z.array(IdSchema)])
       .optional()
@@ -940,6 +939,7 @@ export const ActionSchema = z
     reacts: IdSchema.optional().describe(
       'What this action is a reaction to: the id of the actor that caused it (a run away from the lion, a scared look at the bray, a laugh at the joke). The engine turns this actor to look at the cause just before, so the reaction reads as seen; one facing away that cannot turn (walking, busy, asleep) is a world finding'
     ),
+    /** Standing on another actor: drawn in front of it while on it. */
     on: IdSchema.optional().describe(
       "With a walk, run, move, fly or jump that has a `to`, or with set.at: the id of the actor this one ends up standing on (a mouse on a sleeping lion's back), so it is drawn in front of that actor from when it sets off until a later move without `on` lands somewhere else. Put `to` on the top of that actor (read where it is off a preview_frame). It rides along on that spot of its body as the other gets up, walks or turns; a hop to another spot up there needs `on` again"
     ),

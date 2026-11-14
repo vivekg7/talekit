@@ -8,7 +8,17 @@
  * fixed or the finding is waived with a reason (`allow`). See docs/PLAN.md, phase 8.
  */
 import { waived } from './allow.js';
-import { groundOf, habitatOf, inArea, nearestIn, type Ground, type XY } from './area.js';
+import {
+  dist,
+  EDGE_TOLERANCE,
+  groundOf,
+  habitatOf,
+  inArea,
+  nearestIn,
+  nearestOnEdge,
+  type Ground,
+  type XY,
+} from './area.js';
 import {
   BUSY,
   carriesOn,
@@ -103,15 +113,11 @@ export const JUMP_SPEED = 1500;
 /** Seconds into a line before who is spoken to must face the speaker: time to turn. */
 export const LOOK_GRACE = 0.7;
 
-/** How far off an area's edge feet may be and still stand on it, in scene pixels. */
-export const EDGE_TOLERANCE = 6;
 /** Seconds between the samples a rule sees. */
 export const SAMPLE_STEP = 0.1;
 
 // ---------------------------------------------------------------------------------------
 // Geometry
-
-const dist = (a: XY, b: XY) => Math.hypot(a.x - b.x, a.y - b.y);
 
 /** The nearest point of any of the areas to p, and how far it is. */
 function nearestOf(areas: Area[], p: XY): { point: XY; d: number } | undefined {
@@ -221,7 +227,7 @@ export interface Sample {
 }
 
 /** The shot's actors every SAMPLE_STEP seconds, the last moment included. */
-export function sampleShot(project: Project, shot: Shot): Sample[] {
+function sampleShot(project: Project, shot: Shot): Sample[] {
   const scene = project.scenes[shot.scene];
   const ids = Object.keys(shot.cast);
   const times: number[] = [];
@@ -829,27 +835,17 @@ function solidRule(project: Project, shot: Shot, samples: Sample[]): Finding[] {
 
 /** The nearest point a step outside an area to p, which is inside it. */
 function nearestOutside(area: Area, p: XY): XY {
-  // nearestIn gives p itself from inside: walk the edges for the nearest point on them.
-  let best = p;
-  let bestD = Infinity;
-  for (let i = 0, j = area.length - 1; i < area.length; j = i++) {
-    const [ax, ay] = area[j];
-    const [bx, by] = area[i];
-    const dx = bx - ax;
-    const dy = by - ay;
-    const len = dx * dx + dy * dy;
-    const u = len ? Math.max(0, Math.min(1, ((p.x - ax) * dx + (p.y - ay) * dy) / len)) : 0;
-    const q = { x: ax + u * dx, y: ay + u * dy };
-    const d = dist(q, p);
-    if (d < bestD) {
-      bestD = d;
-      best = q;
-    }
+  const best = nearestOnEdge(area, p);
+  // Out along the way from p to the edge; from on the edge itself, away from the middle.
+  let from = p;
+  if (dist(best, p) < 1e-6) {
+    const n = area.length;
+    from = { x: area.reduce((s, c) => s + c[0], 0) / n, y: area.reduce((s, c) => s + c[1], 0) / n };
   }
-  const d = dist(best, p) || 1;
+  const d = dist(best, from) || 1;
   return {
-    x: best.x + ((best.x - p.x) / d) * EDGE_TOLERANCE,
-    y: best.y + ((best.y - p.y) / d) * EDGE_TOLERANCE,
+    x: best.x + ((best.x - from.x) / d) * EDGE_TOLERANCE,
+    y: best.y + ((best.y - from.y) / d) * EDGE_TOLERANCE,
   };
 }
 

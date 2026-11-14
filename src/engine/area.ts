@@ -3,6 +3,11 @@ import type { Area, Character, Habitat, Scene } from './types.js';
 
 export type XY = { x: number; y: number };
 
+/** How far off an area's edge feet may be and still stand on it, in scene pixels. */
+export const EDGE_TOLERANCE = 6;
+
+export const dist = (a: XY, b: XY) => Math.hypot(a.x - b.x, a.y - b.y);
+
 export function inArea(area: Area, p: XY): boolean {
   let inside = false;
   for (let i = 0, j = area.length - 1; i < area.length; j = i++) {
@@ -15,7 +20,11 @@ export function inArea(area: Area, p: XY): boolean {
 
 /** The nearest point of an area to p: p itself if it is inside. */
 export function nearestIn(area: Area, p: XY): XY {
-  if (inArea(area, p)) return p;
+  return inArea(area, p) ? p : nearestOnEdge(area, p);
+}
+
+/** The nearest point on an area's edge to p, inside it or out. */
+export function nearestOnEdge(area: Area, p: XY): XY {
   let best: XY = p;
   let bestD = Infinity;
   for (let i = 0, j = area.length - 1; i < area.length; j = i++) {
@@ -26,7 +35,7 @@ export function nearestIn(area: Area, p: XY): XY {
     const len = dx * dx + dy * dy;
     const u = len ? Math.max(0, Math.min(1, ((p.x - ax) * dx + (p.y - ay) * dy) / len)) : 0;
     const q = { x: ax + u * dx, y: ay + u * dy };
-    const d = Math.hypot(q.x - p.x, q.y - p.y);
+    const d = dist(q, p);
     if (d < bestD) {
       bestD = d;
       best = q;

@@ -56,7 +56,7 @@ export interface Problem {
 }
 
 /** A world finding as a problem: always an error, until fixed or waived. */
-export function findingProblem(f: Finding): Problem {
+function findingProblem(f: Finding): Problem {
   const span = f.t[0] === f.t[1] ? `t=${f.t[0]}` : `t=${f.t[0]}-${f.t[1]}`;
   return {
     level: 'error',

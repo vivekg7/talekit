@@ -32,7 +32,7 @@ const MODEL_NAME = 'ggml-large-v3-turbo-q5_0.bin';
 const MODEL_URL = `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${MODEL_NAME}`;
 
 /** Where the model is: TALEKIT_ASR_MODEL, else the cache. */
-export const modelPath = (): string =>
+const modelPath = (): string =>
   process.env.TALEKIT_ASR_MODEL ?? path.join(os.homedir(), '.cache', 'talekit', 'asr', MODEL_NAME);
 
 /** Fetch the model (about 570 MB) the first time it is needed. */
@@ -97,7 +97,7 @@ const toWav = (file: string, out: string, from?: number, to?: number) =>
 const PAUSE = 0.2;
 
 /** Where to cut a take into pieces: the middle of each pause, in seconds. */
-export async function pauses(file: string): Promise<number[]> {
+async function pauses(file: string): Promise<number[]> {
   const samples = await decode(file, 1);
   const step = Math.round(RATE * 0.02);
   const blocks: number[] = [];

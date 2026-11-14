@@ -15,7 +15,7 @@ import {
   shadowSvg,
 } from '../engine/actor.js';
 import { MAX_TURN, springParts } from '../engine/springs.js';
-import { SWAY_FAR, swayBox, swayMost } from '../engine/sway.js';
+import { SWAY_FAR, swayMost, swayTip } from '../engine/sway.js';
 import { LOOK_LIMIT } from '../engine/timeline.js';
 import { composeFrame, layerTransform, PARALLAX } from '../engine/compose.js';
 import { CAST_DEFS, castLights, floorMap, throwOf } from '../engine/cast.js';
@@ -493,15 +493,12 @@ export function sceneSheetSvg(project: Project, scene: Scene): string {
   // The arc its far end sweeps at its furthest turn in the scene's wind, and how far that is
   // (red past what reads as a sway, validate.ts SWAY_FAR).
   for (const [id, { at, amount }] of Object.entries(scene.sway ?? {})) {
-    const box = swayBox(scene, id);
+    const tip = swayTip(scene, id);
     let arc = '';
     let far = 0;
-    if (box) {
-      const corners = [box[0], box[2]].flatMap((x) => [box[1], box[3]].map((y) => [x, y]));
-      const [fx, fy] = corners.sort(
-        (a, b) => Math.hypot(b[0] - at[0], b[1] - at[1]) - Math.hypot(a[0] - at[0], a[1] - at[1])
-      )[0];
-      const reach = Math.hypot(fx - at[0], fy - at[1]);
+    if (tip) {
+      const [fx, fy] = tip.tip;
+      const reach = tip.reach;
       const most = (swayMost(reach, amount ?? 1, scene.weather?.wind ?? 0) * Math.PI) / 180;
       far = reach * most;
       const turn = (a: number) => {
@@ -515,7 +512,7 @@ export function sceneSheetSvg(project: Project, scene: Scene): string {
     }
     marks +=
       `<g>${arc}<circle cx='${n(at[0])}' cy='${n(at[1])}' r='8' fill='none' stroke='#ff70c8' stroke-width='3'/>` +
-      `<text x='${n(at[0] + 11)}' y='${n(at[1] + 18)}' font-family='${LABEL_FONT}' font-size='16' font-weight='bold' fill='${far > SWAY_FAR ? '#ff3b30' : '#ff70c8'}' stroke='#000' stroke-width='4' paint-order='stroke'>~${escapeXml(id)}${box ? ` ±${Math.round(far)} px` : ''}</text></g>`;
+      `<text x='${n(at[0] + 11)}' y='${n(at[1] + 18)}' font-family='${LABEL_FONT}' font-size='16' font-weight='bold' fill='${far > SWAY_FAR ? '#ff3b30' : '#ff70c8'}' stroke='#000' stroke-width='4' paint-order='stroke'>~${escapeXml(id)}${tip ? ` ±${Math.round(far)} px` : ''}</text></g>`;
   }
   for (const sh of scene.shelters)
     marks +=

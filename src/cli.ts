@@ -5,7 +5,7 @@ import { mkdir, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { composeFrame } from './engine/compose.js';
 import { movieDuration } from './engine/timeline.js';
-import { staging } from './engine/stage.js';
+import { staging, stagedWhat } from './engine/stage.js';
 import type { Project } from './engine/types.js';
 import { LIBRARY, copyFromLibrary } from './library/index.js';
 import { createProject, loadProject, projectPaths } from './project/store.js';
@@ -168,9 +168,7 @@ async function main(argv: string[]): Promise<void> {
         const added = staging(project, project.scenes[shot.scene], shot);
         console.log(`${shot.id}: ${added.length ? '' : 'nothing added'}`);
         for (const a of added)
-          console.log(
-            `  t=${a.t.toFixed(2)}  ${a.actor} ${a.do ? `${a.do}${typeof a.to === 'string' ? ` to ${a.to}` : ''}` : `turns ${a.set?.facing}`}  (${a.staged})`
-          );
+          console.log(`  t=${a.t.toFixed(2)}  ${stagedWhat(a)}  (${a.staged})`);
       }
       return;
     }

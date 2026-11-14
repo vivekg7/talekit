@@ -51,7 +51,7 @@ const AT_WORK: ReadonlySet<Verb> = new Set([
 const MERGE = 0.5;
 
 /** When an action of the shot (as the engine plays it) starts and ends. */
-export function spanOf(project: Project, shot: Shot, a: Action): [number, number] {
+function spanOf(project: Project, shot: Shot, a: Action): [number, number] {
   if (a.say || a.caption) return [a.t, a.t + lineDuration(project, shot, a)];
   const scene = project.scenes[shot.scene];
   if (a.do && isMoveVerb(a.do) && a.actor && a.to !== undefined && shot.cast[a.actor]) {

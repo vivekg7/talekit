@@ -34,8 +34,20 @@ function locate(svg: string, ids: string[]): Map<string, Found> {
 }
 
 /** How far the furthest corner of a box is from (px, py). */
-const reachOf = ([x0, y0, x1, y1]: [number, number, number, number], px: number, py: number) =>
-  Math.max(1, ...[x0, x1].flatMap((x) => [y0, y1].map((y) => Math.hypot(x - px, y - py))));
+type Box = [number, number, number, number];
+
+/** The corner of a group's box furthest from its pivot: the end that swings most. */
+const farCorner = ([x0, y0, x1, y1]: Box, px: number, py: number): [number, number] =>
+  [x0, x1]
+    .flatMap((x) => [y0, y1].map((y): [number, number] => [x, y]))
+    .reduce((a, b) =>
+      Math.hypot(b[0] - px, b[1] - py) > Math.hypot(a[0] - px, a[1] - py) ? b : a
+    );
+
+const reachOf = (box: Box, px: number, py: number) => {
+  const [x, y] = farCorner(box, px, py);
+  return Math.max(1, Math.hypot(x - px, y - py));
+};
 
 /** The groups of `sway` that a layer holds, with how far each reaches from its pivot. */
 function groupsIn(svg: string, sway: Sway): Map<string, Found> {
@@ -140,9 +152,18 @@ export function swayMissing(scene: Scene): string[] {
 
 /** How far a swaying group reaches from its pivot, scene pixels (as `swayLayer` judges it). */
 export function swayReach(scene: Scene, id: string): number | undefined {
+  return swayTip(scene, id)?.reach;
+}
+
+/** A swaying group's far end, and how far it is from the pivot, for the sheet's arc. */
+export function swayTip(
+  scene: Scene,
+  id: string
+): { tip: [number, number]; reach: number } | undefined {
   const box = swayBox(scene, id);
   const at = scene.sway?.[id]?.at;
-  return box && at ? reachOf(box, at[0], at[1]) : undefined;
+  if (!box || !at) return undefined;
+  return { tip: farCorner(box, at[0], at[1]), reach: reachOf(box, at[0], at[1]) };
 }
 
 /** Where a swaying group is, in its layer: its box, for the checks. */
