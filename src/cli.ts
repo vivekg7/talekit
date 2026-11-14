@@ -8,7 +8,7 @@ import { staging } from './engine/stage.js';
 import type { Project } from './engine/types.js';
 import { LIBRARY, copyFromLibrary } from './library/index.js';
 import { createProject, loadProject, projectPaths } from './project/store.js';
-import { formatProblems, hasErrors, validateProject } from './project/validate.js';
+import { formatProblems, hasErrors, speechProblems, validateProject } from './project/validate.js';
 import { postProblems } from './project/posts.js';
 import { rasterize } from './render/raster.js';
 import { coverSvg, coverWidth } from './render/cover.js';
@@ -22,7 +22,7 @@ import {
 import { writeMkv } from './render/mkv.js';
 import { isPortrait } from './engine/format.js';
 import { remixVideo, renderVideo } from './render/video.js';
-import { makeVoices, type VoiceReport } from './project/voices.js';
+import { hearingLines, makeVoices, type VoiceReport } from './project/voices.js';
 
 const USAGE = `talekit — story video generation for AI agents
 
@@ -61,6 +61,7 @@ function voiceSummary(r: VoiceReport): string {
   const lines = [`voices: ${r.made} spoken, ${r.kept} already had audio`];
   for (const f of r.failed)
     lines.push(`  failed: ${f.line.shot} action ${f.line.action}: ${f.error}`);
+  lines.push(...hearingLines(r));
   return lines.join('\n');
 }
 
@@ -291,9 +292,14 @@ async function main(argv: string[]): Promise<void> {
       // Lines written since the last voicing are spoken first; without the sidecar they stay silent.
       if (!values.silent)
         await makeVoices(dir, project, shots).then(
-          (r) => r.made + r.failed.length && console.error(voiceSummary(r)),
+          (r) =>
+            r.made + r.failed.length + r.heard + r.doubtful.length &&
+            console.error(voiceSummary(r)),
           (e) => console.error(`voices: ${(e as Error).message}; unvoiced lines stay silent`)
         );
+      // A take spoken just now that no retake could make say its line stops it too.
+      const misspoken = speechProblems(project, shots);
+      if (hasErrors(misspoken)) throw new Error(formatProblems(misspoken));
       const r = await renderVideo(project, {
         outPath,
         shots,

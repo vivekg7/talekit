@@ -46,6 +46,7 @@ export const CODES: Record<string, string> = {
   'attention.speaker': 'a speaker faces away from who the line is said to',
   'attention.reacts': 'someone reacts to what they face away from',
   'continuity.jump': 'something jumps across the stage between frames, in sight',
+  'speech.mismatch': 'no voiced take of a line, heard by speech recognition, says it',
 };
 
 /** Faster than this across the stage (scene pixels a second) reads as a jump cut. */

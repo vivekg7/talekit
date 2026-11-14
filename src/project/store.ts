@@ -14,6 +14,7 @@ import {
   type Shot,
   type VoiceClip,
 } from '../engine/types.js';
+import { badTake, matchTake, type TakeMatch } from '../engine/speech.js';
 import { timeActions } from '../engine/voice.js';
 
 export const META_FILE = 'talekit.json';
@@ -144,6 +145,14 @@ export interface VoiceEntry {
   duration: number;
   /** Loudness at ENVELOPE_RATE, one byte (0 to 255) a sample, base64. */
   envelope: string;
+  /** Which take this is, when not the first: the line was said again (see voices.ts). */
+  take?: number;
+  /**
+   * What speech recognition heard it say, and how that compared with the line then. Whether
+   * it says the line is judged again from `heard` each time (engine/speech.ts).
+   */
+  heard?: string;
+  match?: TakeMatch;
 }
 
 export const voiceIndexPath = (audioDir: string) => path.join(audioDir, 'voices', 'index.json');
@@ -162,6 +171,9 @@ async function loadVoiceIndex(audioDir: string): Promise<Record<string, VoiceCli
         file: e.file,
         duration: e.duration,
         envelope: [...Buffer.from(e.envelope, 'base64')].map((b) => b / 255),
+        ...(e.heard !== undefined && badTake(e.text, matchTake(e.text, e.heard))
+          ? { doubt: { heard: e.heard } }
+          : {}),
       };
   return out;
 }

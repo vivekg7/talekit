@@ -850,6 +850,38 @@ three things about the model:
   `fall`). Arrows, falls, a prop carried through its carrier's turn or
   swung in a blow, and anything out of sight are left alone.
 
+- **The speech check** (`src/engine/speech.ts`, `src/project/hear.ts`).
+  Every voiced take is heard by whisper.cpp (large-v3-turbo, q5, 570 MB,
+  MIT-licensed) and compared with its line.
+  - AI4Bharat's Hindi wav2vec2 was the other candidate, but it is gated on
+    Hugging Face behind a login, so it cannot be the default.
+  - Whisper spells Hindi loosely (ध for द, ढ for ध, short vowels for long,
+    a nasal dropped). So the line and what was heard are both reduced to a
+    skeleton of the sounds a listener tells apart, and the remaining
+    differences are read as runs.
+  - A take is bad with 4 or more sounds missing or extra in a row (a skipped
+    word, babble), or more than 0.3 of it wrong (a garble, for a line of 8
+    sounds or more).
+  - Whisper writes numbers as digits ("100" for सौ), which are said back
+    in Hindi before comparing. A line under 12 sounds gives it little to go
+    on, so only more than 0.6 wrong counts there.
+  - On 500 released takes heard whole, 4 were judged wrong. Hearing in
+    pieces cleared 3 of them. The last says क्यारियाँ twice: R14's
+    `04-khudai` narration, 4.8 to 5.8 s into the take. That stutter is
+    probably real, and the review missed it. Takes cut short or paired with
+    another line came out at least 0.32 wrong, with runs of 4 to 28.
+  - Whisper drops a word said alone before a pause ("परछाईं...? शेर को…"),
+    so a take that seems wrong is heard again cut at its pauses, and the
+    better hearing counts.
+  - A bad take is said again with another seed, up to three takes
+    (Chatterbox only; Kokoro does not sample), and the best is kept.
+  - A line no take says is `speech.mismatch`, an error that blocks the
+    render until the line is reworded or the take is waived. Only what was
+    heard is stored, and the take is judged afresh on every load, so a
+    better judge never leaves a stale verdict behind.
+  - Without whisper-cli, takes are voiced but not heard, and the report
+    says so. Tests turn hearing off and pass in a fake hearer.
+
 **Calibration on the released stories.** The attention and jump rules need
 no walk areas, so they were run over all 36 projects.
 
@@ -874,7 +906,6 @@ no walk areas, so they were run over all 36 projects.
 Still to do in 8.1:
 
 - `give`, a hand-over with both arms reaching;
-- the speech check on voiced takes;
 - the arrow fix above.
 
 ## Render speed

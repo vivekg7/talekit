@@ -21,6 +21,8 @@ reasoning are in `docs/PLAN.md`. Read both before changing the data model.
   `world.ts` (the world model: where feet can stand and the water is, each
   actor's habitat, and the rules every shot is played against, whose
   findings block the render until fixed or waived with `allow`),
+  `speech.ts` (whether a voiced take says its line: what speech
+  recognition heard, reduced to the sounds a listener tells apart),
   `format.ts` (a film's frame or a portrait reel's: text scale, the safe
   area the reel apps leave), `sound.ts` (the cue sheet: what is heard when), `subtitles.ts` (subtitle
   tracks from the lines and their `translation`),
@@ -29,6 +31,8 @@ reasoning are in `docs/PLAN.md`. Read both before changing the data model.
 - `src/project/` — load/save/validate a project directory; `construction.ts`
   is the character linter (rasterises parts, checks box, feet, joints);
   `notes.ts` is the review-note store shared by the viewer and the MCP;
+  `voices.ts` speaks the lines and `hear.ts` hears each take (whisper.cpp),
+  saying a line again when its take does not say it;
   `posts.ts` lints the text a video is posted with (`out/youtube.txt`,
   `out/instagram.txt`) for `talekit check`.
 - `src/render/` — resvg rasteriser, ffmpeg encoder (frames drawn on worker

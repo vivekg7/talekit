@@ -1061,4 +1061,6 @@ export interface VoiceClip {
   duration: number;
   /** Loudness, 0 to 1, ENVELOPE_RATE times a second: what the mouth follows. */
   envelope: number[];
+  /** No take of it said the line (the speech check): what the kept one was heard to say. */
+  doubt?: { heard: string };
 }

@@ -675,6 +675,7 @@ every finding is fixed or waived.
 | `attention.speaker`  | a speaker faces away from who the line is said to                                                                                                  |
 | `attention.reacts`   | someone reacts to what they face away from                                                                                                         |
 | `continuity.jump`    | something jumps across the stage between frames, in sight: a prop handed over from too far, a `set.at` while it shows, a `move` too fast to be one |
+| `speech.mismatch`    | no voiced take of a line, heard by speech recognition, says it (see [Sound](#sound))                                                               |
 
 Waive a finding only when the film means it, in the shot's (or the
 scene's, for every shot there) `allow`. The key is the code, or the code
@@ -1238,6 +1239,16 @@ A film has six layers of sound. You choose four; the engine makes the rest.
   little room on it. A character with no voice is silent. A line is said
   with the emotion the character has when it starts, so set `emotion` on or
   before every line not said calmly.
+- **Every take is heard.** Speech recognition (whisper.cpp) listens to each
+  line once it is spoken and compares it with the text. A take that skips
+  a word, babbles past its end or garbles a stretch is said again, up to
+  three takes (`chatterbox:` only), and the best is kept. The voicing
+  report says how many were heard and said again. A line no take says is a
+  `speech.mismatch` error that blocks the render. Usually a word the voice
+  stumbles on is the cause: spell it the way it is said, or split a long
+  line, and it is spoken afresh. If you have listened and the take is
+  right, waive it: `"allow": { "speech.mismatch:kid": "listened: it says
+it" }` (the narrator's as `speech.mismatch:narrator`).
 - **Sounds inside a line.** A growl, a giggle, a snore is not words: put it
   between asterisks and give the action the `sound`: `{ "t": 3, "actor":
 "lion", "say": "*गुर्रर!* कौन है?", "sound": "lion-growl", "bubble":

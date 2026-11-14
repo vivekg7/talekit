@@ -36,6 +36,7 @@ import { isMoveVerb } from '../engine/types.js';
 import { SOUNDS } from '../library/sounds.js';
 import {
   CODES,
+  waived,
   sceneFindings,
   shotFindings,
   unknownWaivers,
@@ -82,6 +83,31 @@ export function worldProblems(project: Project, shots: Shot[] = project.shots): 
   return shots.flatMap((shot) =>
     project.scenes[shot.scene] ? shotFindings(project, shot).map(findingProblem) : []
   );
+}
+
+/**
+ * Takes that do not say their line: no take of it, heard by speech recognition, came close
+ * enough (project/voices.ts). Errors, until the line is reworded and spoken again, or the
+ * take is listened to and waived (`speech.mismatch`, or `speech.mismatch:<actor>`, the
+ * narrator's as `narrator`).
+ */
+export function speechProblems(project: Project, shots: Shot[] = project.shots): Problem[] {
+  const out: Problem[] = [];
+  for (const shot of shots) {
+    const allow = [shot.allow, project.scenes[shot.scene]?.allow];
+    for (const line of voiceLines(project, [shot])) {
+      const doubt = project.audio?.voices[line.key]?.doubt;
+      const who = line.actor ?? 'narrator';
+      if (!doubt || waived(allow, 'speech.mismatch', who)) continue;
+      out.push({
+        level: 'error',
+        where: `shot '${shot.id}'`,
+        code: 'speech.mismatch',
+        message: `action ${line.action}: no take of ${line.actor ? `${who}'s` : "the narrator's"} line '${line.text}' says it; the best was heard as '${doubt.heard}'. Reword what the voice stumbles on (spell a word as it is said; split a long line) so it is spoken again, or listen to the take and, if it is right, allow { 'speech.mismatch:${who}': reason }`,
+      });
+    }
+  }
+  return out;
 }
 
 /** Inner SVG only: no <svg> wrapper, no <image>, nothing fetched from outside the file. */
@@ -838,6 +864,7 @@ export function validateProject(project: Project): Problem[] {
   for (const shot of project.shots) out.push(...validateShot(shot, project));
   if (!hasErrors(out)) out.push(...carriedAcrossCuts(project));
   if (!hasErrors(out)) out.push(...worldProblems(project));
+  out.push(...speechProblems(project));
   out.push(...translationGaps(project));
   // Instagram and YouTube Shorts take a reel of up to three minutes.
   const seconds = movieDuration(project);

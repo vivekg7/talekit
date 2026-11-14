@@ -1,12 +1,14 @@
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import type { Project, Shot } from '../engine/types.js';
 import { ENVELOPE_RATE, timeActions, voiceLines, type Line } from '../engine/voice.js';
+import { badTake, matchTake, speechLanguage, takeScore } from '../engine/speech.js';
 import { decode, RATE } from '../render/audio.js';
+import { whisperHearer, type Hearer } from './hear.js';
 import {
   loadAudio,
   projectPaths,
@@ -38,6 +40,14 @@ export interface VoiceReport {
   /** Lines that already had their audio. */
   kept: number;
   failed: { line: Line; error: string }[];
+  /** Takes heard and compared with their lines. */
+  heard: number;
+  /** Lines said again because the take did not say them, and a later take did better. */
+  redone: number;
+  /** Lines no take said, after MAX_TAKES: what the best of them was heard to say. */
+  doubtful: { line: Line; heard: string }[];
+  /** Nothing could hear the takes (no whisper-cli): they were not checked. */
+  unheard?: boolean;
 }
 
 /** Semitones as a ffmpeg chain: shift the pitch, keep the length. */
@@ -128,39 +138,159 @@ function envelope(samples: Float32Array): Buffer {
   return Buffer.from(Array.from(rms, (v) => Math.round((v / peak) * 255)));
 }
 
+/** What the speech check did, in lines for a report; empty when it heard nothing. */
+export function hearingLines(r: VoiceReport): string[] {
+  const out: string[] = [];
+  if (r.unheard && r.made)
+    out.push(
+      '  takes not heard: install whisper.cpp (brew install whisper-cpp) and each take is checked against its line'
+    );
+  if (r.heard)
+    out.push(
+      `  heard ${r.heard} take${r.heard === 1 ? '' : 's'}${r.redone ? `; ${r.redone} said again, better` : ''}`
+    );
+  for (const d of r.doubtful)
+    out.push(
+      `  speech.mismatch: ${d.line.shot} action ${d.line.action}: '${d.line.text}' was heard as '${d.heard}' (best of ${MAX_TAKES} takes)`
+    );
+  return out;
+}
+
+/** Takes made of a line before the best of them is kept, however it sounds. */
+export const MAX_TAKES = 3;
+/** Engines that sample, so a second take of a line is said differently (Kokoro is not). */
+const SAMPLED = new Set(['chatterbox']);
+
 /**
  * Speak every line in these shots that has no audio yet, into audio/voices/, and record it
- * in the index. The project's `audio` is refreshed, and the actions placed `after` a line
- * timed again, so timings read the new lines at once.
+ * in the index. Then hear every take not heard yet (`hearer`; whisper.cpp when installed,
+ * `null` for none) and say again, up to MAX_TAKES, a line whose take does not say it,
+ * keeping the best. The project's `audio` is refreshed, and the actions placed `after` a
+ * line timed again, so timings read the new lines at once.
  * Throws when the sidecar cannot start; a line the model fails on is reported, not thrown.
  */
 export async function makeVoices(
   root: string,
   project: Project,
   shots: Shot[] = project.shots,
-  onLine?: (done: number, total: number) => void
+  onLine?: (done: number, total: number) => void,
+  hearer?: Hearer | null
 ): Promise<VoiceReport> {
-  const report: VoiceReport = { made: 0, kept: 0, failed: [] };
-  // A line placed `after` another moves once that one has its voice, and may then fall
-  // after an emotion it fell before: speak again what that leaves without audio.
-  for (let pass = 0; pass < 3; pass++) {
-    const skip = new Set(report.failed.map((f) => f.line.key));
-    const r = await speak(root, project, shots, skip, onLine);
-    if (pass === 0) report.kept = r.kept;
-    report.made += r.made;
-    report.failed.push(...r.failed);
-    if (!r.made) break;
+  const report: VoiceReport = { made: 0, kept: 0, failed: [], heard: 0, redone: 0, doubtful: [] };
+  const tts = new Sidecar();
+  try {
+    // A line placed `after` another moves once that one has its voice, and may then fall
+    // after an emotion it fell before: speak again what that leaves without audio.
+    for (let pass = 0; pass < 3; pass++) {
+      const skip = new Set(report.failed.map((f) => f.line.key));
+      const r = await speak(tts, root, project, shots, skip, onLine);
+      if (pass === 0) report.kept = r.kept;
+      report.made += r.made;
+      report.failed.push(...r.failed);
+      if (!r.made) break;
+    }
+    const hear = hearer === undefined ? await whisperHearer() : (hearer ?? undefined);
+    if (hear) await listen(tts, hear, root, project, shots, report);
+    else report.unheard = true;
+  } finally {
+    tts.close();
   }
   return report;
 }
 
+/** The voice sidecar, started on the first line it is asked for. */
+class Sidecar {
+  private proc?: ChildProcessWithoutNullStreams;
+  private answers?: AsyncIterator<string>;
+  private stderr = '';
+
+  private async start(): Promise<void> {
+    const { cmd, args, shell } = ttsCommand();
+    const proc = spawn(cmd, args, { shell, stdio: ['pipe', 'pipe', 'pipe'] });
+    proc.stderr.on('data', (d) => (this.stderr = (this.stderr + d).slice(-4000)));
+    await new Promise<void>((resolve, reject) => {
+      proc.on('spawn', resolve);
+      proc.on('error', (e) =>
+        reject(
+          new Error(
+            `the voice sidecar did not start (${e.message}). It needs uv (https://docs.astral.sh/uv/) and, for Hindi, espeak-ng (brew install espeak-ng)`
+          )
+        )
+      );
+    });
+    this.proc = proc;
+    this.answers = createInterface({ input: proc.stdout })[Symbol.asyncIterator]();
+  }
+
+  /** Ask for one line: the sidecar's answer. */
+  async say(req: object): Promise<{ ok: boolean; error?: string; pitched?: boolean }> {
+    if (!this.proc) await this.start();
+    this.proc!.stdin.write(JSON.stringify(req) + '\n');
+    const next = await this.answers!.next();
+    if (next.done)
+      throw new Error(
+        `the voice sidecar stopped: ${this.stderr.trim().split('\n').slice(-5).join('\n')}`
+      );
+    return JSON.parse(next.value);
+  }
+
+  close(): void {
+    this.proc?.stdin.end();
+  }
+}
+
+/**
+ * Say a line (take 1, or a later take, which the sidecar seeds differently) into
+ * audio/voices/<file>: its index entry, or the error.
+ */
+async function sayLine(
+  tts: Sidecar,
+  voicesDir: string,
+  line: Line,
+  file: string,
+  take: number
+): Promise<VoiceEntry | { error: string }> {
+  const raw = path.join(voicesDir, `${line.key}.raw.wav`);
+  const answer = await tts.say({
+    engine: line.voice.engine,
+    voice: line.voice.name,
+    text: line.text.trim(),
+    speed: line.voice.speed,
+    pitch: line.voice.pitch,
+    emotion: line.emotion,
+    style: line.style,
+    out: raw,
+    // The first take is seeded by the line alone, so it stays as it always was.
+    ...(take > 1 ? { take } : {}),
+  });
+  if (!answer.ok) return { error: answer.error ?? 'failed' };
+  // An engine that copies a voice from a recording has the pitch already.
+  const chain = [...TRIM, ...(answer.pitched ? [] : pitchChain(line.voice.pitch))].join(',');
+  const samples = level(await decode(raw, 1, 'ffmpeg', chain));
+  await encode(samples, path.join(voicesDir, file));
+  await rm(raw, { force: true });
+  return {
+    file,
+    voice: `${line.voice.engine}:${line.voice.name}`,
+    speed: line.voice.speed,
+    pitch: line.voice.pitch,
+    emotion: line.emotion,
+    style: line.style,
+    text: line.text.trim(),
+    duration: Math.round((samples.length / RATE) * 1000) / 1000,
+    envelope: envelope(samples).toString('base64'),
+    ...(take > 1 ? { take } : {}),
+  };
+}
+
 async function speak(
+  tts: Sidecar,
   root: string,
   project: Project,
   shots: Shot[],
   skip: Set<string>,
   onLine?: (done: number, total: number) => void
-): Promise<VoiceReport> {
+): Promise<Pick<VoiceReport, 'made' | 'kept' | 'failed'>> {
   const dir = projectPaths(root).audio;
   const voicesDir = path.join(dir, 'voices');
   const index = await readVoiceIndex(dir);
@@ -169,80 +299,118 @@ async function speak(
     (l) =>
       !skip.has(l.key) && !(index[l.key] && existsSync(path.join(voicesDir, index[l.key].file)))
   );
-  const report: VoiceReport = { made: 0, kept: lines.length - todo.length, failed: [] };
+  const report = { made: 0, kept: lines.length - todo.length, failed: [] as VoiceReport['failed'] };
   if (!todo.length) return report;
   await mkdir(voicesDir, { recursive: true });
-
-  const { cmd, args, shell } = ttsCommand();
-  const tts = spawn(cmd, args, { shell, stdio: ['pipe', 'pipe', 'pipe'] });
-  let stderr = '';
-  tts.stderr.on('data', (d) => (stderr = (stderr + d).slice(-4000)));
-  const started = new Promise<void>((resolve, reject) => {
-    tts.on('spawn', resolve);
-    tts.on('error', (e) =>
-      reject(
-        new Error(
-          `the voice sidecar did not start (${e.message}). It needs uv (https://docs.astral.sh/uv/) and, for Hindi, espeak-ng (brew install espeak-ng)`
-        )
-      )
-    );
-  });
-  await started;
-  const answers = createInterface({ input: tts.stdout })[Symbol.asyncIterator]();
-  const raw = (l: Line) => path.join(voicesDir, `${l.key}.raw.wav`);
-
   try {
     for (const [i, line] of todo.entries()) {
-      tts.stdin.write(
-        JSON.stringify({
-          engine: line.voice.engine,
-          voice: line.voice.name,
-          text: line.text.trim(),
-          speed: line.voice.speed,
-          pitch: line.voice.pitch,
-          emotion: line.emotion,
-          style: line.style,
-          out: raw(line),
-        }) + '\n'
-      );
-      const next = await answers.next();
-      if (next.done)
-        throw new Error(
-          `the voice sidecar stopped: ${stderr.trim().split('\n').slice(-5).join('\n')}`
-        );
-      const answer = JSON.parse(next.value) as { ok: boolean; error?: string; pitched?: boolean };
-      if (!answer.ok) {
-        report.failed.push({ line, error: answer.error ?? 'failed' });
+      const entry = await sayLine(tts, voicesDir, line, `${line.key}.ogg`, 1);
+      if ('error' in entry) {
+        report.failed.push({ line, error: entry.error });
         continue;
       }
-      const file = `${line.key}.ogg`;
-      // An engine that copies a voice from a recording has the pitch already.
-      const chain = [...TRIM, ...(answer.pitched ? [] : pitchChain(line.voice.pitch))].join(',');
-      const samples = level(await decode(raw(line), 1, 'ffmpeg', chain));
-      await encode(samples, path.join(voicesDir, file));
-      await rm(raw(line), { force: true });
-      const entry: VoiceEntry = {
-        file,
-        voice: `${line.voice.engine}:${line.voice.name}`,
-        speed: line.voice.speed,
-        pitch: line.voice.pitch,
-        emotion: line.emotion,
-        style: line.style,
-        text: line.text.trim(),
-        duration: Math.round((samples.length / RATE) * 1000) / 1000,
-        envelope: envelope(samples).toString('base64'),
-      };
       index[line.key] = entry;
       report.made++;
       onLine?.(i + 1, todo.length);
     }
   } finally {
-    tts.stdin.end();
     await writeFile(voiceIndexPath(dir), JSON.stringify(sortKeys(index), null, 1) + '\n');
   }
+  await refresh(dir, project, shots);
+  return report;
+}
+
+/** Read the lines again, and time again what follows them. */
+async function refresh(dir: string, project: Project, shots: Shot[]): Promise<void> {
   project.audio = await loadAudio(dir);
   for (const shot of new Set([...project.shots, ...shots])) timeActions(project, shot);
-  return report;
+}
+
+/**
+ * Hear every take in these shots not heard yet, and say again each line whose take does
+ * not say it (a skipped word, babble, a garbled stretch: engine/speech.ts), up to
+ * MAX_TAKES in all, keeping the best take. A line no take says is marked `doubt`, which
+ * `talekit check` reports as `speech.mismatch`.
+ */
+async function listen(
+  tts: Sidecar,
+  hear: Hearer,
+  root: string,
+  project: Project,
+  shots: Shot[],
+  report: VoiceReport
+): Promise<void> {
+  const dir = projectPaths(root).audio;
+  const voicesDir = path.join(dir, 'voices');
+  const index = await readVoiceIndex(dir);
+  const lines = [...new Map(voiceLines(project, shots).map((l) => [l.key, l])).values()].filter(
+    (l) => index[l.key] && existsSync(path.join(voicesDir, index[l.key].file))
+  );
+  const fresh = lines.filter((l) => index[l.key].heard === undefined);
+  const lang = (l: Line) => speechLanguage(l.voice.name);
+  /** What each of these files says of its line: heard whole, then in pieces if it seems wrong. */
+  const judge = async (items: { line: Line; file: string }[]) => {
+    const takes = items.map((x) => ({ file: path.join(voicesDir, x.file), lang: lang(x.line) }));
+    const heard = await hear(takes);
+    const out = items.map((x, i) => ({ heard: heard[i], match: matchTake(x.line.text, heard[i]) }));
+    const wrong = out.flatMap((o, i) => (badTake(items[i].line.text, o.match) ? [i] : []));
+    if (wrong.length) {
+      const again = await hear(
+        wrong.map((i) => takes[i]),
+        true
+      );
+      wrong.forEach((i, k) => {
+        const match = matchTake(items[i].line.text, again[k]);
+        if (takeScore(match) < takeScore(out[i].match)) out[i] = { heard: again[k], match };
+      });
+    }
+    return out;
+  };
+  const wrong = (l: Line) => badTake(l.text, index[l.key].match!);
+  try {
+    if (fresh.length) {
+      const first = await judge(fresh.map((line) => ({ line, file: index[line.key].file })));
+      report.heard += fresh.length;
+      fresh.forEach((line, i) => Object.assign(index[line.key], first[i]));
+    }
+    // Every heard take judged again as the check is now, not as it was when it was heard.
+    for (const l of lines) {
+      const e = index[l.key];
+      if (e.heard !== undefined) e.match = matchTake(l.text, e.heard);
+    }
+    let bad = lines.filter((l) => index[l.key].heard !== undefined && wrong(l));
+    for (let round = 0; bad.length && round < MAX_TAKES; round++) {
+      const tries: { line: Line; file: string; entry: VoiceEntry }[] = [];
+      for (const line of bad) {
+        const take = (index[line.key].take ?? 1) + 1;
+        if (take > MAX_TAKES || !SAMPLED.has(line.voice.engine)) continue;
+        const file = `${line.key}.take${take}.ogg`;
+        const entry = await sayLine(tts, voicesDir, line, file, take);
+        if ('error' in entry) continue;
+        // Counted as tried, whether or not it is kept.
+        index[line.key].take = take;
+        tries.push({ line, file, entry });
+      }
+      if (!tries.length) break;
+      const heard = await judge(tries);
+      bad = [];
+      for (const [i, t] of tries.entries()) {
+        const best = index[t.line.key];
+        if (takeScore(heard[i].match) < takeScore(best.match!)) {
+          await rename(path.join(voicesDir, t.file), path.join(voicesDir, best.file));
+          Object.assign(best, { ...t.entry, file: best.file, ...heard[i], take: t.entry.take });
+          report.redone++;
+        } else await rm(path.join(voicesDir, t.file), { force: true });
+        if (wrong(t.line)) bad.push(t.line);
+      }
+    }
+    for (const line of lines)
+      if (index[line.key].heard !== undefined && wrong(line))
+        report.doubtful.push({ line, heard: index[line.key].heard! });
+  } finally {
+    await writeFile(voiceIndexPath(dir), JSON.stringify(sortKeys(index), null, 1) + '\n');
+  }
+  await refresh(dir, project, shots);
 }
 
 const sortKeys = <T>(o: Record<string, T>) =>

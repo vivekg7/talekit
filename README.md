@@ -37,6 +37,10 @@ and English subtitles.
   model runs on MLX) and `brew install espeak-ng` for Hindi. The first voiced
   line sets up `tools/tts/` (about 1.2 GB) and downloads the models (about
   3.2 GB). Without them everything works and lines are silent.
+- For the speech check on voiced lines: `brew install whisper-cpp`. The first
+  check downloads its model (about 570 MB) into `~/.cache/talekit/asr`.
+  Without it, lines are voiced but not heard, and the voicing report says
+  so.
 
 ## Quick start
 
