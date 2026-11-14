@@ -19,7 +19,7 @@ const M = 60;
 /** Overlap, in canonical units, below which a joint shows a gap once the part moves. */
 export const MIN_OVERLAP = 12;
 /** Units a limb may be drawn past the disc round its knee or elbow before the bend shows it. */
-export const JOINT_SPILL = 4;
+const JOINT_SPILL = 4;
 const FACE = new Set(['eyes', 'mouth', 'face']);
 
 interface Mask {

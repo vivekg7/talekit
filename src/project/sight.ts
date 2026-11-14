@@ -11,18 +11,18 @@ import { maskDocument } from '../engine/compose.js';
 import { faceBoxes } from '../engine/place.js';
 import { resolveFrame, type FrameState } from '../engine/timeline.js';
 import type { Project, Shot } from '../engine/types.js';
-import { lineDuration } from '../engine/voice.js';
+import { lineDuration, shorten } from '../engine/voice.js';
 import type { Finding, XY } from '../engine/world.js';
 
 /**
  * A speaker's face covered more than this (a share of its box, over the line, each pixel by
  * how opaque the art over it is) is not seen. A peek round a pillar, eyes out, is about 0.4.
  */
-export const FACE_COVERED = 0.5;
+const FACE_COVERED = 0.5;
 /** Art over a hidden actor this opaque hides it; fainter (shallow water) shows it through. */
 const HIDES = 0.7 * 255;
 /** Of a hidden actor, this share of what is drawn of it, and this many frame pixels, shows. */
-export const HIDDEN_SHOWS = 0.03;
+const HIDDEN_SHOWS = 0.03;
 const HIDDEN_PX = 60;
 /** Frames looked at through a line, as shares of its length. */
 const LINE_SAMPLES = [0.2, 0.5, 0.8];
@@ -85,7 +85,7 @@ function faceRule(project: Project, shot: Shot): Finding[] {
     if (!looked || !at) continue;
     const share = covered / looked;
     if (share <= FACE_COVERED) continue;
-    const words = line.say.length > 40 ? `${line.say.slice(0, 40)}…` : line.say;
+    const words = shorten(line.say, 41);
     out.push({
       code: 'sight.face',
       shot: shot.id,

@@ -19,7 +19,7 @@
 import { waived } from './allow.js';
 import { hash01 } from './easing.js';
 import {
-  APPROACH,
+  atPlace,
   SIT_TIME,
   giveParties,
   moveDuration,
@@ -203,6 +203,8 @@ export function staging(project: Project, scene: Scene, shot: Shot): StagedActio
     else for (const id of line.audience ?? []) if (shot.cast[id]) audience.add(id);
     audience.delete(speaker);
     for (const id of audience) {
+      // A thing with no eyes (a prop, the moon) listens to nobody.
+      if (!project.characters[id]?.parts.eyes) continue;
       if (waived(allow, 'attention.listener', id) || directs(shot, id, line.t, end)) continue;
       // It notices later (a `reacts` to this speaker after the line starts): it turns then.
       if (reactions.some((r) => r.actor === id && r.reacts === speaker && r.t > line.t)) continue;
@@ -280,9 +282,7 @@ function approach(
   const sits = anchor.use?.pose === 'sit';
   const now = at(id, t);
   const foot = { x: anchor.x, y: anchor.floor ?? anchor.y, scale: anchor.scale };
-  const near =
-    Math.hypot(now.x - anchor.x, now.y - anchor.y) <= APPROACH ||
-    Math.hypot(now.x - foot.x, now.y - foot.y) <= APPROACH;
+  const near = atPlace(now, anchor);
   if (near && (!sits || now.sit > 0.5)) return undefined;
   if (!near && now.sit > 0.05) return undefined;
   const walk = near ? 0 : moveDuration('walk', now, foot, undefined, scene);

@@ -3,15 +3,15 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-/** The authoring guide (docs/authoring-guide.md), from the source tree or the built one. */
+/**
+ * The authoring guide (docs/authoring-guide.md): two folders up from src/project/ or
+ * dist/project/ alike, and the npm package ships docs/ at its root the same way.
+ */
 export function guidePath(): string {
   const here = path.dirname(fileURLToPath(import.meta.url));
-  for (const candidate of [
-    path.join(here, '..', '..', 'docs', 'authoring-guide.md'),
-    path.join(here, '..', 'docs', 'authoring-guide.md'),
-  ])
-    if (existsSync(candidate)) return candidate;
-  throw new Error('authoring-guide.md not found');
+  const file = path.join(here, '..', '..', 'docs', 'authoring-guide.md');
+  if (!existsSync(file)) throw new Error(`authoring-guide.md not found at ${file}`);
+  return file;
 }
 
 /** One `## ` section of the guide, its heading included: the guide stays the one copy. */

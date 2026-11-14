@@ -34,6 +34,10 @@ export function shownText(text: string): string {
   return text.replace(/\*([^*]*)\*/g, '$1');
 }
 
+/** A line cut to at most n characters, with an ellipsis where it was cut, for a message. */
+export const shorten = (s: string, n = 40): string =>
+  s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s;
+
 /** What the voice says: the line without its *marked* sounds; empty when nothing is left to say. */
 export function spokenText(text: string): string {
   const words = text

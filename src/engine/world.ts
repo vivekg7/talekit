@@ -33,7 +33,7 @@ import {
 import { holdPoint, poseFor } from './actor.js';
 import {
   actionDuration,
-  APPROACH,
+  atPlace,
   attachTime,
   giveParties,
   resolveActor,
@@ -95,7 +95,7 @@ export const CODES: Record<string, string> = {
 };
 
 /** Moving at least this far, scene pixels, over a shot's first seconds is going somewhere. */
-export const TRAVEL_MIN = 60;
+const TRAVEL_MIN = 60;
 
 /** Closer than this across, scene pixels, two stand one behind the other: neither side. */
 const LINE_GAP = 30;
@@ -104,17 +104,17 @@ const LINE_GAP = 30;
 export const CONTACT_MISS = 0.12;
 
 /** Further than this from where the last shot left it, scene pixels, reads as a jump cut. */
-export const CUT_SHIFT = 12;
+const CUT_SHIFT = 12;
 /** A size this much off the last shot's (as a share) reads as a jump. */
 const CUT_SIZE = 0.06;
 
 /** Faster than this across the stage (scene pixels a second) reads as a jump cut. */
 export const JUMP_SPEED = 1500;
 /** Seconds into a line before who is spoken to must face the speaker: time to turn. */
-export const LOOK_GRACE = 0.7;
+const LOOK_GRACE = 0.7;
 
 /** Seconds between the samples a rule sees. */
-export const SAMPLE_STEP = 0.1;
+const SAMPLE_STEP = 0.1;
 
 // ---------------------------------------------------------------------------------------
 // Geometry
@@ -542,6 +542,12 @@ function giveRule(project: Project, shot: Shot): Finding[] {
   return out;
 }
 
+/** Whether a point is inside the frame a camera view shows. */
+const inFrame = (v: View, p: XY, W: number, H: number) =>
+  Math.abs(p.x - v.x) <= W / 2 / v.zoom && Math.abs(p.y - v.y) <= H / 2 / v.zoom;
+/** Drawn and not faded out: there to be seen, if it is in the frame. */
+const shows = (s: ActorState) => s.visible && s.opacity > 0.05;
+
 /**
  * A cut that carries straight on in the same place (`follows`): everyone in sight on
  * either side of it starts as the last shot left them, where they stood, sitting or lying,
@@ -558,9 +564,7 @@ function cutRule(project: Project, shot: Shot): Finding[] {
   const end = prev.duration - 1e-3;
   const viewA = resolveCamera(project, scene, prev, end);
   const viewB = resolveCamera(project, scene, shot, 0);
-  const inView = (v: View, p: XY) =>
-    Math.abs(p.x - v.x) <= W / 2 / v.zoom && Math.abs(p.y - v.y) <= H / 2 / v.zoom;
-  const shows = (s: ActorState) => s.visible && s.opacity > 0.05;
+  const inView = (v: View, p: XY) => inFrame(v, p, W, H);
   const seen = (s: ActorState) => shows(s) && (inView(viewA, s) || inView(viewB, s));
   // Lying with the eyes shut; shut eyes alone are a howl or a laugh as often as sleep.
   const asleep = (s: ActorState) => s.lie >= 0.5 && s.face.eyes === 'closed';
@@ -648,11 +652,7 @@ function axisRule(project: Project, shot: Shot): Finding[] {
   const end = prev.duration - 1e-3;
   const viewA = resolveCamera(project, sceneA, prev, end);
   const viewB = resolveCamera(project, sceneB, shot, 0);
-  const inView = (v: View, s: ActorState) =>
-    s.visible &&
-    s.opacity > 0.05 &&
-    Math.abs(s.x - v.x) <= W / 2 / v.zoom &&
-    Math.abs(s.y - v.y) <= H / 2 / v.zoom;
+  const inView = (v: View, s: ActorState) => shows(s) && inFrame(v, s, W, H);
   const A = (id: string, t: number) => resolveActor(project, sceneA, prev, id, t);
   const B = (id: string, t: number) =>
     resolveActor(project, sceneB, shot, id, Math.min(t, shot.duration - 1e-3));
@@ -756,9 +756,7 @@ function contactRule(project: Project, shot: Shot): Finding[] {
     const lands = `it lands ${r(miss)} px ${short ? 'short of it' : 'past it'}`;
     let message = `'${id}' ${a.do}s at ${what} from ${gap} px away, but ${lands}. Stand '${id}' ${short ? 'closer' : 'further back'}, about ${r(Math.max(0, short ? gap - miss : gap + miss))} px from it (walk it over first).`;
     if (place?.use) {
-      const there =
-        Math.hypot(me.x - place.x, me.y - place.y) <= APPROACH ||
-        Math.hypot(me.x - place.x, me.y - (place.floor ?? place.y)) <= APPROACH;
+      const there = atPlace(me, place);
       const how = place.use.pose === 'sit' ? 'sit' : 'walk';
       message = there
         ? `'${id}' ${a.do}s at ${what} from where it is used, but ${lands}: its \`use.at\` is out of reach of whoever uses it. Put \`at\` where the ${a.do === 'strike' ? 'blow' : 'hand'} lands, about [${r(end.x)}, ${r(end.y)}], or move the anchor ${short ? 'nearer to' : 'further from'} it.`

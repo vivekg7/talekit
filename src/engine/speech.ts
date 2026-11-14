@@ -24,15 +24,15 @@ export interface TakeMatch {
 }
 
 /** A run this long, missing or extra, is about a word. */
-export const RUN = 4;
+const RUN = 4;
 /** More of the line wrong than this is a garbled take. */
-export const ERR = 0.3;
+const ERR = 0.3;
 /**
  * A line shorter than this (in skeleton sounds) gives recognition little to go on ("शाबाश,
  * अर्जुन!" alone is heard "शबस्ट आरचुन"), so only more wrong than ERR_SHORT counts.
  */
-export const SHORT = 12;
-export const ERR_SHORT = 0.6;
+const SHORT = 12;
+const ERR_SHORT = 0.6;
 
 /** One to a hundred in Hindi: recognition writes सौ as 100. */
 const HINDI_NUMBERS = (

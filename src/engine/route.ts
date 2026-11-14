@@ -13,7 +13,7 @@ import { dist, EDGE_TOLERANCE, groundOf, inArea, nearestIn, type XY } from './ar
 import type { Area, Scene } from './types.js';
 
 /** How far off a corner the way turns, scene pixels at scale 1: room for the feet. */
-export const CLEARANCE = 14;
+const CLEARANCE = 14;
 /** Scene pixels between the points of a line looked at to see that it stays on the ground. */
 const STEP = 5;
 
@@ -126,15 +126,14 @@ const MEMO = new WeakMap<Scene, Map<string, XY[]>>();
  * `scale` widens the room kept round corners for a bigger walker.
  */
 export function routeOf(scene: Scene, from: XY, to: XY, scale = 1): XY[] {
-  const solids = Object.values(scene.solids ?? {}).map(solidBlock);
-  const g = groundOf(scene);
-  if (!solids.length && !g.walk.length) return [];
+  if (!Object.keys(scene.solids ?? {}).length && !groundOf(scene).walk.length) return [];
   if (dist(from, to) < 1) return [];
   let memo = MEMO.get(scene);
   if (!memo) MEMO.set(scene, (memo = new Map()));
   const key = [from.x, from.y, to.x, to.y, scale].map((v) => Math.round(v * 10)).join(',');
   const hit = memo.get(key);
   if (hit) return hit;
+  const solids = Object.values(scene.solids ?? {}).map(solidBlock);
   const out = findRoute(scene, solids, from, to, scale);
   if (memo.size > 2000) memo.clear();
   memo.set(key, out);

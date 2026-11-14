@@ -1,6 +1,6 @@
 import { actionDuration } from '../engine/timeline.js';
 import { ActionSchema, ShotSchema, type Action, type Project, type Shot } from '../engine/types.js';
-import { timeActions } from '../engine/voice.js';
+import { shorten, timeActions } from '../engine/voice.js';
 import { formatIssues } from './store.js';
 
 /**
@@ -141,8 +141,6 @@ export function listActions(shot: Shot): string {
   return shot.actions.map((a, i) => `${i}: ${describeAction(a)}`).join('\n');
 }
 
-const clip = (s: string, n = 40) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
-
 function describeAction(a: Action): string {
   const where = (p: unknown) =>
     typeof p === 'string' ? p : p && typeof p === 'object' ? JSON.stringify(p) : '';
@@ -150,13 +148,13 @@ function describeAction(a: Action): string {
   if (a.actor) bits.push(a.actor);
   if (a.do) bits.push(a.do);
   if (a.to !== undefined) bits.push(`→ ${where(a.to)}`);
-  if (a.say) bits.push(`${a.bubble ?? 'say'} "${clip(a.say)}"`);
+  if (a.say) bits.push(`${a.bubble ?? 'say'} "${shorten(a.say)}"`);
   if (a.emotion) bits.push(`emotion ${a.emotion}`);
   if (a.face) bits.push(`face ${JSON.stringify(a.face)}`);
   if (a.attach !== undefined) bits.push(`attach ${a.attach}`);
   if (a.set) bits.push(`set ${JSON.stringify(a.set)}`);
   if (a.camera) bits.push(`camera ${JSON.stringify(a.camera)}`);
-  if (a.caption) bits.push(`caption "${clip(a.caption)}"`);
+  if (a.caption) bits.push(`caption "${shorten(a.caption)}"`);
   if (a.weather) bits.push('weather');
   if (a.lightning) bits.push('lightning');
   if (a.duration) bits.push(`for ${a.duration}s`);

@@ -134,7 +134,7 @@ export const SPEED: Record<string, number> = {
  * A climb's cycle: both hands and both feet have moved up one rung each, over this share
  * of the climber's height (a rung is about a sixth of a person: 30 cm).
  */
-export const CLIMB_CYCLE = 0.4;
+const CLIMB_CYCLE = 0.4;
 
 /** Default seconds for timed verbs. */
 export const VERB_DURATION: Partial<Record<Verb, number>> = {

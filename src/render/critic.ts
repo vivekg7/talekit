@@ -9,7 +9,7 @@ import {
   type ActorState,
 } from '../engine/timeline.js';
 import { isMoveVerb, type Action, type Project, type Shot, type Verb } from '../engine/types.js';
-import { lineDuration, shownText } from '../engine/voice.js';
+import { lineDuration, shorten, shownText } from '../engine/voice.js';
 
 /**
  * What the critic looks at (docs/PLAN.md, phase 8.4): a shot's frames at its beats, each
@@ -62,11 +62,9 @@ function spanOf(project: Project, shot: Shot, a: Action): [number, number] {
   return [a.t, a.t + actionDuration(a)];
 }
 
-const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s);
-
 /** The words of a line as the critic reads them: in English when the film gives that. */
 const words = (a: Action, n: number) =>
-  `"${clip(shownText(a.translation?.en ?? a.say ?? a.caption ?? ''), n)}"`;
+  `"${shorten(shownText(a.translation?.en ?? a.say ?? a.caption ?? ''), n)}"`;
 
 /** One action in words: "dhobi shouts "Come on…" to gadha", "ramu walk to well". */
 function said(a: Action & { staged?: string }): string {
@@ -94,7 +92,7 @@ function whoOf(a: Action): string[] {
 }
 
 /** A shot has a frame at most this many beats; more are thinned, the lines kept first. */
-export const MAX_BEATS = 11;
+const MAX_BEATS = 11;
 
 /**
  * The moments of a shot worth a look: its first and last frame, the middle of every line

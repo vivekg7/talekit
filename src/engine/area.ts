@@ -47,8 +47,10 @@ export function nearestOnEdge(area: Area, p: XY): XY {
 /**
  * Where something dropped at p comes to rest: straight down onto the first walk area under
  * it at or below `floor` (the floor its carrier stood on), or on that floor when the scene
- * has no walk areas or none is under it. `leave`, a point on a perch the carrier stood on
- * (a branch), is stepped off first: what a monkey up a tree drops lands on the ground.
+ * has no walk areas or none is under it. `leave`, where a carrier perched on a seat anchor
+ * stands (a branch drawn as a seat), is stepped off first: what a monkey sitting up a tree
+ * drops lands on the ground. A carrier standing on a walk area drops onto that area, as
+ * onto any floor, since a raised floor and a branch walked along look the same here.
  */
 export function landing(walk: Area[], p: XY, floor: number, leave?: XY): number {
   if (!walk.length) return Math.max(p.y, floor);
@@ -71,13 +73,20 @@ export interface Ground {
 /**
  * The scene's walk, water and climb areas; a `river` effect's outline is deep water too.
  */
+const GROUND = new WeakMap<Scene, Ground>();
+
 export function groundOf(scene: Scene): Ground {
+  // Asked for every actor on every frame; a scene's areas do not change once loaded.
+  const known = GROUND.get(scene);
+  if (known) return known;
   const deep: Area[] = [];
   const shallow: Area[] = [];
   for (const w of scene.water ?? []) (w.wade ? shallow : deep).push(w.area);
   for (const e of scene.effects ?? [])
     if (e.kind === 'river' && e.points && !scene.water?.length) deep.push(e.points as Area);
-  return { walk: scene.walk ?? [], deep, shallow, climb: scene.climb ?? [] };
+  const g = { walk: scene.walk ?? [], deep, shallow, climb: scene.climb ?? [] };
+  GROUND.set(scene, g);
+  return g;
 }
 
 export function habitatOf(character: Character): Habitat[] {
@@ -86,7 +95,7 @@ export function habitatOf(character: Character): Habitat[] {
 }
 
 /** How far above a walk area feet may be and be put down on it, in scene pixels. */
-export const SNAP = 12;
+const SNAP = 12;
 
 /**
  * Feet a hair above the ground, put on it: the y of the walk area straight below p within

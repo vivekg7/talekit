@@ -29,6 +29,7 @@ import { groundOf, habitatOf, landing, snapDown } from './area.js';
 import { clipFor, lineDuration, lineLead, mouthOpen, sayDuration, shownText } from './voice.js';
 import type {
   Action,
+  Anchor,
   Camera,
   Character,
   Emotion,
@@ -261,7 +262,7 @@ function bedHeight(scene: Scene, at: Point): number {
  * The turns a walk or run from `from` to `to` takes round what is in the way (route.ts):
  * none for other moves, or between spots on someone.
  */
-export function viaOf(scene: Scene, verb: Verb, from: Point, to: Point): XY[] {
+function viaOf(scene: Scene, verb: Verb, from: Point, to: Point): XY[] {
   if ((verb !== 'walk' && verb !== 'run') || from.rides || to.rides) return [];
   return routeOf(scene, from, to, Math.max(from.scale, to.scale));
 }
@@ -559,6 +560,11 @@ const SETTLE_TIME = 0.25;
  * there first; nearer, it shifts across as it sits.
  */
 export const APPROACH = 24;
+
+/** Whether p is at an anchor already: within APPROACH of it, or of its foot (`floor`). */
+export const atPlace = (p: { x: number; y: number }, anchor: Anchor) =>
+  Math.hypot(p.x - anchor.x, p.y - anchor.y) <= APPROACH ||
+  Math.hypot(p.x - anchor.x, p.y - (anchor.floor ?? anchor.y)) <= APPROACH;
 /** A sit or lie at a shot's start this quick is how the shot opens, not something seen. */
 const OPENING = 0.05;
 /** Verbs that sit, lie or stand: one of them cuts short a walk to a seat. */
@@ -1678,7 +1684,7 @@ function resolveCaptions(project: Project, shot: Shot, t: number): CaptionState[
  * About where a film's narration strip lies, [left, top, right, bottom] in frame pixels:
  * along the bottom, or along the top (compose.ts draws the strip itself).
  */
-export function narrationBox(
+function narrationBox(
   project: Project,
   text: string,
   top: boolean

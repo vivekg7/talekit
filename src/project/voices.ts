@@ -163,7 +163,7 @@ export function hearingLines(r: VoiceReport): string[] {
 }
 
 /** Takes made of a line before the best of them is kept, however it sounds. */
-export const MAX_TAKES = 3;
+const MAX_TAKES = 3;
 /** Engines that sample, so a second take of a line is said differently (Kokoro is not). */
 const SAMPLED = new Set(['chatterbox']);
 
