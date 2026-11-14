@@ -702,6 +702,12 @@ export const SceneSchema = z.object({
           .describe(
             "Shallow enough for people and land animals to stand in (a ghat's edge, a ford)"
           ),
+        waterline: z
+          .number()
+          .optional()
+          .describe(
+            "The y where the water's surface meets what is in it: the top of a translucent foreground band over the water, one line for all of it, as the art draws it. The splash of something jumping in and the rings round a swimmer are drawn on it, over the band. Without it they are drawn at the feet of whatever is in the water"
+          ),
       })
     )
     .optional()

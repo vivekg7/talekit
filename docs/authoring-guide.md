@@ -640,7 +640,12 @@ says:
   the sky) says so with `"allow": { "world.walk": "the reason" }`.
 - **`water`**: `[{ "area": [[x, y], ...], "wade": false }]`, where things
   swim and float. `wade: true` marks water shallow enough for people and
-  land animals to stand in (the edge of a ghat, a ford). A `river`
+  land animals to stand in (the edge of a ghat, a ford). Water drawn with
+  a translucent `foreground` band over it gives `"waterline": 590`, the
+  y the band starts at, where the water meets whatever is in it: the
+  splashes and rings the engine draws (see "Landings and splashes") lie
+  on that line, over the band. Without it they are drawn at the feet,
+  under the band, where they barely show. A `river`
   effect's `points` count as deep water when there is no `water`. A
   river's points often run over the bank too, since the art hides the
   ripples there, so a scene with a river should give its `water`.
@@ -1383,6 +1388,20 @@ sound do it. What they do next is the story's: write the run, with
 marked `mouth`) opens its actor's mouth while it sounds, up to 3 s,
 unless the shot sets the mouth itself.
 
+**Landings and splashes.** What comes down makes its mark, on its own.
+A `jump` that lands on a walk area, or a prop let go of that drops to it,
+raises a puff of dust at the feet, paler and thinner on a `grass` scene.
+Landing on a branch, a seat or someone's back raises none, and nor does
+anything under 40 px tall. A jump or a drop into water splashes instead:
+spray flung up and two rings going out, heard as a splash, not a landing.
+Someone who walks into the water from the bank splashes softly where
+they go in, and whatever moves in the water (a swimmer, a wader, a swan
+gliding, anyone `swim`ming) leaves rings behind it every half second. A
+splash sound the shot puts within 0.3 s of the engine's stands in for it.
+Give the water its `waterline` when the scene draws a band over it (see
+the scene's areas), or the splash is drawn at the swimmer's feet, under
+the band.
+
 `talekit explain <dir> [shot]` lists every turn, walk, sit and startle
 the engine added, and why.
 Walking, jumping and pointing look straight ahead.
@@ -1470,9 +1489,10 @@ it" }` (the narrator's as `speech.mismatch:narrator`).
 - **Effects.** `{ "t": 3, "actor": "lion", "sound": "lion-roar" }` plays at
   `t` from the actor's side of the frame; `volume` 0.5 far off, 1.5 close.
   A name with several takes picks one each time. `list_sounds` has the
-  names. Footsteps, jump whooshes and landings, the `appear`/`disappear`
-  sparkle, the pickup/putdown tap, a shot's twang, whoosh and thunk and
-  the thud of a `strike` with a `to` are the engine's: never add them. A
+  names. Footsteps, jump whooshes and landings, a splash into water, the
+  `appear`/`disappear` sparkle, the pickup/putdown tap, a shot's twang,
+  whoosh and thunk and the thud of a `strike` with a `to` are the
+  engine's: never add them. A
   loud one startles everyone else in the shot (see "Startles").
 - **Mix.** The engine sets every layer's level. Only when a listener finds
   a layer wrong, `set_audio(path, mix: { "music": 0.5 })` scales `voices`,

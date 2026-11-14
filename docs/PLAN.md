@@ -1343,11 +1343,29 @@ at 0.55 of the strike.
   follow-through cells show. Each spring starts the shot where the wind
   holds it. Otherwise every shot in a gale opened with the plaits hanging
   straight and swinging out over the first half second.
+- **Landings and splashes** (impact.ts). Read off how each actor moves,
+  not off the actions: a jump lands when its jump ends, a drop where its
+  fall stops falling, by sampling its state at 60 Hz from each `jump`,
+  `fall` or let-go. A walk into water is found by sampling every 0.5 s
+  and bisecting the crossing. The landing spot decides dust or a splash.
+  A walk area means dust, and wins over water under it (a stone in the
+  river). Water means a splash. Anything else (a branch, a seat,
+  someone's back) raises nothing. Water drawn the house way puts
+  swimmers below a foreground band, so splashes drawn at the feet sat
+  under the band, tinted out of sight. Hence `waterline` on the water:
+  the splash lies on the line, and the near half of its rings is drawn
+  over the band, clipped to that water so it never crosses the bank. The
+  spray is drawn with the actor, since it is all above the line. Sizes
+  go by the square root of what lands, so a frog's splash still shows.
+  Across the films a re-render adds 126 puffs of dust, 44 splashes
+  (all but one a walk or a swan's landing into water) and 212 rings; the
+  films' scenes give no `waterline` yet, so their splashes and rings stay
+  faint until they do. Finding them costs under 0.35 s a film.
 
 Not done: a held flag or umbrella leaning in the wind (it would have to
-move the arm), dust where a jump or a fall lands, a splash and rings
-where something enters water. Birds taking off at a roar are the
-author's, since they leave the shot.
+move the arm), a swimmer's bow wave (only rings), footprints left in the
+ground. Birds taking off at a roar are the author's, since they leave
+the shot.
 
 ## Render speed
 

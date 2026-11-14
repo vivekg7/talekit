@@ -19,6 +19,7 @@ import {
   throwOf,
 } from './cast.js';
 import { applySprings } from './springs.js';
+import { impactsAt, overForeground, renderImpacts } from './impact.js';
 import { bubbleSvg, wrapText, textWidth } from './bubble.js';
 import { bubblePlace, bubbleSpec } from './place.js';
 import { needsShaping, shapedText } from './glyphs.js';
@@ -465,12 +466,17 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
     if (archer) overArcher.set(archer, [...(overArcher.get(archer) ?? []), i]);
   }
   const bubbles: string[] = [];
+  // The near side of a splash or ring on a waterline, over the water's foreground band.
+  let onWater = '';
   for (const [i, { actor, pose }] of posed.entries()) {
     const { light, slopes } = lightOf(actor, w, fires, sun);
     const onIt = overArcher.get(actor.id) ?? [];
     const bow = onIt.map((j) => posed[j]).find((o) => !o.actor.nockedOn);
     const passing = bow ? 1 - bow.actor.behind! : 0;
     const up = pose.bow ? Math.max(bowOver(pose.bow.raise), passing) : 0;
+    // The dust, splashes and rings it has raised: the far side of each ring behind it.
+    const impacts = actor.visible ? impactsAt(project, frame.shot, actor.id, frame.t) : [];
+    world += renderImpacts(impacts, 'back', scene.surface);
     if (up > 0 || passing > 0) {
       const rig = rigOf(actor.character);
       const near = (part: string) => onNearArm(rig, part);
@@ -510,6 +516,12 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
         `tk-lit-${i}`,
         slopes
       );
+    world += renderImpacts(
+      impacts.filter((b) => b.water === undefined),
+      'surface'
+    );
+    world += renderImpacts(impacts, 'front', scene.surface);
+    onWater += overForeground(scene, impacts, actor.id);
     if (actor.bubble && actor.visible && !opts.quiet) {
       const b = actor.bubble;
       bubbles.push(
@@ -529,6 +541,7 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
   }
   world += firelight(fires, w);
   if (scene.foreground) world += `<g class='foreground'>${sway(scene.foreground)}</g>`;
+  world += onWater;
   world += fx('front');
   if (opts.debug) {
     for (const [name, a] of Object.entries(scene.anchors)) {

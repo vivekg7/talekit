@@ -51,6 +51,7 @@ export const POND: SceneInput = {
         [490, 760],
         [402, 590],
       ],
+      waterline: 590,
     },
   ],
   lights: [{ kind: 'sun', x: 1060, y: 110, strength: 0.7 }],

@@ -1,3 +1,4 @@
+import { landingsOf } from './impact.js';
 import { clamp01, hash01 } from './easing.js';
 import { footfalls, gaitPhase } from './gait.js';
 import { rigOf } from './rigs.js';
@@ -194,6 +195,8 @@ const STEP: Partial<Record<Character['rig'], string>> = {
 const STEP_GAIN = 0.3;
 /** Seconds either side of a blow's landing in which the shot's own sound stands in for the thud. */
 const OWN_SOUND = 0.3;
+/** Seconds between a jump's end and a splash found there for it to be the jump's. */
+const SPLASH_NEAR = 0.5;
 /** Samples a second when finding where feet land. */
 const STEP_RATE = 60;
 
@@ -279,6 +282,17 @@ function verbSounds(project: Project, shot: Shot, at0: number): Cue[] {
       shot: shot.id,
     });
   };
+  // Whatever goes into the water splashes: a jump or a drop into it loud, a walk in softly;
+  // unless the shot puts a sound of its own there.
+  for (const id of Object.keys(shot.cast)) {
+    if (!project.characters[id]) continue;
+    landingsOf(project, shot, id).forEach((l, i) => {
+      if (l.kind !== 'splash') return;
+      if (shot.actions.some((b) => b.sound && Math.abs(b.t - l.at) <= OWN_SOUND)) return;
+      const gain = (l.how === 'wade' ? 0.3 : 0.65) * Math.min(1.2, l.scale);
+      push('splash', l.at, gain, id, `${id}:splash:${i}`);
+    });
+  }
   shot.actions.forEach((a, k) => {
     if (!a.actor || !shot.cast[a.actor] || !project.characters[a.actor]) return;
     if (
@@ -290,17 +304,15 @@ function verbSounds(project: Project, shot: Shot, at0: number): Cue[] {
       push(name, a.t, gain, a.actor, `${k}`);
     }
     if (a.do === 'jump') {
-      // The landing, where the jump comes down.
+      // The landing, where the jump comes down: unless it comes down in water (a splash).
       const from = resolveActor(project, scene, shot, a.actor, a.t, 1);
       const to = a.to ? resolvePosition(project, scene, a.to) : from;
       const size = (project.characters[a.actor].height * from.scale) / 220;
-      push(
-        'land',
-        a.t + actionDuration(a, from, to),
-        0.5 * Math.min(1.3, size),
-        a.actor,
-        `${k}:land`
+      const at = a.t + actionDuration(a, from, to);
+      const wet = landingsOf(project, shot, a.actor).some(
+        (l) => l.kind === 'splash' && l.how === 'jump' && Math.abs(l.at - at) < SPLASH_NEAR
       );
+      if (!wet) push('land', at, 0.5 * Math.min(1.3, size), a.actor, `${k}:land`);
     }
     // Each blow of a dig: the blade going into the earth.
     if (a.do === 'dig') {
