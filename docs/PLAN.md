@@ -39,7 +39,8 @@ story (in the agent's head)
 project directory   talekit.json, characters/, scenes/, shots/, audio/
    │
    ▼
-engine (pure TypeScript, no I/O)   timeline → motion/gait/springs → compose → SVG
+engine (pure TypeScript, no I/O)   stage → timeline → motion/gait/springs → compose → SVG
+   │                               world.ts: the findings that block a render
    │                               sound.ts: the cue sheet
    ▼
 render   resvg on worker threads → raw RGBA → ffmpeg; audio mixer; .mkv; sheets
@@ -125,6 +126,11 @@ The full schema is the authoring guide.
       shots 07 to 09), and the guide gained the rule: when the plot turns on
       what a character sees, cut to what they see. Next: a run with a
       non-Claude agent, and a story that needs humanoid interaction.
+- [x] **Phase 7 — Video quality.** Art direction, the quadruped rig,
+      motion with weight, light, sound and reels; see below.
+- [x] **Phase 8 — The world model.** Where things can stand, what holds
+      them up, who looks at whom, what carries across a cut, and a critic's
+      pass, played against every shot before it renders; see below.
 
 ## Phase 7 — Video quality
 
@@ -929,9 +935,9 @@ no walk areas, so they were run over all 36 projects.
   point, and the person stoops to it, since it is lower than the hand
   hangs. A stoop for a hand at chest height was tried first and dropped: at
   the limit the two crouched into each other. `give.reach` flags two
-  whose hands do not meet: too far apart (over about 0.7 of their average
-  height) or facing away, where a hand would get there only behind the
-  back.
+  whose hands do not meet: too far apart for both arms to reach (for two of
+  a size, about 0.7 of their height) or facing away, where a hand would
+  get there only behind the back.
 
 8.1 is done.
 
