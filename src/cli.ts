@@ -248,6 +248,7 @@ async function main(argv: string[]): Promise<void> {
       await clearPngs(out, new RegExp(`^${shotId ?? '.+'}-\\d+\\.png$`));
       console.log(await guideSection('The critic'));
       if (!shotId) {
+        console.log(`Shots, in order: ${project.shots.map((s) => s.id).join(', ')}\n`);
         const file = path.join(out, 'readthrough.md');
         await writeFile(file, readThrough(project));
         console.log(file);
