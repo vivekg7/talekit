@@ -78,6 +78,12 @@ export interface Pose {
    */
   bite?: number;
   /**
+   * A `strike` at a target: the spot it lands on, in the actor's box as it faces, and how
+   * far the blow has come down onto it, 0..1. What the near hand carries is swung so its
+   * working end points there; the swing is solved where the prop is placed.
+   */
+  hit?: { at: Pt; k: number };
+  /**
    * Drawing a bow (`aim`), for the bow and arrow the hands hold: `deg` the line of the aim,
    * degrees above level toward the facing; `turn` how far the bow is turned from as drawn to
    * stand across that line, 0..1; `draw` how far the string is pulled back to the near hand,
@@ -1176,6 +1182,25 @@ export function reachTo(rig: Rig, pose: Pose, to: Pt, k: number, stoop = true): 
 }
 
 /**
+ * Where the hand goes for a blow at `to` with something `reach` long in it: up and back
+ * from the target by that length, so what it swings comes down onto it from above, at
+ * STRIKE_SLOPE, as a stick does on a back. Never nearer the body than a third of the arm:
+ * closer, what it swings passes over the target.
+ */
+function strikeHand(rig: Rig, to: Pt, reach: number): Pt {
+  const arm = rig.parts.armR;
+  const elbow = rig.bends.armR;
+  if (!arm || !elbow || reach <= 0) return to;
+  const [sx] = arm.pivot;
+  const len = Math.hypot(elbow[0] - arm.pivot[0], elbow[1] - arm.pivot[1]) * 2;
+  const a = (STRIKE_SLOPE * Math.PI) / 180;
+  return [Math.max(sx + len / 3, to[0] - reach * Math.cos(a)), to[1] - reach * Math.sin(a)];
+}
+
+/** Degrees below level that a blow at something comes down onto it. */
+const STRIKE_SLOPE = 40;
+
+/**
  * Layer a timed verb over the base pose. `u` is progress 0..1 through the action; for
  * `sit` it is how far down the actor is, so sitting and standing can ease, and `seat` is
  * how far below the hips the floor is (canonical units; 0 sits on the ground). An `aim` is
@@ -1191,7 +1216,8 @@ export function applyVerb(
   to?: Pt,
   span = 1,
   loose?: number,
-  handOver = false
+  handOver = false,
+  reach = 0
 ): void {
   const humanoid = rig.name === 'humanoid';
   u = clamp01(u);
@@ -1355,7 +1381,18 @@ export function applyVerb(
       // then chops forward and down, straightening, the body following through. What the
       // hand carries swings with it: back over the shoulder, then forward onto the target.
       const { up, down } = strikeBeats(u);
-      if (humanoid) {
+      if (humanoid && to) {
+        // At something (`to`): wound up as ever, then brought down so the hand stops short of
+        // it by the length of what it swings, which turns to land its end there. Low down
+        // (cloth on a washing stone) the body bends over to it.
+        pose.rot.armR = (pose.rot.armR ?? 0) - 160 * up;
+        pose.bend.armR = (pose.bend.armR ?? 0) - 35 * up;
+        pose.rot.torso = (pose.rot.torso ?? 0) + 6 * up;
+        pose.rot.head = (pose.rot.head ?? 0) + 3 * up - 5 * down;
+        reachTo(rig, pose, strikeHand(rig, to, reach), down);
+        pose.wield = -55 * up + 105 * down;
+        pose.hit = { at: to, k: down };
+      } else if (humanoid) {
         pose.rot.armR = (pose.rot.armR ?? 0) - 160 * up - 60 * down;
         pose.bend.armR = (pose.bend.armR ?? 0) - 35 * up - 10 * down;
         pose.rot.torso = (pose.rot.torso ?? 0) + 6 * up - 8 * down;

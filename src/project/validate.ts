@@ -551,7 +551,11 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
       a.to &&
       !listener &&
       !(
-        (a.do === 'wipe' || a.do === 'hold' || a.do === 'aim' || a.do === 'shoot') &&
+        (a.do === 'wipe' ||
+          a.do === 'hold' ||
+          a.do === 'strike' ||
+          a.do === 'aim' ||
+          a.do === 'shoot') &&
         typeof a.to === 'string' &&
         shot.cast[a.to]
       )
@@ -662,6 +666,7 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
         'putdown',
         'wipe',
         'hold',
+        'strike',
         'aim',
         'shoot',
       ].includes(a.do)

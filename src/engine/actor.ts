@@ -49,7 +49,7 @@ export function poseFor(actor: ActorState, t: number): Pose {
   if (actor.look) pose.rot[head] = (pose.rot[head] ?? 0) + actor.look;
   if (actor.take) applyTake(rig, pose, actor.take.emotion, actor.take.u);
   for (const v of actor.verbs)
-    applyVerb(rig, pose, v.verb, v.u, 0, v.to, v.span, v.loose, v.handOver);
+    applyVerb(rig, pose, v.verb, v.u, 0, v.to, v.span, v.loose, v.handOver, v.reach);
   // An arrow left on the string of a lowered bow: the bow held so it points at the floor.
   if (actor.nocked && !pose.bow)
     pose.bow = { deg: NOCKED_DOWN, turn: 1, draw: 0, raise: 0, hand: 1 };

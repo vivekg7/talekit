@@ -15,7 +15,7 @@
  */
 import { waived } from './allow.js';
 import { hash01 } from './easing.js';
-import { giveParties, resolveActor, type ActorState } from './timeline.js';
+import { giveParties, resolveActor, resolvePosition, type ActorState } from './timeline.js';
 import type { Action, Facing, Project, Scene, Shot, Verb } from './types.js';
 import { isMoveVerb } from './types.js';
 import { lineEnd } from './voice.js';
@@ -53,6 +53,10 @@ const STEP = 0.1;
 export const FOCUSED: ReadonlySet<Verb> = new Set(['aim']);
 /** Seconds before a give that the two turn to face each other, to be round when they reach. */
 const GIVE_LEAD = 0.3;
+/** Seconds before a blow, a wipe or a hold at something that its doer turns to face it. */
+const WORK_LEAD = 0.3;
+/** The verbs that put a hand (or what it holds) on their `to`. */
+export const CONTACT: ReadonlySet<Verb> = new Set(['strike', 'wipe', 'hold']);
 /** Closer than this across the stage, which side the other is on does not read. */
 const SIDE_MIN = 8;
 
@@ -107,7 +111,7 @@ export function staging(project: Project, scene: Scene, shot: Shot): StagedActio
    */
   const turn = (
     id: string,
-    toward: string,
+    toward: string | { x: number },
     from: number,
     until: number,
     why: string,
@@ -120,8 +124,8 @@ export function staging(project: Project, scene: Scene, shot: Shot): StagedActio
       me = at(id, t);
     }
     if (t >= shot.duration || !free(me, speaking)) return;
-    const them = at(toward, t);
-    if (!them.visible) return;
+    const them = typeof toward === 'string' ? at(toward, t) : toward;
+    if (typeof toward === 'string' && !at(toward, t).visible) return;
     const facing = sideOf(me, them);
     if (!facing || facing === me.facing) return;
     add({ t: round(t), actor: id, set: { facing }, staged: why } as StagedAction);
@@ -200,6 +204,18 @@ export function staging(project: Project, scene: Scene, shot: Shot): StagedActio
             turn(id, other, t, g.t, `${id === who.giver ? 'gives' : 'takes'} ${g.actor}`, true),
         });
   }
+  // A blow, a wipe or a hold at something: its doer faces it first.
+  for (const w of shot.actions) {
+    if (!w.actor || !w.do || !CONTACT.has(w.do) || !w.to || !shot.cast[w.actor]) continue;
+    const id = w.actor;
+    const to = w.to;
+    const t = Math.max(0, w.t - WORK_LEAD);
+    if (to === id || directs(shot, id, t, w.t)) continue;
+    const target =
+      typeof to === 'string' && shot.cast[to] ? to : resolvePosition(project, scene, to);
+    const name = typeof to === 'string' ? to : `(${to.x}, ${to.y})`;
+    beats.push({ t, run: () => turn(id, target, t, w.t, `${w.do}s ${name}`, true) });
+  }
   // In time order, so each turn sees the facing the turns before it left.
   for (const b of beats.sort((x, y) => x.t - y.t)) b.run();
   return added;
@@ -222,7 +238,7 @@ export function free(a: ActorState, speaking = false): boolean {
 }
 
 /** Which way `me` faces to look at `them`, or nothing when they are too close to tell. */
-export function sideOf(me: ActorState, them: ActorState): Facing | undefined {
+export function sideOf(me: { x: number }, them: { x: number }): Facing | undefined {
   const dx = them.x - me.x;
   if (Math.abs(dx) < SIDE_MIN) return undefined;
   return dx > 0 ? 'right' : 'left';

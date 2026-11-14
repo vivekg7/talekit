@@ -679,6 +679,7 @@ every finding is fixed or waived.
 | `continuity.direction` | someone goes off one side of the frame and, in the next place, comes on moving back the way they came                                                                                    |
 | `continuity.line`      | across a cut to another place that carries straight on (an insert, a closer view), two in sight on both sides swap sides: the 180° rule                                                  |
 | `speech.mismatch`      | no voiced take of a line, heard by speech recognition, says it (see [Sound](#sound))                                                                                                     |
+| `contact.reach`        | a `strike`, `wipe` or `hold` at `to` stands too far off for the hand (or what a blow swings) to land on it, or so close a long stick passes over it                                      |
 | `give.reach`           | the two in a `give` stand too far apart, or face away, so their hands do not meet and the prop floats across                                                                             |
 
 Waive a finding only when the film means it, in the shot's (or the
@@ -961,7 +962,7 @@ falling the same way.
 | `wipe`                | near hand out to `to` (an actor or a spot), going round on it: dusting                                                     | 2.4s                    |
 | `kick`                | near leg draws back, snaps out forward and up (lying: up off the bed; four legs: buck)                                     | 0.9s                    |
 | `eat`                 | near hand and what it holds to the mouth, chewing (four legs: head down; simple: peck)                                     | 1.6s                    |
-| `strike`              | near arm up overhead, chops down forward, swinging what it holds (four legs: a butt)                                       | 0.7s                    |
+| `strike`              | near arm up overhead, chops down forward, swinging what it holds; at `to`, onto it (four legs: a butt)                     | 0.7s                    |
 | `swim`                | paddles in place, legs churning under a still body, head up; pair with a `move`                                            | 3s                      |
 | `dig`                 | bent over, swings what it holds up and down into the floor in front, clods flying                                          | 2.5s (2 strokes)        |
 | `hold`                | near hand out to `to` (an actor's shoulder, or a spot) and kept there                                                      | 2s                      |
@@ -1027,7 +1028,9 @@ is drawn just in front; its own moves are ignored.
   `pickup`: it would fly to a hand that has not moved.
 - **Dusting, polishing, scrubbing**: `{ "do": "wipe", "to": "vase" }`
   puts the near hand on the middle of the named actor (or on a spot) and
-  rubs round in small circles; stand them as close as for a pickup.
+  rubs round in small circles; stand them as close as for a pickup. Like a
+  `hold` and a `strike` with `to`, the engine turns them to it first, and a
+  hand that cannot reach is a `contact.reach` finding.
 - **Steadying, supporting**: `{ "do": "hold", "to": "ghayal" }` puts the
   near hand on the named actor's shoulder (or on a spot) and keeps it there
   for the `duration`, following them: as they get up off the floor it
@@ -1051,12 +1054,22 @@ is drawn just in front; its own moves are ignored.
   animal puts its head down to the floor in front of its forepaws and
   chews there; the simple rig pecks forward. Several bites are several
   `eat`s.
-- **Hitting**: `{ "t": 8, "actor": "farmer", "do": "strike" }` is one
-  blow (face the target and stand close enough for what is held to reach
-  it): the near arm winds up over the head and chops down
-  forward, and a carried stick, sword or broom swings with it, back over the
-  shoulder and then forward onto the target. Put the `grip` of anything
-  swung near its foot, so most of it is above the hand. The blow lands
+- **Hitting**: `{ "t": 8, "actor": "farmer", "do": "strike", "to":
+"camel" }` is one blow: the near arm winds up over the head and chops
+  down, and a carried stick, sword or broom swings with it, back over the
+  shoulder and then down onto the target. With `to` (an actor in the cast,
+  or a spot) the blow lands there: the engine turns the striker to it,
+  stops the hand up and back from it by the length of what it swings, and
+  turns that so its working end (`tip`) comes down on it from above (level,
+  on something as high as the striker's shoulder). On a person that is the
+  shoulders, standing, sitting or lying; on an animal the middle of its
+  back; on a spot it is the spot, so beat washing on a stone with a `to` on
+  the stone's top where the cloth lands, low down, and the body bends over
+  to it. Without `to` it chops at the air in front. Stand the striker
+  close enough for the arm and the stick to reach: falling short, or
+  standing so close a long stick passes over, is a `contact.reach`
+  finding, which says where to stand. Put the `grip` of anything swung
+  near its foot, so most of it is above the hand. The blow lands
   0.55 of the way through (0.385 s into the default 0.7 s): put the `thud`
   and the victim's `tremble` there. A beating is several `strike`s about
   0.75 s apart.

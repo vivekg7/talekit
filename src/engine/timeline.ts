@@ -65,6 +65,11 @@ export interface ActiveVerb {
   loose?: number;
   /** An `aim`, the first in the shot: the bow is taken from the near hand as it comes up. */
   handOver?: boolean;
+  /**
+   * A `strike` at `to`: how far past the hand what it swings reaches, grip to working end,
+   * in the actor's box units (0 bare-handed), so the hand stops short by that much.
+   */
+  reach?: number;
 }
 
 export interface Bubble {
@@ -530,6 +535,44 @@ function heldPoint(
   return heldFrom(holder, poseFor(holder, t), prop, propScale);
 }
 
+/**
+ * How far past the hand what `id` carries at t reaches, grip to working end (`tip`), in
+ * scene pixels at its holder's perspective: 0 with nothing in hand.
+ */
+function swungLength(project: Project, shot: Shot, id: string, t: number, perspective: number) {
+  for (const pid of Object.keys(shot.cast)) {
+    const prop = project.characters[pid];
+    if (!prop || holderAt(shot, pid, t) !== id) continue;
+    const rig = rigOf(prop);
+    const [gx, gy] = prop.grip ?? [rig.width / 2, rig.height / 2];
+    const [tx, ty] = prop.tip ?? [gx, 0];
+    const k = (prop.height / rig.height) * shot.cast[pid].scale * perspective;
+    return k * Math.hypot(tx - gx, ty - gy);
+  }
+  return 0;
+}
+
+/**
+ * What `id` touches with at t: the working end (`tip`) of what it carries, else its hand.
+ * In scene pixels.
+ */
+export function touchPoint(
+  project: Project,
+  scene: Scene,
+  shot: Shot,
+  id: string,
+  t: number
+): { x: number; y: number } {
+  for (const pid of Object.keys(shot.cast)) {
+    const prop = project.characters[pid];
+    if (!prop || holderAt(shot, pid, t) !== id) continue;
+    const p = resolveActor(project, scene, shot, pid, t);
+    return heldPoint(project, scene, shot, prop, p.scale / p.perspective, id, t, 0).tip;
+  }
+  const a = resolveActor(project, scene, shot, id, t);
+  return holdPoint(a, poseFor(a, t));
+}
+
 /** Where a carried prop goes, as heldPoint, from its holder as it stands and is posed. */
 interface Held {
   point: Point;
@@ -574,6 +617,18 @@ function heldFrom(holder: ActorState, pose: Pose, prop: Character, propScale: nu
     const a = Math.atan2(dy, dx);
     const w = (Math.asin(Math.max(-1, Math.min(1, drop / (r || 1)))) - a) * (180 / Math.PI);
     wield = (wield ?? 0) + (w - (wield ?? 0)) * Math.min(1, pose.bite);
+  }
+  if (pose.hit && pose.hit.k > 0) {
+    // Brought down onto what is struck: the swing that points the working end at it, from
+    // wherever the hand is (the arm put it that far short of the target).
+    const hr = rigOf(holder.character);
+    const hk = (holder.character.height / hr.height) * holder.scale;
+    const ux = hk * (pose.hit.at[0] - hr.width / 2) - side * (hand.x - holder.x);
+    const uy = holder.y + hk * (pose.hit.at[1] - hr.height) - hand.y;
+    let w = (Math.atan2(uy, ux) - Math.atan2(dy, dx)) * (180 / Math.PI);
+    const from = wield ?? 0;
+    w = from + ((((w - from + 180) % 360) + 360) % 360) - 180;
+    wield = from + (w - from) * Math.min(1, pose.hit.k);
   }
   // A bow in an aim: turned to stand across the line of it.
   if (prop.bowstring && pose.bow)
@@ -1041,7 +1096,7 @@ export function resolveActor(
           const v: ActiveVerb = { verb, u: (t - a.t) / d, span: d };
           verbs.push(v);
           const to = a.to;
-          if ((verb === 'wipe' || verb === 'hold') && to && depth < MAX_DEPTH)
+          if ((verb === 'wipe' || verb === 'hold' || verb === 'strike') && to && depth < MAX_DEPTH)
             aims.push({ v, spot: () => wipeSpot(project, scene, shot, to, t, depth, verb) });
         }
       }
@@ -1230,6 +1285,7 @@ export function resolveActor(
     const knee = rig.bends.legR?.[1] ?? 0;
     if (at.stands !== undefined && rig.height + (at.stands - state.y) / s > knee) continue;
     v.to = [(at.x - state.x) / (s * side) + rig.width / 2, (at.y - state.y) / s + rig.height];
+    if (v.verb === 'strike') v.reach = swungLength(project, shot, id, t, state.perspective) / s;
   }
   // Looks are worked out for the actors on screen, not for the ones resolved to find them.
   if (depth === 0 && !heldBy) state.look = lookPitch(project, scene, shot, state, t, depth);
@@ -1249,12 +1305,34 @@ export function resolveActor(
 
 /** Where a `hold` rests on someone: this share of the way from their feet to the top of the head. */
 const HOLD_AT = 0.62;
+/** How far along the body, from the feet to the top of the head, a blow on someone lands. */
+const STRIKE_AT = 0.72;
+/** Where a blow on an animal lands, in the quadruped box: the middle of its back. */
+const BACK: Pt = [124, 86];
+
+/**
+ * Where a blow on `o` lands: a person's shoulders, along the body as it is now (standing,
+ * sitting, lying); an animal's back; anything else six tenths of the way up.
+ */
+function struckAt(o: ActorState, t: number): { x: number; y: number } {
+  const rig = rigOf(o.character);
+  if (rig.name === 'humanoid') {
+    const head = actorHeadTop(o, poseFor(o, t));
+    return { x: o.x + (head.x - o.x) * STRIKE_AT, y: o.y + (head.y - o.y) * STRIKE_AT };
+  }
+  const k = (o.character.height / rig.height) * o.scale;
+  if (rig.name === 'quadruped') {
+    const side = o.facing === 'left' ? -1 : 1;
+    return { x: o.x + side * k * (BACK[0] - rig.width / 2), y: o.y + k * (BACK[1] - rig.height) };
+  }
+  return { x: o.x, y: o.y - 0.6 * o.character.height * o.scale };
+}
 
 /**
  * What a `wipe` wipes or a `hold` rests on, in the scene: the middle of an actor named in
  * `to` (for a hold, its shoulder), or the spot.
  */
-function wipeSpot(
+export function wipeSpot(
   project: Project,
   scene: Scene,
   shot: Shot,
@@ -1271,6 +1349,7 @@ function wipeSpot(
       const head = actorHeadTop(o, poseFor(o, t));
       return { x: o.x + (head.x - o.x) * HOLD_AT, y: o.y + (head.y - o.y) * HOLD_AT };
     }
+    if (verb === 'strike') return struckAt(o, t);
     return { x: o.x, y: o.y - (o.character.height * o.scale) / 2 };
   }
   return resolvePosition(project, scene, to);

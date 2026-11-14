@@ -1034,7 +1034,34 @@ findings and 2 line findings.
   now marked `cut: 'later'`. No film yet cuts to an insert of two people,
   so the rule has found no real swap; it is there for when they do.
 
-Next in 8.2: smart objects, contact verbs.
+- **Blows that land.** Of 684 work actions in the released films, `wipe` and
+  `hold` already land: the engine bends the arm onto their `to`, and the
+  hand ends a median 4 box units from it. `strike` had no target. It was
+  used 163 times, for beating washing on a stone (`gadha-hi`, `khichdi-hi`)
+  and for beating someone (`oont-hi`, `gadha-hi`, `bachcha-hi`), and it
+  chopped the air in front, wherever that was. That is how the `gadha-hi`
+  washers came to beat cloth in the air.
+  - **A `strike` takes `to`** (an actor, or a spot). The hand stops up and
+    back from the target by the length of what it swings, at 40° above it,
+    and the stick turns so its `tip` comes down on it. Someone struck is hit
+    on the shoulders (along the body, so lying down works too), an animal on
+    the middle of its back. On a camel, higher than the farmer's shoulder,
+    the blow comes in level, as it would.
+  - **The doer faces it.** A `strike`, `wipe` or `hold` at something turns
+    its doer to it first, if idle, as a give does. In the released films
+    that changes one shot: a seated wipe by the disguised king in the
+    `prashn-hi` reel (`bhaagta`), where he faced away from the spot and his
+    hand missed it by 44 units.
+  - **`contact.reach`.** At the moment of contact (a strike's hit, half way
+    through a wipe or a hold) the stick's end or the hand must be within
+    0.12 of the doer's height of the target. The finding says whether it
+    falls short or a long stick passes over, and where to stand. With the
+    turn in place it finds nothing in the released films, where no strike
+    had a `to`; it is there for the ones that will.
+
+Next in 8.2: smart objects (an anchor's `use`: the pose, facing and work
+point at a washing stone or a cot), and contact verbs that walk their doer
+to it.
 
 ## Render speed
 

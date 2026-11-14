@@ -9,15 +9,29 @@
  */
 import { waived } from './allow.js';
 import { groundOf, habitatOf, inArea, nearestIn, type Ground, type XY } from './area.js';
-import { BUSY, carriesOn, directs, FOCUSED, follows, leftAs, shotBefore, sideOf } from './stage.js';
+import {
+  BUSY,
+  carriesOn,
+  CONTACT,
+  directs,
+  FOCUSED,
+  follows,
+  leftAs,
+  shotBefore,
+  sideOf,
+} from './stage.js';
 import { holdPoint, poseFor } from './actor.js';
 import {
+  actionDuration,
   attachTime,
   giveParties,
   resolveActor,
   resolveCamera,
+  touchPoint,
+  wipeSpot,
   type ActorState,
 } from './timeline.js';
+import { STRIKE_HIT } from './motion.js';
 import { lineEnd } from './voice.js';
 
 export { waived };
@@ -59,6 +73,8 @@ export const CODES: Record<string, string> = {
     'someone goes off one side and comes on in the next place moving back the way they came',
   'continuity.line':
     'across a cut to a closer or other view of the same moment, two swap sides (the 180° rule)',
+  'contact.reach':
+    'a blow, a wipe or a hold at something stands too far off (or too close) to land on it',
   'give.reach': 'the two in a give stand too far apart, or face away, for their hands to meet',
   'speech.mismatch': 'no voiced take of a line, heard by speech recognition, says it',
 };
@@ -68,6 +84,9 @@ export const TRAVEL_MIN = 60;
 
 /** Closer than this across, scene pixels, two stand one behind the other: neither side. */
 const LINE_GAP = 30;
+
+/** A blow, wipe or hold landing further than this from its target, of its doer's height, misses. */
+export const CONTACT_MISS = 0.12;
 
 /** Further than this from where the last shot left it, scene pixels, reads as a jump cut. */
 export const CUT_SHIFT = 12;
@@ -682,6 +701,52 @@ function axisRule(project: Project, shot: Shot): Finding[] {
   return out;
 }
 
+/**
+ * A blow, a wipe or a hold at something (`to`) lands on it: at the moment of contact (a
+ * strike's hit, half way through a wipe or a hold) the working end of what a blow swings,
+ * or the hand of a wipe or a hold, is on the target. The engine bends the arm and swings the stick there, but only
+ * as far as the arm and the stick reach: stood too far off it falls short, and too close
+ * a long stick passes over it.
+ */
+function contactRule(project: Project, shot: Shot): Finding[] {
+  const scene = project.scenes[shot.scene];
+  const allow = [shot.allow, scene.allow];
+  const out: Finding[] = [];
+  for (const a of shot.actions) {
+    const id = a.actor;
+    if (!id || !a.do || !CONTACT.has(a.do) || !a.to || !shot.cast[id]) continue;
+    if (!project.characters[id] || waived(allow, 'contact.reach', id)) continue;
+    const t = a.t + actionDuration(a) * (a.do === 'strike' ? STRIKE_HIT : 0.5);
+    if (t >= shot.duration) continue;
+    const me = resolveActor(project, scene, shot, id, t);
+    if (!me.visible || me.character.rig !== 'humanoid') continue;
+    const target = wipeSpot(project, scene, shot, a.to, t, 0, a.do);
+    // A blow lands with what it swings; a wipe or a hold with the hand, whatever it carries.
+    const hand = holdPoint(me, poseFor(me, t));
+    const end = a.do === 'strike' ? touchPoint(project, scene, shot, id, t) : hand;
+    const miss = Math.hypot(end.x - target.x, end.y - target.y);
+    const tall = me.character.height * me.scale;
+    if (miss <= CONTACT_MISS * tall) continue;
+    // Short of it, or past it: further from the hand than what it swings is long, or the
+    // hand itself not out as far as the target.
+    const short =
+      end === hand
+        ? Math.abs(hand.x - me.x) < Math.abs(target.x - me.x)
+        : dist(hand, target) > dist(hand, end);
+    const what = typeof a.to === 'string' ? `'${a.to}'` : `(${r(target.x)}, ${r(target.y)})`;
+    const gap = r(Math.abs(target.x - me.x));
+    out.push({
+      code: 'contact.reach',
+      shot: shot.id,
+      t: [r1(t), r1(t)],
+      actors: [id],
+      at: { x: target.x, y: target.y },
+      message: `'${id}' ${a.do}s at ${what} from ${gap} px away, but it lands ${r(miss)} px ${short ? 'short of it' : 'past it'}. Stand '${id}' ${short ? 'closer' : 'further back'}, about ${r(Math.max(0, short ? gap - miss : gap + miss))} px from it (walk it over first).`,
+    });
+  }
+  return out;
+}
+
 const RULES = [supportRule, attentionRule, jumpRule];
 
 /** Every finding in a shot, waivers applied. */
@@ -692,6 +757,7 @@ export function shotFindings(project: Project, shot: Shot): Finding[] {
     ...giveRule(project, shot),
     ...cutRule(project, shot),
     ...axisRule(project, shot),
+    ...contactRule(project, shot),
   ];
 }
 
