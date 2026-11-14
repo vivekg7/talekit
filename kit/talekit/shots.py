@@ -148,7 +148,8 @@ class Film:
 
 
 def at(where, facing="right", emotion="neutral", visible=True, **more):
-    """A cast entry: at an anchor name or a pt(), facing, feeling. `more`: on, scale."""
+    """A cast entry: at an anchor name or a pt(), facing, feeling. `more`: on, scale,
+    hidden (out of sight behind the foreground or someone nearer, checked to be covered)."""
     return {"at": where, "facing": facing, "emotion": emotion, "visible": visible, **more}
 
 

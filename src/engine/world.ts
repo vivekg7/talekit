@@ -78,6 +78,8 @@ export const CODES: Record<string, string> = {
     'a blow, a wipe or a hold at something stands too far off (or too close) to land on it',
   'give.reach': 'the two in a give stand too far apart, or face away, for their hands to meet',
   'speech.mismatch': 'no voiced take of a line, heard by speech recognition, says it',
+  'sight.face': "a speaker's face is behind the scenery drawn in front of the actors",
+  'sight.hidden': 'an actor meant to be out of sight (`hidden`) shows',
 };
 
 /** Moving at least this far, scene pixels, over a shot's first seconds is going somewhere. */

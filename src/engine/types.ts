@@ -930,6 +930,12 @@ export const ActionSchema = z
         facing: FacingSchema.optional(),
         scale: z.number().positive().optional(),
         visible: z.boolean().optional(),
+        hidden: z
+          .boolean()
+          .optional()
+          .describe(
+            'Out of sight behind the art in front of it from now (true), or no longer (false: a peek out, stepping out from behind the rock). See the cast `hidden`'
+          ),
         at: PositionSchema.optional(),
       })
       .optional(),
@@ -976,6 +982,12 @@ export const CastMemberSchema = z.object({
   facing: FacingSchema.default('right'),
   scale: z.number().positive().default(1),
   visible: z.boolean().default(true),
+  hidden: z
+    .boolean()
+    .optional()
+    .describe(
+      "Meant to be out of sight behind what is drawn in front of it: the scene's foreground or near layer, or someone nearer (a spy behind the boulder, a thief behind the hedge). Drawn as usual, unlike `visible: false`; the check renders the frame and flags any of it that shows. `set: { hidden: false }` for a peek out, `true` again to duck back"
+    ),
   emotion: EmotionSchema.default('neutral'),
   on: IdSchema.optional().describe(
     "The id of the actor this one starts the shot standing on (a mouse already on a sleeping lion's back), so it is drawn in front of it and rides along on it; `at` is the spot on its top"

@@ -1,5 +1,6 @@
 import { missingColorTokens } from '../engine/svg.js';
 import { lintCharacter } from './construction.js';
+import { sightFindings } from './sight.js';
 import { follows } from '../engine/stage.js';
 import { effectLayer } from '../engine/effects.js';
 import { swayBox, swayMissing } from '../engine/sway.js';
@@ -78,11 +79,14 @@ function waiverProblems(where: string, allow: Allow): Problem[] {
 
 /**
  * The world checks of every shot: each actor held up by what it can rest on, and so on
- * (src/engine/world.ts). Run once the project is otherwise valid, since they play it.
+ * (src/engine/world.ts), and what must or must not show (sight.ts). Run once the project
+ * is otherwise valid, since they play it.
  */
 export function worldProblems(project: Project, shots: Shot[] = project.shots): Problem[] {
   return shots.flatMap((shot) =>
-    project.scenes[shot.scene] ? shotFindings(project, shot).map(findingProblem) : []
+    project.scenes[shot.scene]
+      ? [...shotFindings(project, shot), ...sightFindings(project, shot)].map(findingProblem)
+      : []
   );
 }
 

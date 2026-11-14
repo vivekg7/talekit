@@ -23,7 +23,7 @@ import { bubbleSvg, wrapText, textWidth } from './bubble.js';
 import { bubblePlace, bubbleSpec } from './place.js';
 import { needsShaping, shapedText } from './glyphs.js';
 import { clamp01, easeInOut } from './easing.js';
-import { cullOffFrame, IDENTITY } from './cull.js';
+import { cullOffFrame, IDENTITY, type Affine } from './cull.js';
 import { escapeXml, n } from './svg.js';
 import { defaultGround, isPortrait, safeInsets, uiScale } from './format.js';
 import { resolveFrame, type FrameState } from './timeline.js';
@@ -332,6 +332,72 @@ function frameDocument(project: Project, body: string): string {
     `<defs>${FRAME_DEFS}</defs>` +
     body +
     `</svg>`
+  );
+}
+
+/**
+ * A mask of one frame for the sight checks (project/sight.ts), at the frame's size, where
+ * only what is drawn (its alpha) counts. With `only`, that actor alone. Otherwise what is
+ * drawn over the actors: the scene's foreground and its near layer, as swayed now (art
+ * only: rain, smoke and the like come and go), and with `over`, everyone drawn in front of
+ * that actor as well. Drawn `zoom` times the frame's size, of the part of it in `crop` (frame
+ * pixels) if given.
+ */
+export function maskDocument(
+  project: Project,
+  frame: FrameState,
+  which: { only: string } | { over?: string },
+  zoom = 1,
+  crop?: { x: number; y: number; w: number; h: number }
+): string {
+  const { width: W, height: H } = project.meta;
+  const c = frame.camera;
+  const scene = frame.scene;
+  const weather = weatherAt(scene, frame.shot, frame.t);
+  const sway = (layer: string | undefined) =>
+    swayLayer(layer, scene.sway, frame.t, weather.wind ?? 0);
+  const drawn = (actor: ActorState) => {
+    const pose = poseFor(actor, frame.t);
+    applySprings(project, frame.shot, actor, pose, frame.t);
+    return renderActor(actor, frame.t, pose) + renderArchery(actor);
+  };
+  let world = '';
+  let near = '';
+  if ('only' in which) {
+    const actor = frame.actors.find((a) => a.id === which.only);
+    if (actor) world = drawn(actor);
+  } else {
+    // In draw order already (timeline.ts sorts them by their feet).
+    const i = which.over ? frame.actors.findIndex((a) => a.id === which.over) : -1;
+    if (i >= 0)
+      world = frame.actors
+        .slice(i + 1)
+        .map(drawn)
+        .join('');
+    if (scene.foreground) world += sway(scene.foreground);
+    near = sway(scene.near);
+  }
+  const layer = (svg: string, p: number) =>
+    `<g transform='${layerTransform(c, W, H, p)}'>${svg}</g>`;
+  let picture =
+    (world ? layer(world, 1) : '') +
+    (near ? layer(near, scene.parallax?.near ?? PARALLAX.near) : '');
+  // Drawn `zoom` times over, of the part of the frame in `crop`: culled against that canvas,
+  // since resvg panics on shapes far outside the one it draws (cull.ts).
+  const { x, y, w, h } = crop ?? { x: 0, y: 0, w: W, h: H };
+  const pw = Math.max(1, Math.round(w * zoom));
+  const ph = Math.max(1, Math.round(h * zoom));
+  const m: Affine = [zoom, 0, 0, zoom, -x * zoom, -y * zoom];
+  picture = cullOffFrame(
+    `<g transform='matrix(${m.map(n).join(' ')})'>${picture}</g>`,
+    IDENTITY,
+    pw,
+    ph,
+    FRAME_DEFS
+  );
+  return (
+    `<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' width='${pw}' height='${ph}' viewBox='0 0 ${pw} ${ph}'>` +
+    `<defs>${FRAME_DEFS}</defs>${picture}</svg>`
   );
 }
 

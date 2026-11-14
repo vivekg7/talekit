@@ -595,7 +595,10 @@ collide.
 Water is a translucent foreground: the library pond lays its surface over
 the pond from the waterline down, so a swan in it is cut at the waterline
 and a fish placed lower swims wholly under it. A point lower in the water
-sinks the actor deeper.
+sinks the actor deeper. A speaker whose face is more than half behind the
+foreground or the `near` layer while saying a line is a `sight.face`
+finding, counted by how opaque the art over it is: a peek round a pillar,
+eyes out, is fine, and so is a face under a see-through water surface.
 
 Keep the floor band to the bottom 15–25% of the frame and the middle third
 uncluttered for faces and bubbles; a 220 px character is about a third of
@@ -710,6 +713,8 @@ every finding is fixed or waived.
 | `speech.mismatch`      | no voiced take of a line, heard by speech recognition, says it (see [Sound](#sound))                                                                                                     |
 | `contact.reach`        | a `strike`, `wipe` or `hold` at `to` stands too far off for the hand (or what a blow swings) to land on it, or so close a long stick passes over it                                      |
 | `give.reach`           | the two in a `give` stand too far apart, or face away, so their hands do not meet and the prop floats across                                                                             |
+| `sight.face`           | a speaker's face is more than half behind the `foreground` or `near` art while saying its line                                                                                           |
+| `sight.hidden`         | an actor meant to be out of sight (`hidden`) shows from behind what hides it                                                                                                             |
 
 Waive a finding only when the film means it, in the shot's (or the
 scene's, for every shot there) `allow`. The key is the code, or the code
@@ -918,6 +923,13 @@ falling the same way.
 
 - `cast` places everyone at the start; nobody else is in the shot.
   `visible: false` hides until an `appear`.
+- `hidden: true` is for someone out of sight behind the art in front of
+  them (a spy behind a boulder in the `foreground`, a thief behind someone
+  nearer): drawn as usual, but the check renders the frame and flags any of
+  them that shows (`sight.hidden`, ringed where it shows). Faint art, below
+  about 70% opaque, does not hide. For a peek, `set: { hidden: false }` as
+  they rise and `set: { hidden: true }` once they are down again; their face
+  is not kept clear of bubbles while hidden.
 - **Draw order is by feet**: lower on screen is nearer and in front,
   whatever the cast order or size. To pass behind someone on a shared path,
   use an anchor or point with a smaller `y`.
@@ -1313,7 +1325,7 @@ Walking, jumping and pointing look straight ahead.
   longer than the frame. It needs zoom above 1 and a scene with things
   worth passing. On the shot's `camera` it follows from the start; in an
   action it eases across over `duration`; `x`/`y` or `follow: ""` lets go.
-- `set: { facing, scale, visible, at }` changes state at once (a new
+- `set: { facing, scale, visible, hidden, at }` changes state at once (a new
   `facing` still turns over 0.2 s).
 - `lightning: true` (no actor) strikes at `t`, for a thunderclap on a beat.
 - `weather: { … }` (no actor) changes the weather (see

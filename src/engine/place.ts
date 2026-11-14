@@ -78,12 +78,15 @@ export function bubbleSpec(
   };
 }
 
-/** The faces on screen in this frame: whoever has eyes, in sight, drawn big enough to matter. */
+/**
+ * The faces on screen in this frame: whoever has eyes, in sight (not `hidden` behind the
+ * art), drawn big enough to matter.
+ */
 export function faceBoxes(project: Project, frame: FrameState): { id: string; box: Box }[] {
   const { width: W, height: H } = project.meta;
   const out: { id: string; box: Box }[] = [];
   for (const a of frame.actors) {
-    if (!a.visible || a.opacity < 0.3 || !a.character.parts.eyes) continue;
+    if (!a.visible || a.hidden || a.opacity < 0.3 || !a.character.parts.eyes) continue;
     const r = headHalf(a) * frame.camera.zoom;
     if (2 * r < MIN_FACE) continue;
     const head = actorHeadTop(a, poseFor(a, frame.t));

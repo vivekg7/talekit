@@ -31,6 +31,8 @@ reasoning are in `docs/PLAN.md`. Read both before changing the data model.
   shaped with HarfBuzz into outlines, in the bundled `fonts/Baloo2.ttf`).
 - `src/project/` — load/save/validate a project directory; `construction.ts`
   is the character linter (rasterises parts, checks box, feet, joints);
+  `sight.ts` renders masks of a frame to check what shows (a speaker's
+  face behind the foreground, a `hidden` actor who can be seen);
   `notes.ts` is the review-note store shared by the viewer and the MCP;
   `voices.ts` speaks the lines and `hear.ts` hears each take (whisper.cpp),
   saying a line again when its take does not say it;

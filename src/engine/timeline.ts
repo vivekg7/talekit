@@ -102,6 +102,11 @@ export interface ActorState {
   scale: number;
   facing: Facing;
   visible: boolean;
+  /**
+   * Meant to be out of sight behind what is drawn in front of it (the scene's foreground,
+   * the near layer, someone nearer): drawn as usual, and checked to be covered whole.
+   */
+  hidden?: boolean;
   opacity: number;
   locomotion: Locomotion;
   /** Seconds since the current locomotion began (drives idle and the sheets' cycles). */
@@ -744,6 +749,7 @@ export function resolveActor(
   let facing: Facing = cast.facing;
   let scale = cast.scale;
   let visible = cast.visible;
+  let hidden = cast.hidden ?? false;
   let opacity = 1;
   let emotion: Emotion = cast.emotion;
   let face: Record<string, string> = {};
@@ -954,6 +960,7 @@ export function resolveActor(
       if (a.set.facing) turnTo(a.set.facing, a.t);
       if (a.set.scale) scale = a.set.scale;
       if (a.set.visible !== undefined) visible = a.set.visible;
+      if (a.set.hidden !== undefined) hidden = a.set.hidden;
     }
     if (a.emotion) {
       if (a.emotion !== emotion) takeAt = a.t;
@@ -1272,6 +1279,7 @@ export function resolveActor(
     scale: scale * point.scale,
     facing,
     visible,
+    ...(hidden ? { hidden } : {}),
     opacity,
     locomotion,
     locoT: t - locoStart,

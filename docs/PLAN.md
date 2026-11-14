@@ -1128,8 +1128,31 @@ places that say how they are used, and the bow carried across a cut.
   - Six were looked at before and after: lost-kite's Mia no longer covers
     Dad's face, lighthouse's Pip no longer covers Grandma's, and the
     kachhua-hi reel's Gudiya's bubble rises clear of the farmer's.
-- **Next in 8.3**: art over a speaker's face and a `hidden` actor who
-  shows, flagged; then solids and routing; then the art checks.
+- **What shows** (`src/project/sight.ts`). Two checks that need pixels,
+  so they render masks of the frame with resvg instead of reasoning about
+  boxes: just the art drawn over the actors (the `foreground` and `near`
+  layers, swayed as they are then), and one actor alone.
+  - `sight.face`: a speaker's face box, drawn about 32 px across at three
+    points through each line, counting each pixel by how opaque the art
+    over it is. More than half covered is a finding. Half, because the
+    released films passed review with a thag peeking round the temple
+    pillar (41% covered, eyes out) and the oont-hi jackal crying for help
+    under 55%-opaque water. Effects (rain, smoke) are left out: they come
+    and go.
+  - `sight.hidden`: a new `hidden` flag, on the cast and in `set`, for
+    someone meant to be out of sight behind the art or someone nearer.
+    Every 0.25 s while it is set, whatever of the actor is not under
+    mostly-opaque cover (70%) shows. More than 3% of it, and over 60 px, is
+    a finding, ringed where it shows. A hidden face is not kept clear of
+    bubbles. Unlike `visible: false`, the actor is still drawn.
+  - Over the released stories and examples: nothing, as calibrated. The
+    prashn-hi reel's spy behind the boulder, marked `hidden` with his peek
+    unhidden, gives nothing too; left hidden through the peek, the peek is
+    found (12.75 to 17 s, 28% of him) and the ring is on his head.
+  - It costs well under a second a film: only scenes with a `foreground` or
+    `near` layer are looked at for faces, and only shots that use `hidden`
+    for the rest.
+- **Next in 8.3**: solids and routing; then the art checks.
 
 ## Render speed
 
