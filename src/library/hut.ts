@@ -13,6 +13,14 @@ export const HUT: SceneInput = {
   description:
     'A mud hut with a thatched roof on the right, its open doorway (a door leaf swung in) in the middle of the front wall, a barred window either side, clay pots by the left corner and firewood at the right end; a beaten-earth yard; a neem tree on a round mud platform (chabutra) on the left; a haystack and a bamboo fence at the back; mustard and wheat fields and a hazy treeline behind. Sun high, left of centre.',
   ground: 650,
+  walk: [
+    [
+      [-300, 590],
+      [1580, 590],
+      [1580, 760],
+      [-300, 760],
+    ],
+  ],
   parallax: { far: 0.4 },
   lights: [{ kind: 'sun', x: 520, y: 84 }],
   ambience: ['village'],

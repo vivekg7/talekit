@@ -28,6 +28,7 @@ export const CROCODILE: CharacterInput = {
   description:
     'Long, low mugger crocodile with a ridged back and a toothy grin (quadruped rig): waddles, lies flat, swims half under water.',
   rig: 'quadruped',
+  habitat: ['land', 'water'],
   height: 160,
   belly: 184, // just off the floor: `lie` lets it down the rest of the way
   sprawl: true,

@@ -11,6 +11,15 @@ export const FIELDS_TALL: SceneInput = {
   description:
     'Portrait (720 x 1280). A winding dirt path across the frame (y ~1000) through mustard and wheat fields under a big sky, a neem rising on the left, a far thatched hut, a branch of the path winding into the distance, and a small grassy rise on the right whose flat top (rise-top, 560, 926) a character can stand on; bird-air is a spot in the sky above the path. Near grass and flowers below the path.',
   ground: 1000,
+  walk: [
+    [
+      [-300, 805],
+      [1020, 805],
+      [1020, 1300],
+      [-300, 1300],
+    ],
+  ],
+  allow: { 'world.anchor:bird-air': 'a spot in the sky for a bird in flight' },
   parallax: {
     far: 0.4,
   },

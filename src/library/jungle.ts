@@ -12,6 +12,21 @@ export const JUNGLE: SceneInput = {
   description:
     'A sal forest path in soft dappled light: tall fissured trunks, lantana bushes, mushrooms at the trunk feet, a path winding across; a low side branch (x 720-880, y ~340) for a bird to perch on; hazy deep woods behind (far). Sun high on the left.',
   ground: 650,
+  walk: [
+    [
+      [-300, 578],
+      [1580, 578],
+      [1580, 760],
+      [-300, 760],
+    ],
+    // the branch's top
+    [
+      [700, 326],
+      [890, 342],
+      [890, 356],
+      [700, 342],
+    ],
+  ],
   parallax: { far: 0.4 },
   lights: [{ kind: 'sun', x: 330, y: 30, strength: 0.75 }],
   ambience: ['jungle'],

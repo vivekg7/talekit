@@ -11,6 +11,14 @@ export const FOREST_TALL: SceneInput = {
   description:
     'Portrait (720 x 1280). A sal and neem forest edge: fissured trunks up into a canopy along the top, sunbeams, bushes with lantana flowers at the back of the clearing, a path across the front, heaps of dry sticks beside each of four spots (back-left and back-right behind, front-left and front-right in front) and a fallen branch in the foreground; hazy deep woods and sky behind (far).',
   ground: 1000,
+  walk: [
+    [
+      [-300, 862],
+      [1020, 862],
+      [1020, 1300],
+      [-300, 1300],
+    ],
+  ],
   parallax: {
     far: 0.4,
   },

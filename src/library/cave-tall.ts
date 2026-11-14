@@ -11,6 +11,16 @@ export const CAVE_TALL: SceneInput = {
   description:
     'Portrait (720 x 1280). A hill of piled boulders rising up the left with a dark cave mouth at its foot (x 40-386, y 750-990) and bones inside; trampled earth in front (den) where an animal can lie; a shady tree up the right edge (trunk x ~650) with its crown over the top right; a path in from the right edge; the sun in the sky gap between them; hills behind (far).',
   ground: 1000,
+  walk: [
+    [
+      [-300, 955],
+      [300, 950],
+      [720, 915],
+      [1020, 915],
+      [1020, 1300],
+      [-300, 1300],
+    ],
+  ],
   parallax: {
     far: 0.4,
   },

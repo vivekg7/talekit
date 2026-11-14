@@ -14,6 +14,7 @@ export const FISH: CharacterInput = {
   name: 'Fish',
   description: 'Round orange goldfish (simple rig): swims with a walk, its tail swishing behind.',
   rig: 'simple',
+  habitat: ['water'],
   height: 50,
   colors: {
     scales: '#f39a2b',

@@ -45,6 +45,7 @@ import {
   validateProject,
   validateScene,
   validateShot,
+  worldProblems,
   type Problem,
 } from '../project/validate.js';
 import { rasterize } from '../render/raster.js';
@@ -54,6 +55,7 @@ import {
   constructionSheetSvg,
   contactSheetSvg,
   filmSheetSvg,
+  findingFrameSvg,
   sceneSheetSvg,
 } from '../render/sheets.js';
 import { faceFallbacks } from '../engine/motion.js';
@@ -90,6 +92,31 @@ const reduced = (svg: string, width: number): Content => {
   return image(svg, own > width ? width : undefined);
 };
 const ok = (...content: Content[]) => ({ content });
+
+/** Findings drawn as ringed frames, at most this many a write (each costs tokens). */
+const FINDING_FRAMES = 3;
+const FINDING_FRAME = 800;
+
+/**
+ * The world findings of a shot just written: the text, and a ringed frame of the first few.
+ * They do not stop the write (the agent looks at the shot and fixes it), only the render.
+ */
+function worldReport(project: Project, shot: Shot): { text: string; frames: Content[] } {
+  const problems = worldProblems(project, [shot]);
+  if (!problems.length) return { text: '', frames: [] };
+  const frames = problems
+    .slice(0, FINDING_FRAMES)
+    .map((p) => reduced(findingFrameSvg(project, p.finding!), FINDING_FRAME));
+  return {
+    text:
+      `\n\nWorld: ${problems.length} finding${problems.length > 1 ? 's' : ''}, each an error that blocks the render until fixed or waived in \`allow\` with a reason${problems.length > FINDING_FRAMES ? ` (the first ${FINDING_FRAMES} pictured)` : ' (pictured)'}:\n` +
+      formatProblems(problems),
+    frames,
+  };
+}
+
+/** Errors that stop a write: all but the world's, which the agent must see the result to fix. */
+const blocking = (problems: Problem[]) => problems.filter((p) => p.level === 'error' && !p.code);
 
 /**
  * Speak the lines in these shots that have no audio yet, and say what happened in a line
@@ -435,7 +462,7 @@ export function buildServer(): McpServer {
     {
       title: 'Write character',
       description:
-        'Validate and save a character (creates or replaces characters/<id>.json). Returns two pictures. The pose sheet shows every pose and expression the engine can produce, plus one cell per variant of any other part (selected in shots with a `face` action), each standing in its ground shadow when it casts one. The construction sheet shows what the construction linter checked: part boxes and pivots, the silhouette, swing poses that open any gap at a joint, and numbered red boxes matching the numbered warnings in the text (a limb not reaching into the torso or body, an ear not sunk into the head, a leg that only touches the body, feet off the line); parts listed in `springs` (follow-through: a tail, ears) are labelled with ~. A part the rig does not know (a pigtail, a ponytail, a scarf end) can be placed with `hangs` (the part it hangs from and the point it is tied at) so it moves with that part and, listed in `springs`, swings about its tie; the linter checks it as a joint. The wings of a flying bird are hung parts listed in `flaps`: drawn spread at mid-beat, they beat while it flies, showing their `spread` variant in the air and `folded` at rest. A rig part whose joint is drawn away from the rig pivot turns about its own point with `pivots` ({ tail: [84, 128] }), and `chains` bends a part along its length like a leg at the knee instead of turning it stiff ({ tail: 4 }, or the joints: { head: [[201, 111]] } for a neck and a head); a quadruped tail is a chain of 4 by default. Legs drawn shorter or lower take `pivots` at the hip and `bends` at the knee ({ legBR: [124, 181] }), and a reptile drawn low on splayed legs says `sprawl: true`: it walks with its feet flat and lies down by letting its belly down, never sitting back on its haunches. A bow is a prop with a `bowstring` (the two ends of its string; the engine draws the string, and its sheet shows it drawn back), an arrow a prop with `grip` at its nock and `tip` at its head, and `mark` is where an arrow aimed at a character hits it (the eye of a bird); the pose sheet of a person shows them drawing a bow (`aim`) and just after a `shoot`. Drawing outside the canonical box is an error. The engine adds the outline and the shading itself; do not draw either. Fix and re-write until both sheets look right and the warnings are gone. A `voice` (list_voices) speaks its lines in every shot that has them.',
+        'Validate and save a character (creates or replaces characters/<id>.json). Returns two pictures. The pose sheet shows every pose and expression the engine can produce, plus one cell per variant of any other part (selected in shots with a `face` action), each standing in its ground shadow when it casts one. The construction sheet shows what the construction linter checked: part boxes and pivots, the silhouette, swing poses that open any gap at a joint, and numbered red boxes matching the numbered warnings in the text (a limb not reaching into the torso or body, an ear not sunk into the head, a leg that only touches the body, feet off the line); parts listed in `springs` (follow-through: a tail, ears) are labelled with ~. A part the rig does not know (a pigtail, a ponytail, a scarf end) can be placed with `hangs` (the part it hangs from and the point it is tied at) so it moves with that part and, listed in `springs`, swings about its tie; the linter checks it as a joint. The wings of a flying bird are hung parts listed in `flaps`: drawn spread at mid-beat, they beat while it flies, showing their `spread` variant in the air and `folded` at rest. A rig part whose joint is drawn away from the rig pivot turns about its own point with `pivots` ({ tail: [84, 128] }), and `chains` bends a part along its length like a leg at the knee instead of turning it stiff ({ tail: 4 }, or the joints: { head: [[201, 111]] } for a neck and a head); a quadruped tail is a chain of 4 by default. Legs drawn shorter or lower take `pivots` at the hip and `bends` at the knee ({ legBR: [124, 181] }), and a reptile drawn low on splayed legs says `sprawl: true`: it walks with its feet flat and lies down by letting its belly down, never sitting back on its haunches. A bow is a prop with a `bowstring` (the two ends of its string; the engine draws the string, and its sheet shows it drawn back), an arrow a prop with `grip` at its nock and `tip` at its head, and `mark` is where an arrow aimed at a character hits it (the eye of a bird); the pose sheet of a person shows them drawing a bow (`aim`) and just after a `shoot`. Drawing outside the canonical box is an error. The engine adds the outline and the shading itself; do not draw either. Fix and re-write until both sheets look right and the warnings are gone. A `voice` (list_voices) speaks its lines in every shot that has them. `habitat` says where it can be with nothing holding it up: land (the default; plus air for one with `flaps`), water (a fish, a boat), air (a kite, the moon, a dust cloud).',
       inputSchema: { path: pathArg, character: CharacterSchema },
     },
     async ({ path: root, character }) => {
@@ -463,7 +490,7 @@ export function buildServer(): McpServer {
     {
       title: 'Write scene',
       description:
-        'Validate and save a scene (scenes/<id>.json). Returns the scene with anchors and stage shortcuts marked, plus a ghost showing how tall a 220px character is, so you can check scale and placement. A layered scene (`far` behind the stage, `near` in front of it) gets a strip underneath: each layer alone, then the camera zoomed into either side, where the far layer must still fill the frame and should sit differently behind the stage. A scene with `weather`, `effects` or `sway` gets a row of the empty scene at a few moments, to show the rain, clouds, flames, waves or swaying trees moving; the pivot of each swaying group is ringed in pink (keep perches and anchors off swaying groups: nothing on one moves with it). Lights (`lights` for a sun, moon or lamp painted into the art; a `sun` effect and every fire count too) are ringed in yellow, with the shadow each throws of the ghost, so you can check the shadows fall away from what the picture shows as the light.',
+        'Validate and save a scene (scenes/<id>.json). Returns the scene with anchors and stage shortcuts marked, plus a ghost showing how tall a 220px character is, so you can check scale and placement. A layered scene (`far` behind the stage, `near` in front of it) gets a strip underneath: each layer alone, then the camera zoomed into either side, where the far layer must still fill the frame and should sit differently behind the stage. A scene with `weather`, `effects` or `sway` gets a row of the empty scene at a few moments, to show the rain, clouds, flames, waves or swaying trees moving; the pivot of each swaying group is ringed in pink (keep perches and anchors off swaying groups: nothing on one moves with it). Lights (`lights` for a sun, moon or lamp painted into the art; a `sun` effect and every fire count too) are ringed in yellow, with the shadow each throws of the ghost, so you can check the shadows fall away from what the picture shows as the light. Every scene says where feet can stand (`walk`: a polygon round the floor and round each thing stood on above it, a stair, a rock top, a branch) and where the water is (`water`); the sheet hatches walk areas green and water blue, so check them against the art. An anchor on no walk or water area is a world finding: reported, and saved anyway, but an error until fixed or waived in `allow` (a spot in the sky for a bird).',
       inputSchema: { path: pathArg, scene: SceneSchema },
     },
     async ({ path: root, scene }) => {
@@ -473,7 +500,7 @@ export function buildServer(): McpServer {
           ...validateScene(scene, project.meta.width, project.meta.height),
           ...sceneSoundProblems(scene, project),
         ];
-        if (hasErrors(problems)) return fail(formatProblems(problems));
+        if (blocking(problems).length) return fail(formatProblems(problems));
         const file = await saveScene(root, scene);
         return ok(
           text(`wrote ${file}\n${formatProblems(problems)}`),
@@ -490,7 +517,7 @@ export function buildServer(): McpServer {
     {
       title: 'Write shot',
       description:
-        "Validate and save a shot (shots/<NN>-<id>.json; `order` sets NN and therefore playback order). Cross-checks cast, anchors, face variants, who a line is spoken `to`, who carries what (`attach`; a `pickup` the carrier cannot reach says where to stand), who stands on whom (`on`), archery (an `aim` needs a bow in the hand and its `arrow` in the cast; a `shoot` needs an aim to loose, or on an arrow off any bow a `to`) and whether a `crossfade` has a shot to dissolve from, and warns when two actors speak at once. The project check also warns when someone ends a shot carrying a prop and starts the next empty-handed. Listeners look at the speaker on their own; do not stage looks. Lines of characters with a `voice`, and captions when the project has a narrator, are spoken now, each with the emotion its speaker has then; a spoken line lasts as long as it takes to say (give a reply `after` in place of `t` and it starts that long after the line before it ends, however long that turns out), and warnings say when one is cut off by the end of the shot, talks over the narrator or runs into the speaker's own next line, or when a growl or a laugh is written out for the voice to read (mark it *…* and add a `sound`). Returns a contact sheet of evenly spaced frames so you can check staging, timing and bubbles, with the sound under it (a row per speaker, effects, ambience, music; a line outlined in red is cut off); it is drawn smaller than preview_shot draws it, so use that when a detail is hard to make out.",
+        "Validate and save a shot (shots/<NN>-<id>.json; `order` sets NN and therefore playback order). Cross-checks cast, anchors, face variants, who a line is spoken `to`, who carries what (`attach`; a `pickup` the carrier cannot reach says where to stand), who stands on whom (`on`), archery (an `aim` needs a bow in the hand and its `arrow` in the cast; a `shoot` needs an aim to loose, or on an arrow off any bow a `to`) and whether a `crossfade` has a shot to dissolve from, and warns when two actors speak at once. The project check also warns when someone ends a shot carrying a prop and starts the next empty-handed. Listeners look at the speaker on their own; do not stage looks. Lines of characters with a `voice`, and captions when the project has a narrator, are spoken now, each with the emotion its speaker has then; a spoken line lasts as long as it takes to say (give a reply `after` in place of `t` and it starts that long after the line before it ends, however long that turns out), and warnings say when one is cut off by the end of the shot, talks over the narrator or runs into the speaker's own next line, or when a growl or a laugh is written out for the voice to read (mark it *…* and add a `sound`). Returns a contact sheet of evenly spaced frames so you can check staging, timing and bubbles, with the sound under it (a row per speaker, effects, ambience, music; a line outlined in red is cut off); it is drawn smaller than preview_shot draws it, so use that when a detail is hard to make out. Once saved, the world check plays the shot and holds every actor to what it can rest on (its character's `habitat`): feet on the scene's walk areas, a swimmer in water, a flier anywhere; carried, ridden (`on`) and mid-jump actors are held up already. Each finding comes back as an error with a frame of it, the spot ringed; it blocks the render until the shot is fixed or the finding is waived in the shot's `allow` with a reason (only when the film means it: a ghost floats).",
       inputSchema: {
         path: pathArg,
         shot: ShotSchema,
@@ -520,9 +547,13 @@ export function buildServer(): McpServer {
         const saved = fresh.shots.find((s) => s.id === shot.id)!;
         // Spoken now, so the warnings and the sheet go by how long each line really takes.
         const spoken = await voice(root, fresh, [saved]);
+        const world = worldReport(fresh, saved);
         return ok(
-          text(`wrote ${file}${spoken}\n${formatProblems(validateShot(saved, fresh))}`),
-          reduced(contactSheetSvg(fresh, saved, frames ?? 6), SHOT_SHEET)
+          text(
+            `wrote ${file}${spoken}\n${formatProblems(validateShot(saved, fresh))}${world.text}`
+          ),
+          reduced(contactSheetSvg(fresh, saved, frames ?? 6), SHOT_SHEET),
+          ...world.frames
         );
       } catch (e) {
         return fail((e as Error).message);
@@ -595,14 +626,19 @@ export function buildServer(): McpServer {
         const saved = fresh.shots.find((s) => s.id === shotId)!;
         const spoken = await voice(root, fresh, [saved]);
         const whole = from === 0 && to === saved.duration;
+        const world = worldReport(fresh, saved);
         return ok(
           text(
-            `wrote ${file}${spoken}\n${formatProblems(validateShot(saved, fresh))}\n\nActions now:\n${listActions(saved)}` +
+            `wrote ${file}${spoken}\n${formatProblems(validateShot(saved, fresh))}${world.text}\n\nActions now:\n${listActions(saved)}` +
               (whole
                 ? ''
                 : `\n\nSheet: ${from.toFixed(2)}s to ${to.toFixed(2)}s of ${saved.duration}s`)
           ),
-          reduced(contactSheetSvg(fresh, saved, frames ?? (whole ? 6 : 4), 2, from, to), SHOT_SHEET)
+          reduced(
+            contactSheetSvg(fresh, saved, frames ?? (whole ? 6 : 4), 2, from, to),
+            SHOT_SHEET
+          ),
+          ...world.frames
         );
       } catch (e) {
         return fail((e as Error).message);
@@ -697,7 +733,7 @@ export function buildServer(): McpServer {
     {
       title: 'Render video',
       description:
-        "Render the whole movie (or one shot) to an H.264 mp4 in <project>/out/, with its sound: voices, music, ambience and effects (lines not yet spoken are spoken first). The whole movie, unless it is a portrait reel, also gets a movie.mkv: the same picture with three sound tracks (the full mix, music and effects without the dialogue, and that with the narrator), a subtitle track in the film's language and one per language the lines' `translation` gives (off until chosen), and a chapter per shot. Validation errors block rendering. A minute of 720p takes about ten seconds. Returns a film sheet: one frame from the middle of each rendered shot, so you can confirm the cut without opening the file.",
+        "Render the whole movie (or one shot) to an H.264 mp4 in <project>/out/, with its sound: voices, music, ambience and effects (lines not yet spoken are spoken first). The whole movie, unless it is a portrait reel, also gets a movie.mkv: the same picture with three sound tracks (the full mix, music and effects without the dialogue, and that with the narrator), a subtitle track in the film's language and one per language the lines' `translation` gives (off until chosen), and a chapter per shot. Validation errors block rendering, world findings included (an actor standing on air, a land animal in deep water: fix the shot, or waive one in `allow` with a reason). A minute of 720p takes about ten seconds. Returns a film sheet: one frame from the middle of each rendered shot, so you can confirm the cut without opening the file.",
       inputSchema: { path: pathArg, shotId: z.string().optional() },
     },
     async ({ path: root, shotId }) => {

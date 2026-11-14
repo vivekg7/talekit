@@ -22,6 +22,7 @@ import { needsShaping } from '../engine/glyphs.js';
 import { VOICES } from '../library/voices.js';
 import type {
   Action,
+  Allow,
   Character,
   Effect,
   Music,
@@ -33,11 +34,54 @@ import type {
 } from '../engine/types.js';
 import { isMoveVerb } from '../engine/types.js';
 import { SOUNDS } from '../library/sounds.js';
+import {
+  CODES,
+  sceneFindings,
+  shotFindings,
+  unknownWaivers,
+  type Finding,
+} from '../engine/world.js';
 
 export interface Problem {
   level: 'error' | 'warning';
   where: string;
   message: string;
+  /** A world finding's code (`support.air`), which an `allow` waiver names. */
+  code?: string;
+  /** A world finding in a shot: the shot, its time span, who, where, and a fix. */
+  finding?: Finding;
+}
+
+/** A world finding as a problem: always an error, until fixed or waived. */
+export function findingProblem(f: Finding): Problem {
+  const span = f.t[0] === f.t[1] ? `t=${f.t[0]}` : `t=${f.t[0]}-${f.t[1]}`;
+  return {
+    level: 'error',
+    where: `shot '${f.shot}' (${span})`,
+    message:
+      f.message + (f.fix ? ` Fix: set ${f.fix.path} to ${JSON.stringify(f.fix.value)}.` : ''),
+    code: f.code,
+    finding: f,
+  };
+}
+
+/** Waiver keys that name no check, an error: a typo would waive nothing and hide nothing. */
+function waiverProblems(where: string, allow: Allow): Problem[] {
+  return unknownWaivers(allow).map((k) => ({
+    level: 'error' as const,
+    where,
+    message: `allow names '${k}', which is no check; the codes are ${Object.keys(CODES).join(', ')}`,
+  }));
+}
+
+/**
+ * The world checks of every shot: each actor held up by what it can rest on, and so on
+ * (src/engine/world.ts). Run once the project is otherwise valid, since they play it.
+ */
+export function worldProblems(project: Project, shots: Shot[] = project.shots): Problem[] {
+  return shots.flatMap((shot) =>
+    project.scenes[shot.scene] ? shotFindings(project, shot).map(findingProblem) : []
+  );
 }
 
 /** Inner SVG only: no <svg> wrapper, no <image>, nothing fetched from outside the file. */
@@ -211,6 +255,9 @@ export function validateScene(s: Scene, width: number, height: number): Problem[
         'svg paints a rect over the whole frame, which hides far; move the sky into far and leave svg transparent above the ground',
     });
   if (!s.far) out.push(...needsFar(where, s.weather, s.effects));
+  out.push(...waiverProblems(where, s.allow));
+  for (const f of sceneFindings(s, width))
+    out.push({ level: 'error', where, message: f.message, code: f.code });
   for (const [name, a] of Object.entries(s.anchors)) {
     if ((STAGE_SHORTCUTS as readonly string[]).includes(name))
       out.push({ level: 'warning', where, message: `anchor '${name}' shadows a stage shortcut` });
@@ -387,6 +434,7 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
   const out: Problem[] = [];
   const where = `shot '${shot.id}'`;
   out.push(...musicProblems(where, shot.music, project));
+  out.push(...waiverProblems(where, shot.allow));
   shot.actions.forEach((a, i) => {
     const err = a.sound && unknownSound(project, a.sound);
     if (err) out.push({ level: 'error', where, message: `action ${i}: ${err}` });
@@ -775,6 +823,7 @@ export function validateProject(project: Project): Problem[] {
   out.push(...voiceProblems('project narrator', project.meta.narrator));
   for (const shot of project.shots) out.push(...validateShot(shot, project));
   if (!hasErrors(out)) out.push(...carriedAcrossCuts(project));
+  if (!hasErrors(out)) out.push(...worldProblems(project));
   out.push(...translationGaps(project));
   // Instagram and YouTube Shorts take a reel of up to three minutes.
   const seconds = movieDuration(project);
@@ -791,7 +840,9 @@ export function validateProject(project: Project): Problem[] {
 
 export function formatProblems(problems: Problem[]): string {
   if (!problems.length) return 'OK';
-  return problems.map((p) => `${p.level.toUpperCase()}: ${p.where}: ${p.message}`).join('\n');
+  return problems
+    .map((p) => `${p.level.toUpperCase()}${p.code ? ` [${p.code}]` : ''}: ${p.where}: ${p.message}`)
+    .join('\n');
 }
 
 export const hasErrors = (problems: Problem[]): boolean =>

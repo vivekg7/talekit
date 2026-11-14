@@ -16,6 +16,7 @@ export const FROG: CharacterInput = {
   description:
     'Squat green frog sitting (simple rig): hops for bounce and jump, puffs its throat to talk.',
   rig: 'simple',
+  habitat: ['land', 'water'],
   height: 55,
   colors: {
     skin: '#6cbf4a',

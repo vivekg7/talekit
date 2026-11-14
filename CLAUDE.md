@@ -18,6 +18,9 @@ reasoning are in `docs/PLAN.md`. Read both before changing the data model.
   (leaves out what resvg would panic on: shapes far off the frame, canvases
   outside the bounds of the one they are drawn on),
   `outline.ts` (the engine-drawn outline under every part),
+  `world.ts` (the world model: where feet can stand and the water is, each
+  actor's habitat, and the rules every shot is played against, whose
+  findings block the render until fixed or waived with `allow`),
   `format.ts` (a film's frame or a portrait reel's: text scale, the safe
   area the reel apps leave), `sound.ts` (the cue sheet: what is heard when), `subtitles.ts` (subtitle
   tracks from the lines and their `translation`),

@@ -56,6 +56,26 @@ export const VoiceSchema = z
   );
 export type Voice = z.infer<typeof VoiceSchema>;
 
+/** A closed area on the stage: [x, y] corners in scene pixels. */
+export const AreaSchema = z.array(z.tuple([z.number(), z.number()])).min(3);
+export type Area = z.infer<typeof AreaSchema>;
+
+export const HabitatSchema = z.enum(['land', 'water', 'air']);
+export type Habitat = z.infer<typeof HabitatSchema>;
+
+/**
+ * Checks the agent turns off on purpose, each with its reason: keyed by a finding's code
+ * (`support.air`), or by code and actor (`support.air:ghost`) for one actor only.
+ */
+export const AllowSchema = z
+  .record(z.string(), z.string().min(3))
+  .optional()
+  .describe(
+    "World checks waived on purpose, each with the reason: { 'support.air:ghost': 'a ghost floats' }. The key is a finding's code, or code:actor for one actor only. Waive a check only when the film means it; otherwise fix what it found"
+  );
+
+export type Allow = z.infer<typeof AllowSchema>;
+
 export const CharacterSchema = z.object({
   id: IdSchema,
   name: z.string().min(1),
@@ -284,6 +304,13 @@ export const CharacterSchema = z.object({
     .optional()
     .describe(
       'Humanoid only: y of the bottom of the torso in the box (default 292, a little under the hips at 272), which sit rests on the seat or the floor. Set it for a kurta or a long coat drawn lower (a grandpa in a knee-length kurta: 324); the construction check measures it'
+    ),
+  habitat: z
+    .array(HabitatSchema)
+    .min(1)
+    .optional()
+    .describe(
+      "Where it can be with nothing holding it up: land (feet on a scene's walk area, or in water shallow enough to wade), water (in a water area: a fish, a duck, a boat), air (anywhere: a bird, a kite, a dust cloud, the moon). Default: land, plus air for a character that flaps. A fish is ['water'], a frog ['land', 'water'], a swan ['land', 'water', 'air']"
     ),
   voice: VoiceSchema.optional().describe(
     'How this character sounds when it says or thinks a line (list_voices). Without one its lines are silent'
@@ -639,6 +666,29 @@ export const SceneSchema = z.object({
     .describe(
       'Light sources painted into the art (a sun or moon in the far layer, a bulb, a street lamp): every person, animal and grounded prop casts a shadow away from each, along the floor. A `sun` effect and every fire are lights already. A scene with none has only the soft shadow under the feet'
     ),
+  walk: z
+    .array(AreaSchema)
+    .optional()
+    .describe(
+      "Where feet can stand: every area of the art something can stand on (the floor, a stair, a rooftop, a rock's top, a branch), each a polygon of [x, y] corners round it, running on past the frame's edges where the ground does. The engine checks every actor's feet against them, so a cat halfway up a trunk or a boy above the floor is an error. Required: a scene with nothing to stand on says so with allow { 'world.walk': reason }"
+    ),
+  water: z
+    .array(
+      z.object({
+        area: AreaSchema,
+        wade: z
+          .boolean()
+          .default(false)
+          .describe(
+            "Shallow enough for people and land animals to stand in (a ghat's edge, a ford)"
+          ),
+      })
+    )
+    .optional()
+    .describe(
+      "The water's areas: what swims or floats must be in one, and what lives on land must not be in deep water. A `river` effect's points count as deep water when there is no `water`, but they often run over the bank: give `water` with a river"
+    ),
+  allow: AllowSchema,
   anchors: z.record(z.string(), AnchorSchema).default({}),
   ambience: AmbienceSchema,
   surface: z
@@ -924,6 +974,7 @@ export const ShotSchema = z.object({
   music: MusicSchema.optional().describe(
     "This shot's music instead of the project's: a track name, { track, volume }, or false for silence"
   ),
+  allow: AllowSchema,
   actions: z.array(ActionSchema).default([]),
 });
 export type Shot = z.infer<typeof ShotSchema>;

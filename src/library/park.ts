@@ -10,6 +10,15 @@ export const PARK: SceneInput = {
   name: 'Park',
   description: 'Sunny park with a path, a big tree (left) and a bench (right).',
   ground: 650,
+  walk: [
+    [
+      [-300, 495],
+      [640, 500],
+      [1580, 470],
+      [1580, 760],
+      [-300, 760],
+    ],
+  ],
   // The sun painted in `far`, so everyone's shadow falls away from it.
   lights: [{ kind: 'sun', x: 1100, y: 120 }],
   ambience: ['forest'],

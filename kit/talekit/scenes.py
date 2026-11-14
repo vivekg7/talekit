@@ -104,10 +104,46 @@ def stick(p0, p1, w0, w1, col, rnd, bend=0.08, outline=None):
     return f"<path d='{d}' fill='{col}'/>"
 
 
+def below(line, bottom, margin=300):
+    """A walk or water area: everything under a ground line down to `bottom` (the frame's
+    height plus a little). `line` is [(x, y), ...] left to right along the top edge of what
+    can be stood on (the meadow's edge, the far bank, the floor meeting the wall); it is
+    run on `margin` px past both ends at the end heights, so the ground leaves the frame.
+    below([(0, 560), (640, 548), (1280, 575)], 760) is a wide scene's floor."""
+    pts = [(round(x), round(y)) for x, y in line]
+    (x0, y0), (x1, y1) = pts[0], pts[-1]
+    return [
+        [x0 - margin, y0],
+        *[[x, y] for x, y in pts],
+        [x1 + margin, y1],
+        [x1 + margin, bottom],
+        [x0 - margin, bottom],
+    ]
+
+
+def ledge(x0, x1, y, depth=14):
+    """A thin walk area along the top of something stood on above the floor (a branch, a
+    wall top, a step, a rock's crown): from x0 to x1 at height y, `depth` px deep."""
+    return [
+        [round(x0), round(y - depth / 2)],
+        [round(x1), round(y - depth / 2)],
+        [round(x1), round(y + depth / 2)],
+        [round(x0), round(y + depth / 2)],
+    ]
+
+
 def write(project, scene):
-    """Save the scene as <project>/scenes/<id>.json and print each layer's size."""
+    """Save the scene as <project>/scenes/<id>.json and print each layer's size. A scene
+    needs `walk` (see below() and ledge()), or allow {'world.walk': reason}."""
     folder = os.path.join(project, "scenes")
     os.makedirs(folder, exist_ok=True)
     with open(os.path.join(folder, f"{scene['id']}.json"), "w") as fh:
         json.dump(scene, fh, ensure_ascii=False, indent=1)
-    print("wrote", scene["id"], {k: len(v) for k, v in scene.items() if k in ("far", "svg", "near", "foreground")})
+    print(
+        "wrote",
+        scene["id"],
+        {k: len(v) for k, v in scene.items() if k in ("far", "svg", "near", "foreground")},
+        f"walk {len(scene.get('walk', []))}, water {len(scene.get('water', []))}",
+    )
+    if not scene.get("walk") and "world.walk" not in scene.get("allow", {}):
+        print(f"  {scene['id']}: no walk areas: add scene['walk'] (below(), ledge()) or talekit check fails")

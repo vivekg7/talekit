@@ -13,6 +13,7 @@ export const BIRD: CharacterInput = {
   name: 'Bird',
   description: 'Plump little songbird (simple rig): hops, flies, bounces, opens its beak to talk.',
   rig: 'simple',
+  habitat: ['land', 'air'],
   height: 60,
   colors: {
     feather: '#4f9dde',

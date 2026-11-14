@@ -2,6 +2,7 @@
   "id": "gus",
   "name": "Gus the seagull",
   "rig": "simple",
+  "habitat": ["land", "air"],
   "height": 120,
   "colors": {
     "feather": "#f7f7f7",

@@ -17,6 +17,7 @@ export const CROW: CharacterInput = {
   name: 'Crow',
   description: 'House crow, black with a grey collar (simple rig): hops, flies, caws to talk.',
   rig: 'simple',
+  habitat: ['land', 'air'],
   height: 75,
   colors: {
     feather: '#2c2c36',

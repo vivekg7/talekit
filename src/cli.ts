@@ -15,6 +15,7 @@ import {
   characterSheetSvg,
   constructionSheetSvg,
   contactSheetSvg,
+  findingFrameSvg,
   sceneSheetSvg,
 } from './render/sheets.js';
 import { writeMkv } from './render/mkv.js';
@@ -25,8 +26,10 @@ import { makeVoices, type VoiceReport } from './project/voices.js';
 const USAGE = `talekit — story video generation for AI agents
 
   talekit init <dir> --title "My story" [--width 1280 --height 720 --fps 24]
-  talekit check <dir>                          validate every file and cross reference, and the
-                                               post text in out/ (youtube.txt, instagram.txt)
+  talekit check <dir> [--frames dir]           validate every file and cross reference, the world
+                                               (what stands on what), and the post text in out/
+                                               (youtube.txt, instagram.txt); --frames saves a
+                                               picture of each world finding, the spot ringed
   talekit library                              list built-in characters and scenes
   talekit copy <dir> <libraryId> [--as <id>]   copy a built-in into the project
   talekit sheet <dir> <id> [-o file.png]       pose + construction sheet (character) or anchor sheet (scene)
@@ -81,6 +84,7 @@ async function main(argv: string[]): Promise<void> {
       out: { type: 'string', short: 'o' },
       time: { type: 'string', short: 't' },
       count: { type: 'string', short: 'n' },
+      frames: { type: 'string' },
       port: { type: 'string' },
       open: { type: 'boolean' },
       lan: { type: 'boolean' },
@@ -117,6 +121,16 @@ async function main(argv: string[]): Promise<void> {
       const project = await loadProject(root);
       const problems = [...validateProject(project), ...(await postProblems(root, project))];
       console.log(formatProblems(problems));
+      if (values.frames) {
+        const findings = problems.flatMap((p) => (p.finding ? [p.finding] : []));
+        for (const [i, f] of findings.entries()) {
+          const file = path.join(
+            values.frames,
+            `${String(i + 1).padStart(2, '0')}-${f.shot}-${f.code}.png`
+          );
+          await savePng(file, findingFrameSvg(project, f));
+        }
+      }
       console.log(
         `${Object.keys(project.characters).length} characters, ${Object.keys(project.scenes).length} scenes, ${project.shots.length} shots, ${movieDuration(project).toFixed(1)}s`
       );

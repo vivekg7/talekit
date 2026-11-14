@@ -16,6 +16,7 @@ export const SWAN: CharacterInput = {
   name: 'Swan',
   description: 'White mute swan floating (simple rig): glides, bobs, opens its beak to talk.',
   rig: 'simple',
+  habitat: ['land', 'water', 'air'],
   height: 100,
   colors: {
     feather: '#fbfbf7',

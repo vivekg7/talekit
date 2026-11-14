@@ -1,3 +1,5 @@
+import { groundOf, type Finding } from '../engine/world.js';
+import type { Area } from '../engine/types.js';
 import {
   beatWings,
   bowFlex,
@@ -29,7 +31,12 @@ import {
 } from '../engine/motion.js';
 import { rigOf } from '../engine/rigs.js';
 import { escapeXml, n } from '../engine/svg.js';
-import { STAGE_SHORTCUTS, resolveFrame, resolvePosition } from '../engine/timeline.js';
+import {
+  STAGE_SHORTCUTS,
+  resolveCamera,
+  resolveFrame,
+  resolvePosition,
+} from '../engine/timeline.js';
 import {
   CharacterSchema,
   ProjectMetaSchema,
@@ -416,6 +423,23 @@ export function sceneSheetSvg(project: Project, scene: Scene): string {
     if (p.x >= 0 && p.x <= W) marks += mark(s, p.x, p.y, '#ffd166');
   }
   for (const [name, a] of Object.entries(scene.anchors)) marks += mark(name, a.x, a.y, '#06d6a0');
+  // The world: where feet can stand (green) and the water (blue, paler where it can be
+  // waded), hatched over the art so what it covers still shows.
+  const ground = groundOf(scene);
+  const area = (pts: Area, color: string, label: string) => {
+    const d = 'M' + pts.map(([x, y]) => `${n(x)} ${n(y)}`).join(' L') + ' Z';
+    const top = pts.reduce((b, p) => (p[1] < b[1] ? p : b), pts[0]);
+    const lx = Math.max(8, Math.min(W - 80, top[0]));
+    return (
+      `<path d='${d}' fill='${color}' fill-opacity='0.18' stroke='${color}' stroke-width='2.5' stroke-dasharray='10 5'/>` +
+      `<text x='${n(lx)}' y='${n(Math.max(18, top[1] - 6))}' font-family='${LABEL_FONT}' font-size='15' font-weight='bold' fill='${color}' stroke='#000' stroke-width='4' paint-order='stroke'>${label}</text>`
+    );
+  };
+  let world = '';
+  for (const a of ground.walk) world += area(a, '#7CFC00', 'walk');
+  for (const a of ground.deep) world += area(a, '#3fa9ff', 'water');
+  for (const a of ground.shallow) world += area(a, '#9fdcff', 'water (wade)');
+  marks = world + marks;
   // Each swaying group's pivot, a pink ring, labelled with its id (on far or near, in that
   // layer's own coordinates, which line up with the frame when the camera is at rest).
   for (const [id, { at }] of Object.entries(scene.sway ?? {}))
@@ -426,24 +450,24 @@ export function sceneSheetSvg(project: Project, scene: Scene): string {
     marks +=
       `<path d='M${n(sh.x)} ${n(sh.y)} L${n(sh.x + sh.width)} ${n(sh.y)}' stroke='#4ea8ff' stroke-width='5' stroke-dasharray='14 6'/>` +
       `<text x='${n(sh.x)}' y='${n(sh.y - 8)}' font-family='${LABEL_FONT}' font-size='18' font-weight='bold' fill='#4ea8ff' stroke='#000' stroke-width='4' paint-order='stroke'>shelter</text>`;
-  const ground = resolvePosition(project, scene, 'center');
+  const centre = resolvePosition(project, scene, 'center');
   const tallest = Object.values(project.characters).sort((a, b) => b.height - a.height)[0];
   const ghostH = tallest?.height ?? 220;
   const ghostW = tallest ? (ghostH * rigOf(tallest).width) / rigOf(tallest).height : 110;
   const ghostLabel = tallest ? `${tallest.id} (${ghostH}px, tallest)` : '220px character';
-  const ghostBox = `<rect x='${n(ground.x - ghostW / 2)}' y='${n(ground.y - ghostH)}' width='${n(ghostW)}' height='${n(ghostH)}' rx='${n(Math.min(40, ghostW / 2))}'`;
+  const ghostBox = `<rect x='${n(centre.x - ghostW / 2)}' y='${n(centre.y - ghostH)}' width='${n(ghostW)}' height='${n(ghostH)}' rx='${n(Math.min(40, ghostW / 2))}'`;
   // Each light marked where it is, and the shadow it throws of the ghost.
   const lights = castLights(scene, fireLights(scene.effects, 1, W, H));
   let shadows = '';
   for (const l of lights) {
-    const th = throwOf(l, ground.x, ground.y, ghostH, W, H, scene.weather ?? {});
+    const th = throwOf(l, centre.x, centre.y, ghostH, W, H, scene.weather ?? {});
     if (th)
-      shadows += `<g opacity='${n(th.opacity)}' filter='url(#tk-cast)'>${ghostBox} transform='${floorMap(th, ground.y)}' fill='#000'/></g>`;
+      shadows += `<g opacity='${n(th.opacity)}' filter='url(#tk-cast)'>${ghostBox} transform='${floorMap(th, centre.y)}' fill='#000'/></g>`;
     marks +=
       `<g><circle cx='${n(l.x)}' cy='${n(l.y)}' r='13' fill='none' stroke='#ffe14d' stroke-width='4'/>` +
       `<text x='${n(l.x + 18)}' y='${n(l.y + 7)}' font-family='${LABEL_FONT}' font-size='18' font-weight='bold' fill='#ffe14d' stroke='#000' stroke-width='4' paint-order='stroke'>${l.kind === 'sky' ? 'light (sky)' : 'light (lamp)'}</text></g>`;
   }
-  const ghost = `<defs>${CAST_DEFS}</defs>${shadows}<g opacity='0.35'>${ghostBox} fill='#333'/><text x='${n(ground.x)}' y='${n(ground.y - ghostH - 8)}' text-anchor='middle' font-family='${LABEL_FONT}' font-size='16' fill='#333'>${escapeXml(ghostLabel)}</text></g>`;
+  const ghost = `<defs>${CAST_DEFS}</defs>${shadows}<g opacity='0.35'>${ghostBox} fill='#333'/><text x='${n(centre.x)}' y='${n(centre.y - ghostH - 8)}' text-anchor='middle' font-family='${LABEL_FONT}' font-size='16' fill='#333'>${escapeXml(ghostLabel)}</text></g>`;
   // Effects stand still at one moment here, where they are placed against the anchors; the
   // strip underneath shows them moving with the weather.
   const fx = (plane: EffectLayer) =>
@@ -845,4 +869,31 @@ export function constructionSheetSvg(character: Character): string {
     out += `<text x='12' y='${textTop + i * 20}' font-family='${LABEL_FONT}' font-size='13' fill='${l.startsWith('ERROR') ? '#c1121f' : '#333'}'>${escapeXml(text)}</text>`;
   });
   return out + '</svg>';
+}
+
+/**
+ * A world finding as a picture: the frame where it starts (or a tenth of a second in, so a
+ * fade from black has begun), the spot ringed in red and labelled with the finding's code.
+ */
+export function findingFrameSvg(project: Project, f: Finding): string {
+  const shot = project.shots.find((x) => x.id === f.shot);
+  if (!shot) throw new Error(`no shot '${f.shot}'`);
+  const { width: W, height: H } = project.meta;
+  const t = Math.min(Math.max(f.t[0], Math.min(0.1, f.t[1])), shot.duration - 1e-3);
+  const svg = composeFrame(project, shot, t);
+  let mark = '';
+  if (f.at) {
+    const c = resolveCamera(project, project.scenes[shot.scene], shot, t);
+    const x = W / 2 + c.zoom * (f.at.x - c.x);
+    const y = H / 2 + c.zoom * (f.at.y - c.y);
+    const r = 34 * Math.max(1, Math.min(W, H) / 720);
+    const lx = Math.max(10, Math.min(W - 260, x + r + 6));
+    mark =
+      `<circle cx='${n(x)}' cy='${n(y)}' r='${n(r)}' fill='none' stroke='#000' stroke-width='9' opacity='0.6'/>` +
+      `<circle cx='${n(x)}' cy='${n(y)}' r='${n(r)}' fill='none' stroke='#ff2d2d' stroke-width='5'/>` +
+      `<text x='${n(lx)}' y='${n(Math.max(28, y - r))}' font-family='${LABEL_FONT}' font-size='22' font-weight='bold' fill='#ff2d2d' stroke='#000' stroke-width='5' paint-order='stroke'>${escapeXml(f.code)} ${f.actors.join(', ')}</text>`;
+  }
+  const stamp = `<text x='12' y='${H - 12}' font-family='${LABEL_FONT}' font-size='18' fill='#fff' stroke='#000' stroke-width='4' paint-order='stroke'>${escapeXml(f.shot)} · t=${t.toFixed(1)}s</text>`;
+  const end = svg.lastIndexOf('</svg>');
+  return svg.slice(0, end) + mark + stamp + svg.slice(end);
 }

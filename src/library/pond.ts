@@ -18,6 +18,41 @@ export const POND: SceneInput = {
   description:
     "A lily pond on a sunny afternoon. Near bank (grass, left third): bank-left, bank, bank-edge (by the water). The pond fills the centre and right with a far bank of reeds and a willow behind it. The water's front surface (foreground) starts at y=590: anything in the water is cut at that line and shows tinted below it. Swimming lane at y=625, 35 px under (a swan, a duck; put a crocodile about 20 px lower, at y≈645, so only its back, eye and upper jaw show): shore (in the water at the bank's edge, where a crocodile lunges from), swim, swim-right; a point lower in the water sinks deeper. under: in the water just under the surface, where a fish up to 60 px tall swims wholly under it and shows through (a jump only peeks it out; move it to a point above y=590 and back to leap). lily-pad: a big pad above the waterline for a frog. rock: the top of a rock in the water, for a crow or a frog to perch. The stage shortcuts stand on y=625: left on the bank, center and right in the swimming lane. Sun high on the right.",
   ground: 625,
+  walk: [
+    // the near bank, and the far one beyond the water
+    [
+      [-300, 430],
+      [330, 455],
+      [410, 600],
+      [490, 760],
+      [-300, 760],
+    ],
+    [
+      [-300, 430],
+      [1580, 415],
+      [1580, 452],
+      [330, 462],
+    ],
+    // the rock's top
+    [
+      [1065, 560],
+      [1100, 538],
+      [1170, 538],
+      [1205, 560],
+    ],
+  ],
+  water: [
+    {
+      area: [
+        [327, 462],
+        [1290, 450],
+        [1580, 450],
+        [1580, 760],
+        [490, 760],
+        [402, 590],
+      ],
+    },
+  ],
   lights: [{ kind: 'sun', x: 1060, y: 110, strength: 0.7 }],
   ambience: ['forest'],
   surface: 'grass',

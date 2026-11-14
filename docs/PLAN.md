@@ -643,6 +643,160 @@ told by the narrator instead, a sentence or two a shot over the cast acting
 it out, with a character speaking only where the words turn the story. That
 is a rule for the agent, in the guide; the engine needs nothing new.
 
+## Phase 8 — The world model
+
+After eighteen released films (2026-11-14), the person's review notes were
+sorted by kind: about 110 notes, of which about 70 were mistakes the engine
+could have known about. The rest were drawing quality, pacing and taste.
+
+| Kind                  | Notes | For example                                                                                                                                         |
+| --------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Support, gravity      | ~14   | a baby floating; cats halfway up a trunk; washers beating cloth in the air (three films); clothes leaving a fixed line; a vase not falling straight |
+| Teleports, continuity | ~10   | a roti flying between mouths; a bundle jumping across the floor; a man asleep in one shot and awake in the next                                     |
+| Attention, facing     | ~8    | listeners facing away; a man beating the empty side; animals fleeing from what they never saw                                                       |
+| Readability           | ~9    | bubbles over faces; a bucket hiding the otter; a hidden spy half seen                                                                               |
+| Solidity              | ~7    | walking through a well (three times); bars you could walk round                                                                                     |
+| Reach, contact        | ~7    | the vessel moving to the hand, not the hand to the vessel; an axe landing outside the bed                                                           |
+| Audio                 | ~14   | हंस said as "has"; lines with no voice; भाई said to a woman's voice                                                                                 |
+
+Each one cost a person's careful watch to find. The cause is the same every
+time. The engine knew where things were drawn, not what they were. A scene's
+ground was one `y`; water was decoration; a well was pixels; nothing said
+who a line was for beyond `to`.
+
+The user of this engine is an LLM, not a person, and the goal is a film
+with no glitches in it. Two decisions follow from that.
+
+1. **The engine fixes whatever has one right answer.** Intent is clear but
+   the execution is wrong: a listener should face the speaker, a pot let go
+   of should fall straight, a walk should go round the well. An agent
+   forgets these over and over, so the engine owns them, as it owns motion
+   (principle 1). It works them out when it loads a shot, like a constraint
+   solver, and never writes them back into the file: the file says what was
+   meant, and `talekit explain` says what the engine made of it.
+2. **Everything else is an error with a way out.** When the engine cannot
+   know what was meant (a land animal in deep water, a roti that jumps), it
+   reports an error that blocks the render, until the shot is fixed or the
+   error is waived with a reason (`allow`). There are no soft warnings for
+   these kinds of mistake: an agent learns to skip warnings, and every
+   skipped one reaches the person as a glitch. A check that cries wolf is
+   tuned, not demoted.
+
+Every finding has a code, the shot, the time span, the actors, one sentence
+on what is wrong and why it shows, a patch when the fix is mechanical, and a
+frame with the spot ringed (principle 3). The same findings come back from
+`talekit check`, `render` and every MCP write. A write is saved anyway, so
+the agent can look at it and iterate. Only the render is refused.
+
+### The plan
+
+- **8.0 Base.**
+  - Scenes say where the ground is: `walk` areas (floors, stairs, perches,
+    a branch top) and `water` areas (deep, or shallow enough to wade).
+  - Characters say where they can be on their own (`habitat`: land, water,
+    air).
+  - A simulator steps each shot through the timeline (a pure function
+    already) at 10 fps and runs rules on the states.
+  - Findings, waivers (`allow` on a shot or a scene), the render gate, and
+    ringed frames (`talekit check --frames`).
+  - The first rule: **support**.
+- **8.1 Attention and gravity.**
+  - Attention: the audience of a line (its `to`, else everyone awake and
+    idle) turns to the speaker, staggered by `hash01`. A striker faces its
+    target. A reaction (`reacts`) looks at its cause first.
+  - Gravity: a prop let go of falls straight to what is under it (Rapier 2D,
+    deterministic build).
+  - Feet a few pixels off the ground snap onto it.
+  - A `climb` verb for ladders, trees and walls, so nothing slides up or
+    down them with `move`; a `move` that carries a walker off the ground
+    is flagged.
+  - Teleports inside a shot are flagged, and a `give` verb hands a thing
+    from one actor to another.
+  - Every voiced take is transcribed (whisper.cpp or AI4Bharat's Hindi
+    models, whichever reads our takes better) and re-voiced when it does not
+    match its line.
+- **8.2 Continuity.**
+  - A shot in the same place starts where the last one ended: positions,
+    posture, sleep, held props, looks. `cut: 'later'` starts fresh.
+  - The 180° rule is checked across cuts.
+  - Smart objects: an anchor says what is done there and how (a washing
+    stone: seated, facing right, the cloth landing at x, y).
+  - Contact verbs walk the actor to a use point and bend the arm onto the
+    target.
+- **8.3 Solids and readability.**
+  - Solids with footprints and named openings; walks route round them on a
+    2D navmesh.
+  - Bubbles are placed off every face box. Art over a speaker's face, or a
+    `hidden` actor who shows, is flagged.
+  - Art checks on the sheets: a drawing that comes apart in a pose (a split
+    elbow, a loose tail), and a sway group whose far end moves too far.
+- **8.4 A vision critic.** The agent checks a contact sheet against a
+  checklist before the person sees anything. It is not deterministic, so it
+  adds to the checks and replaces none of them.
+
+Each kind of note becomes a fixture that must be fixed or flagged, and the
+checks are run over the released stories: a finding there is either a false
+positive to tune away or a mistake that got past the review.
+
+**Not Blender, Unity or Godot.** They would bring physics, but the failures
+above are about knowing the world, not about drawing it. Moving the engine
+would put the agent in front of a much larger API, mostly in 3D, which is
+harder for it to get right, and lose the rigs, the library and the authoring
+contract. Proven parts go inside instead: Rapier 2D for falling and
+settling, a 2D navmesh for routing, Clipper2 for polygon overlap, resvg
+(already here) for pixel-exact occlusion, and whisper.cpp for speech.
+
+### 8.0 as built
+
+- **What a scene is.** Scenes take `walk` (polygons where feet can stand)
+  and `water` (areas, `wade` for shallow). A character takes `habitat`
+  (land, water, air; land by default, plus air for one that `flaps`).
+  Shots and scenes take `allow`: waivers keyed by code or `code:actor`,
+  each with a reason. A key that names no check is an error, so a typo
+  waives nothing.
+- **The rules.** `src/engine/world.ts` samples each shot every 0.1 s
+  through `resolveActor` and runs the rules. `support` holds every actor
+  to what it can rest on. Carried, ridden (`on`), mid-jump, hidden and
+  off-frame actors are held up already. On the scene itself, `world.walk`
+  (no walk areas) and `world.anchor` (an anchor on no ground or water) are
+  checked.
+- **How findings come back.** A finding is a `Problem` with a `code` and
+  the finding itself. `validateProject` runs the shot rules once nothing
+  else is wrong, so `check` and `render` see them and `render` refuses.
+  `write_shot` and `patch_shot` save anyway and add the findings, with up
+  to three frames of them, each spot ringed (`findingFrameSvg`).
+  `write_scene` no longer refuses on a world error: an agent fixing its
+  walk areas needs the sheet to do it.
+- **Pictures and tools.** The scene sheet hatches walk areas green and
+  water blue. `talekit check --frames dir` saves a ringed frame per
+  finding. The Python kit has `below()` and `ledge()`.
+- **The library.** All eleven library scenes and the four examples were
+  given walk areas, read off their sheets. Birds, the swan, the fish, the
+  frog and the crocodile were given habitats.
+
+**First catches.** The examples had two real ones. The lighthouse's
+lantern glided from Pip's hand to the pedestal with a `move` (now a
+`putdown`), and lost-kite's kite and the lighthouse gull had no way to be
+in the air (now `habitat`).
+
+**A trial on a released film.** गाने वाला गधा (R18, already reviewed by the
+person) was given walk areas and checked. It found the two guards sliding
+down the machaan's ladder in a standing pose: a `move`, since the engine
+has no climbing. That was a real glitch the review missed. It also taught
+three things about the model:
+
+- **Walk wins over water.** A washing stone in the river is a walk area
+  on top of the water.
+- **A `river` effect's points are not the water.** Its polygon runs over
+  the bank, where the art hides the ripples, so a scene with a river
+  gives `water`.
+- **Areas are flat on the screen.** They cannot tell a pot floating in
+  front of the floor from one standing further back on it, or a gull
+  over the sea from one standing in it. They catch what floats above the
+  ground line, or in the wrong medium. The rest needs motion rules: no
+  gliding with `move`, gravity for what is let go (8.1), and `climb` for
+  ladders and trees (added to 8.1).
+
 ## Render speed
 
 Measured 2026-10-23 on a 12-core M-series Mac, on the race film (273 s,

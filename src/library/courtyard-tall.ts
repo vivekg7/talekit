@@ -11,6 +11,14 @@ export const COURTYARD_TALL: SceneInput = {
   description:
     "Portrait (720 x 1280). A village family's aangan: sky and hazy treetops above a thatched house roof; the ochre mud-plastered house wall across the back with a jaali window and a wooden door with a mango-leaf toran; a lower boundary wall with a tulsi planter at the left; matkas and a brass lota against the wall at the right; a charpai (woven cot) at the left; a swept earth floor down to the bottom. A neem branch along the top edge (near). Four spots in two rows: front-left and front-right (scale 1), back-left and back-right behind and higher (0.86).",
   ground: 1000,
+  walk: [
+    [
+      [-300, 885],
+      [1020, 885],
+      [1020, 1300],
+      [-300, 1300],
+    ],
+  ],
   parallax: {
     far: 0.3,
     near: 1.4,

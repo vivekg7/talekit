@@ -16,6 +16,7 @@ export const PARROT: CharacterInput = {
   name: 'Parrot',
   description: 'Scarlet macaw, red with yellow and blue wings (simple rig): hops, flies, squawks.',
   rig: 'simple',
+  habitat: ['land', 'air'],
   height: 70,
   colors: {
     feather: '#d8302a',

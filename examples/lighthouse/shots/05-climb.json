@@ -70,9 +70,8 @@
     },
     {
       "t": 7.5,
-      "duration": 1.5,
       "actor": "lantern",
-      "do": "move",
+      "do": "putdown",
       "to": "pedestal-top",
       "attach": false
     }

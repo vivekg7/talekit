@@ -577,6 +577,88 @@ backgrounds soft and low in contrast so the outlined characters pop; give
 props a character touches (a bench, a well, a door) a `#2e2633` outline of
 about 3 px.
 
+### Where things can stand (`walk`, `water`)
+
+The engine checks every shot against what the scene is, not only what it
+looks like, so a cat halfway up a trunk, a boy above the floor or a fish on
+the bank is an error rather than something a reviewer has to spot. A scene
+says:
+
+- **`walk`**: where feet can stand. It is a list of polygons, each a list of
+  `[x, y]` corners. Draw one round the floor, running on past the frame's
+  edges where the ground does, and one round each thing that is stood on
+  above it: a stair, a rooftop, a rock's top, a branch, a wall top.
+  `walk` is required. A scene with nothing to stand on (a view down a well,
+  the sky) says so with `"allow": { "world.walk": "the reason" }`.
+- **`water`**: `[{ "area": [[x, y], ...], "wade": false }]`, where things
+  swim and float. `wade: true` marks water shallow enough for people and
+  land animals to stand in (the edge of a ghat, a ford). A `river`
+  effect's `points` count as deep water when there is no `water`. A
+  river's points often run over the bank too, since the art hides the
+  ripples there, so a scene with a river should give its `water`.
+- **Walk wins over water.** A washing stone in the river, a jetty or a
+  boat's deck is a walk area drawn on top of the water: what stands there
+  is held up. So keep the floor's polygon off the water, or it hides a
+  land animal wading out too deep.
+
+```json
+"walk": [
+  [[-300, 578], [1580, 578], [1580, 760], [-300, 760]],
+  [[700, 326], [890, 342], [890, 356], [700, 342]]
+],
+"water": [{ "area": [[327, 462], [1580, 450], [1580, 760], [490, 760], [402, 590]] }]
+```
+
+The anchor sheet hatches walk areas green and water blue over the art, so
+check each against what it is drawn on. Every anchor must be on one, or
+waived by name for a spot in the air:
+`"allow": { "world.anchor:sky": "where the crow flies to" }`. The Python
+kit has `below(line, bottom)` (everything under a ground line) and
+`ledge(x0, x1, y)` (a thin strip along a branch or a wall top).
+
+A character's **`habitat`** says where it can be with nothing holding it
+up:
+
+- `land`: feet on a walk area, or in water it can wade. This is the
+  default.
+- `water`: in a water area. A fish is `["water"]`, a frog
+  `["land", "water"]`.
+- `air`: anywhere. A character with `flaps` gets `["land", "air"]` by
+  default. A kite, the moon, a dust cloud and stars are `["air"]`.
+
+These areas are flat on the screen, so they cannot tell a pot floating in
+front of the floor from one standing further back on it. Make things move
+with verbs (a `putdown` onto a table, a `jump` onto a branch), never by
+gliding them with `move`.
+
+### World findings
+
+Once a shot is saved, the engine plays it and checks every actor at each
+tenth of a second. An actor carried (`attach`), standing on someone (`on`),
+mid-`jump`, out of sight or past the frame's edge is held up already. Each
+finding is an error with a code, the shot, the time span, who, where, and
+a fix when the fix is mechanical. `write_shot`, `patch_shot`, `render` and
+`talekit check` all report them, the first two with a frame of each, the
+spot ringed (`talekit check --frames dir` saves those frames too). The
+shot is saved anyway, so you can look at it, but nothing renders until
+every finding is fixed or waived.
+
+| Code            | Means                                              |
+| --------------- | -------------------------------------------------- |
+| `support.air`   | stands on nothing: on no walk area, and cannot fly |
+| `support.water` | in deep water, and cannot swim                     |
+| `support.dry`   | lives in water, and is out of it                   |
+| `world.walk`    | the scene has no walk areas                        |
+| `world.anchor`  | an anchor is on no walk or water area              |
+
+Waive a finding only when the film means it, in the shot's (or the
+scene's, for every shot there) `allow`. The key is the code, or the code
+and an actor: `"allow": { "support.air:ghost": "a ghost floats" }`. A
+waiver needs a reason, and a key that names no check is an error, so a typo
+cannot hide anything. Otherwise fix what was found: move the actor onto the
+ground, add the surface it stands on to `walk`, or give the character the
+`habitat` it really has.
+
 ### Layers and depth
 
 A flat scene slides past as one picture when the camera moves. Split it
@@ -1243,8 +1325,10 @@ surprised`). See `examples/clever-rabbit` shots 07 to 09.
 
 - `project_info` shows no validation or construction warnings you did not
   intend.
-- Every contact sheet looks staged: nobody floating or clipped, the right
-  people facing each other, the right actor in front.
+- `talekit check` has no world findings, and every `allow` waiver is
+  meant.
+- Every contact sheet looks staged: nobody clipped, the right people
+  facing each other, the right actor in front.
 - Props are continuous: what is carried at a shot's end is in hand at the
   next one's start, nothing is taken that was not lying there, and a prop
   put down stays down in later shots in the same place.

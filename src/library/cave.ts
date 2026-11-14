@@ -12,6 +12,16 @@ export const CAVE: SceneInput = {
   description:
     'A rocky hill on the left with a dark cave mouth (x 90-430), a few bones inside; trampled earth in front of the mouth (den) where an animal can lie in the sun; a grassy clearing; a shady tree on the right (x ~1060); a path in from the right edge; hills and sky behind, the sun high on the right with turning rays (far).',
   ground: 650,
+  walk: [
+    [
+      [-300, 600],
+      [600, 598],
+      [900, 575],
+      [1580, 570],
+      [1580, 760],
+      [-300, 760],
+    ],
+  ],
   parallax: { far: 0.4 },
   effects: [{ kind: 'sun', x: 820, y: 90, size: 0.9 }],
   ambience: ['cave'],

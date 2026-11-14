@@ -6,6 +6,14 @@ export const HOME: SceneInput = {
   name: 'Living room',
   description: 'Cosy living room with a sofa (left), a window, a table and the front door (right).',
   ground: 650,
+  walk: [
+    [
+      [-300, 522],
+      [1580, 522],
+      [1580, 760],
+      [-300, 760],
+    ],
+  ],
   ambience: ['room'],
   surface: 'hard',
   anchors: {
