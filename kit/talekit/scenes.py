@@ -132,6 +132,20 @@ def ledge(x0, x1, y, depth=14):
     ]
 
 
+def rail(foot, top, width=40):
+    """A climb area up a ladder, a trunk, a wall or a rope: a band `width` px wide from
+    `foot` (x, y), where it stands on the ground, to `top` (x, y), where it reaches (the
+    deck, the branch); it may lean. A `climb` goes from one end to the other inside it."""
+    (fx, fy), (tx, ty) = foot, top
+    h = width / 2
+    return [
+        [round(tx - h), round(ty - 8)],
+        [round(tx + h), round(ty - 8)],
+        [round(fx + h), round(fy + 6)],
+        [round(fx - h), round(fy + 6)],
+    ]
+
+
 def write(project, scene):
     """Save the scene as <project>/scenes/<id>.json and print each layer's size. A scene
     needs `walk` (see below() and ledge()), or allow {'world.walk': reason}."""
@@ -143,7 +157,7 @@ def write(project, scene):
         "wrote",
         scene["id"],
         {k: len(v) for k, v in scene.items() if k in ("far", "svg", "near", "foreground")},
-        f"walk {len(scene.get('walk', []))}, water {len(scene.get('water', []))}",
+        f"walk {len(scene.get('walk', []))}, water {len(scene.get('water', []))}, climb {len(scene.get('climb', []))}",
     )
     if not scene.get("walk") and "world.walk" not in scene.get("allow", {}):
         print(f"  {scene['id']}: no walk areas: add scene['walk'] (below(), ledge()) or talekit check fails")

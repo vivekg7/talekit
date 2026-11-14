@@ -50,6 +50,11 @@ export interface Pose {
    */
   depth: number;
   /**
+   * Limbs that swing across the screen however the body is turned (`depth` leaves them be):
+   * a climber's arms, seen from behind, going up either side of the head to the rungs.
+   */
+  flat?: string[];
+  /**
    * The ground shadow when the body is not standing over its feet (lying down): its centre
    * moved by `dx` canonical units and its width times `scale`.
    */
@@ -83,7 +88,7 @@ export interface Pose {
   bow?: { deg: number; turn: number; draw: number; twang?: number; raise: number; hand: number };
 }
 
-export type Locomotion = 'idle' | 'walk' | 'run' | 'move' | 'fly';
+export type Locomotion = 'idle' | 'walk' | 'run' | 'move' | 'fly' | 'climb';
 
 export function emptyPose(): Pose {
   return {
@@ -115,7 +120,15 @@ export const SPEED: Record<string, number> = {
   move: 300,
   fly: 260,
   jump: 300,
+  // A ladder or a trunk, hand over hand: about 0.4 m a second for a grown-up.
+  climb: 70,
 };
+
+/**
+ * A climb's cycle: both hands and both feet have moved up one rung each, over this share
+ * of the climber's height (a rung is about a sixth of a person: 30 cm).
+ */
+export const CLIMB_CYCLE = 0.4;
 
 /** Default seconds for timed verbs. */
 export const VERB_DURATION: Partial<Record<Verb, number>> = {
@@ -192,7 +205,9 @@ function quadrupedBase(
       p.rot.tail = 7 * Math.sin((TAU * (t + phase * 2.6)) / 2.6);
       p.rot.head = 2 * Math.sin((TAU * (t + phase * 5)) / 5);
       break;
-    case 'walk': {
+    case 'walk':
+    case 'climb': {
+      // Up a trunk an animal walks, tipped up the slope (see `climbTilt`).
       const { phi } = stride(rig, p, 'walk', t, travel);
       p.rot.head = 2.5 * Math.cos(2 * phi);
       p.rot.tail = 9 * Math.sin(phi);
@@ -283,6 +298,16 @@ export function basePose(
     }
     case 'move':
       break;
+    case 'climb': {
+      if (humanoid) climbCycle(rig, p, t, travel);
+      else {
+        // No hands: hops up it, as it walks.
+        const hop = 0.9 * rig.height;
+        const u = travel ? travel.dist / hop : t / 0.31;
+        p.dy = -6 * Math.abs(Math.sin(Math.PI * u));
+      }
+      break;
+    }
     case 'fly': {
       p.dy = 6 * Math.sin(TAU * t * 1.2);
       p.rot[humanoid ? 'torso' : 'body'] = 5 * Math.sin(TAU * t * 0.8);
@@ -294,6 +319,52 @@ export function basePose(
     }
   }
   return p;
+}
+
+/**
+ * Hand over hand up (or down) a ladder or a trunk, seen from behind (the timeline turns the
+ * climber into the screen): both arms up, one hand reaching for the next rung as the other
+ * holds at the face, and the opposite foot lifting to the next rung as the other stands
+ * straight on its own. Paced by the distance climbed, so it never runs on the spot.
+ */
+function climbCycle(rig: Rig, p: Pose, t: number, travel?: Travel): void {
+  const u = travel ? travel.dist / (CLIMB_CYCLE * rig.height) : t / 1.1;
+  // Into it over the first rung, out of it over the last.
+  const env = travel
+    ? Math.min(1, travel.dist / 12, Math.max(0, travel.total - travel.dist) / 12)
+    : 1;
+  const k = Math.max(env, 0.65);
+  const phi = TAU * u;
+  // Seen from behind, the arms swing out to either side across the screen: the near one
+  // (armR) turning one way and the far one the other, the elbow folding in toward the head.
+  p.flat = ['armL', 'armR'];
+  for (const [arm, leg, at, side] of [
+    ['armR', 'legL', 0, -1],
+    ['armL', 'legR', Math.PI, 1],
+  ] as const) {
+    // 1 reaching up for the next rung (and the other foot lifting), -1 gripping at the
+    // shoulder with the elbow bent out.
+    const s = Math.sin(phi + at);
+    const reach = (1 + s) / 2;
+    p.rot[arm] = side * k * (100 + 48 * reach);
+    p.bend[arm] = side * k * (62 - 52 * reach);
+    const lift = Math.max(0, s);
+    // The thigh swings into the screen, foreshortened; the knee bend is not, so a small one
+    // leaves the shin hanging straight down under the lifted knee.
+    p.rot[leg] = -62 * lift * env;
+    p.bend[leg] = (8 + 22 * lift) * env;
+  }
+  // The body rises a little on each push off the lower foot, and the head is up.
+  p.dy += -3 * Math.abs(Math.sin(phi)) * env;
+  p.rot.head = -6 * k;
+}
+
+/**
+ * How far an animal or a simple character is tipped up a climb, in degrees (nose up is
+ * positive): the slope of the climb, but never past the steepest it can cling on at.
+ */
+export function climbTilt(ascent: number): number {
+  return Math.max(-70, Math.min(70, ascent));
 }
 
 /** Ease in and out of a held pose over the first and last `1/k` of the action. */

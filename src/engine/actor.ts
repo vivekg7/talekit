@@ -6,6 +6,7 @@ import {
   applyVerb,
   basePose,
   chewing,
+  climbTilt,
   emptyPose,
   NOCKED_DOWN,
   quadrupedTurn,
@@ -39,7 +40,8 @@ export function poseFor(actor: ActorState, t: number): Pose {
   if (sat && actor.perched) pose.dy -= seat * (1 - easeInOut(actor.sit));
   if (actor.lie > 0) applyVerb(rig, pose, 'lie', actor.lie, seat);
   // Carrying: the near arm hangs a little forward and swings less, under the weight.
-  if (actor.holding && rig.name === 'humanoid') {
+  // Climbing, both hands are on the rungs and what the near one holds goes up with it.
+  if (actor.holding && rig.name === 'humanoid' && loco !== 'climb') {
     pose.rot.armR = 0.35 * (pose.rot.armR ?? 0) - 12;
     pose.bend.armR = -20;
   }
@@ -81,6 +83,17 @@ export function poseFor(actor: ActorState, t: number): Pose {
     if (away < 0.5) pose.yaw += (2 - pose.yaw) * 2 * away;
     else pose.back = true;
   }
+  // An animal up a trunk is tipped up the slope, about its feet, which stay on the bark.
+  if (!rig.turn && actor.ascent) {
+    // Tipping up over the first stretch of the climb and back level over the last.
+    const tr = actor.travel;
+    const ease = tr ? easeInOut(clamp01(Math.min(tr.dist, tr.total - tr.dist) / TIP)) : 1;
+    const deg = -climbTilt(actor.ascent) * ease;
+    const a = (deg * Math.PI) / 180;
+    pose.spin += deg;
+    pose.dx += (rig.height / 2) * Math.sin(a);
+    pose.dy += (rig.height / 2) * (1 - Math.cos(a));
+  }
   // A tail does not go through the floor: lying or sitting, it curls up and lies along it.
   keepOffFloor(rig, pose, 'tail');
   // Eating, the mouth chews open and shut as it flaps in talk; a line said meanwhile wins.
@@ -105,6 +118,9 @@ export function poseFor(actor: ActorState, t: number): Pose {
   );
   return pose;
 }
+
+/** Canonical units of a climb an animal takes to tip up the slope, and to come level. */
+const TIP = 40;
 
 /** Wing beats a second, and how far a wing swings either side of its drawing (degrees). */
 export const WINGBEAT = { hz: 2.4, deg: 40 };
@@ -700,7 +716,7 @@ export function shadowSvg(
 /** An actor's ground shadow: none while it flies, is carried, or is hidden. */
 export function renderShadow(actor: ActorState, pose: Pose): string {
   if (!actor.visible || actor.opacity <= 0 || !castsShadow(actor.character)) return '';
-  if (actor.heldBy || actor.locomotion === 'fly') return '';
+  if (actor.heldBy || actor.locomotion === 'fly' || actor.locomotion === 'climb') return '';
   return shadowSvg(
     actor.character,
     pose,

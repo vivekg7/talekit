@@ -41,6 +41,7 @@ export const CODES: Record<string, string> = {
   'support.air': 'an actor that cannot fly is held up by nothing',
   'support.water': 'an actor that cannot swim is in deep water',
   'support.dry': 'an actor that lives in water is out of it',
+  'support.climb': 'a climb goes up nothing that can be climbed',
   'attention.listener': 'someone spoken to faces away from the speaker',
   'attention.speaker': 'a speaker faces away from who the line is said to',
   'attention.reacts': 'someone reacts to what they face away from',
@@ -186,7 +187,7 @@ function supportRule(project: Project, shot: Shot, samples: Sample[]): Finding[]
   const out: Finding[] = [];
   for (const id of Object.keys(shot.cast)) {
     const habitat = habitatOf(project.characters[id]);
-    let run: { code: string; t0: number; t1: number; at: XY; still: boolean } | undefined;
+    let run: Run | undefined;
     const close = () => {
       if (!run) return;
       if (!waived(allow, run.code, id)) out.push(supportFinding(shot, id, run, ground));
@@ -195,46 +196,73 @@ function supportRule(project: Project, shot: Shot, samples: Sample[]): Finding[]
     for (const s of samples) {
       const a = s.actors.find((x) => x.id === id)!;
       const p = restingPoint(a);
-      const code = heldUp(a, W) ? undefined : supportAt(ground, habitat, p);
+      const code = heldUp(a, W)
+        ? undefined
+        : a.locomotion === 'climb'
+          ? within(ground.climb, p)
+            ? undefined
+            : 'support.climb'
+          : supportAt(ground, habitat, p);
       if (run && code === run.code) {
         run.t1 = s.t;
         if (dist(p, run.at) > 1) run.still = false;
+        if (a.locomotion === 'move') run.slides = true;
         continue;
       }
       close();
-      if (code) run = { code, t0: s.t, t1: s.t, at: p, still: true };
+      if (code)
+        run = { code, t0: s.t, t1: s.t, at: p, still: true, slides: a.locomotion === 'move' };
     }
     close();
   }
   return out;
 }
 
-function supportFinding(
-  shot: Shot,
-  id: string,
-  run: { code: string; t0: number; t1: number; at: XY; still: boolean },
-  ground: Ground
-): Finding {
+/** A stretch of samples with the same support mistake. */
+interface Run {
+  code: string;
+  t0: number;
+  t1: number;
+  /** Where it starts. */
+  at: XY;
+  /** It stays put the whole time. */
+  still: boolean;
+  /** Some of it is a `move`: standing, gliding there. */
+  slides: boolean;
+}
+
+function supportFinding(shot: Shot, id: string, run: Run, ground: Ground): Finding {
   const { code, at } = run;
   const span = run.t0 === run.t1 ? `at ${r1(run.t0)}s` : `from ${r1(run.t0)}s to ${r1(run.t1)}s`;
-  const target = code === 'support.dry' ? [...ground.deep, ...ground.shallow] : ground.walk;
+  const target =
+    code === 'support.dry'
+      ? [...ground.deep, ...ground.shallow]
+      : code === 'support.climb'
+        ? ground.climb
+        : ground.walk;
   const near = nearestOf(target, at);
   const where = `(${r(at.x)}, ${r(at.y)})`;
   const what =
     code === 'support.air'
       ? `stands on nothing at ${where} ${span}: it is on no walk area and cannot fly, so it shows floating`
-      : code === 'support.water'
-        ? `is in deep water at ${where} ${span} and cannot swim`
-        : `is out of the water at ${where} ${span}, and lives in it`;
-  const nearText = near
-    ? ` The nearest ${code === 'support.dry' ? 'water' : 'ground'} is (${r(near.point.x)}, ${r(near.point.y)}).`
-    : '';
+      : code === 'support.climb'
+        ? `climbs nothing at ${where} ${span}: it is in no \`climb\` area of the scene`
+        : code === 'support.water'
+          ? `is in deep water at ${where} ${span} and cannot swim`
+          : `is out of the water at ${where} ${span}, and lives in it`;
+  const kind =
+    code === 'support.dry' ? 'water' : code === 'support.climb' ? 'climb area' : 'ground';
+  const nearText = near ? ` The nearest ${kind} is (${r(near.point.x)}, ${r(near.point.y)}).` : '';
   const how =
-    code === 'support.water'
-      ? ' Keep it on the bank, mark the water `wade: true` if it is shallow there, or give the character habitat water.'
-      : code === 'support.dry'
-        ? ' Put it in the water, or give the character habitat land if it walks.'
-        : " Put it on the ground, add what it stands on to the scene's `walk`, or give the character habitat air if it flies.";
+    code === 'support.air' && run.slides
+      ? " It glides there standing, with `move`: go up or down a ladder or a tree with `climb` (inside one of the scene's `climb` areas), up onto something with `jump`, or off it with `fall`."
+      : code === 'support.climb'
+        ? ' Climb straight up or down the ladder, trunk or wall, and give the scene a `climb` area round it, from the ground it stands on to the top it reaches.'
+        : code === 'support.water'
+          ? ' Keep it on the bank, mark the water `wade: true` if it is shallow there, or give the character habitat water.'
+          : code === 'support.dry'
+            ? ' Put it in the water, or give the character habitat land if it walks.'
+            : " Put it on the ground, add what it stands on to the scene's `walk`, or give the character habitat air if it flies.";
   const cast = shot.cast[id];
   const fix =
     near && run.t0 === 0 && run.still && typeof cast.at === 'object'

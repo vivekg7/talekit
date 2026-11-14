@@ -152,8 +152,17 @@ export const CAST_DEFS =
  * sits or lies, its carrier's for a carried prop; nothing in flight or hidden.
  */
 export function shadowFloor(actor: ActorState, carrier?: ActorState): number | undefined {
-  if (!actor.visible || actor.opacity <= 0 || actor.locomotion === 'fly') return undefined;
-  if (actor.heldBy) return carrier && castsShadow(carrier.character) ? carrier.y : undefined;
+  if (
+    !actor.visible ||
+    actor.opacity <= 0 ||
+    actor.locomotion === 'fly' ||
+    actor.locomotion === 'climb'
+  )
+    return undefined;
+  // Up a ladder, or in the air, there is no floor under the hand either.
+  const aloft = (c: ActorState) => c.locomotion === 'fly' || c.locomotion === 'climb';
+  if (actor.heldBy)
+    return carrier && castsShadow(carrier.character) && !aloft(carrier) ? carrier.y : undefined;
   if (!castsShadow(actor.character)) return undefined;
   return actor.y + actor.seat;
 }

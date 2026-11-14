@@ -607,6 +607,7 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
         'move',
         'fly',
         'jump',
+        'climb',
         'sit',
         'lie',
         'putdown',

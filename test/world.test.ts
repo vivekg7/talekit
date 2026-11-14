@@ -53,6 +53,15 @@ const STAGE = SceneSchema.parse({
       wade: true,
     },
   ],
+  // A trunk from the floor up to the branch.
+  climb: [
+    [
+      [580, 320],
+      [620, 320],
+      [620, 566],
+      [580, 566],
+    ],
+  ],
   anchors: { branch: { x: 700, y: 330 }, floor: { x: 300, y: 640 } },
 });
 
@@ -287,6 +296,47 @@ describe('feet put on the ground', () => {
   it('leaves a bird in the air alone', () => {
     const p = project({ crow: { at: { x: 300, y: 552 } } });
     expect(pos(p, 'crow', 1).y).toBe(552);
+  });
+});
+
+describe('climbing', () => {
+  const up = (verb: string, extra: Record<string, unknown> = {}) =>
+    project(
+      { kid: { at: { x: 600, y: 560 }, facing: 'right' } },
+      [{ t: 0.2, actor: 'kid', do: verb, to: { x: 600, y: 330 }, duration: 3 }],
+      extra
+    );
+  const at = (p: Project, t: number) => resolveActor(p, p.scenes.stage, p.shots[0], 'kid', t);
+  it('climbs a trunk hand over hand with its back to the viewer, and stands at the top', () => {
+    const p = up('climb');
+    const mid = at(p, 1.7);
+    expect(mid.locomotion).toBe('climb');
+    expect(mid.view).toBe(-1);
+    expect(mid.ascent).toBeCloseTo(90, 0);
+    expect(mid.y).toBeGreaterThan(330);
+    expect(mid.y).toBeLessThan(560);
+    expect(at(p, 3.5).y).toBe(330);
+    expect(at(p, 3.5).locomotion).toBe('idle');
+    expect(shotFindings(p, p.shots[0])).toEqual([]);
+  });
+  it('takes its time by default: a ladder is slow', () => {
+    const p = project({ kid: { at: { x: 600, y: 560 } } }, [
+      { t: 0, actor: 'kid', do: 'climb', to: { x: 600, y: 330 } },
+    ]);
+    expect(at(p, 2.5).locomotion).toBe('climb');
+  });
+  it('finds a climb up nothing that can be climbed', () => {
+    const p = up('climb');
+    p.scenes.stage = { ...STAGE, climb: undefined };
+    const [f] = shotFindings(p, p.shots[0]);
+    expect(f.code).toBe('support.climb');
+    expect(f.message).toMatch(/climbs nothing/);
+  });
+  it('finds a walker glided up it with move, and says to climb', () => {
+    const p = up('move');
+    const [f] = shotFindings(p, p.shots[0]);
+    expect(f.code).toBe('support.air');
+    expect(f.message).toMatch(/glides there standing, with `move`.*`climb`/);
   });
 });
 

@@ -100,8 +100,13 @@ export interface ActorState {
   locomotion: Locomotion;
   /** Seconds since the current locomotion began (drives idle and the sheets' cycles). */
   locoT: number;
-  /** How far the current walk or run has got, which drives the legs. */
+  /** How far the current walk, run or climb has got, which drives the legs. */
   travel?: Travel;
+  /**
+   * Climbing: how steeply, in degrees up from level toward the way it faces (90 straight
+   * up, negative climbing down). An animal is tipped up the slope by it.
+   */
+  ascent?: number;
   /** A carried prop swung by its holder's hand: degrees clockwise about (x, y), its grip. */
   tilt?: { deg: number; x: number; y: number };
   /**
@@ -281,6 +286,14 @@ function fallMove(from: Point, y: number, at: number, rest: number): Move | unde
   return { verb: 'move', from, to, t0: at, t1: at + drop / DROP_SHARE, rest, fall: true };
 }
 
+/** How steeply a climb goes, degrees up from level toward the way the climber faces. */
+function ascentOf(m: Move, facing: Facing): number {
+  const dx = (m.to.x - m.from.x) * (facing === 'left' ? -1 : 1);
+  const dy = m.from.y - m.to.y;
+  if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return 0;
+  return (Math.atan2(dy, Math.max(0, dx) + 1e-6) * 180) / Math.PI;
+}
+
 /** Seconds a walk or run takes to get up to speed, and to stop. */
 const RAMP = 0.3;
 /** Seconds for a facing flip, and for sitting down or getting up. */
@@ -306,8 +319,10 @@ function moveView(m: Move, t: number): number {
   const dy = m.to.y - m.from.y;
   const len = Math.hypot(dx, dy);
   if (len < 1 || t < m.t0) return 0;
-  const steep = easeInOut(clamp01((Math.abs(dy) / len - 0.5) / 0.35));
   const k = t < m.t1 ? clamp01((t - m.t0) / VIEW_TIME) : clamp01(1 - (t - m.t1) / VIEW_TIME);
+  // A climber faces what it climbs, up or down: its back to the viewer the whole way.
+  if (m.verb === 'climb') return -easeInOut(k);
+  const steep = easeInOut(clamp01((Math.abs(dy) / len - 0.5) / 0.35));
   return Math.sign(dy) * steep * easeInOut(k) || 0;
 }
 
@@ -318,7 +333,8 @@ function moveView(m: Move, t: number): number {
 function moveProgress(m: Move, t: number): number {
   const d = Math.max(1e-6, m.t1 - m.t0);
   const u = clamp01((t - m.t0) / d);
-  if (m.verb === 'walk' || m.verb === 'run') return ramp(u, Math.min(0.3, RAMP / d));
+  if (m.verb === 'walk' || m.verb === 'run' || m.verb === 'climb')
+    return ramp(u, Math.min(0.3, RAMP / d));
   if (m.verb === 'jump') return clamp01((u - JUMP.launch) / (JUMP.land - JUMP.launch));
   if (m.fall)
     return u < DROP_SHARE
@@ -1002,7 +1018,7 @@ export function resolveActor(
     if (t < move.t0) {
       locoStart = move.rest;
     } else if (t < move.t1) {
-      if (move.verb === 'walk' || move.verb === 'run') {
+      if (move.verb === 'walk' || move.verb === 'run' || move.verb === 'climb') {
         const k = (character.height / rigOf(character).height) * scale;
         const m = move;
         travel = {
@@ -1012,7 +1028,7 @@ export function resolveActor(
         };
       }
       locomotion =
-        move.verb === 'walk' || move.verb === 'run' || move.verb === 'fly'
+        move.verb === 'walk' || move.verb === 'run' || move.verb === 'fly' || move.verb === 'climb'
           ? move.verb
           : move.verb === 'jump'
             ? 'idle'
@@ -1076,6 +1092,7 @@ export function resolveActor(
     habitat.includes('land') &&
     !habitat.includes('air') &&
     !(move?.fall && t < move.t1) &&
+    locomotion !== 'climb' &&
     !verbs.some((v) => v.verb === 'jump')
   ) {
     const y = snapDown(groundOf(scene), point);
@@ -1094,6 +1111,7 @@ export function resolveActor(
     locomotion,
     locoT: t - locoStart,
     travel,
+    ascent: locomotion === 'climb' && move ? ascentOf(move, facing) : undefined,
     turn,
     view: move && !heldBy ? moveView(move, t) : 0,
     sit: sitAmount(t),

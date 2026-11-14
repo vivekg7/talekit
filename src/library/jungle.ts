@@ -10,7 +10,7 @@ export const JUNGLE: SceneInput = {
   id: 'jungle',
   name: 'Jungle path',
   description:
-    'A sal forest path in soft dappled light: tall fissured trunks, lantana bushes, mushrooms at the trunk feet, a path winding across; a low side branch (x 720-880, y ~340) for a bird to perch on; hazy deep woods behind (far). Sun high on the left.',
+    'A sal forest path in soft dappled light: tall fissured trunks, lantana bushes, mushrooms at the trunk feet, a path winding across; a low side branch (x 720-880, y ~340) for a bird to perch on, its trunk (x ~880) climbable up to it; hazy deep woods behind (far). Sun high on the left.',
   ground: 650,
   walk: [
     [
@@ -25,6 +25,15 @@ export const JUNGLE: SceneInput = {
       [890, 342],
       [890, 356],
       [700, 342],
+    ],
+  ],
+  // the trunk the branch grows from, from its foot up to the branch
+  climb: [
+    [
+      [852, 318],
+      [912, 318],
+      [912, 600],
+      [852, 600],
     ],
   ],
   parallax: { far: 0.4 },

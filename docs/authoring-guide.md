@@ -577,7 +577,7 @@ backgrounds soft and low in contrast so the outlined characters pop; give
 props a character touches (a bench, a well, a door) a `#2e2633` outline of
 about 3 px.
 
-### Where things can stand (`walk`, `water`)
+### Where things can stand (`walk`, `water`, `climb`)
 
 The engine checks every shot against what the scene is, not only what it
 looks like, so a cat halfway up a trunk, a boy above the floor or a fish on
@@ -600,21 +600,34 @@ says:
   boat's deck is a walk area drawn on top of the water: what stands there
   is held up. So keep the floor's polygon off the water, or it hides a
   land animal wading out too deep.
+- **`climb`**: what can be climbed, a polygon round each ladder, tree
+  trunk, wall or rope, from the ground it stands on to the top it reaches.
+  A `climb` must stay inside one the whole way, and the top it reaches
+  should be a walk area (the machaan's deck, the branch).
 
 ```json
 "walk": [
   [[-300, 578], [1580, 578], [1580, 760], [-300, 760]],
   [[700, 326], [890, 342], [890, 356], [700, 342]]
 ],
-"water": [{ "area": [[327, 462], [1580, 450], [1580, 760], [490, 760], [402, 590]] }]
+"water": [{ "area": [[327, 462], [1580, 450], [1580, 760], [490, 760], [402, 590]] }],
+"climb": [[[852, 318], [912, 318], [912, 600], [852, 600]]]
 ```
 
-The anchor sheet hatches walk areas green and water blue over the art, so
-check each against what it is drawn on. Every anchor must be on one, or
+A climber goes straight up from the foot of the ladder or trunk to its top
+(`to`), with its back to the viewer, and stands there when it gets there:
+
+```json
+{ "t": 1, "actor": "bandar", "do": "climb", "to": { "x": 880, "y": 340 } }
+```
+
+The anchor sheet hatches walk areas green, water blue and climb areas
+orange over the art, so check each against what it is drawn on. Every anchor must be on one, or
 waived by name for a spot in the air:
 `"allow": { "world.anchor:sky": "where the crow flies to" }`. The Python
 kit has `below(line, bottom)` (everything under a ground line) and
-`ledge(x0, x1, y)` (a thin strip along a branch or a wall top).
+`ledge(x0, x1, y)` (a thin strip along a branch or a wall top), and
+`rail(foot, top)` (a climb area up a ladder or a trunk, which may lean).
 
 A character's **`habitat`** says where it can be with nothing holding it
 up:
@@ -633,14 +646,16 @@ further up is a finding. A prop let go of falls to the floor (see
 
 These areas are flat on the screen, so they cannot tell a pot floating in
 front of the floor from one standing further back on it. Make things move
-with verbs (a `putdown` onto a table, a `jump` onto a branch), never by
-gliding them with `move`.
+with verbs (a `putdown` onto a table, a `jump` onto a branch, a `climb` up
+a ladder), never by gliding them with `move`. A walker that a `move` takes
+off the ground is a `support.air` finding that says so.
 
 ### World findings
 
 Once a shot is saved, the engine plays it and checks every actor at each
 tenth of a second. An actor carried (`attach`), standing on someone (`on`),
-mid-`jump`, out of sight or past the frame's edge is held up already. Each
+mid-`jump`, out of sight or past the frame's edge is held up already. A
+climber is held to the scene's `climb` areas instead of its walk areas. Each
 finding is an error with a code, the shot, the time span, who, where, and
 a fix when the fix is mechanical. `write_shot`, `patch_shot`, `render` and
 `talekit check` all report them, the first two with a frame of each, the
@@ -653,6 +668,7 @@ every finding is fixed or waived.
 | `support.air`        | stands on nothing: on no walk area, and cannot fly                                                                                                 |
 | `support.water`      | in deep water, and cannot swim                                                                                                                     |
 | `support.dry`        | lives in water, and is out of it                                                                                                                   |
+| `support.climb`      | a `climb` goes up (or down) nothing that can be climbed: outside every `climb` area                                                                |
 | `world.walk`         | the scene has no walk areas                                                                                                                        |
 | `world.anchor`       | an anchor is on no walk or water area                                                                                                              |
 | `attention.listener` | someone spoken to faces away from the speaker                                                                                                      |
@@ -904,6 +920,7 @@ falling the same way.
 | `fall`                | drops straight down under gravity to the ground under it, with one bounce (a vase off a shelf, a mango off a branch)       | from the height         |
 | `fly`                 | move with a wobble, beating any `flaps` (birds, kites); `to` may be in the sky                                             | distance ÷ 260          |
 | `jump`                | crouch, leap (in place, or to `to`), land with a give                                                                      | 0.8s                    |
+| `climb`               | up or down a ladder or trunk to `to`, hand over hand, back to the viewer (four legs: tipped up the slope, walking)         | distance ÷ 70           |
 | `wave`, `point`       | near arm (or front paw) up and waving / pointing (simple rig: lean toward)                                                 | 1.5s                    |
 | `nod`, `shake`        | head yes / no                                                                                                              | 0.8s                    |
 | `tremble`             | frightened shiver (head and shoulders, or the whole simple body)                                                           | 1.2s                    |

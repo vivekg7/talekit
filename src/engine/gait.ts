@@ -182,7 +182,7 @@ export function swingOf(rig: Rig, pose: Pose, part: string): [number, number] {
   // A chain part's own turn is its first link's; the rest bend further along it.
   const link = rig.links?.[part];
   const rot = link ? linkAngles(link, pose, part)[0] : (pose.rot[part] ?? 0);
-  if (!pose.depth || !rig.turn?.limbs.includes(part)) return [rot, 1];
+  if (!pose.depth || !rig.turn?.limbs.includes(part) || pose.flat?.includes(part)) return [rot, 1];
   const x = (1 - pose.depth) * Math.sin(rot * RAD);
   const y = Math.cos(rot * RAD);
   return [Math.atan2(x, y) / RAD, Math.hypot(x, y)];

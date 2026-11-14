@@ -688,6 +688,12 @@ export const SceneSchema = z.object({
     .describe(
       "The water's areas: what swims or floats must be in one, and what lives on land must not be in deep water. A `river` effect's points count as deep water when there is no `water`, but they often run over the bank: give `water` with a river"
     ),
+  climb: z
+    .array(AreaSchema)
+    .optional()
+    .describe(
+      "What can be climbed: a polygon round each ladder, tree trunk, wall or rope, from the ground it stands on to the top it reaches. A `climb` must stay inside one the whole way: the climber's feet are checked against them as it goes, so climbing nothing is an error"
+    ),
   allow: AllowSchema,
   anchors: z.record(z.string(), AnchorSchema).default({}),
   ambience: AmbienceSchema,
@@ -740,11 +746,12 @@ export const VerbSchema = z.enum([
   'aim',
   'shoot',
   'fall',
+  'climb',
 ]);
 export type Verb = z.infer<typeof VerbSchema>;
 
 /** The verbs that take an actor somewhere (`to`). */
-const MOVE_VERBS: ReadonlySet<Verb> = new Set(['walk', 'run', 'move', 'fly', 'jump']);
+const MOVE_VERBS: ReadonlySet<Verb> = new Set(['walk', 'run', 'move', 'fly', 'jump', 'climb']);
 export const isMoveVerb = (v: Verb): boolean => MOVE_VERBS.has(v);
 
 export const EmotionSchema = z.enum(['neutral', 'happy', 'sad', 'surprised', 'angry', 'scared']);
@@ -797,13 +804,13 @@ export const ActionSchema = z
     actor: IdSchema.optional(),
     do: VerbSchema.optional(),
     /**
-     * Target for walk/run/move/fly: an anchor name, a stage shortcut, or {x, y}. For a wipe,
+     * Target for walk/run/move/fly/climb: an anchor name, a stage shortcut, or {x, y}. For a wipe,
      * what is wiped: an actor in the cast or a spot; for a hold, whom (or where) the hand
      * rests on; for an aim, what is aimed at; for a shoot, where the arrow goes. On a `say`
      * with no `do`, the id of the actor being spoken to.
      */
     to: PositionSchema.optional().describe(
-      'walk/run/move/fly/jump/sit/lie/putdown: where to (anchor, stage shortcut or {x, y}); a sit or lie there walks over first. wipe: what the hand goes round on, an actor in the cast (its middle) or a spot. hold: what the hand rests on, an actor in the cast (its shoulder) or a spot. aim: what the archer aims at, an actor in the cast (its `mark`), an anchor or a spot. shoot: where the arrow goes, if not where the aim was (a miss); on an arrow not on a bow, where it flies to. On a say without do: the id of the actor spoken to, when the engine would guess wrong'
+      "walk/run/move/fly/jump/climb/sit/lie/putdown: where to (anchor, stage shortcut or {x, y}); a sit or lie there walks over first. climb: the top (or foot) of the ladder or trunk, straight above (below) where the climber stands, inside one of the scene's `climb` areas. wipe: what the hand goes round on, an actor in the cast (its middle) or a spot. hold: what the hand rests on, an actor in the cast (its shoulder) or a spot. aim: what the archer aims at, an actor in the cast (its `mark`), an anchor or a spot. shoot: where the arrow goes, if not where the aim was (a miss); on an arrow not on a bow, where it flies to. On a say without do: the id of the actor spoken to, when the engine would guess wrong"
     ),
     /** On an `aim`: the arrow (a cast actor) the engine puts on the string for it. */
     arrow: IdSchema.optional().describe(

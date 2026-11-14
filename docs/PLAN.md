@@ -830,6 +830,20 @@ three things about the model:
     exact for a straight drop, so Rapier waits for tumbling and rolling.
 - **Feet snap** onto a walk area up to 12 px below them, for a walker on its
   own feet.
+- **Climbing.** `climb` takes an actor up or down a ladder or a trunk to
+  `to`, at 70 px/s. A scene marks what can be climbed with `climb` areas,
+  and a climber is held to them instead of to the walk areas
+  (`support.climb`).
+  - A person turns its back to the viewer and goes hand over hand. Seen
+    from behind, the arms swing across the screen (`Pose.flat`), up in a V
+    either side of the head. The legs step into it, foreshortened. The
+    cycle is paced by the distance climbed, one hand and the other foot per
+    rung.
+  - An animal walks up, tipped up the slope by as much as 70°, about its
+    feet, easing into the tilt and out of it.
+  - A walker that a `move` takes off the ground is still `support.air`, but
+    the message now says it glides and names `climb`, `jump` and `fall`. That
+    is the R18 guards on the machaan ladder.
 - **The jump rule** (`continuity.jump`). Anything in sight moving faster
   than 1500 px/s between samples is a finding: a hand-over from too far
   (the roti), a `set.at` while it shows, a `move` too fast to be one (use
@@ -860,8 +874,6 @@ no walk areas, so they were run over all 36 projects.
 Still to do in 8.1:
 
 - `give`, a hand-over with both arms reaching;
-- `climb` for ladders and trees, and a `move` that carries a walker off
-  the ground flagged as a glide;
 - the speech check on voiced takes;
 - the arrow fix above.
 

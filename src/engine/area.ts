@@ -55,16 +55,20 @@ export interface Ground {
   walk: Area[];
   deep: Area[];
   shallow: Area[];
+  /** Ladders, trunks, walls: what a `climb` goes up. */
+  climb: Area[];
 }
 
-/** The scene's walk and water areas; a `river` effect's outline is deep water too. */
+/**
+ * The scene's walk, water and climb areas; a `river` effect's outline is deep water too.
+ */
 export function groundOf(scene: Scene): Ground {
   const deep: Area[] = [];
   const shallow: Area[] = [];
   for (const w of scene.water ?? []) (w.wade ? shallow : deep).push(w.area);
   for (const e of scene.effects ?? [])
     if (e.kind === 'river' && e.points && !scene.water?.length) deep.push(e.points as Area);
-  return { walk: scene.walk ?? [], deep, shallow };
+  return { walk: scene.walk ?? [], deep, shallow, climb: scene.climb ?? [] };
 }
 
 export function habitatOf(character: Character): Habitat[] {
