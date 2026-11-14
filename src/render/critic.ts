@@ -338,4 +338,7 @@ export function readThrough(project: Project): string {
   return `# ${project.meta.title}: read-through (${fmt(at)})\n` + out.join('\n') + '\n';
 }
 
-const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
+const fmt = (s: number) => {
+  const r = Math.round(s);
+  return `${Math.floor(r / 60)}:${String(r % 60).padStart(2, '0')}`;
+};

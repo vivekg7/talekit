@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
-import { writeFile, mkdir } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { mkdir, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { composeFrame } from './engine/compose.js';
 import { movieDuration } from './engine/timeline.js';
@@ -70,6 +71,16 @@ function voiceSummary(r: VoiceReport): string {
   return lines.join('\n');
 }
 
+/**
+ * Take out the pictures an earlier run left in `dir` under names this one writes, so a
+ * removed or renamed shot's frames are not read as this film's.
+ */
+async function clearPngs(dir: string, names: RegExp): Promise<void> {
+  if (!existsSync(dir)) return;
+  for (const f of await readdir(dir))
+    if (names.test(f)) await rm(path.join(dir, f), { force: true });
+}
+
 async function savePng(file: string, svg: string): Promise<void> {
   await mkdir(path.dirname(file), { recursive: true });
   await writeFile(file, rasterize(svg));
@@ -131,6 +142,7 @@ async function main(argv: string[]): Promise<void> {
       const problems = [...validateProject(project), ...(await postProblems(root, project))];
       console.log(formatProblems(problems));
       if (values.frames) {
+        await clearPngs(values.frames, /^\d{2,}-.+\.png$/);
         const findings = problems.flatMap((p) => (p.finding ? [p.finding] : []));
         for (const [i, f] of findings.entries()) {
           const file = path.join(
@@ -234,6 +246,8 @@ async function main(argv: string[]): Promise<void> {
       if (shotId && !shots.length) throw new Error(`no shot '${shotId}'`);
       const out = values.out ?? path.join(projectPaths(dir).out, 'critic');
       await mkdir(out, { recursive: true });
+      // Shot ids are letters, digits and dashes: safe in a pattern as they are.
+      await clearPngs(out, new RegExp(`^${shotId ?? '.+'}-\\d+\\.png$`));
       console.log(await guideSection('The critic'));
       if (!shotId) {
         const file = path.join(out, 'readthrough.md');
