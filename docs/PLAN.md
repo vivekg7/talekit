@@ -930,7 +930,7 @@ no walk areas, so they were run over all 36 projects.
 
 8.1 is done.
 
-### 8.2 so far
+### 8.2 as built
 
 - **Same-place continuity.** A shot says whether it carries straight on
   from the last one in the same scene (`cut: 'next'`) or time has passed
@@ -1102,6 +1102,34 @@ explain` lists them. A doer cast there and working from the first moment
 
 8.2 is done: same-place continuity, screen direction, blows that land,
 places that say how they are used, and the bow carried across a cut.
+
+### 8.3 so far
+
+- **Bubbles off every face** (`src/engine/place.ts`). A bubble used to go
+  above its speaker, centred, and kept clear only of the speaker. Now each
+  line's bubble tries ten places: above, slid half or all the way sideways
+  (as far as the tail still reaches the head), raised, and beside the head.
+  It takes the one that covers least of the faces on screen, the speaker's
+  own counting double, plus a small cost for each step away from centred.
+  Touching a bubble already up costs more than any move. The choice is
+  made once per line, from five frames through it, and the bubble then
+  follows the head as before, so it does not hop when people move. A face
+  is the box round the head of anyone with eyes, in sight and over 10 px
+  on screen.
+- **Over the released stories and examples**, at the middle of each of
+  954 lines:
+  - 106 bubbles covered more than 15% of a face, and 17 still do. Those
+    are crowds where every place covers someone (the khargosh-hi animals
+    round the hare trade the jackal's face for the deer's), and corners
+    with no room above or on one side (the gadha-hi guards on the
+    machaan).
+  - 156 bubbles moved.
+  - No two bubbles were up at once in any of them.
+  - Six were looked at before and after: lost-kite's Mia no longer covers
+    Dad's face, lighthouse's Pip no longer covers Grandma's, and the
+    kachhua-hi reel's Gudiya's bubble rises clear of the farmer's.
+- **Next in 8.3**: art over a speaker's face and a `hidden` actor who
+  shows, flagged; then solids and routing; then the art checks.
 
 ## Render speed
 

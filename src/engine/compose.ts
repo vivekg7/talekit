@@ -1,5 +1,4 @@
 import {
-  actorHeadTop,
   poseFor,
   onNearArm,
   renderActor,
@@ -21,6 +20,7 @@ import {
 } from './cast.js';
 import { applySprings } from './springs.js';
 import { bubbleSvg, wrapText, textWidth } from './bubble.js';
+import { bubblePlace, bubbleSpec } from './place.js';
 import { needsShaping, shapedText } from './glyphs.js';
 import { clamp01, easeInOut } from './easing.js';
 import { cullOffFrame, IDENTITY } from './cull.js';
@@ -71,18 +71,6 @@ export function layerTransform(c: View, W: number, H: number, p: number): string
  * speaker point) down to where it joins the neck, the head held to two fifths of the rig's
  * height for a long-necked one.
  */
-function headHalf(actor: ActorState): number {
-  const rig = rigOf(actor.character);
-  const s = (actor.character.height / rig.height) * actor.scale;
-  const neck = rig.parts.head?.pivot[1] ?? rig.speaker[1] + 0.4 * rig.height;
-  return (Math.min(neck - rig.speaker[1], 0.4 * rig.height) / 2) * s;
-}
-
-function worldToScreen(frame: FrameState, W: number, H: number, x: number, y: number) {
-  const c = frame.camera;
-  return { x: (x - c.x) * c.zoom + W / 2, y: (y - c.y) * c.zoom + H / 2 };
-}
-
 function captionSvg(
   text: string,
   style: 'title' | 'narration',
@@ -462,21 +450,15 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
         slopes
       );
     if (actor.bubble && actor.visible && !opts.quiet) {
-      const head = actorHeadTop(actor, pose);
-      const s = worldToScreen(frame, W, H, head.x, head.y);
+      const b = actor.bubble;
       bubbles.push(
         bubbleSvg({
-          text: actor.bubble.text,
-          style: actor.bubble.style,
-          headX: s.x,
-          headTop: s.y,
-          headR: headHalf(actor) * frame.camera.zoom,
-          frameW: W,
-          frameH: H,
+          ...bubbleSpec(project, frame, actor, b.text, b.style),
           font,
           uiScale: k,
-          age: actor.bubble.age,
-          left: actor.bubble.left,
+          age: b.age,
+          left: b.left,
+          place: bubblePlace(project, frame.shot, actor.id, frame.t - b.age),
         })
       );
     }

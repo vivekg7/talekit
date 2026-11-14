@@ -73,6 +73,27 @@ export interface BubbleSpec {
   /** Seconds since the bubble appeared and until it goes; it pops in and shrinks out. */
   age?: number;
   left?: number;
+  /** Where it goes off the head (see place.ts); default above it, centred. */
+  place?: BubblePlace;
+}
+
+/**
+ * Where a bubble goes off its speaker's head. Above it (`shift` slides it sideways, -1 to 1
+ * of as far as the tail still reaches the head; `lift` raises it, in head heights), or
+ * level with the head on one side. Above with no room there goes beside, as default.
+ */
+export interface BubblePlace {
+  side: 'above' | 'left' | 'right';
+  shift: number;
+  lift: number;
+}
+
+/** A box on screen. */
+export interface Box {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
 }
 
 const POP_IN = 0.28;
@@ -107,7 +128,15 @@ export function bubbleSvg(spec: BubbleSpec): string {
   return `<g opacity='${n(opacity)}' transform='translate(${n(x)} ${n(y)}) scale(${n(scale)}) translate(${n(-x)} ${n(-y)})'>${inner}</g>`;
 }
 
-function bubbleShape(spec: BubbleSpec): string {
+/** The box a bubble covers on screen, a shout's spikes included. */
+export function bubbleBox(spec: BubbleSpec): Box {
+  const { x, y, w, h, bold } = layout(spec);
+  if (!bold) return { x, y, w, h };
+  return { x: x - 0.14 * w, y: y - 0.14 * h, w: 1.28 * w, h: 1.28 * h };
+}
+
+/** Where a bubble's box and tail go, and its text wrapped. */
+function layout(spec: BubbleSpec) {
   const k = spec.uiScale;
   const fontSize = 26 * k;
   const lineHeight = 32 * k;
@@ -130,20 +159,28 @@ function bubbleShape(spec: BubbleSpec): string {
 
   const maxY = spec.frameH - margin - safe.bottom;
 
-  // Above the head, the tail pointing down at it.
-  let x = Math.max(minX, Math.min(maxX - w, spec.headX - w / 2));
-  let y = spec.headTop - tail - h;
+  const place = spec.headR === undefined ? undefined : spec.place;
+  // Above the head, the tail pointing down at it: slid sideways as far as the tail can
+  // still leave the bottom edge clear of the corners, and raised by head heights.
+  const reach = Math.max(0, w / 2 - 30 * k);
+  const shift = place?.side === 'above' ? place.shift * reach : 0;
+  const lift = place?.side === 'above' ? place.lift * 2 * (spec.headR ?? 0) : 0;
+  let x = Math.max(minX, Math.min(maxX - w, spec.headX - w / 2 + shift));
+  let y = spec.headTop - tail - h - lift;
   // Which edge the tail leaves from, and the point it reaches.
   let edge: 'bottom' | 'top' | 'left' | 'right' = 'bottom';
   let tipX = spec.headX;
   let tipY = spec.headTop + 6 * k;
-  if (y < minY && spec.headR !== undefined) {
-    // No room above (a speaker high in the frame): beside the head and level with it, on
-    // the side with more room, so it never covers the speaker. A shout's spikes reach out
-    // past its box, so it stands that much further off.
+  const beside = place?.side === 'left' || place?.side === 'right';
+  if ((y < minY || beside) && spec.headR !== undefined) {
+    // No room above (a speaker high in the frame), or placed there: beside the head and
+    // level with it, on the side with more room, so it never covers the speaker. A shout's
+    // spikes reach out past its box, so it stands that much further off.
     const r = spec.headR;
     const gap = r + tail + (bold ? 0.14 * w : 0);
-    const right = maxX - (spec.headX + gap) >= spec.headX - gap - minX;
+    const right = beside
+      ? place!.side === 'right'
+      : maxX - (spec.headX + gap) >= spec.headX - gap - minX;
     x = Math.max(minX, Math.min(maxX - w, right ? spec.headX + gap : spec.headX - gap - w));
     const mid = spec.headTop + r;
     y = Math.max(minY, Math.min(maxY - h, mid - h / 2));
@@ -157,6 +194,11 @@ function bubbleShape(spec: BubbleSpec): string {
       tipY = y - 4;
     }
   }
+  return { k, x, y, w, h, edge, tipX, tipY, lines, bold, fontSize, lineHeight, padY };
+}
+
+function bubbleShape(spec: BubbleSpec): string {
+  const { k, x, y, w, h, edge, tipX, tipY, lines, bold, fontSize, lineHeight, padY } = layout(spec);
   const tailUp = edge === 'top';
   const side = edge === 'left' || edge === 'right';
   // The tail's root: on its edge, as near the tip as the rounded corners allow (a thought

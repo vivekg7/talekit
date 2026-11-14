@@ -1240,7 +1240,14 @@ the next starts (`write_shot` warns when bubbles overlap): give a reply
 inside the frame at the same size at any zoom, so one that looks clipped
 on a small sheet is not: check the text. A speaker too high in the frame
 for the bubble to fit above (a monkey up a tree) gets it beside the head
-instead, on the side with more room, so it never covers them.
+instead, on the side with more room, so it never covers them. The engine
+keeps a bubble off every face in the frame, not only the speaker's: when
+the bubble would hang over someone taller beside the speaker, it slides
+sideways, goes higher or sits beside the head, and it keeps clear of a
+bubble already up. It picks the place once for the whole line, from frames
+through it, so the bubble does not hop about as people move. In a tight
+crowd or a corner there may be no clear place, so spread the cast that
+talks across the frame.
 
 Hindi works: Devanagari is drawn in the bundled Baloo 2 whatever the
 project's `font` (a Latin stack). Write it as in a book, `"अरे कछुए, तुम
