@@ -714,6 +714,25 @@ export const SceneSchema = z.object({
     .describe(
       "What can be climbed: a polygon round each ladder, tree trunk, wall or rope, from the ground it stands on to the top it reaches. A `climb` must stay inside one the whole way: the climber's feet are checked against them as it goes, so climbing nothing is an error"
     ),
+  solids: z
+    .record(
+      IdSchema,
+      z.object({
+        area: AreaSchema.describe(
+          "Its footprint on the floor: a polygon of [x, y] corners round where it stands on the ground (the well's ring, the cot's legs, a trunk's foot, a boulder's base), not round its picture"
+        ),
+        layer: z
+          .enum(['svg', 'foreground'])
+          .default('svg')
+          .describe(
+            'Where its picture is drawn, which decides the side walks pass it on: in `svg` (the default) actors are drawn over it, so they go round its front, never behind it; in `foreground` it is drawn over them, so they go round its back'
+          ),
+      })
+    )
+    .optional()
+    .describe(
+      'Things standing on the floor that feet cannot pass through: { well: { area: [[560, 600], [720, 600], [730, 640], [550, 640]] } }. A `walk` or `run` whose straight line crosses one goes round it on its own, by the shortest way the walk areas leave (it keeps to them, so it crosses water only by a walk area laid over it, a bridge), on the side its `layer` lets it be seen right; standing inside one is an error. A spot on one (a seat on the cot) is still walked to, straight in at the end. A gap between two is a way through: a hedge with a gap is two solids'
+    ),
   allow: AllowSchema,
   anchors: z.record(z.string(), AnchorSchema).default({}),
   ambience: AmbienceSchema,

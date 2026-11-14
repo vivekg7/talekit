@@ -1152,7 +1152,41 @@ places that say how they are used, and the bow carried across a cut.
   - It costs well under a second a film: only scenes with a `foreground` or
     `near` layer are looked at for faces, and only shots that use `hidden`
     for the rest.
-- **Next in 8.3**: solids and routing; then the art checks.
+- **Solids and routing** (`src/engine/route.ts`). A scene's `solids` are
+  named footprints on the floor (a well's ring, a cot, a trunk's foot). A
+  `walk` or `run` whose straight line is blocked goes round by the
+  shortest way, found on a visibility graph rather than a navmesh. Its
+  nodes are the corners of the solids and the walk areas, each stood 14 px
+  off (scaled with the walker), and the points where two areas' edges
+  cross (a bridge laid over two banks). An edge joins two nodes when points
+  every 5 px along it are all on the ground. The move then carries its
+  turns: position, the gait's distance and the default duration all
+  follow the longer way, and facing is still set once, toward where it
+  ends.
+  - **A solid is passed on one side.** The art is flat: a well painted in
+    `svg` is drawn under everyone, so a walker behind it shows in front
+    of it, and one painted in `foreground` is drawn over everyone. So a
+    solid gives the `layer` its picture is in, and the strip behind it
+    (svg) or in front of it (foreground), as wide as its footprint, is in
+    the way too. Seen first on the khargosh-hi well, whose front wall is
+    foreground: routed round the front, the lion walked "into" the wall.
+    With the layer, the rabbit and the lion both go round the back and the
+    wall hides their legs as it should.
+  - Routes keep to the walk areas, so they cross water only where a walk
+    area is laid over it. With no walk areas, only solids are gone round:
+    a walk across the oont-hi river was first routed off the bottom of
+    the frame, since nothing said where the floor ends.
+  - A solid either end of the walk is on, or is in the strip of, is not
+    in its way: a walk to a seat on the cot goes straight in at the end.
+    Standing inside a footprint (cast, `set` or glided there) is
+    `support.solid`; sitting or lying on it is not.
+  - **Openings are not built.** A gap is where no footprint is (a hedge
+    with a gap is two solids), and an anchor names it if a walk goes
+    there. Named openings would add nothing to routing until there are
+    enclosures with insides on screen.
+  - **No released film changes.** Their scenes have no solids, and none
+    of their 767 walks leaves the walk areas, so none is routed.
+- **Next in 8.3**: the art checks on the sheets.
 
 ## Render speed
 

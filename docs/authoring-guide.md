@@ -609,7 +609,7 @@ backgrounds soft and low in contrast so the outlined characters pop; give
 props a character touches (a bench, a well, a door) a `#2e2633` outline of
 about 3 px.
 
-### Where things can stand (`walk`, `water`, `climb`)
+### Where things can stand (`walk`, `water`, `climb`, `solids`)
 
 The engine checks every shot against what the scene is, not only what it
 looks like, so a cat halfway up a trunk, a boy above the floor or a fish on
@@ -636,6 +636,14 @@ says:
   trunk, wall or rope, from the ground it stands on to the top it reaches.
   A `climb` must stay inside one the whole way, and the top it reaches
   should be a walk area (the machaan's deck, the branch).
+- **`solids`**: things standing on the floor that feet cannot pass
+  through, by name: `{ "well": { "area": [[x, y], ...], "layer": "svg" } }`.
+  The area is the footprint on the floor (the ring of the well, the legs of
+  the cot, the foot of a trunk), not the picture. `layer` says where the
+  picture is drawn, since that decides the side it is passed on. Drawn in
+  `svg` (the default), it is under everyone, so a walker behind it would
+  show in front of it: walks go round its front. Drawn in `foreground`, it
+  is over everyone, so walks go round its back.
 
 ```json
 "walk": [
@@ -646,6 +654,19 @@ says:
 "climb": [[[852, 318], [912, 318], [912, 600], [852, 600]]]
 ```
 
+A `walk` or `run` whose straight line is blocked goes round what is in the
+way on its own, by the shortest way that keeps to the walk areas and off
+the solids (on their open side), turning a step clear of each corner. It
+crosses water only by a walk area laid over it, such as a bridge, and takes
+as long as the longer way takes at its pace, unless the action gives a
+`duration`. So stage a walk from where it starts to where it goes and let
+the engine find the way; do not break it into legs. A walk to a spot on a
+solid (a seat on the cot) goes straight in at the end. A gap between two
+solids is a way through: a hedge with a gap is two solids. In a scene with
+no walk areas only solids are gone round. Standing inside a solid's
+footprint, cast or `set` there or glided in with `move`, is a
+`support.solid` finding. Sitting or lying on it is not.
+
 A climber goes straight up from the foot of the ladder or trunk to its top
 (`to`), with its back to the viewer, and stands there when it gets there:
 
@@ -653,13 +674,15 @@ A climber goes straight up from the foot of the ladder or trunk to its top
 { "t": 1, "actor": "bandar", "do": "climb", "to": { "x": 880, "y": 340 } }
 ```
 
-The anchor sheet hatches walk areas green, water blue and climb areas
-orange over the art, so check each against what it is drawn on. Every anchor must be on one, or
+The anchor sheet hatches walk areas green, water blue, climb areas orange
+and solids red over the art, so check each against what it is drawn on. Every anchor must be on one, or
 waived by name for a spot in the air:
 `"allow": { "world.anchor:sky": "where the crow flies to" }`. The Python
 kit has `below(line, bottom)` (everything under a ground line) and
 `ledge(x0, x1, y)` (a thin strip along a branch or a wall top), and
-`rail(foot, top)` (a climb area up a ladder or a trunk, which may lean).
+`rail(foot, top)` (a climb area up a ladder or a trunk, which may lean),
+and `solid(x, y, width, depth)` (an oval footprint round the foot of a
+well, a trunk or a boulder).
 
 A character's **`habitat`** says where it can be with nothing holding it
 up:
@@ -700,6 +723,7 @@ every finding is fixed or waived.
 | `support.air`          | stands on nothing: on no walk area, and cannot fly                                                                                                                                       |
 | `support.water`        | in deep water, and cannot swim                                                                                                                                                           |
 | `support.dry`          | lives in water, and is out of it                                                                                                                                                         |
+| `support.solid`        | stands inside a solid's footprint (a well, a cot, a trunk): cast, set or glided there; walks go round on their own                                                                       |
 | `support.climb`        | a `climb` goes up (or down) nothing that can be climbed: outside every `climb` area                                                                                                      |
 | `world.walk`           | the scene has no walk areas                                                                                                                                                              |
 | `world.anchor`         | an anchor is on no walk or water area                                                                                                                                                    |

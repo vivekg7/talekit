@@ -26,6 +26,7 @@ reasoning are in `docs/PLAN.md`. Read both before changing the data model.
   `format.ts` (a film's frame or a portrait reel's: text scale, the safe
   area the reel apps leave), `sound.ts` (the cue sheet: what is heard when), `subtitles.ts` (subtitle
   tracks from the lines and their `translation`),
+  `route.ts` (the way a walk goes round solids and keeps to the walk areas),
   `bubble.ts` (text wrap and bubble geometry), `place.ts` (where each
   line's bubble goes: off every face on screen, chosen once per line), `glyphs.ts` (Devanagari
   shaped with HarfBuzz into outlines, in the bundled `fonts/Baloo2.ttf`).

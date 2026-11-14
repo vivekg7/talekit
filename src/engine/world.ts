@@ -33,6 +33,7 @@ import {
   type ActorState,
 } from './timeline.js';
 import { STRIKE_HIT } from './motion.js';
+import { solidAt } from './route.js';
 import { lineEnd } from './voice.js';
 
 export { waived };
@@ -64,6 +65,7 @@ export const CODES: Record<string, string> = {
   'support.water': 'an actor that cannot swim is in deep water',
   'support.dry': 'an actor that lives in water is out of it',
   'support.climb': 'a climb goes up nothing that can be climbed',
+  'support.solid': 'an actor stands inside a solid (a well, a cot, a trunk): where feet cannot be',
   'attention.listener': 'someone spoken to faces away from the speaker',
   'attention.speaker': 'a speaker faces away from who the line is said to',
   'attention.reacts': 'someone reacts to what they face away from',
@@ -762,7 +764,90 @@ function contactRule(project: Project, shot: Shot): Finding[] {
   return out;
 }
 
-const RULES = [supportRule, attentionRule, jumpRule];
+/**
+ * Nobody stands inside a solid's footprint (`scene.solids`): a walk goes round one on its
+ * own (route.ts), so this is someone cast, set or glided there. Sitting or lying on one (a
+ * seat on the cot, a bed) is what it is for; fliers are left alone.
+ */
+function solidRule(project: Project, shot: Shot, samples: Sample[]): Finding[] {
+  const scene = project.scenes[shot.scene];
+  if (!scene.solids) return [];
+  const allow = [shot.allow, scene.allow];
+  const W = project.meta.width;
+  const out: Finding[] = [];
+  for (const id of Object.keys(shot.cast)) {
+    if (habitatOf(project.characters[id]).includes('air')) continue;
+    if (waived(allow, 'support.solid', id)) continue;
+    let run: { solid: string; t0: number; t1: number; at: XY; still: boolean } | undefined;
+    const close = () => {
+      if (!run) return;
+      const area = scene.solids![run.solid].area;
+      // The nearest spot out of it, a step clear of its edge.
+      const edge = nearestOutside(area, run.at);
+      const cast = shot.cast[id];
+      const fix =
+        run.t0 === 0 && run.still && typeof cast.at === 'object'
+          ? { path: `/cast/${id}/at`, value: { ...cast.at, x: r(edge.x), y: r(edge.y) } }
+          : undefined;
+      const span =
+        run.t0 === run.t1 ? `at ${r1(run.t0)}s` : `from ${r1(run.t0)}s to ${r1(run.t1)}s`;
+      out.push({
+        code: 'support.solid',
+        shot: shot.id,
+        t: [r1(run.t0), r1(run.t1)],
+        actors: [id],
+        at: run.at,
+        message:
+          `'${id}' stands inside '${run.solid}' at (${r(run.at.x)}, ${r(run.at.y)}) ${span}, where feet cannot be: the nearest spot clear of it is (${r(edge.x)}, ${r(edge.y)}). ` +
+          `A walk goes round it on its own; cast or set it outside, and \`walk\` rather than \`move\` past it.`,
+        ...(fix ? { fix } : {}),
+      });
+      run = undefined;
+    };
+    for (const s of samples) {
+      const a = s.actors.find((x) => x.id === id)!;
+      const up = a.sit < 0.5 && a.lie < 0.5 && a.locomotion !== 'fly' && a.locomotion !== 'climb';
+      const solid = up && !heldUp(a, W) ? solidAt(scene, restingPoint(a)) : undefined;
+      if (run && solid === run.solid) {
+        run.t1 = s.t;
+        if (dist(restingPoint(a), run.at) > 1) run.still = false;
+        continue;
+      }
+      close();
+      if (solid) run = { solid, t0: s.t, t1: s.t, at: restingPoint(a), still: true };
+    }
+    close();
+  }
+  return out;
+}
+
+/** The nearest point a step outside an area to p, which is inside it. */
+function nearestOutside(area: Area, p: XY): XY {
+  // nearestIn gives p itself from inside: walk the edges for the nearest point on them.
+  let best = p;
+  let bestD = Infinity;
+  for (let i = 0, j = area.length - 1; i < area.length; j = i++) {
+    const [ax, ay] = area[j];
+    const [bx, by] = area[i];
+    const dx = bx - ax;
+    const dy = by - ay;
+    const len = dx * dx + dy * dy;
+    const u = len ? Math.max(0, Math.min(1, ((p.x - ax) * dx + (p.y - ay) * dy) / len)) : 0;
+    const q = { x: ax + u * dx, y: ay + u * dy };
+    const d = dist(q, p);
+    if (d < bestD) {
+      bestD = d;
+      best = q;
+    }
+  }
+  const d = dist(best, p) || 1;
+  return {
+    x: best.x + ((best.x - p.x) / d) * EDGE_TOLERANCE,
+    y: best.y + ((best.y - p.y) / d) * EDGE_TOLERANCE,
+  };
+}
+
+const RULES = [supportRule, solidRule, attentionRule, jumpRule];
 
 /** Every finding in a shot, waivers applied. */
 export function shotFindings(project: Project, shot: Shot): Finding[] {

@@ -146,6 +146,22 @@ def rail(foot, top, width=40):
     ]
 
 
+def solid(x, y, width, depth, layer="svg", sides=12):
+    """A solid: the oval footprint on the floor of something feet cannot pass through (a
+    well's ring, a trunk's foot, a boulder), centred on (x, y), `width` across and `depth`
+    from back to front. layer="foreground" when its picture is drawn there, so walks go
+    round its back; in "svg" (the default) they go round its front.
+    scene["solids"] = {"well": solid(850, 632, 290, 60, "foreground")}."""
+    pts = [
+        [
+            round(x + width / 2 * math.cos(2 * math.pi * i / sides)),
+            round(y + depth / 2 * math.sin(2 * math.pi * i / sides)),
+        ]
+        for i in range(sides)
+    ]
+    return {"area": pts, "layer": layer}
+
+
 def used(x, y, at, facing=None, pose="stand", **more):
     """An anchor for a place used a certain way: whoever works there stands (or, pose="sit",
     sits on the ground; give floor= for a seat) at (x, y) facing `facing`, and a strike, wipe

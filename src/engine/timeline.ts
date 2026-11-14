@@ -41,6 +41,7 @@ import type {
   View,
 } from './types.js';
 import { isMoveVerb } from './types.js';
+import { routeLength, routeOf } from './route.js';
 
 export interface Point {
   x: number;
@@ -256,19 +257,35 @@ function bedHeight(scene: Scene, at: Point): number {
   return 0;
 }
 
-export function moveDuration(verb: Verb, from: Point, to: Point, explicit?: number): number {
+/**
+ * The turns a walk or run from `from` to `to` takes round what is in the way (route.ts):
+ * none for other moves, or between spots on someone.
+ */
+export function viaOf(scene: Scene, verb: Verb, from: Point, to: Point): XY[] {
+  if ((verb !== 'walk' && verb !== 'run') || from.rides || to.rides) return [];
+  return routeOf(scene, from, to, Math.max(from.scale, to.scale));
+}
+
+export function moveDuration(
+  verb: Verb,
+  from: Point,
+  to: Point,
+  explicit?: number,
+  scene?: Scene
+): number {
   if (explicit) return explicit;
-  const dist = Math.hypot(to.x - from.x, to.y - from.y);
+  const via = scene ? viaOf(scene, verb, from, to) : [];
+  const dist = routeLength(from, via, to);
   const speed = SPEED[verb] ?? 300;
   return Math.max(verb === 'jump' ? VERB_DURATION.jump! : 0.4, dist / speed);
 }
 
-export function actionDuration(a: Action, from?: Point, to?: Point): number {
+export function actionDuration(a: Action, from?: Point, to?: Point, scene?: Scene): number {
   if (a.duration) return a.duration;
   if (a.say) return sayDuration(a.say);
   if (a.caption) return 3;
   if (a.camera) return 1;
-  if (a.do && isMoveVerb(a.do) && from && to) return moveDuration(a.do, from, to);
+  if (a.do && isMoveVerb(a.do) && from && to) return moveDuration(a.do, from, to, undefined, scene);
   if (a.do && VERB_DURATION[a.do]) return VERB_DURATION[a.do]!;
   return 0;
 }
@@ -283,6 +300,8 @@ interface Move {
   rest: number;
   /** A drop under gravity: faster and faster, then one small bounce (see fallMove). */
   fall?: boolean;
+  /** The turns a walk takes round what is in the way, between `from` and `to` (route.ts). */
+  via?: XY[];
 }
 
 /** Gravity, scene pixels a second squared at scale 1 (a 220 px child is about 1.2 m). */
@@ -363,7 +382,7 @@ function moveProgress(m: Move, t: number): number {
  * have different perspective scales. This is what a planted foot has to slide past.
  */
 function canonicalDistance(m: Move, e: number, k: number): number {
-  const len = Math.hypot(m.to.x - m.from.x, m.to.y - m.from.y);
+  const len = routeLength(m.from, m.via ?? [], m.to);
   const s0 = m.from.scale;
   const ds = m.to.scale - m.from.scale;
   const f = Math.abs(ds) < 1e-6 ? e / s0 : Math.log((s0 + ds * e) / s0) / ds;
@@ -375,11 +394,22 @@ function movePoint(m: Move, t: number): Point {
   // Not yet off, or there: the end itself, still on whoever it is on.
   if (e <= 0) return m.from;
   if (e >= 1) return m.to;
-  return {
-    x: lerp(m.from.x, m.to.x, e),
-    y: lerp(m.from.y, m.to.y, e),
-    scale: lerp(m.from.scale, m.to.scale, e),
-  };
+  const scale = lerp(m.from.scale, m.to.scale, e);
+  if (!m.via?.length) return { x: lerp(m.from.x, m.to.x, e), y: lerp(m.from.y, m.to.y, e), scale };
+  // Round the turns: as far along the way as along a straight walk.
+  const pts = [m.from, ...m.via, m.to];
+  let left = e * routeLength(m.from, m.via, m.to);
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1];
+    const b = pts[i];
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    if (left <= len || i === pts.length - 1) {
+      const u = len ? Math.min(1, left / len) : 1;
+      return { x: lerp(a.x, b.x, u), y: lerp(a.y, b.y, u), scale };
+    }
+    left -= len;
+  }
+  return m.to;
 }
 
 /** Seconds an emotion take lasts, and a look takes to settle on a new target. */
@@ -1004,11 +1034,20 @@ export function resolveActor(
         }
       } else if (isMoveVerb(verb)) {
         let to = a.to ? resolvePosition(project, scene, a.to) : point;
-        const d = actionDuration(a, point, to);
+        const d = actionDuration(a, point, to, scene);
         const t0 = setOff(a.t);
         // A spot on someone is read off them as they are when it lands there.
         if (a.on && to.rides?.base !== a.on) to = { ...to, rides: { base: a.on, at: t0 + d } };
-        move = { verb, from: point, to, t0, t1: t0 + d, rest: locoStart };
+        const via = viaOf(scene, verb, point, to);
+        move = {
+          verb,
+          from: point,
+          to,
+          t0,
+          t1: t0 + d,
+          rest: locoStart,
+          ...(via.length ? { via } : {}),
+        };
         locoStart = t0;
         // Up onto someone from when it sets off; off them once it lands somewhere else.
         if (a.on) {
@@ -1049,8 +1088,10 @@ export function resolveActor(
             // Up, across to the foot of it and (an animal) up onto it, then down.
             at = setOff(a.t);
             if (far) {
-              const d = moveDuration('walk', point, foot);
+              const d = moveDuration('walk', point, foot, undefined, scene);
+              const via = viaOf(scene, 'walk', point, foot);
               move = { verb: 'walk', from: point, to: foot, t0: at, t1: at + d, rest: locoStart };
+              if (via.length) move.via = via;
               locoStart = at;
               if (Math.abs(foot.x - point.x) > 1) turnTo(foot.x > point.x ? 'right' : 'left', a.t);
               at += d;

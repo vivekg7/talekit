@@ -151,7 +151,7 @@ export function staging(project: Project, scene: Scene, shot: Shot): StagedActio
     if (!id || !w.do || !CONTACT.has(w.do) || typeof w.to !== 'string' || !shot.cast[id]) continue;
     const use = scene.anchors[w.to]?.use;
     if (!use || !project.characters[id] || waived(allow, 'contact.reach', id)) continue;
-    const go = approach(shot, at, id, w.to, scene.anchors[w.to], w.t, w.do);
+    const go = approach(scene, shot, at, id, w.to, scene.anchors[w.to], w.t, w.do);
     if (go) add(go);
   }
 
@@ -260,6 +260,7 @@ export function staging(project: Project, scene: Scene, shot: Shot): StagedActio
  * place, working from the start of the shot, opens the shot sat there.
  */
 function approach(
+  scene: Scene,
   shot: Shot,
   at: (id: string, t: number) => ActorState,
   id: string,
@@ -276,7 +277,7 @@ function approach(
     Math.hypot(now.x - foot.x, now.y - foot.y) <= APPROACH;
   if (near && (!sits || now.sit > 0.5)) return undefined;
   if (!near && now.sit > 0.05) return undefined;
-  const walk = near ? 0 : moveDuration('walk', now, foot);
+  const walk = near ? 0 : moveDuration('walk', now, foot, undefined, scene);
   const start = t - WORK_LEAD - walk - (sits ? SIT_TIME : 0) - STEP;
   const why = `${sits ? 'sits at' : 'goes to'} ${anchorId} to ${verb}`;
   const act = (from: number, extra: Partial<Action> = {}) =>

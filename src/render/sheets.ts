@@ -450,7 +450,8 @@ export function sceneSheetSvg(project: Project, scene: Scene): string {
     }
   }
   // The world: where feet can stand (green), the water (blue, paler where it can be
-  // waded) and what can be climbed (orange), hatched over the art so what it covers shows.
+  // waded), what can be climbed (orange) and the solids feet go round (red), hatched over
+  // the art so what it covers shows.
   const ground = groundOf(scene);
   const area = (pts: Area, color: string, label: string) => {
     const d = 'M' + pts.map(([x, y]) => `${n(x)} ${n(y)}`).join(' L') + ' Z';
@@ -466,6 +467,12 @@ export function sceneSheetSvg(project: Project, scene: Scene): string {
   for (const a of ground.deep) world += area(a, '#3fa9ff', 'water');
   for (const a of ground.shallow) world += area(a, '#9fdcff', 'water (wade)');
   for (const a of ground.climb) world += area(a, '#ff9f1c', 'climb');
+  for (const [id, sol] of Object.entries(scene.solids ?? {}))
+    world += area(
+      sol.area,
+      '#ff5a4f',
+      `solid ${escapeXml(id)} (passed ${sol.layer === 'foreground' ? 'behind' : 'in front'})`
+    );
   marks = world + marks;
   // Each swaying group's pivot, a pink ring, labelled with its id (on far or near, in that
   // layer's own coordinates, which line up with the frame when the camera is at rest).
