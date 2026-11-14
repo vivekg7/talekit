@@ -69,6 +69,16 @@ describe('cue sheet', () => {
     expect(music[1].until).toBe(8);
   });
 
+  it("plays a shot's own music under that shot only, then the project's again", () => {
+    const p = project([shot('a'), shot('b', { music: 'ping' }), shot('c'), shot('d')], 'tune');
+    const music = cueSheet(p).filter((c) => c.bus === 'music');
+    expect(music.map((c) => [c.label, c.at])).toEqual([
+      ['tune', 0],
+      ['ping', 2],
+      ['tune', 4],
+    ]);
+  });
+
   it("carries a scene's ambience across cuts between shots in it", () => {
     const p = project([shot('a'), shot('b'), shot('c', { scene: 'home' }), shot('d')]);
     const beds = cueSheet(p).filter((c) => c.label === 'birds');

@@ -1421,10 +1421,12 @@ it" }` (the narrator's as `speech.mismatch:narrator`).
 - **Narrator.** `set_audio(path, narrator: "chatterbox:hf_alpha")` reads
   every caption, narration and title alike.
 - **Music.** `set_audio(path, music: "playful")` plays under the film. A
-  shot's `music` changes it from there: `"tense"`, `{ "track": "sad",
-"volume": 0.7 }`, or `false` for silence. The same track plays on across
-  a cut; a new one crossfades in. It ducks under voices on its own. Change
-  it only where the mood turns.
+  shot's `music` plays under that shot instead: `"tense"`, `{ "track":
+"sad", "volume": 0.7 }`, or `false` for silence. The next shot without
+  one goes back to the project's, so a mood that lasts several shots sets
+  it on each of them. The same track plays on across a cut; a new one
+  crossfades in. It ducks under voices on its own. Change it only where
+  the mood turns.
 - **Ambience.** A scene's `ambience` loops the place's sounds: `["jungle"]`,
   `[{ "sound": "village", "volume": 0.6 }]`; the library scenes have
   theirs. It carries across cuts in the same place. `surface` (`hard`, the
