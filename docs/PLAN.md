@@ -1358,10 +1358,44 @@ at 0.55 of the strike.
   spray is drawn with the actor, since it is all above the line. Sizes
   go by the square root of what lands, so a frog's splash still shows.
   Across the films a re-render adds 126 puffs of dust, 44 splashes
-  (all but one a walk or a swan's landing into water) and 212 rings; the
-  films' scenes give no `waterline` yet, so their splashes and rings stay
-  faint until they do. Finding them costs under 0.35 s a film.
-
+  (all but one a walk or a swan's landing into water) and 212 rings.
+  The films' river scenes had no `water` and no `waterline`, so they were
+  given both (the `water` the painted river, kept off the floor: a river
+  effect's points ran over the bank, and a crier on a ghat's floor drew
+  rings). Finding them costs under 0.35 s a film.
+- **Bow waves** (impact.ts). Rings alone left a gliding swan looking
+  towed. Whatever is `wet` (the rings' test) and moving trails a V. It is
+  built the way a real wake forms, not drawn as a fixed shape: the
+  swimmer's place is sampled 12 times a second, each crest is where its
+  front was up to 1.4 s back, spread out sideways since at half its
+  speed then (a ship's wake opens at about a third; half reads better
+  foreshortened), and fading with age. So the arms lengthen and widen
+  with speed, bend round a turn, and when it stops no more crests leave
+  it and the V fades out on its own. The front is the way it moves, not
+  the way it faces. Each arm has three ripples, one behind the other: a
+  single line got lost in the art's white waterline dashes, and short
+  slanting crests across the arm read as hatching. The far arm is drawn
+  with the back half of the rings and the near arm with the near half,
+  over the band and clipped to the water. With a waterline every crest
+  lies on the line, so a dunk's up and down never turns the V. A cheap
+  look 4 times a second first skips anyone who never gets wet; across
+  the films it shows in about 3,200 frames (the camel's ford, the
+  crocodile's ride, the jackal's swim) for under 0.25 s a film, finding
+  and drawing.
+- **Footprints** (impact.ts, gait.ts `legFalls`). A new `surface`, `sand`
+  or `snow`, keeps them; `grass` (also earth) does not, since prints on a
+  lawn would be wrong and every film's grass scenes would sprout trails
+  on a re-render. Each foot's landing is found as the footsteps are,
+  where the gait's phase passes that leg's landing (30 samples a second),
+  and the spot is the leg's foot point in the pose then, which the gait
+  keeps planted through the stance; the far legs' prints sit a little up
+  the floor from the near ones'. A person leaves a sole and heel, one
+  path so the overlap is no darker, an animal a pad; they fade to about
+  half over 6 s and stay to the end of the shot, under every shadow.
+  None in water, on a seat, sitting, lying, carried or ridden, nor off
+  the walk areas. Sand and snow step like grass. No film has a sand scene
+  yet; played all on sand, the films would get 35 to 1,039 prints each,
+  costing under a second a film.
 - **Held sails** (timeline.ts, actor.ts, weather.ts). A carried prop
   marked `sail` (0 to 1: an umbrella 1, a flag 0.6) leans downwind about
   its grip, gusting by the springs' own gust model (moved to weather.ts
@@ -1385,10 +1419,11 @@ at 0.55 of the strike.
   No library prop is an umbrella or a flag, and no story carries one yet
   (the films' flags are painted into the scenery).
 
-Not done: a swimmer's bow wave (only rings), footprints left in the
-ground, the body leaning into a gale, a planted flag (the scene's `sway`
-moves it, without facing downwind). Birds taking off at a roar are the author's, since they leave
-the shot.
+Not done: prints across a cut (each shot starts with clean ground), a
+wake that breaks on a bank or a rock (it is drawn over them), the body
+leaning into a gale, a planted flag (the scene's `sway` moves it,
+without facing downwind). Birds taking off at a roar are the author's,
+since they leave the shot.
 
 ## Render speed
 

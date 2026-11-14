@@ -19,7 +19,14 @@ import {
   throwOf,
 } from './cast.js';
 import { applySprings } from './springs.js';
-import { impactsAt, overForeground, renderImpacts } from './impact.js';
+import {
+  impactsAt,
+  overForeground,
+  renderImpacts,
+  renderPrints,
+  renderWake,
+  wakeAt,
+} from './impact.js';
 import { bubbleSvg, wrapText, textWidth } from './bubble.js';
 import { bubblePlace, bubbleSpec } from './place.js';
 import { needsShaping, shapedText } from './glyphs.js';
@@ -454,6 +461,8 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
   // The scenery that sways in the air, turned for now (and further in a wind).
   const sway = (layer: string | undefined) => swayLayer(layer, scene.sway, frame.t, w.wind ?? 0);
   let world = `<g class='scene'>${sway(scene.svg)}</g>` + fx('stage') + sky.stage;
+  // Footprints in sand or snow lie on the floor, under the shadows.
+  world += renderPrints(project, frame.shot, frame.t);
   world += posed.map(({ actor, pose }) => renderShadow(actor, pose)).join('');
   const lights = castLights(scene, fires);
   const sun = lights.find((l) => l.kind === 'sky');
@@ -478,8 +487,10 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
     const passing = bow ? 1 - bow.actor.behind! : 0;
     const up = pose.bow ? Math.max(bowOver(pose.bow.raise), passing) : 0;
     // The dust, splashes and rings it has raised: the far side of each ring behind it.
+    // And the far arm of the wake it trails through the water.
     const impacts = actor.visible ? impactsAt(project, frame.shot, actor.id, frame.t) : [];
-    world += renderImpacts(impacts, 'back', scene.surface);
+    const wake = actor.visible ? wakeAt(project, frame.shot, actor.id, frame.t) : undefined;
+    world += renderImpacts(impacts, 'back', scene.surface) + renderWake(wake, 'back');
     if (up > 0 || passing > 0) {
       const rig = rigOf(actor.character);
       const near = (part: string) => onNearArm(rig, part);
@@ -523,8 +534,9 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
       impacts.filter((b) => b.water === undefined),
       'surface'
     );
+    if (wake && wake.water === undefined) world += renderWake(wake, 'surface');
     world += renderImpacts(impacts, 'front', scene.surface);
-    onWater += overForeground(scene, impacts, actor.id);
+    onWater += overForeground(scene, impacts, actor.id, wake);
     if (actor.bubble && actor.visible && !opts.quiet) {
       const b = actor.bubble;
       bubbles.push(

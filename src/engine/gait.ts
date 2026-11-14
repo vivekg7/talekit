@@ -281,6 +281,11 @@ export function footfalls(rig: Rig, loco: 'walk' | 'run'): number[] {
   return gait ? [...new Set(Object.values(gait.legs))].sort((a, b) => a - b) : [];
 }
 
+/** When each leg lands in a cycle, by leg (nothing for a rig with no such gait). */
+export function legFalls(rig: Rig, loco: 'walk' | 'run'): Record<string, number> {
+  return { ...gaitOf(rig, loco)?.legs };
+}
+
 interface Legs {
   rot: Record<string, number>;
   /** A sprawling leg's knee, keeping the lower leg at its slant. */

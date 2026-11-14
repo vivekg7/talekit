@@ -643,7 +643,7 @@ says:
   land animals to stand in (the edge of a ghat, a ford). Water drawn with
   a translucent `foreground` band over it gives `"waterline": 590`, the
   y the band starts at, where the water meets whatever is in it: the
-  splashes and rings the engine draws (see "Landings and splashes") lie
+  splashes, rings and wakes the engine draws (see "Landings and splashes") lie
   on that line, over the band. Without it they are drawn at the feet,
   under the band, where they barely show. A `river`
   effect's `points` count as deep water when there is no `water`. A
@@ -1410,11 +1410,19 @@ anything under 40 px tall. A jump or a drop into water splashes instead:
 spray flung up and two rings going out, heard as a splash, not a landing.
 Someone who walks into the water from the bank splashes softly where
 they go in, and whatever moves in the water (a swimmer, a wader, a swan
-gliding, anyone `swim`ming) leaves rings behind it every half second. A
-splash sound the shot puts within 0.3 s of the engine's stands in for it.
-Give the water its `waterline` when the scene draws a band over it (see
-the scene's areas), or the splash is drawn at the swimmer's feet, under
-the band.
+gliding, anyone `swim`ming) leaves rings behind it every half second,
+and while it goes, a bow wave: a V of ripples opening back from its front
+(the way it moves, whichever way it faces), longer and wider the faster
+it goes, fading out a second or so after it stops. A `swim` in place
+makes rings but no wake. A splash sound the shot puts within 0.3 s of the
+engine's stands in for it. Give the water its `waterline` when the scene
+draws a band over it (see the scene's areas), or the splash and the wake
+are drawn at the swimmer's feet, under the band. On a `sand` or `snow`
+scene every foot that comes down in a walk or a run leaves its print on
+the walk area, a sole and heel for a person, a pad for an animal, kept
+for the rest of the shot; none in the water, sitting, lying or carried.
+Grass and hard floors keep none, so give a scene sand or snow only where
+its whole floor is soft.
 
 `talekit explain <dir> [shot]` lists every turn, walk, sit and startle
 the engine added, and why.
@@ -1498,7 +1506,8 @@ it" }` (the narrator's as `speech.mismatch:narrator`).
 - **Ambience.** A scene's `ambience` loops the place's sounds: `["jungle"]`,
   `[{ "sound": "village", "volume": 0.6 }]`; the library scenes have
   theirs. It carries across cuts in the same place. `surface` (`hard`, the
-  default, or `grass`) sets the footstep sound. Do not list rain, wind,
+  default, `grass`, `sand` or `snow`) sets the footstep sound, softer on
+  all but `hard`; `sand` and `snow` keep footprints. Do not list rain, wind,
   fire, waterfalls or waves: weather and effects are heard on their own.
 - **Effects.** `{ "t": 3, "actor": "lion", "sound": "lion-roar" }` plays at
   `t` from the actor's side of the frame; `volume` 0.5 far off, 1.5 close.

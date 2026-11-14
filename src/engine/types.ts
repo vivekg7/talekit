@@ -756,10 +756,10 @@ export const SceneSchema = z.object({
   anchors: z.record(z.string(), AnchorSchema).default({}),
   ambience: AmbienceSchema,
   surface: z
-    .enum(['hard', 'grass'])
+    .enum(['hard', 'grass', 'sand', 'snow'])
     .default('hard')
     .describe(
-      "What people's feet land on, for the sound of their steps: hard (a floor, a path, stone; the default) or grass (a lawn, a forest floor, earth)"
+      "What people's feet land on, for the sound of their steps and the dust a landing raises: hard (a floor, a path, stone; the default), grass (a lawn, a forest floor, earth), sand (a beach, a desert, a sandbank) or snow. Sand and snow keep footprints: each foot that comes down in a walk or a run on a walk area leaves its print there for the rest of the shot. Give a scene sand or snow only where the whole floor is soft: a stone path across a beach is a scene of its own, or hard"
     ),
 });
 export type Scene = z.infer<typeof SceneSchema>;

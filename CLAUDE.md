@@ -11,8 +11,9 @@ reasoning are in `docs/PLAN.md`. Read both before changing the data model.
   `gait.ts` (planted-foot walk and run), `springs.ts` (follow-through,
   integrated per shot, blown by the wind, whose gusts are `gusting` in
   `weather.ts`, which also lean a carried `sail`), `impact.ts` (dust where a
-  jump or a drop lands, a splash where it lands in water, rings round
-  whatever moves in it), `weather.ts` and `effects.ts` (rain, clouds, fire,
+  jump or a drop lands, a splash where it lands in water, rings and a bow
+  wave round whatever moves in it, footprints in sand and snow),
+  `weather.ts` and `effects.ts` (rain, clouds, fire,
   waves and the like, drawn from time each frame), `sway.ts` (a scene's
   tree crowns and grass turning about their pivots), `shade.ts` (the engine-drawn
   light and shadow on every part), `cast.ts` (each actor's shadow thrown

@@ -191,6 +191,8 @@ const STEP: Partial<Record<Character['rig'], string>> = {
   humanoid: 'step-shoe',
   quadruped: 'step-paw',
 };
+/** The ground a person's step is soft on: grass, and sand and snow sound as soft as it. */
+const SOFT = new Set<Scene['surface']>(['grass', 'sand', 'snow']);
 /** Footsteps sit under everything else: a person of the default height walking at 1. */
 const STEP_GAIN = 0.3;
 /** Seconds either side of a blow's landing in which the shot's own sound stands in for the thud. */
@@ -208,7 +210,7 @@ function footsteps(project: Project, shot: Shot, at0: number): Cue[] {
   for (const id of Object.keys(shot.cast)) {
     const ch = project.characters[id];
     const name =
-      ch && (ch.rig === 'humanoid' && scene.surface === 'grass' ? 'step-grass' : STEP[ch.rig]);
+      ch && (ch.rig === 'humanoid' && SOFT.has(scene.surface) ? 'step-grass' : STEP[ch.rig]);
     if (!name) continue;
     // Whoever goes anywhere: a walk or run, a sit or lie that walks over first, or a walk
     // the engine stages on its own (to a `use` anchor).
