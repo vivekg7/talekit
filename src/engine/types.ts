@@ -761,6 +761,18 @@ export const SceneSchema = z.object({
     .describe(
       "What people's feet land on, for the sound of their steps and the dust a landing raises: hard (a floor, a path, stone; the default), grass (a lawn, a forest floor, earth), sand (a beach, a desert, a sandbank) or snow. Sand and snow keep footprints: each foot that comes down in a walk or a run on a walk area leaves its print there for the rest of the shot. Give a scene sand or snow only where the whole floor is soft: a stone path across a beach is a scene of its own, or hard"
     ),
+  /**
+   * On sand or snow: keep only each walker's last `trail` prints, the newest dark and the
+   * oldest faint, instead of every print for the rest of the shot.
+   */
+  trail: z
+    .number()
+    .int()
+    .min(2)
+    .optional()
+    .describe(
+      "On sand or snow: keep only each walker's last N footprints (a four-legged animal leaves four a stride), the newest dark and each older one fainter, so the floor shows the way someone just came (a maze, a chase) and not everywhere they have been. Default: every print stays for the rest of the shot, fading a little with age"
+    ),
 });
 export type Scene = z.infer<typeof SceneSchema>;
 export type SceneInput = z.input<typeof SceneSchema>;

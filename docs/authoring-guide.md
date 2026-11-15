@@ -1515,7 +1515,9 @@ it" }` (the narrator's as `speech.mismatch:narrator`).
   `[{ "sound": "village", "volume": 0.6 }]`; the library scenes have
   theirs. It carries across cuts in the same place. `surface` (`hard`, the
   default, `grass`, `sand` or `snow`) sets the footstep sound, softer on
-  all but `hard`; `sand` and `snow` keep footprints. Do not list rain, wind,
+  all but `hard`; `sand` and `snow` keep footprints, and a scene's `trail`
+  (say 20) keeps only each walker's last few, the oldest faintest, to show
+  the way someone just came (a maze) rather than everywhere they went. Do not list rain, wind,
   fire, waterfalls or waves: weather and effects are heard on their own.
 - **Effects.** `{ "t": 3, "actor": "lion", "sound": "lion-roar" }` plays at
   `t` from the actor's side of the frame; `volume` 0.5 far off, 1.5 close.

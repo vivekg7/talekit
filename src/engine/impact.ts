@@ -530,6 +530,8 @@ const PRINT_RATE = 30;
 /** Seconds a print takes to fade to PRINT_KEEP of its first strength; it stays at that. */
 const PRINT_FADE = 6;
 const PRINT_KEEP = 0.55;
+/** A trail's newest print: darker than a print left for good, as it is there to be read. */
+const TRAIL_OP = 0.75;
 /** Canonical units the near foot's print is in front of the far one's, on the floor. */
 const PRINT_APART = 22;
 
@@ -641,12 +643,21 @@ export function renderPrints(project: Project, shot: Shot, t: number): string {
     const ry = rx * FLAT * 1.6;
     return `M${n(cx - rx)} ${n(cy)}a${n(rx)} ${n(ry)} 0 1 0 ${n(2 * rx)} 0a${n(rx)} ${n(ry)} 0 1 0 ${n(-2 * rx)} 0Z`;
   };
-  for (const id of Object.keys(shot.cast))
-    for (const p of printsOf(project, shot, id)) {
+  for (const id of Object.keys(shot.cast)) {
+    const all = printsOf(project, shot, id);
+    let made = 0;
+    while (made < all.length && all[made].at <= t) made++;
+    // A trail keeps the last few, graded from the newest (darkest) to the oldest (faint),
+    // so the one that drops off the end was barely there.
+    const first = scene.trail ? Math.max(0, made - scene.trail) : 0;
+    for (let i = first; i < made; i++) {
+      const p = all[i];
       const age = t - p.at;
-      if (age < 0) break;
-      const op =
-        look.op * Math.min(1, age / 0.08) * (1 - (1 - PRINT_KEEP) * Math.min(1, age / PRINT_FADE));
+      const op = scene.trail
+        ? TRAIL_OP * Math.min(1, age / 0.08) * ((i - first + 1) / (made - first + 1))
+        : look.op *
+          Math.min(1, age / 0.08) *
+          (1 - (1 - PRINT_KEEP) * Math.min(1, age / PRINT_FADE));
       // A foot: the sole forward of the ankle, the heel under it. A paw or a hoof: its pad.
       const d =
         p.kind === 'foot'
@@ -654,5 +665,6 @@ export function renderPrints(project: Project, shot: Shot, t: number): string {
           : oval(p.x + p.dir * 4 * p.k, p.y, 13 * p.k);
       out += `<path d='${d}' fill='${look.color}' opacity='${n(op)}'/>`;
     }
+  }
   return out ? `<g class='prints'>${out}</g>` : '';
 }
