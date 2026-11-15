@@ -7,6 +7,7 @@ import { mkdir, readdir, readFile, rename, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
+import { gzipSync } from 'node:zlib';
 import { z } from 'zod';
 import { cueSheet, type Bus } from '../engine/sound.js';
 import { movieDuration } from '../engine/timeline.js';
@@ -78,23 +79,31 @@ interface Drawer {
   pending: Map<number, { resolve: (svg: string) => void; reject: (e: Error) => void }>;
   retired: boolean;
 }
-let drawer: Drawer | undefined;
+/**
+ * One worker per project, so the film's frames and the reel's, open in two tabs, are drawn
+ * side by side rather than in one queue; each keeps its project loaded (draw-worker.ts).
+ * The ones used longest ago are let go past a few.
+ */
+const drawers = new Map<string, Drawer>();
+const MAX_DRAWERS = 4;
 let drawSeq = 0;
 
+function retire(d: Drawer): void {
+  d.retired = true;
+  if (!d.pending.size) void d.worker.terminate();
+}
+
 /**
- * A picture drawn in the worker (draw-worker.ts). A worker serves until the code changes;
- * then the next picture starts a new one, which imports the new code, and the old one is
- * let go once it has answered what it was asked. One that dies (a half-saved source file)
- * fails what it held, and the next picture tries again.
+ * A picture drawn in the project's worker (draw-worker.ts). A worker serves until the code
+ * changes; then the next picture starts a new one, which imports the new code, and the old
+ * one is let go once it has answered what it was asked. One that dies (a half-saved source
+ * file) fails what it held, and the next picture tries again.
  */
 async function drawSvg(job: DrawRequest): Promise<string> {
   const version = await codeVersion();
+  let drawer = drawers.get(job.root);
   if (!drawer || drawer.version !== version) {
-    const old = drawer;
-    if (old) {
-      old.retired = true;
-      if (!old.pending.size) void old.worker.terminate();
-    }
+    if (drawer) retire(drawer);
     const fresh: Drawer = {
       worker: new Worker(DRAW_WORKER, { execArgv: workerArgs() }),
       version,
@@ -111,17 +120,45 @@ async function drawSvg(job: DrawRequest): Promise<string> {
     fresh.worker.on('error', (e: Error) => {
       for (const wait of fresh.pending.values()) wait.reject(e);
       fresh.pending.clear();
-      if (drawer === fresh) drawer = undefined;
+      if (drawers.get(job.root) === fresh) drawers.delete(job.root);
     });
     fresh.worker.unref();
     drawer = fresh;
   }
+  // Most recently used last, so the first is the one to let go.
+  drawers.delete(job.root);
+  drawers.set(job.root, drawer);
+  for (const [root, old] of drawers) {
+    if (drawers.size <= MAX_DRAWERS) break;
+    drawers.delete(root);
+    retire(old);
+  }
+  // The worker keeps the project it loaded until its files move.
+  const files = await projectVersion(job.root);
   const d = drawer;
   const seq = ++drawSeq;
   return new Promise((resolve, reject) => {
     d.pending.set(seq, { resolve, reject });
-    d.worker.postMessage({ ...job, seq });
+    d.worker.postMessage({ ...job, version: files, seq });
   });
+}
+
+/**
+ * A drawn picture, gzipped when the browser takes it: a busy frame is 2 MB of SVG and about
+ * a fifth of that gzipped (12 ms at level 1), which is what a phone on the network waits for.
+ */
+function sendSvg(req: http.IncomingMessage, res: Res, svg: string): void {
+  if (!/\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''))) {
+    res.writeHead(200, { 'content-type': 'image/svg+xml' }).end(svg);
+    return;
+  }
+  res
+    .writeHead(200, {
+      'content-type': 'image/svg+xml',
+      'content-encoding': 'gzip',
+      vary: 'accept-encoding',
+    })
+    .end(gzipSync(svg, { level: 1 }));
 }
 
 /**
@@ -501,7 +538,7 @@ async function projectRoute(
       t: Number(url.searchParams.get('t') ?? 0),
       debug: url.searchParams.has('debug'),
     });
-    res.writeHead(200, { 'content-type': 'image/svg+xml' }).end(svg);
+    sendSvg(req, res, svg);
     return;
   }
   if (rel === '/api/sheet') {
@@ -512,7 +549,7 @@ async function projectRoute(
       id: url.searchParams.get('id') ?? '',
       construction: url.searchParams.get('kind') === 'construction',
     });
-    res.writeHead(200, { 'content-type': 'image/svg+xml' }).end(svg);
+    sendSvg(req, res, svg);
     return;
   }
   res.writeHead(404).end('not found');

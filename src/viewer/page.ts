@@ -741,8 +741,14 @@ function draw() {
   if (video()) return;
   if (busy) { pending = true; return; }
   busy = true;
-  fetch(withOpt('api/frame?shot=' + encodeURIComponent(shot.id) + '&t=' + t + ($('debug').checked ? '&debug=1' : ''))).then(function (r) { return r.text(); }).then(function (svg) {
+  // A frame that fails (the server restarting, a half-written file) keeps the last picture
+  // and lets the next one be asked for; left busy, the picture would stop for good.
+  fetch(withOpt('api/frame?shot=' + encodeURIComponent(shot.id) + '&t=' + t + ($('debug').checked ? '&debug=1' : ''))).then(function (r) {
+    if (!r.ok) throw new Error('frame ' + r.status);
+    return r.text();
+  }).then(function (svg) {
     if (!video()) $('pic').innerHTML = svg;
+  }).catch(function () {}).then(function () {
     busy = false; if (pending) { pending = false; draw(); }
   });
 }
