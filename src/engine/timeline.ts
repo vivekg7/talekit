@@ -1763,7 +1763,9 @@ export function resolveCamera(project: Project, scene: Scene, shot: Shot, t: num
   // moment, newer places weighing more, so the camera eases after a start and settles
   // after a stop instead of being nailed to the actor. Pure in t, as every frame must be.
   const followed = (id: string, zoom: number, time: number): View => {
-    const n = 8;
+    // A sample a frame: the lead flips when the actor turns, and with fewer the camera
+    // would move in steps as each sample flipped.
+    const n = Math.max(8, Math.round(FOLLOW_LAG * project.meta.fps));
     let x = 0;
     let y = 0;
     let sum = 0;
