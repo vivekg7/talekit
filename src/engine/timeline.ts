@@ -276,11 +276,27 @@ function bedHeight(scene: Scene, at: Point): number {
 
 /**
  * The turns a walk or run from `from` to `to` takes round what is in the way (route.ts):
- * none for other moves, or between spots on someone.
+ * none for other moves, or between spots on someone. `through` are the points the action
+ * says to pass on the way (its `via`), in order; a walk goes round what is in the way on
+ * each leg between them.
  */
-function viaOf(scene: Scene, verb: Verb, from: Point, to: Point): XY[] {
-  if ((verb !== 'walk' && verb !== 'run') || from.rides || to.rides) return [];
-  return routeOf(scene, from, to, Math.max(from.scale, to.scale));
+function viaOf(scene: Scene, verb: Verb, from: Point, to: Point, through: XY[] = []): XY[] {
+  if (from.rides || to.rides) return [];
+  const walks = verb === 'walk' || verb === 'run';
+  if (!walks) return through.map(({ x, y }) => ({ x, y }));
+  const scale = Math.max(from.scale, to.scale);
+  const pts: XY[] = [from, ...through, to];
+  const out: XY[] = [];
+  for (let i = 1; i < pts.length; i++) {
+    out.push(...routeOf(scene, pts[i - 1], pts[i], scale));
+    if (i < pts.length - 1) out.push({ x: pts[i].x, y: pts[i].y });
+  }
+  return out;
+}
+
+/** The points an action says to pass on the way (`via`), resolved to the scene. */
+function throughOf(project: Project, scene: Scene, a: Action): XY[] {
+  return (a.via ?? []).map((p) => resolvePosition(project, scene, p));
 }
 
 export function moveDuration(
@@ -288,23 +304,30 @@ export function moveDuration(
   from: Point,
   to: Point,
   explicit?: number,
-  scene?: Scene
+  scene?: Scene,
+  through: XY[] = []
 ): number {
   if (explicit) return explicit;
-  const via = scene ? viaOf(scene, verb, from, to) : [];
+  const via = scene ? viaOf(scene, verb, from, to, through) : through;
   const dist = routeLength(from, via, to);
   const speed = SPEED[verb] ?? 300;
   return Math.max(verb === 'jump' ? VERB_DURATION.jump! : 0.4, dist / speed);
 }
 
-export function actionDuration(a: Action, from?: Point, to?: Point, scene?: Scene): number {
+export function actionDuration(
+  a: Action,
+  from?: Point,
+  to?: Point,
+  scene?: Scene,
+  through: XY[] = []
+): number {
   if (a.duration) return a.duration;
   if (a.say) return sayDuration(a.say);
   if (a.caption) return 3;
   if (a.camera) return 1;
   // A walk onto someone goes straight there (viaOf): timed so too.
   if (a.do && isMoveVerb(a.do) && from && to)
-    return moveDuration(a.do, from, to, undefined, a.on ? undefined : scene);
+    return moveDuration(a.do, from, to, undefined, a.on ? undefined : scene, through);
   if (a.do && VERB_DURATION[a.do]) return VERB_DURATION[a.do]!;
   return 0;
 }
@@ -370,12 +393,50 @@ function moveView(m: Move, t: number): number {
   const dx = m.to.x - m.from.x;
   const dy = m.to.y - m.from.y;
   const len = Math.hypot(dx, dy);
-  if (len < 1 || t < m.t0) return 0;
+  if (t < m.t0) return 0;
   const k = t < m.t1 ? clamp01((t - m.t0) / VIEW_TIME) : clamp01(1 - (t - m.t1) / VIEW_TIME);
   // A climber faces what it climbs, up or down: its back to the viewer the whole way.
-  if (m.verb === 'climb') return -easeInOut(k);
-  const steep = easeInOut(clamp01((Math.abs(dy) / len - 0.5) / 0.35));
-  return Math.sign(dy) * steep * easeInOut(k) || 0;
+  if (m.verb === 'climb') return len < 1 ? 0 : -easeInOut(k);
+  if (m.via?.length) return legView(m, t);
+  if (len < 1) return 0;
+  return steepness(dx, dy) * easeInOut(k) || 0;
+}
+
+/** How straight into (-1) or out of (1) the screen a stretch of way goes; 0 across. */
+function steepness(dx: number, dy: number): number {
+  const len = Math.hypot(dx, dy);
+  if (len < 1) return 0;
+  return Math.sign(dy) * easeInOut(clamp01((Math.abs(dy) / len - 0.5) / 0.35));
+}
+
+/** Legs of a route shorter than this (a step round a corner) keep the way the last one went. */
+const SHORT_LEG = 12;
+
+/**
+ * `moveView` along a route: each leg's own way into or out of the screen, easing from the
+ * last leg's over VIEW_TIME as it rounds the corner (up a maze's lane, then across it).
+ */
+function legView(m: Move, t: number): number {
+  const pts = [m.from, ...m.via!, m.to];
+  const len = routeLength(m.from, m.via!, m.to);
+  if (len < 1) return 0;
+  let done = 0;
+  let from = 0;
+  let to = 0;
+  let at = m.t0;
+  for (let i = 1; i < pts.length; i++) {
+    const seg = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+    if (seg >= SHORT_LEG || i === 1) {
+      const start = i === 1 ? m.t0 : timeAt(m, done / len);
+      if (start > t) break;
+      from = i === 1 ? 0 : to;
+      to = seg >= SHORT_LEG ? steepness(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y) : 0;
+      at = start;
+    }
+    done += seg;
+  }
+  if (t >= m.t1) return to * easeInOut(clamp01(1 - (t - m.t1) / VIEW_TIME));
+  return from + (to - from) * easeInOut(clamp01((t - at) / VIEW_TIME));
 }
 
 /**
@@ -1170,11 +1231,12 @@ export function resolveActor(
         }
       } else if (isMoveVerb(verb)) {
         let to = a.to ? resolvePosition(project, scene, a.to) : point;
-        const d = actionDuration(a, point, to, scene);
+        const through = throughOf(project, scene, a);
+        const d = actionDuration(a, point, to, scene, through);
         const t0 = setOff(a.t);
         // A spot on someone is read off them as they are when it lands there.
         if (a.on && to.rides?.base !== a.on) to = { ...to, rides: { base: a.on, at: t0 + d } };
-        const via = viaOf(scene, verb, point, to);
+        const via = viaOf(scene, verb, point, to, through);
         move = {
           verb,
           from: point,

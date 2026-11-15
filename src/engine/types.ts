@@ -871,6 +871,13 @@ export const ActionSchema = z
     to: PositionSchema.optional().describe(
       "walk/run/move/fly/jump/climb/sit/lie/putdown: where to (anchor, stage shortcut or {x, y}); a sit or lie there walks over first. climb: the top (or foot) of the ladder or trunk, straight above (below) where the climber stands, inside one of the scene's `climb` areas. wipe: what the hand goes round on, an actor in the cast (its middle), an anchor with a `use` (its work point) or a spot. hold: what the hand rests on, an actor in the cast (its shoulder), an anchor with a `use` or a spot. strike: what the blow lands on, an actor in the cast (its shoulders, an animal's back), an anchor with a `use` (its work point, the top of a washing stone; the striker is walked there and sat down first) or a spot; without it the blow chops the air in front. aim: what the archer aims at, an actor in the cast (its `mark`), an anchor or a spot. shoot: where the arrow goes, if not where the aim was (a miss); on an arrow not on a bow, where it flies to. On a say without do: the id of the actor spoken to, when the engine would guess wrong"
     ),
+    /** On a move: points to pass on the way to `to`, in order. */
+    via: z
+      .array(PositionSchema)
+      .optional()
+      .describe(
+        "walk/run/move/fly: points to pass on the way to `to`, in order (anchors or {x, y}): the corners of a path to keep to, as down the middle of a maze's lanes, where the shortest way would cut across. A walk still goes round solids on each leg between them, and turns to face each leg"
+      ),
     /** On an `aim`: the arrow (a cast actor) the engine puts on the string for it. */
     arrow: IdSchema.optional().describe(
       'aim only: the id of the arrow in the cast (a prop with `grip` at its nock and `tip` at its head, drawn pointing right). The engine puts it on the string once the archer has turned to `to` and has a hand on the string (taking it off any bow it was on), shows it drawn back with the string, and a `shoot` looses it; aimed and lowered without a shot, it stays on the bow, pointing down'

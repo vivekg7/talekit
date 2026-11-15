@@ -687,7 +687,10 @@ facing the way it goes on each leg (round to a bridge and back). It
 crosses water only by a walk area laid over it, such as a bridge, and takes
 as long as the longer way takes at its pace, unless the action gives a
 `duration`. So stage a walk from where it starts to where it goes and let
-the engine find the way; do not break it into legs. A walk to a spot on a
+the engine find the way; do not break it into legs. Where the shortest way
+is the wrong one, as across the corners of a maze whose walker should keep
+to the middle of its lanes, give the corners in `via` (anchors or points, in
+order): one walk passes through each, turning at it, without stopping. A walk to a spot on a
 solid (a seat on the cot) goes straight in at the end. A gap between two
 solids is a way through: a hedge with a gap is two solids. In a scene with
 no walk areas only solids are gone round. Standing inside a solid's
