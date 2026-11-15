@@ -1,6 +1,7 @@
 import { groundOf, inArea, type Ground } from './area.js';
 import { poseFor, sideOf } from './actor.js';
 import { easeOut, hash01 } from './easing.js';
+import { endFeet, endOf, endSide } from './ends.js';
 import { footPoint, gaitPhase, legFalls } from './gait.js';
 import { rigOf } from './rigs.js';
 import { staged } from './stage.js';
@@ -534,6 +535,8 @@ const PRINT_KEEP = 0.55;
 const TRAIL_OP = 0.75;
 /** Canonical units the near foot's print is in front of the far one's, on the floor. */
 const PRINT_APART = 22;
+/** Canonical units an end-on animal's hidden pair of feet land beyond the pair it shows. */
+const END_APART = 90;
 
 type Surface = Scene['surface'];
 
@@ -591,13 +594,26 @@ function findPrints(project: Project, scene: Scene, shot: Shot, id: string): Pri
     if (character.height * s.scale < SMALL) return;
     const k = (character.height / rig.height) * s.scale;
     const side = sideOf(s) < 0 ? -1 : 1;
-    const [fx] = footPoint(rig, poseFor(s, t), leg);
-    // The legs on the far side are the left ones (the rigs face right).
-    const far = /L$/.test(leg);
-    const p = {
-      x: s.x + (fx - rig.width / 2) * k * side,
-      y: s.y + (far ? -1 : 1) * PRINT_APART * k * FLAT,
-    };
+    const end = endOf(character, s.view);
+    let p: { x: number; y: number };
+    if (end) {
+      // End-on (ends.ts): two tracks, under the legs on the picture's left and right; the
+      // pair it does not show (the forelegs from behind) lands further up the screen.
+      const feet = endFeet(character, end);
+      const hidden = rig.name === 'quadruped' && /^legF/.test(leg) === (end === 'back');
+      p = {
+        x: s.x + feet[endSide(end, leg) < 0 ? 'legL' : 'legR'] * k,
+        y: s.y - (hidden ? END_APART * k * FLAT : 0),
+      };
+    } else {
+      const [fx] = footPoint(rig, poseFor(s, t), leg);
+      // The legs on the far side are the left ones (the rigs face right).
+      const far = /L$/.test(leg);
+      p = {
+        x: s.x + (fx - rig.width / 2) * k * side,
+        y: s.y + (far ? -1 : 1) * PRINT_APART * k * FLAT,
+      };
+    }
     if (ground.walk.length && !ground.walk.some((a) => inArea(a, p))) return;
     if (water.some((a) => inArea(a, p))) return;
     out.push({ at: t, ...p, k, dir: side, kind: rig.name === 'humanoid' ? 'foot' : 'pad' });

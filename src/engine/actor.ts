@@ -18,6 +18,7 @@ import {
 import { rigPart, rigOf, type Rig } from './rigs.js';
 import { DEFAULT_LINE_COLOR, limbWidth, OUTLINE_PX, outlineFor } from './outline.js';
 import { DAYLIGHT, shadePart, silhouette, type Light } from './shade.js';
+import { endBody, endOf, endPhase, endSquash } from './ends.js';
 import { applyColors, n, spanAt, topLevelPieces, verticalExtent } from './svg.js';
 import type { ActorState } from './timeline.js';
 import type { Character, Facing } from './types.js';
@@ -547,6 +548,28 @@ export function placeCharacter(
   return `<g class='actor actor-${character.id}' transform='${tf}'${op}>${body}</g>`;
 }
 
+/**
+ * What an actor looks like now, in its box, and the signed horizontal scale to place it
+ * with: its side view, turned and posed, or, walking up or down the screen, its end-on
+ * drawing (ends.ts), never mirrored. Through the swap from one to the other it narrows.
+ */
+export function drawnBody(
+  actor: ActorState,
+  pose: Pose,
+  light: Light | null,
+  only?: (part: string) => boolean
+): { body: string; side: number } {
+  const c = actor.character;
+  const squash = c.ends ? endSquash(c, actor.view) : 1;
+  const end = c.ends && endOf(c, actor.view);
+  if (end) {
+    const phase = endPhase(c, actor.locomotion, actor.travel);
+    return { body: endBody(c, end, actor.locomotion, phase, light), side: squash };
+  }
+  const side = sideOf(actor);
+  return { body: characterBody(c, pose, light, Math.sign(side) || 1, only), side: side * squash };
+}
+
 export function renderActor(
   actor: ActorState,
   t: number,
@@ -555,8 +578,9 @@ export function renderActor(
   only?: (part: string) => boolean
 ): string {
   if (!actor.visible || actor.opacity <= 0) return '';
-  const side = sideOf(actor);
-  let body = characterBody(actor.character, pose, light, Math.sign(side) || 1, only);
+  const drawn = drawnBody(actor, pose, light, only);
+  const side = drawn.side;
+  let body = drawn.body;
   // A bow drawn: its limbs bent further back.
   if (actor.flex) body = `<g transform='${bowFlex(actor.character, actor.flex).tf}'>${body}</g>`;
   // An arrow stuck in something: the head, gone in, is not seen.
@@ -714,12 +738,13 @@ export function shadowSvg(
   y: number,
   scale: number,
   side: number,
-  opacity = 1
+  opacity = 1,
+  wide = 1
 ): string {
   const rig = rigOf(character);
   const s = (character.height / rig.height) * scale;
   const k = 1 / (1 + Math.max(0, -pose.dy) / 120);
-  const rx = (rig.shadow / 2) * s * Math.abs(pose.sx) * k * (pose.shadow?.scale ?? 1);
+  const rx = (rig.shadow / 2) * s * Math.abs(pose.sx) * k * (pose.shadow?.scale ?? 1) * wide;
   const o = opacity * k * k;
   if (rx <= 0 || o <= 0.01) return '';
   const op = o < 1 ? ` opacity='${n(o)}'` : '';
@@ -742,9 +767,18 @@ export function renderShadow(actor: ActorState, pose: Pose): string {
         : 0),
     actor.scale,
     sideOf(actor),
-    actor.opacity
+    actor.opacity,
+    // End-on (ends.ts), an animal is about as wide as it is deep, not as long.
+    actor.character.ends
+      ? endOf(actor.character, actor.view)
+        ? END_WIDE
+        : endSquash(actor.character, actor.view)
+      : 1
   );
 }
+
+/** An end-on animal's ground shadow, as a share of its side-on one. */
+const END_WIDE = 0.6;
 
 /** A point in the actor's box, through the pose's root (not its spin), in the scene. */
 export function boxToScene(

@@ -17,7 +17,7 @@
  * keeps the line where it stands and moves each point by its height above it, then painted
  * one dark colour, softened and faded toward its far end.
  */
-import { castsShadow, characterBody, placeCharacter, sideOf, tilted } from './actor.js';
+import { castsShadow, drawnBody, placeCharacter, tilted } from './actor.js';
 import { clamp01 } from './easing.js';
 import { effectLayer, type FireLight } from './effects.js';
 import type { Pose } from './motion.js';
@@ -175,8 +175,7 @@ export function castShadowSvg(
   th: Throw,
   id: string
 ): string {
-  const side = sideOf(actor);
-  const body = characterBody(actor.character, pose, null, Math.sign(side) || 1);
+  const { body, side } = drawnBody(actor, pose, null);
   const placed = tilted(
     actor,
     placeCharacter(actor.character, body, actor.x, actor.y, actor.scale, side, 1)

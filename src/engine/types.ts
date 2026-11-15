@@ -76,6 +76,19 @@ export const AllowSchema = z
 
 export type Allow = z.infer<typeof AllowSchema>;
 
+/** One end-on drawing of a character (see `Character.ends`). */
+export const EndViewSchema = z.object({
+  parts: z
+    .record(z.string(), z.string())
+    .describe(
+      'Inner SVG in the rig box, drawn in this order (back to front). `legL` and `legR` lift in turn as it walks; colours as in `parts`'
+    ),
+  pivots: z
+    .record(z.string(), z.tuple([z.number(), z.number()]))
+    .default({})
+    .describe('A point a part sways about as it walks (a tail at its root), in the box'),
+});
+
 export const CharacterSchema = z.object({
   id: IdSchema,
   name: z.string().min(1),
@@ -104,6 +117,16 @@ export const CharacterSchema = z.object({
     .default(true)
     .describe(
       'Engine-drawn shading: a darker side away from the light on every part, and a warm rim toward a fire (default true); false for glows, ghosts, flat signs'
+    ),
+  /**
+   * Whole drawings of the character end-on, for an animal (whose rig is side-on only)
+   * walking straight into the screen or out of it. See ends.ts.
+   */
+  ends: z
+    .object({ back: EndViewSchema.optional(), front: EndViewSchema.optional() })
+    .optional()
+    .describe(
+      "Drawings of the character end-on, in the same box as the side view, its feet on the same base line: `back` seen from behind (walking into the screen, up it), `front` face to the viewer (walking out of it, down it). The engine draws one while a walk or a run goes mostly up or down the screen, narrowing through the swap from the side view and back, and walks it: the parts named `legL` and `legR` (the legs on the picture's left and right: the hind legs from behind, the forelegs from the front) lift in turn on the gait's beat, the rest bobs and rocks a little, and a part given a pivot (a tail) sways about it; pawprints fall in two tracks under the two legs. Mainly for animals in a scene seen from above (a maze, a yard): a person turns round on its own (`back` variants). Parts are drawn in the order given; nothing else of the side view is used"
     ),
   /**
    * Follow-through: parts that swing behind the motion on a spring, so a tail trails a

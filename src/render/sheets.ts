@@ -14,6 +14,8 @@ import {
   SHADOW_DEFS,
   shadowSvg,
 } from '../engine/actor.js';
+import { endBody, type End } from '../engine/ends.js';
+import { DAYLIGHT } from '../engine/shade.js';
 import { MAX_TURN, springParts } from '../engine/springs.js';
 import { SWAY_FAR, swayMost, swayTip } from '../engine/sway.js';
 import { LOOK_LIMIT, sailLean } from '../engine/timeline.js';
@@ -68,6 +70,8 @@ interface Cell {
   under?: string;
   /** The near arm drawn again over `extra`: the hand on a bow's string, over the arrow. */
   nearOver?: boolean;
+  /** Drawn end-on instead (`Character.ends`), standing or at this phase of a walk. */
+  end?: { view: End; phase?: number };
   /** A bow drawn with its limbs bent back this far (`bowFlex`), its string pulled. */
   flex?: number;
   /** A prop turned this far about its grip, degrees clockwise: a sail leaned by the wind. */
@@ -387,6 +391,15 @@ export function characterSheetSvg(character: Character): string {
           },
         ]
       : []),
+    // End-on drawings, standing and mid-stride (a leg up), for walking up or down the screen.
+    ...(['back', 'front'] as const).flatMap((view) =>
+      character.ends?.[view]
+        ? [
+            { ...make(`${view} view`, () => base('idle', 0)), end: { view } },
+            { ...make(`${view} view: walk`, () => base('idle', 0)), end: { view, phase: 0.8 } },
+          ]
+        : []
+    ),
     emotionCell('happy'),
     emotionCell('sad'),
     emotionCell('surprised'),
@@ -427,9 +440,11 @@ export function characterSheetSvg(character: Character): string {
     // moves with it, unless the cell pulls it back.
     const strung = character.bowstring && !cell.extra ? withString(character) : character;
     const near = (part: string) => onNearArm(rig, part);
-    let body = cell.nearOver
-      ? characterBody(strung, cell.pose, undefined, 1, (part) => !near(part))
-      : characterBody(strung, cell.pose);
+    let body = cell.end
+      ? endBody(character, cell.end.view, 'walk', cell.end.phase, DAYLIGHT)
+      : cell.nearOver
+        ? characterBody(strung, cell.pose, undefined, 1, (part) => !near(part))
+        : characterBody(strung, cell.pose);
     if (cell.flex) body = `<g transform='${bowFlex(character, cell.flex).tf}'>${body}</g>`;
     if (cell.tilt) {
       const [gx, gy] = character.grip ?? [rig.width / 2, rig.height / 2];

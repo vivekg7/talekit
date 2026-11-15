@@ -375,6 +375,29 @@ of the beat.
 "flaps": ["wingNear", "wingFar"]
 ```
 
+**Seen from behind and from the front.** An animal's rig is side-on, so on
+its own it walks up or down the screen sideways. In a scene seen from above
+(a maze, a yard), give it `ends`: whole drawings of it end-on, in the same
+box with its feet on the same base line, `back` from behind (walking up the
+screen, into it) and `front` face to the viewer (walking down, out of it).
+While a walk or a run goes mostly up or down, leg by leg along its route,
+the engine draws the one that fits, narrowing through the swap from the
+side view and back as a turn does, and walks it: `legL` and `legR` (the
+legs on the picture's left and right: the hind legs from behind, the
+forelegs from the front) lift in turn on the gait's own beat, the rest bobs
+and rocks over the planted foot, and a part with a pivot (the tail at its
+root) sways. Its pawprints fall in two tracks under the two legs. Parts are
+drawn in the order given, so draw the legs before the body that covers
+their tops. A person needs none: it turns round on its own (`back`
+variants). The pose sheet adds each view standing and mid-stride.
+
+```json
+"ends": {
+  "back": { "parts": { "earL": "…", "earR": "…", "head": "…", "legL": "…", "legR": "…", "body": "…", "tail": "…" }, "pivots": { "tail": [130, 172] } },
+  "front": { "parts": { "tail": "…", "legL": "…", "legR": "…", "body": "…", "head": "…", "eyes": "…" } }
+}
+```
+
 ### Variants
 
 A part can be a map of named SVG fragments instead of a string. The engine
