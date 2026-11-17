@@ -103,6 +103,27 @@ describe('weather', () => {
     expect(svg).toContain("fill='#1c2333'");
   });
 
+  it('keeps the heat haze to the frame, in whole pixels, under a zooming camera', () => {
+    // A region sized to the zoomed far layer lands on fractional pixels, and resvg can then
+    // panic in feDisplacementMap: the filter's region is the frame, the scroll down its group.
+    const p = project(
+      { weather: { heat: 0.5 } },
+      {
+        camera: { zoom: 1.2, x: 600, y: 380 },
+        actions: [{ t: 0.2, duration: 3, camera: { zoom: 1.6, x: 560, y: 400 } }],
+      }
+    );
+    for (const t of [0, 1.37, 2.54]) {
+      const svg = composeFrame(p, p.shots[0], t);
+      const region = svg.match(
+        /<filter id='tk-heat' filterUnits='userSpaceOnUse' (.*?) color-interp/
+      )?.[1];
+      const shift = svg.match(/<g transform='translate\(0 -([\d.]+)\)' filter='url\(#tk-heat\)'>/);
+      expect(shift).not.toBeNull();
+      expect(region).toBe(`x='0' y='${shift![1]}' width='${W}' height='${H}'`);
+    }
+  });
+
   it('warns when sky weather has no far layer to be drawn in', () => {
     const home = SceneSchema.parse({ ...LIBRARY.scenes.home, weather: { clouds: {} } });
     expect(validateScene(home, W, H).some((p) => p.message.includes('far layer'))).toBe(true);

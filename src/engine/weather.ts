@@ -247,7 +247,7 @@ export function weatherView(
     sky += bolt(`${shot.id}:${ts.toFixed(3)}`, age, low, ground, ctx);
     lit = Math.max(lit, flash(age));
   }
-  const haze = w.heat ? { ...heatHaze(w.heat, ctx), scroll: 40 * ctx.k * t } : undefined;
+  const haze = w.heat ? heatHaze(w.heat, ctx) : undefined;
   const grade = w.clouds ? skyGrade(w.clouds.amount, w.clouds.dark, W, H) : undefined;
   return { sky, far, stage, front, light, flash: lit > 0.01 ? lit : 0, haze, grade };
 }
@@ -677,12 +677,20 @@ function bolt(key: string, age: number, low: number, ground: number, ctx: Ctx): 
  * Heat haze over the far layer: the scenery is pushed about by a noise that scrolls upward.
  * The noise is fixed to the filtered group's own coordinates, so the composer draws the far
  * layer inside a group shifted down by the scroll and puts the filter on one shifted back.
+ *
+ * The filter's region is the frame itself, which in that group starts the scroll down. A
+ * region sized to what it filters (the default) spans the far layer at the camera's zoom,
+ * past the frame and on fractional pixels, and resvg 2.6 can then round the noise and the
+ * scenery it displaces to different heights and panic (displacement_map.rs, "src.height ==
+ * map.height"), aborting the render: a zooming camera on a `heat` scene found such a frame.
+ * The frame's own rectangle is whole pixels whatever the camera, and nothing outside it shows.
  */
-function heatHaze(heat: number, ctx: Ctx): { defs: string; id: string } {
+function heatHaze(heat: number, ctx: Ctx): { defs: string; id: string; scroll: number } {
   const id = 'tk-heat';
+  const scroll = Number(n(40 * ctx.k * ctx.t));
   const defs =
-    `<filter id='${id}' x='-5%' y='-5%' width='110%' height='110%' color-interpolation-filters='sRGB'>` +
+    `<filter id='${id}' filterUnits='userSpaceOnUse' x='0' y='${n(scroll)}' width='${ctx.W}' height='${ctx.H}' color-interpolation-filters='sRGB'>` +
     `<feTurbulence type='fractalNoise' baseFrequency='0.004 0.045' numOctaves='2' seed='3' result='noise'/>` +
     `<feDisplacementMap in='SourceGraphic' in2='noise' scale='${n(12 * heat * ctx.k)}' xChannelSelector='R' yChannelSelector='G'/></filter>`;
-  return { defs, id };
+  return { defs, id, scroll };
 }
