@@ -567,10 +567,10 @@ export function sceneSheetSvg(project: Project, scene: Scene): string {
       `<text x='${n(l.x + 18)}' y='${n(l.y + 7)}' font-family='${LABEL_FONT}' font-size='18' font-weight='bold' fill='#ffe14d' stroke='#000' stroke-width='4' paint-order='stroke'>${l.kind === 'sky' ? 'light (sky)' : 'light (lamp)'}</text></g>`;
   }
   const ghost = `<defs>${CAST_DEFS}</defs>${shadows}<g opacity='0.35'>${ghostBox} fill='#333'/><text x='${n(centre.x)}' y='${n(centre.y - ghostH - 8)}' text-anchor='middle' font-family='${LABEL_FONT}' font-size='16' fill='#333'>${escapeXml(ghostLabel)}</text></g>`;
-  // Effects stand still at one moment here, where they are placed against the anchors; the
-  // strip underneath shows them moving with the weather.
+  // Effects stand still at one moment here, where they are placed against the anchors (drawn
+  // lines whole); the strip underneath shows them moving with the weather.
   const fx = (plane: EffectLayer) =>
-    effectsSvg(scene.effects, plane, 1, scene.weather?.wind ?? 0, W, H);
+    effectsSvg(scene.effects, plane, 1, scene.weather?.wind ?? 0, W, H, { finished: true });
   const strips = [
     scene.far || scene.near ? layerStrip(project, scene) : undefined,
     scene.weather || scene.effects.length || scene.sway ? motionStrip(project, scene) : undefined,

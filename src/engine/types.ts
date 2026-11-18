@@ -521,18 +521,51 @@ export type Weather = z.infer<typeof WeatherSchema>;
 export const EffectSchema = z
   .object({
     kind: z
-      .enum(['fire', 'smoke', 'waterfall', 'waves', 'river', 'sun'])
+      .enum(['fire', 'smoke', 'waterfall', 'waves', 'river', 'sun', 'draw'])
       .describe(
-        "fire: burning logs with flickering flames, a glow and sparks (x, y = the middle of the base on the ground). smoke: puffs rising from x, y (a chimney top, a doused fire). waterfall: water pouring from the lip at x, y (its middle) down `height`, `width` wide, foaming and misting at the bottom. waves: the sea moving between y and y + height, rows of crests and foam washing up and back at the shore line (the bottom); x and width default to the whole frame. river: ripples and glints drifting with the current and coming and going, inside the water's outline `points` (a river, a pond, a lake; no x or y). sun: a glowing sun at x, y with slowly turning rays"
+        "fire: burning logs with flickering flames, a glow and sparks (x, y = the middle of the base on the ground). smoke: puffs rising from x, y (a chimney top, a doused fire). waterfall: water pouring from the lip at x, y (its middle) down `height`, `width` wide, foaming and misting at the bottom. waves: the sea moving between y and y + height, rows of crests and foam washing up and back at the shore line (the bottom); x and width default to the whole frame. river: ripples and glints drifting with the current and coming and going, inside the water's outline `points` (a river, a pond, a lake; no x or y). sun: a glowing sun at x, y with slowly turning rays. draw: a line drawn on as the shot plays, through `points` in order from `start` for `duration` seconds, coloured along its length by `colors`, a glowing pen at its tip (a spirograph, a path being traced; no x or y)"
       ),
     x: z.number().optional(),
-    y: z.number().optional().describe('Required except for river'),
+    y: z.number().optional().describe('Required except for river and draw'),
     points: z
       .array(z.tuple([z.number(), z.number()]))
       .min(3)
       .optional()
       .describe(
-        "river: the water's outline as [x, y] corners, the same polygon the scene paints the water with; the ripples stay inside it, smaller toward the top (farther off)"
+        "river: the water's outline as [x, y] corners, the same polygon the scene paints the water with; the ripples stay inside it, smaller toward the top (farther off). draw: the line, in the order the pen passes; each point is reached in the same time, so put them closer where the pen should slow"
+      ),
+    start: z
+      .number()
+      .min(0)
+      .default(0)
+      .describe('draw: when the pen sets off, in seconds into the shot'),
+    duration: z
+      .number()
+      .positive()
+      .default(4)
+      .describe('draw: how long the pen takes over the whole line, in seconds'),
+    colors: z
+      .array(z.string().regex(/^#[0-9a-fA-F]{6}$/))
+      .min(1)
+      .optional()
+      .describe(
+        "draw: the line's colours, #rrggbb, spread evenly along it and blended between, so the pen changes colour as it goes (default `color`, else white)"
+      ),
+    opacity: z
+      .number()
+      .min(0)
+      .max(1)
+      .default(1)
+      .describe('draw: how opaque the line is; below 1, lines show through where they cross'),
+    pen: z
+      .boolean()
+      .default(true)
+      .describe('draw: a glowing dot at the tip while it draws, fading once the line is done'),
+    fixedWidth: z
+      .boolean()
+      .default(false)
+      .describe(
+        'draw: keep the line `width` px wide on screen however close the camera comes, a fine line in a close-up too (default: it grows with the zoom like the rest of the scene)'
       ),
     flow: z
       .tuple([z.number(), z.number()])
@@ -540,7 +573,11 @@ export const EffectSchema = z
       .describe(
         'river: how the ripples drift, [x, y] in px per second at the bottom of the water (slower toward the top). Default [18, 0], a slow river running right; [-60, 0] a fast one running left; [0, 0] a still pond'
       ),
-    width: z.number().positive().optional().describe('waterfall (default 120), waves'),
+    width: z
+      .number()
+      .positive()
+      .optional()
+      .describe("waterfall (default 120), waves; draw: the line's width (default 2)"),
     height: z
       .number()
       .positive()
@@ -559,7 +596,7 @@ export const EffectSchema = z
       .string()
       .optional()
       .describe(
-        'waterfall: the water (default #7cc6ec); waves: the crests and foam (default white); river: the ripples (default #f4f7e4); smoke: the puffs; sun: the disc'
+        'waterfall: the water (default #7cc6ec); waves: the crests and foam (default white); river: the ripples (default #f4f7e4); smoke: the puffs; sun: the disc; draw: the line, when it has no `colors`'
       ),
     logs: z.boolean().default(true).describe('fire: draw the burning logs under the flames'),
     layer: z
@@ -570,14 +607,18 @@ export const EffectSchema = z
       ),
   })
   .refine(
-    (e) => e.kind === 'waves' || e.kind === 'river' || e.x !== undefined,
-    'x is required except for waves and river'
+    (e) => e.kind === 'waves' || e.kind === 'river' || e.kind === 'draw' || e.x !== undefined,
+    'x is required except for waves, river and draw'
   )
-  .refine((e) => e.kind === 'river' || e.y !== undefined, 'y is required except for river')
+  .refine(
+    (e) => e.kind === 'river' || e.kind === 'draw' || e.y !== undefined,
+    'y is required except for river and draw'
+  )
   .refine(
     (e) => e.kind !== 'river' || e.points !== undefined,
     "river needs `points`, the water's outline"
-  );
+  )
+  .refine((e) => e.kind !== 'draw' || e.points !== undefined, 'draw needs `points`, the line');
 export type Effect = z.infer<typeof EffectSchema>;
 
 /**
@@ -693,7 +734,7 @@ export const SceneSchema = z.object({
     .array(EffectSchema)
     .default([])
     .describe(
-      'Moving things placed in the scene that the engine animates: fire, smoke, waterfall, waves, sun. Draw what does not move (the rock face, the beach, the fire pit stones) yourself'
+      'Moving things placed in the scene that the engine animates: fire, smoke, waterfall, waves, river, sun, and lines drawn on as the shot plays (draw). Draw what does not move (the rock face, the beach, the fire pit stones) yourself'
     ),
   lights: z
     .array(

@@ -17,6 +17,14 @@ const LINE = '#2e2633';
 export const effectLayer = (e: Effect): EffectLayer =>
   e.layer ?? (e.kind === 'sun' ? 'far' : 'stage');
 
+/** How an effect is being looked at: the plane's zoom now, and whether lines show finished. */
+export interface EffectView {
+  /** The camera's zoom on this plane, for lines that keep their width on screen. */
+  zoom?: number;
+  /** Draw every `draw` line whole, wherever its pen is (the scene sheet). */
+  finished?: boolean;
+}
+
 /**
  * Every effect of the scene on one plane at time t. `wind` (-1..1) leans flames and carries
  * smoke and sparks; `W` is the frame width, for waves that span it.
@@ -27,7 +35,8 @@ export function effectsSvg(
   t: number,
   wind: number,
   W: number,
-  H: number
+  H: number,
+  view: EffectView = {}
 ): string {
   const k = uiScale({ width: W, height: H });
   return effects
@@ -47,6 +56,8 @@ export function effectsSvg(
           return river(e, id, t, k);
         case 'sun':
           return sun(e, id, t, k);
+        case 'draw':
+          return drawLine(e, id, view.finished ? Infinity : t, k, view.zoom ?? 1);
       }
     })
     .join('');
@@ -397,5 +408,73 @@ function sun(e: Effect, id: string, t: number, k: number): string {
     `<circle cx='${n(x)}' cy='${n(y)}' r='${n(r)}' fill='${disc}' stroke='${mix(disc, '#e07a00', 0.5)}' stroke-width='${n(3 * k)}'/>` +
     `<circle cx='${n(x - r * 0.3)}' cy='${n(y - r * 0.3)}' r='${n(r * 0.28)}' fill='#ffffff' fill-opacity='0.35'/>` +
     `</g>`
+  );
+}
+
+/** A drawn line is split into this many pieces at most, each in the colour at its middle. */
+const DRAW_PIECES = 72;
+/** How long the pen's glow takes to fade once the line is done. */
+const PEN_FADE = 0.6;
+
+/** The colour `u` (0..1) of the way along a line coloured by `colors`, spread evenly. */
+export function colorAlong(colors: string[], u: number): string {
+  if (colors.length === 1) return colors[0];
+  const at = clamp01(u) * (colors.length - 1);
+  const i = Math.min(colors.length - 2, Math.floor(at));
+  return mix(colors[i], colors[i + 1], at - i);
+}
+
+/**
+ * A line drawn on as the shot plays: the pen passes one point of `points` in the same time
+ * each, from `start` over `duration`, so a script paces it by how closely it puts them.
+ * What is drawn stays in the colour it was drawn in, so the pen changes colour as it goes;
+ * the line is cut into pieces, each in the colour at its middle, under one opacity so the
+ * pieces do not darken where they meet. `zoom` is the plane's, for a fixed width.
+ */
+function drawLine(e: Effect, id: string, t: number, k: number, zoom: number): string {
+  const pts = e.points ?? [];
+  const last = pts.length - 1;
+  if (last < 1 || t <= e.start) return '';
+  const reached = Math.min(last, ((t - e.start) / e.duration) * last);
+  const colors = e.colors ?? [e.color ?? '#ffffff'];
+  const width = ((e.width ?? 2) * (e.fixedWidth ? 1 : k)) / (e.fixedWidth ? zoom : 1);
+  const whole = Math.floor(reached);
+  const frac = reached - whole;
+  // The pen's tip: between the last point it passed and the next.
+  const tip: [number, number] =
+    whole < last
+      ? [
+          pts[whole][0] + (pts[whole + 1][0] - pts[whole][0]) * frac,
+          pts[whole][1] + (pts[whole + 1][1] - pts[whole][1]) * frac,
+        ]
+      : pts[last];
+  const step = colors.length === 1 ? last : Math.max(1, Math.ceil(last / DRAW_PIECES));
+  let lines = '';
+  for (let a = 0; a < reached; a += step) {
+    const b = Math.min(a + step, whole);
+    const run = pts.slice(a, b + 1);
+    if (b < a + step && b < reached) run.push(tip);
+    if (run.length < 2) continue;
+    // The colour at the piece's middle once it is whole, so the piece being drawn keeps it.
+    const color = colorAlong(colors, (a + Math.min(step, last - a) / 2) / last);
+    lines += `<polyline points='${run.map((p) => `${n(p[0])},${n(p[1])}`).join(' ')}' stroke='${color}'/>`;
+  }
+  const group =
+    `<g fill='none' stroke-width='${n(width)}' stroke-linecap='round' stroke-linejoin='round'` +
+    (e.opacity < 1 ? ` opacity='${n(e.opacity)}'` : '') +
+    `>${lines}</g>`;
+  if (!e.pen) return group;
+  // The pen glows while it draws and fades out once it is done.
+  const done = isFinite(t) ? t - (e.start + e.duration) : Infinity;
+  const glow = done <= 0 ? 1 : 1 - clamp01(done / PEN_FADE);
+  if (glow <= 0) return group;
+  const color = colorAlong(colors, reached / last);
+  const r = Math.max(width * 4, e.fixedWidth ? 7 / zoom : 7 * k);
+  return (
+    group +
+    `<defs><radialGradient id='${id}-pen'><stop offset='0' stop-color='#ffffff' stop-opacity='${n(glow)}'/>` +
+    `<stop offset='0.25' stop-color='${color}' stop-opacity='${n(0.8 * glow)}'/>` +
+    `<stop offset='1' stop-color='${color}' stop-opacity='0'/></radialGradient></defs>` +
+    `<circle cx='${n(tip[0])}' cy='${n(tip[1])}' r='${n(r)}' fill='url(#${id}-pen)'/>`
   );
 }

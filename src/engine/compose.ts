@@ -456,7 +456,18 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
     shelters,
     sheltersAt
   );
-  const fx = (plane: EffectLayer) => effectsSvg(scene.effects, plane, frame.t, w.wind ?? 0, W, H);
+  // Each plane zooms as its layer does (layerTransform), for lines kept fine on screen.
+  const planeZoom = (plane: EffectLayer) =>
+    Math.pow(
+      c.zoom,
+      plane === 'far'
+        ? (scene.parallax?.far ?? PARALLAX.far)
+        : plane === 'near'
+          ? (scene.parallax?.near ?? PARALLAX.near)
+          : 1
+    );
+  const fx = (plane: EffectLayer) =>
+    effectsSvg(scene.effects, plane, frame.t, w.wind ?? 0, W, H, { zoom: planeZoom(plane) });
   const fires = fireLights(scene.effects, frame.t, W, H);
   // The scenery that sways in the air, turned for now (and further in a wind).
   const sway = (layer: string | undefined) => swayLayer(layer, scene.sway, frame.t, w.wind ?? 0);

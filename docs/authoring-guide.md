@@ -903,6 +903,7 @@ over `duration` (default 2 s); what it leaves out goes away.
 | `waves`     | `y` is the far edge of the sea, `height` its depth | rows of crests, a swell rolling in, foam washing up the shore line and back     |
 | `river`     | no `x`, `y`: `points` is the water's outline       | ripples and glints drifting with the current (`flow`), swelling and fading      |
 | `sun`       | the centre of the disc                             | a breathing halo and slowly turning rays                                        |
+| `draw`      | no `x`, `y`: `points` is the line, in pen order    | the line drawn on from `start` over `duration` s, a glowing pen at its tip      |
 
 `size` scales fire (1 is a campfire about 110 px tall), smoke and the sun;
 `color` recolours water, foam, smoke or sun. `layer` defaults to `far` for
@@ -920,6 +921,31 @@ painted water, or they will sit still under the moving ones. Water with a
 translucent `foreground` over the waders wants two: one on the stage for
 the open water above the waterline, and one with `"layer": "front"` for
 the foreground's outline, a little faster, since it is nearer.
+
+**Lines that draw themselves (`draw`).** A `draw` effect is a line the
+pen draws on as the shot plays: a spirograph, a curve being traced, a path
+filling a grid. `points` is the line in the order the pen goes, and the pen
+reaches each point in the same time, so the script paces it by how closely
+it puts them: sample a spirograph evenly in the wheel's turn and the pen
+speeds up round the outer loops as a real one does. It sets off at `start`
+(seconds into the shot) and takes `duration` over the whole line. `colors`
+(`#rrggbb`) are spread evenly along it and blended between, so the pen
+changes colour as it goes and what it drew keeps its colour. `width`
+(default 2) grows with the camera like the rest of the scene unless
+`fixedWidth` keeps it that wide on screen, a fine line in a close-up too.
+`opacity` below 1 lets crossing lines show through; `pen: false` drops the
+glowing dot at the tip, which fades once the line is done. The scene sheet
+draws every line whole, where it will end up.
+
+```json
+{ "kind": "draw", "points": [[540, 1215], [541.2, 1213.8], ...], "start": 4,
+  "duration": 6, "colors": ["#4fc3ff", "#a77bff", "#ff7bd5"],
+  "width": 2.2, "fixedWidth": true, "opacity": 0.92 }
+```
+
+Hundreds of lines are fine: they are stored once and only cut at the pen
+each frame. A whole film of them wants the camera far closer than a story
+does (zoom 3 on one flower of a canvas of a hundred); see the camera below.
 
 ### Swaying trees and grass (`sway`)
 
