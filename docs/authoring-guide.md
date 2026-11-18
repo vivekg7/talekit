@@ -59,7 +59,10 @@ frames)` are full size. To fix a shot, `patch_shot(path, shotId, …)`:
    (from a shell, `talekit serve <film> <reel> --open`) serves both from
    one review server, each under its own path (`…:4848/<folder>/`), and
    opens the first in the person's browser; each page switches to the
-   others. Give them the addresses it returns. They watch and
+   others. A batch of reels can go on one server the same way: with more
+   than one served, the server's own address lists them all as cards with
+   their covers and open-note counts, and each page's header becomes a
+   list with ‹ › to step through them. Give them the addresses it returns. They watch and
    leave notes on a character, a scene or a moment of a shot, and pick
    among the film's [options](#options-and-samples) if it has any. Pass
    `lan: true` only when they ask to review on their phone.

@@ -66,7 +66,10 @@ characters, scenes and shots.
 `talekit serve <film> <reel> --open` serves a review app for each project
 (on 4848 and 4849, or the next free ports) and opens the first in the
 browser, in Firefox when it is already running; a switch in the header goes
-between the film and the reel. The agent does the same with `open_review`
+between the film and the reel. Any number of projects can be served at once
+(a batch of reels to choose between): the server's own address then lists
+them as cards with their covers and open-note counts, and past three the
+header switch becomes a list with ‹ › to step through them. The agent does the same with `open_review`
 once both are rendered. Each shows the picture at the film's exact shape, as
 large as the window allows, with this shot's notes and script in a column
 beside it. A film keeps its shots in a strip along the bottom; a reel has

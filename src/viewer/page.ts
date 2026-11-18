@@ -21,6 +21,9 @@ header strong{font-size:16px}
 #apps:empty{display:none}
 #apps a{color:var(--dim);text-decoration:none;padding:4px 10px;border-radius:5px}
 #apps a.on{background:var(--panel);color:var(--text)}
+#apps select{max-width:52vw;background:var(--panel);color:var(--text);border:0;border-radius:5px;font:inherit;padding:3px 4px}
+#apps .step{background:none;border:0;color:var(--text);font:inherit;font-size:16px;padding:0 8px;cursor:pointer}
+#apps .step:disabled{color:var(--dim);cursor:default}
 #title{color:var(--dim)}
 nav{display:flex;gap:4px;margin-left:auto}
 nav button{background:none;border:1px solid transparent;color:var(--dim);padding:6px 12px;border-radius:6px;cursor:pointer;font:inherit}
@@ -368,6 +371,20 @@ function renderApps() {
   var el = $('apps');
   if (info.apps.length < 2) { el.innerHTML = ''; return; }
   var kindOf = function (a) { return a.kind === 'board' ? 'Samples' : a.portrait ? 'Reel' : 'Film'; };
+  // A batch of reels is too many to lay out as tabs: pick one from a list, the rest one step away.
+  if (info.apps.length > 3) {
+    var at = info.apps.findIndex(function (a) { return a.here; });
+    var go = function (a) { if (a) location.href = '../' + encodeURIComponent(a.slug) + '/'; };
+    el.innerHTML = "<a href='../' title='Every film and reel served'>All</a><button class='step' id='app-prev' title='Previous'>‹</button><select id='app-pick'>" +
+      info.apps.map(function (a, i) { return '<option value=' + i + (a.here ? ' selected' : '') + '>' + esc((i + 1) + '. ' + a.title + ' · ' + kindOf(a).toLowerCase()) + '</option>'; }).join('') +
+      "</select><button class='step' id='app-next' title='Next'>›</button>";
+    $('app-pick').onchange = function () { go(info.apps[+this.value]); };
+    $('app-prev').onclick = function () { go(info.apps[at - 1]); };
+    $('app-next').onclick = function () { go(info.apps[at + 1]); };
+    $('app-prev').disabled = at <= 0;
+    $('app-next').disabled = at >= info.apps.length - 1;
+    return;
+  }
   var count = {};
   info.apps.forEach(function (a) { var k = kindOf(a); count[k] = (count[k] || 0) + 1; });
   el.innerHTML = info.apps.map(function (a) {

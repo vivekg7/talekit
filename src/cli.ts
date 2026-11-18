@@ -53,7 +53,7 @@ const USAGE = `talekit — story video generation for AI agents
   talekit render <dir> [shotId] [-o file.mp4] [--silent]   the whole film (not a reel) also writes a .mkv
   talekit remix <dir> [-o file.mp4]            mix the sound again under a rendered film (after a mix change)
   talekit mkv <dir> [-o file.mp4]              build the .mkv again from the rendered mp4 (after a translation)
-  talekit serve <dir> [dir...] [--port 4848] [--open] [--lan]   one review server for a film, its reel and any board of samples; --open opens the first, --lan for a phone
+  talekit serve <dir> [dir...] [--port 4848] [--open] [--lan]   one review server for a film, its reel, a batch of reels and any board of samples; --open opens the first, --lan for a phone
   talekit mcp                                  start the MCP server on stdio
 `;
 

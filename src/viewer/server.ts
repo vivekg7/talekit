@@ -449,6 +449,12 @@ async function projectRoute(
     await serveFile(file, 'video/mp4', req, res);
     return;
   }
+  if (rel === '/thumbnail.png') {
+    const file = path.join(projectPaths(root).out, 'thumbnail.png');
+    if (existsSync(file)) await serveFile(file, 'image/png', req, res);
+    else res.writeHead(404).end('no cover');
+    return;
+  }
   if (rel === '/api/stem') {
     const bus = url.searchParams.get('bus') as Bus;
     if (!STEMS.includes(bus)) throw new Error('unknown bus');
@@ -743,16 +749,29 @@ function switcher(items: Item[], here: Item) {
 
 const escHtml = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-/** `/` with more than one thing served: a list of them. */
-function indexPage(items: Item[]): string {
-  const rows = items
-    .filter((i) => !i.board)
-    .map(
-      (i) =>
-        `<li><a href='/${i.slug}/'>${escHtml(i.title)}</a> <span>${i.kind === 'board' ? 'samples' : i.portrait ? 'reel' : 'film'} · ${escHtml(i.root)}</span></li>`
-    )
-    .join('');
-  return `<!doctype html><html><head><meta charset='utf-8'><title>talekit review</title><meta name='viewport' content='width=device-width, initial-scale=1'><link rel='icon' href='data:,'><style>body{margin:0;padding:24px;font:15px system-ui,sans-serif;background:#1b1f24;color:#ddd}a{color:#ffd166;font-size:17px}li{margin:10px 0}span{color:#9aa3ad;font-size:12px;margin-left:8px}ul{list-style:none;padding:0}</style></head><body><strong>talekit review</strong><ul>${rows}</ul></body></html>`;
+/**
+ * `/` with more than one thing served: a card for each, with its cover and how many of
+ * its notes are still open, so a batch of reels can be looked over side by side.
+ */
+async function indexPage(items: Item[]): Promise<string> {
+  const shown = items.filter((i) => !i.board);
+  const cards = await Promise.all(
+    shown.map(async (i) => {
+      const kind = i.kind === 'board' ? 'samples' : i.portrait ? 'reel' : 'film';
+      const cover =
+        i.kind === 'project' && existsSync(path.join(projectPaths(i.root).out, 'thumbnail.png'));
+      const open =
+        i.kind === 'project'
+          ? (await loadNotes(i.root)).filter((n) => n.status === 'open').length
+          : 0;
+      const pic = cover
+        ? `<img loading='lazy' src='/${i.slug}/thumbnail.png' alt=''>`
+        : `<div class='none'>${kind}</div>`;
+      const badge = open ? `<em>${open} open</em>` : '';
+      return `<a class='card${i.portrait ? ' tall' : ''}' href='/${i.slug}/'>${pic}<b>${escHtml(i.title)}${badge}</b><span>${kind} · ${escHtml(path.basename(i.root))}</span></a>`;
+    })
+  );
+  return `<!doctype html><html><head><meta charset='utf-8'><title>talekit review</title><meta name='viewport' content='width=device-width, initial-scale=1'><link rel='icon' href='data:,'><style>body{margin:0;padding:20px;font:15px system-ui,sans-serif;background:#1b1f24;color:#ddd}h1{font-size:17px;margin:0 0 16px}#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px}.card{display:flex;flex-direction:column;gap:4px;color:#ddd;text-decoration:none;background:#242a31;border-radius:8px;padding:8px}.card:hover{background:#2e353e}.card img,.card .none{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:5px;background:#111}.card.tall img,.card.tall .none{aspect-ratio:9/16}.none{display:flex;align-items:center;justify-content:center;color:#666}b{color:#ffd166;font-size:14px}em{font-style:normal;background:#ffd166;color:#000;border-radius:9px;padding:0 6px;font-size:11px;margin-left:6px}span{color:#9aa3ad;font-size:12px}</style></head><body><h1>talekit review · ${shown.length}</h1><div id='grid'>${cards.join('')}</div></body></html>`;
 }
 
 export interface Review {
@@ -814,7 +833,9 @@ export async function startReview(port: number, opts: { lan?: boolean } = {}): P
         const shown = items.filter((i) => !i.board);
         if (shown.length === 1) res.writeHead(302, { location: `/${shown[0].slug}/` }).end();
         else
-          res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(indexPage(items));
+          res
+            .writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+            .end(await indexPage(items));
         return;
       }
       const item = items.find((i) => i.slug === decodeURIComponent(m[1]));
