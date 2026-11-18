@@ -1502,9 +1502,13 @@ Walking, jumping and pointing look straight ahead.
   can run under a bubble, but nobody should talk over a title card.
 - `camera: { zoom, x, y }` tweens over `duration` (default 1 s; `0.05` is
   a cut); `x, y` is the world point at frame centre. Zoom in on a face for
-  a reaction, pull back for an arrival. Keep zoom 1 to 2: below 1 is raised
-  to 1 and the view is clamped to the scene, so a zoom near an edge shifts
-  inward. Above 1.3 the frame's edges darken a little.
+  a reaction, pull back for an arrival. Keep zoom 1 to 2 for a story (fine
+  work such as `draw` lines can go closer): below 1 is raised to 1 and the
+  view is clamped to the scene, so a zoom near an edge shifts inward. Above
+  1.3 the frame's edges darken a little. The zoom changes geometrically
+  (halfway from 1 to 4 is 2) and the view zooms about a fixed point, as a
+  pinch does, so a long zoom-in onto one spot closes on it steadily instead
+  of swinging past it.
 - `camera: { zoom: 1.6, follow: "kid" }` pans after a cast member, trailing
   a moment with room ahead, and settles when they stop: for a walk or chase
   longer than the frame. It needs zoom above 1 and a scene with things

@@ -1795,6 +1795,22 @@ const FOLLOW_LAG = 0.9;
 /** Room left ahead of a followed actor, as a share of the frame's width. */
 const FOLLOW_LEAD = 0.12;
 
+/**
+ * The view `u` (0..1) of the way from one camera to another. Zoom goes geometrically, so
+ * every moment of a zoom from 1 to 6 looks as fast as every other, and the point at the
+ * frame centre moves with 1 / zoom: the one move that zooms about a fixed point (as a pinch
+ * does), so a far zoom-in onto one spot closes on it steadily instead of swinging past.
+ * With the zoom (nearly) unchanged that is a plain pan.
+ */
+export function cameraBetween(from: View, to: View, u: number): View {
+  const z0 = Math.max(1e-3, from.zoom);
+  const z1 = Math.max(1e-3, to.zoom);
+  const zoom = z0 * Math.pow(z1 / z0, u);
+  const span = 1 / z0 - 1 / z1;
+  const w = Math.abs(span) < 1e-3 ? u : (1 / z0 - 1 / zoom) / span;
+  return { zoom, x: lerp(from.x, to.x, w), y: lerp(from.y, to.y, w) };
+}
+
 export function resolveCamera(project: Project, scene: Scene, shot: Shot, t: number): View {
   const { width, height } = project.meta;
   type Aim = View & { follow?: string };
@@ -1853,11 +1869,7 @@ export function resolveCamera(project: Project, scene: Scene, shot: Shot, t: num
     const to = view(cam, time);
     if (!tween) return clampCam(to);
     const u = easeInOut(clamp01((time - tween.t0) / Math.max(1e-6, tween.t1 - tween.t0)));
-    return clampCam({
-      zoom: lerp(tween.from.zoom, to.zoom, u),
-      x: lerp(tween.from.x, to.x, u),
-      y: lerp(tween.from.y, to.y, u),
-    });
+    return clampCam(cameraBetween(tween.from, to, u));
   };
   for (const a of shot.actions.filter((a) => a.camera).sort((a, b) => a.t - b.t)) {
     if (a.t > t) break;

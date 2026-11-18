@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { wrapText } from '../src/engine/bubble.js';
 import { composeFrame } from '../src/engine/compose.js';
-import { resolveFrame } from '../src/engine/timeline.js';
+import { cameraBetween, resolveFrame } from '../src/engine/timeline.js';
 import { CharacterSchema, SceneSchema, ShotSchema, type Project } from '../src/engine/types.js';
 import { LIBRARY, nameFromId } from '../src/library/index.js';
 import { validateCharacter, validateShot } from '../src/project/validate.js';
@@ -84,8 +84,27 @@ describe('timeline', () => {
   });
   it('tweens the camera', () => {
     expect(resolveFrame(p, shot, 3).camera.zoom).toBe(1);
-    expect(resolveFrame(p, shot, 4).camera.zoom).toBeCloseTo(1.5, 5);
+    // Halfway through a zoom from 1 to 2 is √2: zoom goes geometrically.
+    expect(resolveFrame(p, shot, 4).camera.zoom).toBeCloseTo(Math.SQRT2, 5);
     expect(resolveFrame(p, shot, 6).camera.zoom).toBe(2);
+  });
+  it('zooms about a fixed point, so a far zoom-in closes on its spot without swinging', () => {
+    const from = { zoom: 1, x: 640, y: 360 };
+    const to = { zoom: 6, x: 900, y: 500 };
+    // Where the target spot is on screen, off the frame centre, along the way.
+    const off = (u: number) => {
+      const c = cameraBetween(from, to, u);
+      return Math.hypot((to.x - c.x) * c.zoom, (to.y - c.y) * c.zoom);
+    };
+    let prev = off(0);
+    for (let u = 0.1; u <= 1.001; u += 0.1) {
+      const now = off(u);
+      expect(now).toBeLessThanOrEqual(prev + 1e-9);
+      prev = now;
+    }
+    expect(off(1)).toBeCloseTo(0, 6);
+    // A plain pan stays a plain pan.
+    expect(cameraBetween(from, { zoom: 1, x: 840, y: 360 }, 0.25).x).toBeCloseTo(690, 6);
   });
   it('follows an actor, trailing it, with room ahead, and lets go for a fixed point', () => {
     const fp = project({
