@@ -951,7 +951,8 @@ carrier.
 - **Reaching `to`** (`wipe`, `hold`, `strike`): `to` is an actor, an anchor
   (its `use` point) or a spot; the engine turns the doer to it first.
 - **`wipe`**: `{ "do": "wipe", "to": "vase" }` circles the near hand on
-  the actor's middle; stand as close as for a pickup.
+  the actor's middle as it is posed (a lying one's belly); stand as close as
+  for a pickup.
 - **`hold`**: `{ "do": "hold", "to": "ghayal" }` keeps the hand on the
   actor's shoulder (or a spot) for `duration`, following them up off the
   floor. To walk a hurt man in, two helpers `hold` him (one a step ahead on

@@ -1725,9 +1725,9 @@ function struckAt(o: ActorState, t: number): { x: number; y: number } {
 }
 
 /**
- * What a `wipe` wipes, a `hold` rests on, a `strike` lands on or an `eat` takes food from, in the scene: an actor
- * named in `to` (its middle; for a hold its shoulder, for a blow see struckAt), an anchor's
- * work point (`use.at`), or the spot.
+ * What a `wipe` wipes, a `hold` rests on, a `strike` lands on or an `eat` takes food from, in
+ * the scene: an actor named in `to` (its middle as it is posed; for a hold its shoulder, for a
+ * blow see struckAt), an anchor's work point (`use.at`), or the spot.
  */
 export function wipeSpot(
   project: Project,
@@ -1747,7 +1747,9 @@ export function wipeSpot(
       return { x: o.x + (head.x - o.x) * HOLD_AT, y: o.y + (head.y - o.y) * HOLD_AT };
     }
     if (verb === 'strike') return struckAt(o, t);
-    return { x: o.x, y: o.y - (o.character.height * o.scale) / 2 };
+    // The middle of the body as it is now: a lying person's belly, not the air above it.
+    const rig = rigOf(o.character);
+    return partToScene(o, poseFor(o, t), [rig.width / 2, rig.height / 2]);
   }
   // A place that says where its work is done (a washing stone's top): there.
   const at = typeof to === 'string' ? scene.anchors[to]?.use?.at : undefined;

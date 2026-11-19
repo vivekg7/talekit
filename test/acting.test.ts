@@ -3,7 +3,7 @@ import { characterBody, holdPoint, poseFor } from '../src/engine/actor.js';
 import { composeFrame } from '../src/engine/compose.js';
 import { cueSheet } from '../src/engine/sound.js';
 import { RIGS } from '../src/engine/rigs.js';
-import { resolveFrame, touchPoint, type ActorState } from '../src/engine/timeline.js';
+import { resolveFrame, touchPoint, wipeSpot, type ActorState } from '../src/engine/timeline.js';
 import { CharacterSchema, ShotSchema, type Project } from '../src/engine/types.js';
 import { LIBRARY } from '../src/library/index.js';
 import { validateProject, validateShot } from '../src/project/validate.js';
@@ -405,6 +405,33 @@ describe('picking up and putting down', () => {
     expect(Math.hypot(spots[0].x - spots[1].x, spots[0].y - spots[1].y)).toBeGreaterThan(1);
     expect(hand(p, 'kid', 3.5).y).toBeGreaterThan(middle.y + 20);
     expect(validateShot(p.shots[0], p)).toEqual([]);
+  });
+
+  it('wipes a lying person on the belly, not the air where their middle stood', () => {
+    const p = project(
+      {
+        kid: { at: { x: 300, y: 640 }, facing: 'right' },
+        grownup: { at: { x: 380, y: 640 }, facing: 'left' },
+      },
+      [
+        { t: 0, actor: 'kid', do: 'lie', duration: 0.05 },
+        { t: 1, actor: 'grownup', do: 'wipe', to: 'kid', duration: 2 },
+      ]
+    );
+    const kid = at(p, 'kid', 2);
+    const spot = wipeSpot(p, p.scenes.park, p.shots[0], 'kid', 2, 0);
+    // Down on the body, between the hips and the head behind them.
+    expect(Math.abs(spot.y - 640)).toBeLessThan(0.15 * kid.character.height);
+    expect(spot.x).toBeLessThan(kid.x);
+    const h = hand(p, 'grownup', 2);
+    expect(Math.hypot(h.x - spot.x, h.y - spot.y)).toBeLessThan(12);
+    expect(validateShot(p.shots[0], p)).toEqual([]);
+    // Standing, still the middle of the box.
+    const up = project({ kid: { at: { x: 300, y: 640 } } }, []);
+    const middle = wipeSpot(up, up.scenes.park, up.shots[0], 'kid', 1, 0);
+    const k = at(up, 'kid', 1);
+    expect(middle.x).toBeCloseTo(300, 0);
+    expect(middle.y).toBeCloseTo(640 - (k.character.height * k.scale) / 2, 0);
   });
 
   it('warns when a carried prop vanishes at a cut', () => {
