@@ -864,6 +864,11 @@ function swimBeats(u: number, span: number): { k: number; phi: number } {
 
 /** An `eat`: the share of it at which the food reaches the mouth, the bites a second. */
 const EAT = { at: 0.22, hz: 4 };
+/**
+ * An `eat` with `to` (food on a plate, a fruit on the floor): the hand is down on it by
+ * `down`, takes it up from `lift`, and has it at the mouth by `at`.
+ */
+const EAT_FROM = { down: 0.14, lift: 0.24, at: 0.4 };
 
 /**
  * The beats of an `eat`: `k` (0..1) brings the food to the mouth (or the head down to it)
@@ -879,10 +884,28 @@ function eatBeats(u: number, span: number): { k: number; chew: number } {
  * Whether an `eat` under way has the mouth open now, chewing open and shut from when the
  * food reaches it to just before the end; undefined when nobody is eating.
  */
-export function chewing(verbs: { verb: Verb; u: number; span?: number }[]): boolean | undefined {
-  const eat = verbs.find((v) => v.verb === 'eat' && v.u >= EAT.at && v.u < 0.95);
+export function chewing(
+  verbs: { verb: Verb; u: number; span?: number; to?: Pt }[]
+): boolean | undefined {
+  const eat = verbs.find(
+    (v) => v.verb === 'eat' && v.u >= (v.to ? EAT_FROM.at : EAT.at) && v.u < 0.95
+  );
   if (!eat) return undefined;
-  return Math.sin((eat.u - EAT.at) * (eat.span ?? 1) * TAU * EAT.hz) > 0;
+  const at = eat.to ? EAT_FROM.at : EAT.at;
+  return Math.sin((eat.u - at) * (eat.span ?? 1) * TAU * EAT.hz) > 0;
+}
+
+/**
+ * The hand of someone eating from `to`: how far it is out of its rest (`k`), and how far
+ * along from the food to the mouth (`m`, 0 on the food, 1 at the mouth), with the chewing
+ * bob from when it gets there.
+ */
+function eatFromBeats(u: number, span: number): { k: number; m: number; chew: number } {
+  const { down, lift, at } = EAT_FROM;
+  const k = u < down ? easeInOut(u / down) : u > 0.82 ? 1 - easeInOut((u - 0.82) / 0.18) : 1;
+  const m = u < lift ? 0 : u < at ? easeInOut((u - lift) / (at - lift)) : 1;
+  const chew = u < at ? 0 : Math.sin((u - at) * span * TAU * EAT.hz) * k;
+  return { k, m, chew };
 }
 
 /** How far an animal eating off the floor tips its body forward, and its head at least. */
@@ -1528,7 +1551,18 @@ export function applyVerb(
     case 'eat': {
       // The near hand comes up to the mouth with whatever it holds, stays there while the
       // head bobs with the chewing (the mouth flaps: `chewing`), and goes back down. The
-      // head tips a little toward the hand.
+      // head tips a little toward the hand. With `to` (a plate, a fruit on the floor) the
+      // hand goes down to it first and takes the food up from there.
+      if (humanoid && to) {
+        const { k, m, chew } = eatFromBeats(u, span);
+        pose.rot.head = (pose.rot.head ?? 0) + 5 * m * k;
+        const [x, y] = toRoot(rig, pose, 'head', EAT_AT);
+        const mouth: Pt = [x + pose.dx, y + pose.dy];
+        reachTo(rig, pose, [mix(to[0], mouth[0], m), mix(to[1], mouth[1], m)], k);
+        pose.rot.head += 2.5 * chew;
+        nudge(pose, 'head', 0, 1.5 * Math.max(0, chew));
+        break;
+      }
       const { k, chew } = eatBeats(u, span);
       if (humanoid) {
         pose.rot.head = (pose.rot.head ?? 0) + 5 * k;

@@ -1182,32 +1182,32 @@ falling the same way.
 
 ### Verbs (`do`)
 
-| verb                  | what happens                                                                                                               | duration default        |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| `walk` / `run`        | planted-foot cycle to `to`, easing in and out (four legs: gallop)                                                          | distance ÷ 220 / 420    |
-| `move`                | glide to `to` without a cycle (a boat, a sledge, a ghost); never a prop to a hand or a shelf, nor a walker through the air | distance ÷ 300          |
-| `fall`                | drops straight down under gravity to the ground under it, with one bounce (a vase off a shelf, a mango off a branch)       | from the height         |
-| `fly`                 | move with a wobble, beating any `flaps` (birds, kites); `to` may be in the sky                                             | distance ÷ 260          |
-| `jump`                | crouch, leap (in place, or to `to`), land with a give                                                                      | 0.8s                    |
-| `climb`               | up or down a ladder or trunk to `to`, hand over hand, back to the viewer (four legs: tipped up the slope, walking)         | distance ÷ 70           |
-| `wave`, `point`       | near arm (or front paw) up and waving / pointing (simple rig: lean toward)                                                 | 1.5s                    |
-| `nod`, `shake`        | head yes / no                                                                                                              | 0.8s                    |
-| `tremble`             | frightened shiver (head and shoulders, or the whole simple body)                                                           | 1.2s                    |
-| `sit` / `stand`       | persistent: seat on `to` (a seat anchor), knees bent; four legs sit down                                                   | 0.4s ease               |
-| `lie`                 | persistent: sits, then lies back on the floor (four legs: on the belly)                                                    | 1.3s ease               |
-| `bounce`, `spin`      | squashy hop / full rotation (best on the simple rig)                                                                       | 1s / 0.8s               |
-| `appear`, `disappear` | pop in past full size and settle / swell a touch and shrink away                                                           | 0.4s                    |
-| `pickup`, `putdown`   | on a prop, with `attach`: its carrier stoops or reaches for it (below)                                                     | 1.2s                    |
-| `give`                | on a held prop, with `attach`: its holder and the taker reach out and it changes hands where their hands meet (below)      | 1.4s                    |
-| `wipe`                | near hand (or a tool's `tip`) out to `to` (an actor or a spot), going round on it: dusting                                 | 2.4s                    |
-| `kick`                | near leg draws back, snaps out forward and up (lying: up off the bed; four legs: buck)                                     | 0.9s                    |
-| `eat`                 | near hand and what it holds to the mouth, chewing (four legs: head down; simple: peck)                                     | 1.6s                    |
-| `strike`              | near arm up overhead, chops down forward, swinging what it holds; at `to`, onto it (four legs: a butt)                     | 0.7s                    |
-| `swim`                | paddles in place, legs churning under a still body, head up; pair with a `move`                                            | 3s                      |
-| `dig`                 | bent over, swings what it holds up and down into the floor in front, clods flying                                          | 2.5s (2 strokes)        |
-| `hold`                | near hand out to `to` (an actor's shoulder, or a spot; a tool's `tip` to a spot) and kept there                            | 2s                      |
-| `aim`                 | draws a held bow at `to` and holds it, then lowers it; its `arrow` on the string                                           | 3s                      |
-| `shoot`               | looses the arrow of the aim in progress; it flies to the target and sticks there                                           | flight: distance ÷ 2400 |
+| verb                  | what happens                                                                                                                    | duration default        |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| `walk` / `run`        | planted-foot cycle to `to`, easing in and out (four legs: gallop)                                                               | distance ÷ 220 / 420    |
+| `move`                | glide to `to` without a cycle (a boat, a sledge, a ghost); never a prop to a hand or a shelf, nor a walker through the air      | distance ÷ 300          |
+| `fall`                | drops straight down under gravity to the ground under it, with one bounce (a vase off a shelf, a mango off a branch)            | from the height         |
+| `fly`                 | move with a wobble, beating any `flaps` (birds, kites); `to` may be in the sky                                                  | distance ÷ 260          |
+| `jump`                | crouch, leap (in place, or to `to`), land with a give                                                                           | 0.8s                    |
+| `climb`               | up or down a ladder or trunk to `to`, hand over hand, back to the viewer (four legs: tipped up the slope, walking)              | distance ÷ 70           |
+| `wave`, `point`       | near arm (or front paw) up and waving / pointing (simple rig: lean toward)                                                      | 1.5s                    |
+| `nod`, `shake`        | head yes / no                                                                                                                   | 0.8s                    |
+| `tremble`             | frightened shiver (head and shoulders, or the whole simple body)                                                                | 1.2s                    |
+| `sit` / `stand`       | persistent: seat on `to` (a seat anchor), knees bent; four legs sit down                                                        | 0.4s ease               |
+| `lie`                 | persistent: sits, then lies back on the floor (four legs: on the belly)                                                         | 1.3s ease               |
+| `bounce`, `spin`      | squashy hop / full rotation (best on the simple rig)                                                                            | 1s / 0.8s               |
+| `appear`, `disappear` | pop in past full size and settle / swell a touch and shrink away                                                                | 0.4s                    |
+| `pickup`, `putdown`   | on a prop, with `attach`: its carrier stoops or reaches for it (below)                                                          | 1.2s                    |
+| `give`                | on a held prop, with `attach`: its holder and the taker reach out and it changes hands where their hands meet (below)           | 1.4s                    |
+| `wipe`                | near hand (or a tool's `tip`) out to `to` (an actor or a spot), going round on it: dusting                                      | 2.4s                    |
+| `kick`                | near leg draws back, snaps out forward and up (lying: up off the bed; four legs: buck)                                          | 0.9s                    |
+| `eat`                 | near hand and what it holds to the mouth, chewing; with `to`, down to the food there first (four legs: head down; simple: peck) | 1.6s                    |
+| `strike`              | near arm up overhead, chops down forward, swinging what it holds; at `to`, onto it (four legs: a butt)                          | 0.7s                    |
+| `swim`                | paddles in place, legs churning under a still body, head up; pair with a `move`                                                 | 3s                      |
+| `dig`                 | bent over, swings what it holds up and down into the floor in front, clods flying                                               | 2.5s (2 strokes)        |
+| `hold`                | near hand out to `to` (an actor's shoulder, or a spot; a tool's `tip` to a spot) and kept there                                 | 2s                      |
+| `aim`                 | draws a held bow at `to` and holds it, then lowers it; its `arrow` on the string                                                | 3s                      |
+| `shoot`               | looses the arrow of the aim in progress; it flies to the target and sticks there                                                | flight: distance ÷ 2400 |
 
 Crossing the frame on foot takes 4–5 s. `duration` overrides any default,
 and every walk needs enough of it or the character sprints; the engine
@@ -1309,7 +1309,12 @@ is drawn just in front; its own moves are ignored.
   what reaches the lips, so grip a roti or a fruit by its lower edge. An
   animal puts its head down to the floor in front of its forepaws and
   chews there; the simple rig pecks forward. Several bites are several
-  `eat`s.
+  `eat`s. A hand that eats from nothing reads as eating air: give food
+  on a plate or the floor as `to` (the plate in the cast, or a spot on
+  the food) and the hand goes down to it first, takes the bite up from
+  there (by 0.24 of the `eat`) and has it at the mouth by 0.4, chewing
+  from then. To show the bite in the hand, attach a small morsel prop and
+  make it visible at that 0.24, hidden again once it is in the mouth.
 - **Hitting**: `{ "t": 8, "actor": "farmer", "do": "strike", "to":
 "camel" }` is one blow: the near arm winds up over the head and chops
   down, and a carried stick, sword or broom swings with it, back over the

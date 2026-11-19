@@ -63,7 +63,7 @@ export interface ActiveVerb {
   /** How long it lasts, seconds. */
   span?: number;
   /**
-   * Where the near hand goes, in the actor's box (as it faces): what a `wipe` wipes, or the
+   * Where the near hand goes, in the actor's box (as it faces): what a `wipe` wipes, the food an `eat` takes up, or the
    * grip of a prop a `pickup` takes off a table (from the floor it stoops, without one).
    */
   to?: Pt;
@@ -1442,7 +1442,7 @@ export function resolveActor(
           verbs.push(v);
           const to = a.to;
           if (
-            (verb === 'wipe' || verb === 'hold' || verb === 'strike') &&
+            (verb === 'wipe' || verb === 'hold' || verb === 'strike' || verb === 'eat') &&
             to &&
             depth < MAX_DEPTH
           ) {
@@ -1736,7 +1736,7 @@ function struckAt(o: ActorState, t: number): { x: number; y: number } {
 }
 
 /**
- * What a `wipe` wipes, a `hold` rests on or a `strike` lands on, in the scene: an actor
+ * What a `wipe` wipes, a `hold` rests on, a `strike` lands on or an `eat` takes food from, in the scene: an actor
  * named in `to` (its middle; for a hold its shoulder, for a blow see struckAt), an anchor's
  * work point (`use.at`), or the spot.
  */

@@ -695,6 +695,7 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
         'wipe',
         'hold',
         'strike',
+        'eat',
         'aim',
         'shoot',
       ].includes(a.do)

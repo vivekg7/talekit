@@ -421,6 +421,25 @@ describe('eat', () => {
     expect(flaps).toEqual(new Set([true, false]));
   });
 
+  it('takes the food up from `to` first, then brings it to the mouth', () => {
+    const rig = RIGS.humanoid;
+    const plate: [number, number] = [150, 250];
+    const hand = (u: number) => {
+      const p = basePose(rig, 'idle', 0, 0);
+      applyVerb(rig, p, 'eat', u, 0, plate, 1.6);
+      const [x, y] = toRoot(rig, p, rig.hold.part, rig.hold.point);
+      return [x + p.dx, y + p.dy];
+    };
+    // On the plate while it picks the bite up, at the mouth from 0.4 on.
+    expect(Math.hypot(hand(0.2)[0] - plate[0], hand(0.2)[1] - plate[1])).toBeLessThan(12);
+    const [x, y] = hand(0.6);
+    expect(Math.hypot(x - 124, y - 128)).toBeLessThan(20);
+    // Not chewing until the bite is in the mouth.
+    const at = (u: number) => chewing([{ verb: 'eat', u, span: 1.6, to: plate }]);
+    expect(at(0.3)).toBeUndefined();
+    expect(new Set([0.44, 0.48, 0.52, 0.56, 0.6].map(at))).toEqual(new Set([true, false]));
+  });
+
   it('dips a four-legged head to the floor and pecks on the simple rig', () => {
     const quad = basePose(RIGS.quadruped, 'idle', 0, 0);
     applyVerb(RIGS.quadruped, quad, 'eat', 0.5);
