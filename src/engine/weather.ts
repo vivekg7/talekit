@@ -683,13 +683,20 @@ function bolt(key: string, age: number, low: number, ground: number, ctx: Ctx): 
  * scenery it displaces to different heights and panic (displacement_map.rs, "src.height ==
  * map.height"), aborting the render: a zooming camera on a `heat` scene found such a frame.
  * The frame's own rectangle is whole pixels whatever the camera, and nothing outside it shows.
+ *
+ * The id names the scroll and strength, so one id always means one filter. Frames of
+ * different moments end up in one picture (a dissolve, a contact or critic sheet), and
+ * resvg gives every use of an id the same definition: a frame whose group is shifted by
+ * one scroll then gets a region placed for another, off its pixels and past its cell, and
+ * the same panic follows (a reel's contact sheet of a 14 s shot, at zoom 1).
  */
 function heatHaze(heat: number, ctx: Ctx): { defs: string; id: string; scroll: number } {
-  const id = 'tk-heat';
   const scroll = Number(n(40 * ctx.k * ctx.t));
+  const scale = n(12 * heat * ctx.k);
+  const id = `tk-heat-${n(scroll)}-${scale}`.replaceAll('.', '_');
   const defs =
     `<filter id='${id}' filterUnits='userSpaceOnUse' x='0' y='${n(scroll)}' width='${ctx.W}' height='${ctx.H}' color-interpolation-filters='sRGB'>` +
     `<feTurbulence type='fractalNoise' baseFrequency='0.004 0.045' numOctaves='2' seed='3' result='noise'/>` +
-    `<feDisplacementMap in='SourceGraphic' in2='noise' scale='${n(12 * heat * ctx.k)}' xChannelSelector='R' yChannelSelector='G'/></filter>`;
+    `<feDisplacementMap in='SourceGraphic' in2='noise' scale='${scale}' xChannelSelector='R' yChannelSelector='G'/></filter>`;
   return { defs, id, scroll };
 }

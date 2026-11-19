@@ -3,7 +3,8 @@ import { composeFrame } from '../src/engine/compose.js';
 import { strikeAt } from '../src/engine/weather.js';
 import { CharacterSchema, SceneSchema, ShotSchema, type Project } from '../src/engine/types.js';
 import { LIBRARY } from '../src/library/index.js';
-import { sceneSheetSvg } from '../src/render/sheets.js';
+import { contactSheetSvg, sceneSheetSvg } from '../src/render/sheets.js';
+import { rasterize } from '../src/render/raster.js';
 import { validateScene, validateShot } from '../src/project/validate.js';
 
 const W = 1280;
@@ -82,7 +83,7 @@ describe('weather', () => {
     const p = project({}, { actions: [{ t: 1, lightning: true }] });
     expect(composeFrame(p, p.shots[0], 0.9)).not.toContain('tk-flash');
     const lit = composeFrame(p, p.shots[0], 1.03);
-    expect(lit).toContain("filter='url(#tk-flash)'");
+    expect(lit).toMatch(/filter='url\(#tk-flash-[\d_]+\)'/);
     expect(lit).toContain("class='lightning'");
     expect(composeFrame(p, p.shots[0], 2)).not.toContain('tk-flash');
   });
@@ -116,12 +117,33 @@ describe('weather', () => {
     for (const t of [0, 1.37, 2.54]) {
       const svg = composeFrame(p, p.shots[0], t);
       const region = svg.match(
-        /<filter id='tk-heat' filterUnits='userSpaceOnUse' (.*?) color-interp/
+        /<filter id='tk-heat-[\d_-]+' filterUnits='userSpaceOnUse' (.*?) color-interp/
       )?.[1];
-      const shift = svg.match(/<g transform='translate\(0 -([\d.]+)\)' filter='url\(#tk-heat\)'>/);
+      const shift = svg.match(
+        /<g transform='translate\(0 -([\d.]+)\)' filter='url\(#tk-heat-[\d_-]+\)'>/
+      );
       expect(shift).not.toBeNull();
       expect(region).toBe(`x='0' y='${shift![1]}' width='${W}' height='${H}'`);
     }
+  });
+
+  it("draws a reel's contact sheet of a heat scene without resvg panicking", () => {
+    // The sheet holds six moments of the shot. Under one shared id resvg gave every frame
+    // the region of one of them, off the others' shifted groups and past their cells, and
+    // aborted the process in feDisplacementMap (this 14 s shot, zoom 1, did): the id names
+    // its scroll, so each frame keeps its own filter.
+    const fields = SceneSchema.parse({ ...LIBRARY.scenes['fields-tall'], weather: { heat: 0.5 } });
+    const p: Project = {
+      meta: { title: 't', width: 720, height: 1280, fps: 24, font: 'sans-serif' },
+      characters: {},
+      scenes: { [fields.id]: fields },
+      shots: [ShotSchema.parse({ id: 'a', scene: fields.id, duration: 14, cast: {} })],
+    };
+    const sheet = contactSheetSvg(p, p.shots[0]);
+    const ids = [...sheet.matchAll(/<filter id='(tk-heat[^']*)'/g)].map((m) => m[1]);
+    expect(ids).toHaveLength(6);
+    expect(new Set(ids).size).toBe(6);
+    expect(rasterize(sheet).subarray(1, 4).toString()).toBe('PNG');
   });
 
   it('warns when sky weather has no far layer to be drawn in', () => {

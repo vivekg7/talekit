@@ -156,14 +156,16 @@ export function composeFrame(
   const { width: W, height: H } = project.meta;
   // Faded with a filter over the frame, not group opacity: resvg 2.6 panics on an opacity
   // group that holds another one (a translucent cloud) beside a layer pushed wholly off
-  // the frame (the near layer of a close-up).
+  // the frame (the near layer of a close-up). The id names the slope: a sheet of frames gives
+  // every use of one id the same definition (weather.ts `heatHaze`).
+  const slope = n(easeInOut(t / dissolve));
+  const id = `tk-dissolve-${slope.replace('.', '_')}`;
   const fade =
-    `<filter id='tk-dissolve' filterUnits='userSpaceOnUse' x='0' y='0' width='${W}' height='${H}' color-interpolation-filters='sRGB'>` +
-    `<feComponentTransfer><feFuncA type='linear' slope='${n(easeInOut(t / dissolve))}'/></feComponentTransfer></filter>`;
+    `<filter id='${id}' filterUnits='userSpaceOnUse' x='0' y='0' width='${W}' height='${H}' color-interpolation-filters='sRGB'>` +
+    `<feComponentTransfer><feFuncA type='linear' slope='${slope}'/></feComponentTransfer></filter>`;
   return frameDocument(
     project,
-    under +
-      `<defs>${fade}</defs><g filter='url(#tk-dissolve)'>${frameBody(project, frame, opts)}</g>`
+    under + `<defs>${fade}</defs><g filter='url(#${id})'>${frameBody(project, frame, opts)}</g>`
   );
 }
 
@@ -645,8 +647,10 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
     sky.front +
     (nearSvg ? layer('near', nearSvg, nearP) : '') +
     sky.light;
-  if (sky.flash)
-    picture = `<defs>${flashFilter('tk-flash', sky.flash, W, H)}</defs><g filter='url(#tk-flash)'>${picture}</g>`;
+  if (sky.flash) {
+    const id = `tk-flash-${String(sky.flash).replace('.', '_')}`;
+    picture = `<defs>${flashFilter(id, sky.flash, W, H)}</defs><g filter='url(#${id})'>${picture}</g>`;
+  }
   // Culled whole, every layer under its camera and inside whatever filters it: resvg panics
   // on a canvas far outside the one it is drawn on (see cull.ts).
   picture = cullOffFrame(picture, IDENTITY, W, H, FRAME_DEFS);
