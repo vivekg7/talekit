@@ -22,9 +22,15 @@ export const MIN_OVERLAP = 12;
 const JOINT_SPILL = 4;
 const FACE = new Set(['eyes', 'mouth', 'face']);
 
+/**
+ * Drawn pixels, one per canonical unit. (`x0`, `y0`) is the canonical point of the first
+ * pixel: a whole part's mask starts at (-M, -M), a mask cropped to one piece at its box.
+ */
 interface Mask {
   w: number;
   h: number;
+  x0: number;
+  y0: number;
   data: Uint8Array;
 }
 
@@ -51,13 +57,28 @@ function maskOf(svg: string, rig: Rig): Mask {
   const px = img.pixels;
   const data = new Uint8Array(w * h);
   for (let i = 0; i < data.length; i++) data[i] = px[i * 4 + 3] > 110 ? 1 : 0;
-  return { w, h, data };
+  return { w, h, x0: -M, y0: -M, data };
 }
 
-const and = (a: Mask, b: Mask): Mask => ({
-  ...a,
-  data: a.data.map((v, i) => v & b.data[i]),
-});
+/** The part of m inside a canonical box (end exclusive), clipped to m. */
+function crop(m: Mask, x0: number, y0: number, x1: number, y1: number): Mask {
+  const ax = Math.max(x0, m.x0);
+  const ay = Math.max(y0, m.y0);
+  const w = Math.max(0, Math.min(x1, m.x0 + m.w) - ax);
+  const h = Math.max(0, Math.min(y1, m.y0 + m.h) - ay);
+  const data = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    const from = (y + ay - m.y0) * m.w + (ax - m.x0);
+    data.set(m.data.subarray(from, from + w), y * w);
+  }
+  return { w, h, x0: ax, y0: ay, data };
+}
+
+function and(a: Mask, b: Mask): Mask {
+  const data = new Uint8Array(a.data.length);
+  for (let i = 0; i < data.length; i++) data[i] = a.data[i] & b.data[i];
+  return { ...a, data };
+}
 
 function union(masks: Mask[], like: Mask): Mask {
   const data = new Uint8Array(like.w * like.h);
@@ -65,12 +86,22 @@ function union(masks: Mask[], like: Mask): Mask {
   return { ...like, data };
 }
 
-/** Chamfer (3,4) distance to the nearest empty pixel, in canonical units; max over the mask. */
+/**
+ * Chamfer (3,4) distance to the nearest empty pixel, in canonical units; max over the mask.
+ * Worked over the mask's own bounds plus a pixel: everything outside is empty, which is
+ * what the edge counts as, so the answer is the same and a small joint costs little.
+ */
 function maxDepth(m: Mask): number {
-  const { w, h, data } = m;
+  const b = bounds(m);
+  if (!b) return 0;
+  const c = crop(m, b.x0, b.y0, b.x1, b.y1);
+  // A pixel of empty all round, so the edge reads as empty as the canvas does.
+  const w = c.w + 2;
+  const h = c.h + 2;
   const d = new Uint16Array(w * h);
   const BIG = 60000;
-  for (let i = 0; i < d.length; i++) d[i] = data[i] ? BIG : 0;
+  for (let y = 0; y < c.h; y++)
+    for (let x = 0; x < c.w; x++) if (c.data[y * c.w + x]) d[(y + 1) * w + x + 1] = BIG;
   const at = (x: number, y: number) => (x < 0 || y < 0 || x >= w || y >= h ? 0 : d[y * w + x]);
   for (let y = 0; y < h; y++)
     for (let x = 0; x < w; x++) {
@@ -119,7 +150,7 @@ function bounds(m: Mask): { x0: number; y0: number; x1: number; y1: number } | u
         if (y > y1) y1 = y;
       }
   if (x0 === Infinity) return undefined;
-  return { x0: x0 - M, y0: y0 - M, x1: x1 + 1 - M, y1: y1 + 1 - M };
+  return { x0: x0 + m.x0, y0: y0 + m.y0, x1: x1 + 1 + m.x0, y1: y1 + 1 + m.y0 };
 }
 
 /** The mask's bounding box grown by `pad`, as a mask. */
@@ -127,19 +158,23 @@ function near(m: Mask, pad: number): Mask {
   const data = new Uint8Array(m.w * m.h);
   const b = bounds(m);
   if (b)
-    for (let y = Math.max(0, b.y0 + M - pad); y < Math.min(m.h, b.y1 + M + pad); y++)
-      for (let x = Math.max(0, b.x0 + M - pad); x < Math.min(m.w, b.x1 + M + pad); x++)
+    for (let y = Math.max(0, b.y0 - m.y0 - pad); y < Math.min(m.h, b.y1 - m.y0 + pad); y++)
+      for (let x = Math.max(0, b.x0 - m.x0 - pad); x < Math.min(m.w, b.x1 - m.x0 + pad); x++)
         data[y * m.w + x] = 1;
   return { ...m, data };
 }
 
-const area = (m: Mask): number => m.data.reduce((s, v) => s + v, 0);
+function area(m: Mask): number {
+  let n = 0;
+  for (let i = 0; i < m.data.length; i++) n += m.data[i];
+  return n;
+}
 
 function covers(m: Mask, x: number, y: number, r: number): boolean {
   for (let dy = -r; dy <= r; dy++)
     for (let dx = -r; dx <= r; dx++) {
-      const px = Math.round(x) + dx + M;
-      const py = Math.round(y) + dy + M;
+      const px = Math.round(x) + dx - m.x0;
+      const py = Math.round(y) + dy - m.y0;
       if (px >= 0 && py >= 0 && px < m.w && py < m.h && m.data[py * m.w + px]) return true;
     }
   return false;
@@ -150,10 +185,10 @@ function covers(m: Mask, x: number, y: number, r: number): boolean {
  * canonical [left, right], or undefined when nothing is drawn there.
  */
 function runAt(m: Mask, x: number, y: number): [number, number] | undefined {
-  const row = Math.round(y) + M;
+  const row = Math.round(y) - m.y0;
   if (row < 0 || row >= m.h) return undefined;
   const on = (px: number) => px >= 0 && px < m.w && m.data[row * m.w + px] === 1;
-  let at = Math.round(x) + M;
+  let at = Math.round(x) - m.x0;
   if (!on(at)) {
     const near = [...Array(12).keys()]
       .map((d) => d + 1)
@@ -166,7 +201,7 @@ function runAt(m: Mask, x: number, y: number): [number, number] | undefined {
   let b = at;
   while (on(a - 1)) a--;
   while (on(b + 1)) b++;
-  return [a - M, b + 1 - M];
+  return [a + m.x0, b + 1 + m.x0];
 }
 
 const firstVariant = (part: Character['parts'][string]): string =>
@@ -207,7 +242,13 @@ export function lintCharacter(c: Character): Construction {
     }
     problems.push({ level: 'warning', where, message: msg });
   };
-  const draw = (svg: string) => maskOf(applyColors(svg, c.colors), rig);
+  // Each drawing rasterised once: the checks below look at the same parts again and again.
+  const drawn = new Map<string, Mask>();
+  const draw = (svg: string) => {
+    let m = drawn.get(svg);
+    if (!m) drawn.set(svg, (m = maskOf(applyColors(svg, c.colors), rig)));
+    return m;
+  };
 
   // 1. Everything inside the box, every variant: the box is what the engine scales and
   // places, and bubbles hang from its top edge.
@@ -300,22 +341,35 @@ export function lintCharacter(c: Character): Construction {
     for (const svg of topLevelPieces(firstVariant(c.parts[name])))
       pieces.push({ part: name, svg, mask: draw(svg) });
   if (pieces.length > 1) {
-    pieces.forEach((p, i) => {
-      if (area(p.mask) < 30) return;
-      const own = thickness(p.mask);
+    // How many pieces cover each pixel, so "every piece but this one" is one subtraction
+    // rather than a fresh union per piece: a character of 60 pieces took seconds that way.
+    const cover = new Uint16Array(anyMask.w * anyMask.h);
+    for (const p of pieces) for (let i = 0; i < cover.length; i++) cover[i] += p.mask.data[i];
+    pieces.forEach((p) => {
+      const box = bounds(p.mask);
+      if (!box) return;
+      // Everything below happens within 6 of the piece (the joint is inside it, the zone
+      // round the joint 6 past that), so it is worked in that box rather than the canvas.
+      const [x0, y0, x1, y1] = [box.x0 - 6, box.y0 - 6, box.x1 + 6, box.y1 + 6];
+      const mine = crop(p.mask, x0, y0, x1, y1);
+      if (area(mine) < 30) return;
+      const own = thickness(mine);
       if (own < 6) return; // line work: whiskers, creases, strings
-      const rest = union(
-        pieces.filter((_, j) => j !== i).map((q) => q.mask),
-        p.mask
-      );
-      const joint = and(p.mask, rest);
+      const rest: Mask = { ...mine, data: new Uint8Array(mine.data.length) };
+      for (let y = 0; y < mine.h; y++)
+        for (let x = 0; x < mine.w; x++) {
+          const i = y * mine.w + x;
+          const at = (y + mine.y0 - p.mask.y0) * p.mask.w + (x + mine.x0 - p.mask.x0);
+          rest.data[i] = cover[at] - mine.data[i] > 0 ? 1 : 0;
+        }
+      const joint = and(mine, rest);
       const overlap = thickness(joint);
       // Judge at the joint, against both sides as they are there: a bow tied on a thin string
       // cannot sink 12 units into it, an antler 8 wide cannot overlap by more than 8.
       const zone = near(joint, 6);
       const need = Math.min(
         MIN_OVERLAP,
-        thickness(and(p.mask, zone)) * 0.75,
+        thickness(and(mine, zone)) * 0.75,
         thickness(and(rest, zone)) * 0.75
       );
       if (overlap > 0 && overlap >= need) return;
@@ -323,7 +377,7 @@ export function lintCharacter(c: Character): Construction {
         overlap === 0
           ? `in '${p.part}', ${short(p.svg)} does not touch the rest of the character`
           : `in '${p.part}', ${short(p.svg)} overlaps the rest by only ${Math.round(overlap)} units; sink it at least ${Math.round(need)} in so it reads as attached`,
-        bounds(p.mask)
+        box
       );
     });
   }
@@ -378,10 +432,10 @@ export function lintCharacter(c: Character): Construction {
     if (r.at === undefined || !c.parts[r.part]) continue;
     const m = draw(firstVariant(c.parts[r.part]));
     const under: number[] = [];
-    for (let x = r.x[0] + M; x <= r.x[1] + M; x++)
+    for (let x = r.x[0] - m.x0; x <= r.x[1] - m.x0; x++)
       for (let y = m.h - 1; y >= 0; y--)
         if (m.data[y * m.w + x]) {
-          under.push(y + 1 - M);
+          under.push(y + 1 + m.y0);
           break;
         }
     under.sort((a, b) => a - b);
@@ -403,7 +457,7 @@ export function lintCharacter(c: Character): Construction {
     for (const [variant, raw] of Object.entries(variants)) {
       if (!raw.trim()) continue;
       const svg = applyColors(raw, c.colors);
-      const run = runAt(draw(svg), kx, ky);
+      const run = runAt(draw(raw), kx, ky);
       if (!run) continue;
       const r = jointRadius(svg, joint);
       const spill = Math.max(kx - run[0], run[1] - kx) - r;
