@@ -3,6 +3,8 @@ import { mkdtemp, mkdir, copyFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { characterBody } from '../src/engine/actor.js';
+import { emptyPose } from '../src/engine/motion.js';
 import { copyFromLibrary } from '../src/library/index.js';
 import { createProject, loadProject } from '../src/project/store.js';
 import { validateProject } from '../src/project/validate.js';
@@ -82,23 +84,42 @@ for i, head in enumerate(looks):
         head_scale=1.18 if i == 2 else 1, colors=colors))
 `;
 
+// A story's golden deer: the library deer copied in, a `sona` look on every fur part.
+const GOLDEN = `
+import json, sys
+from talekit.characters import character, write
+deer = json.load(open(f'{sys.argv[1]}/characters/deer.json'))
+gold = lambda svg: svg.replace('{furDark}', '{goldDark}').replace('{fur}', '{gold}')
+parts = {k: v if isinstance(v, dict) or '{fur' not in v else {'default': v, 'sona': gold(v)}
+         for k, v in deer['parts'].items()}
+keep = {k: deer[k] for k in ('belly', 'hooves', 'outline', 'shade')}
+write(sys.argv[1], character('ruru', 'Ruru', 'quadruped', 180, parts, deer['colors'], **keep))
+`;
+
 describe.skipIf(!python)('python kit', () => {
   let root: string;
   beforeAll(async () => {
     root = await mkdtemp(path.join(os.tmpdir(), 'talekit-kit-'));
     await createProject(root, { title: 'kit' });
     await copyFromLibrary(root, 'hut');
-    await mkdir(path.join(root, 'src'));
+    await copyFromLibrary(root, 'deer');
+    await mkdir(path.join(root, 'src', 'scenes'), { recursive: true });
     for (const f of ['cast.py', 'shots.py'])
       await copyFile(path.join(KIT, 'templates', f), path.join(root, 'src', f));
+    await copyFile(
+      path.join(KIT, 'templates', 'scene.py'),
+      path.join(root, 'src/scenes/aangan.py')
+    );
   });
   afterAll(() => rm(root, { recursive: true, force: true }));
 
-  it('writes a cast and shots from the templates that pass talekit check', async () => {
+  it('writes a cast, a scene and shots from the templates that pass talekit check', async () => {
     expect(run([path.join(root, 'src', 'cast.py')])).toContain('wrote matka');
+    expect(run([path.join(root, 'src/scenes/aangan.py')])).toContain('wrote aangan');
     expect(run([path.join(root, 'src', 'shots.py')])).toContain('2 shots');
     const project = await loadProject(root);
-    expect(Object.keys(project.characters).sort()).toEqual(['beta', 'dada', 'matka']);
+    expect(Object.keys(project.characters).sort()).toEqual(['beta', 'dada', 'deer', 'matka']);
+    expect(project.scenes.aangan.anchors.pathar.use).toMatchObject({ pose: 'sit' });
     expect(validateProject(project)).toEqual([]);
   }, 30_000);
 
@@ -123,6 +144,19 @@ describe.skipIf(!python)('python kit', () => {
     expect(project.characters.g2.springs).toEqual(['plaitL', 'plaitR']);
     expect(project.characters.g2.hangs!.plaitL.at).toEqual([45.7, 114.2]);
   }, 60_000);
+
+  it('gives a library animal a look of its own, its new colours completed', async () => {
+    run(['-', root], GOLDEN);
+    const project = await loadProject(root);
+    const ruru = project.characters.ruru;
+    expect(validateProject(project).filter((p) => /'ruru'/.test(p.where + p.message))).toEqual([]);
+    expect(Object.keys(ruru.parts.body)).toEqual(['default', 'sona']);
+    expect(ruru.colors.gold).toMatch(/^#/);
+    expect(ruru).toMatchObject({ rig: 'quadruped', hooves: true });
+    const look = (face: Record<string, string>) => characterBody(ruru, { ...emptyPose(), face });
+    expect(look({ body: 'sona' })).toContain(ruru.colors.gold);
+    expect(look({})).not.toContain(ruru.colors.gold);
+  }, 30_000);
 
   it('places a reply after() the line before it, in the order written', () => {
     const out = run([

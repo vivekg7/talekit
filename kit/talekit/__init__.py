@@ -11,7 +11,7 @@ This kit is the code those scripts kept rewriting:
   shots       Film (voice-paced timing, shot files) and the action helpers
   api         prints all of the above in brief: python3 kit/talekit/api.py [module|name]
 
-Start from kit/templates (cast.py, shots.py): copy them into <project>/src/ and edit.
+Start from kit/templates (cast.py, shots.py; scene.py into src/scenes/): copy and edit.
 Inside the talekit repo a script finds the kit by walking up from itself (the header in
 the templates); elsewhere run it with PYTHONPATH=<talekit>/kit. No dependencies beyond
 the standard library."""

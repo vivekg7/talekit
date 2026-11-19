@@ -86,8 +86,10 @@ frames)` are full size. Fix with `patch_shot(path, shotId, …)`: `edit`
 ### Writing it from scripts: the Python kit
 
 Keep a film as scripts in the project's `src/` that write the JSON. Copy
-`kit/templates/cast.py` and `kit/templates/shots.py` there (stdlib only;
-outside the repo run with `PYTHONPATH=<talekit>/kit`). Learn the kit from
+`kit/templates/cast.py` and `kit/templates/shots.py` there, and
+`kit/templates/scene.py` to `src/scenes/<id>.py` per scene (sized to the
+project, so a film and its reel share it; stdlib only; outside the repo
+run with `PYTHONPATH=<talekit>/kit`). Learn the kit from
 `python3 kit/talekit/api.py` (signatures, docstrings, table keys like
 `BEARDS`, `TILAK`, `LOOKS`; ~5k tokens; `api.py people` one module,
 `api.py beard` matching names), not the sources (`people.py` is ~25k
