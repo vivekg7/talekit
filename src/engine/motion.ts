@@ -185,12 +185,19 @@ export const EMOTION_FACE: Record<Emotion, Record<string, string[]>> = {
   scared: { mouth: ['scared', 'open', 'closed'], eyes: ['wide', 'open'] },
 };
 
+/** The tallest body that breathes in full; see `breathe`. */
+const BREATH_HEIGHT = 400;
+
 /**
  * Breathing: a slow stretch about the feet, so the chest rises and the feet stay on the
- * line (moving the whole body would lift them).
+ * line (moving the whole body would lift them). `height` is the character's standing
+ * height: anything taller than a body (a board that fills the frame, a drawing laid over
+ * the scene) breathes less and less, by the square of how much taller it is, since a
+ * 1.5% stretch of a 2000-unit prop heaves the whole picture by 30 px.
  */
-function breathe(p: Pose, t: number, phase: number, depth: number): void {
-  p.sy *= 1 + depth * Math.sin((TAU * (t + phase * 3.6)) / 3.6);
+function breathe(p: Pose, t: number, phase: number, depth: number, height: number): void {
+  const fade = height > BREATH_HEIGHT ? (BREATH_HEIGHT / height) ** 2 : 1;
+  p.sy *= 1 + depth * fade * Math.sin((TAU * (t + phase * 3.6)) / 3.6);
 }
 
 /**
@@ -204,11 +211,12 @@ function quadrupedBase(
   loco: Locomotion,
   t: number,
   phase: number,
+  height: number,
   travel?: Travel
 ): void {
   switch (loco) {
     case 'idle':
-      breathe(p, t, phase, 0.012);
+      breathe(p, t, phase, 0.012, height);
       p.rot.tail = 7 * Math.sin((TAU * (t + phase * 2.6)) / 2.6);
       p.rot.head = 2 * Math.sin((TAU * (t + phase * 5)) / 5);
       break;
@@ -245,24 +253,26 @@ function quadrupedBase(
 /**
  * Base locomotion cycle. `t` is seconds since the actor started this locomotion; `travel`
  * is how far the current move has got, which drives the leg cycle so feet do not slide.
- * Without it (sheets, tests) a walk or run cycles at its own cadence.
+ * Without it (sheets, tests) a walk or run cycles at its own cadence. `height` is the
+ * character's standing height, which only damps the breathing of very tall art.
  */
 export function basePose(
   rig: Rig,
   loco: Locomotion,
   t: number,
   phase: number,
-  travel?: Travel
+  travel?: Travel,
+  height = 0
 ): Pose {
   const p = emptyPose();
   if (rig.name === 'quadruped') {
-    quadrupedBase(rig, p, loco, t, phase, travel);
+    quadrupedBase(rig, p, loco, t, phase, height, travel);
     return p;
   }
   const humanoid = rig.name === 'humanoid';
   switch (loco) {
     case 'idle': {
-      breathe(p, t, phase, humanoid ? 0.008 : 0.015);
+      breathe(p, t, phase, humanoid ? 0.008 : 0.015, height);
       if (humanoid) {
         const sway = 2 * Math.sin((TAU * (t + phase * 4)) / 4);
         p.rot.armL = sway;

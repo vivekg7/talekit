@@ -31,7 +31,7 @@ export function poseFor(actor: ActorState, t: number): Pose {
   const rig = rigOf(actor.character);
   const sat = actor.sit > 0 || actor.lie > 0;
   const loco = sat ? 'idle' : actor.locomotion;
-  const pose = basePose(rig, loco, actor.locoT, actor.phase, actor.travel);
+  const pose = basePose(rig, loco, actor.locoT, actor.phase, actor.travel, actor.character.height);
   // The floor under the seat, in the character's own units.
   const seat = actor.seat / ((actor.character.height / rig.height) * actor.scale);
   // A person on a raised seat even before sitting has begun: the pose puts the feet on the

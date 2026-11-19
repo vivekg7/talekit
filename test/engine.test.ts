@@ -429,6 +429,15 @@ describe('eat', () => {
     applyVerb(RIGS.simple, simple, 'eat', 1 / 12);
     expect(simple.rot.body).toBeGreaterThan(5);
   });
+
+  it('breathes a body in full and barely moves a prop the size of the frame', () => {
+    // A quarter of the 3.6 s breath in: the chest at its highest.
+    const heave = (height: number) =>
+      (basePose(RIGS.simple, 'idle', 0.9, 0, undefined, height).sy - 1) * height;
+    expect(heave(200)).toBeCloseTo(3, 1);
+    expect(heave(400)).toBeCloseTo(6, 1);
+    expect(Math.abs(heave(2040))).toBeLessThan(1.5);
+  });
 });
 
 describe('compose + raster', () => {

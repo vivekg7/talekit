@@ -337,7 +337,10 @@ hops or flies rather than walks. The engine bobs and tilts the whole body
 for walk/run, hops it for `bounce`, wobbles it for `fly`, rotates it for
 `spin`, leans it the way it faces for `point` (set `facing` first),
 shivers it for `tremble`, settles it lower and wider for `lie`; `wave`,
-`nod` and `shake` only tilt or nudge it.
+`nod` and `shake` only tilt or nudge it. Standing idle, every rig breathes
+(a slow stretch about the feet). A character taller than 400 breathes less
+and less, so a board or drawing that fills the frame (`height` 1000 and
+more) stays still: a breath that suits a bird would heave it by tens of pixels.
 
 ```
  x   0 ──────────── 200
