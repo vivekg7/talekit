@@ -11,7 +11,13 @@
  * a fluid simulation (fluid.ts). Coordinates are design pixels at any pixelDensity: a
  * preview draws the same picture smaller.
  */
-import { createCanvas, type Canvas, type SKRSContext2D, type ImageData } from '@napi-rs/canvas';
+import {
+  createCanvas,
+  Path2D,
+  type Canvas,
+  type SKRSContext2D,
+  type ImageData,
+} from '@napi-rs/canvas';
 import { Fluid, type FluidLook, type FluidOptions } from './fluid.js';
 import { Noise, randomStream } from './noise.js';
 
@@ -244,6 +250,8 @@ export class Sketch {
   readonly canvas: Canvas;
   readonly drawingContext: SKRSContext2D;
   readonly Vector = Vector;
+  /** Skia's Path2D: `new p.Path2D('M0 0 L10 0 Z')` takes SVG path data; draw with path(). */
+  readonly Path2D = Path2D;
   /** Set by loadPixels: the canvas's RGBA bytes, pixelDensity() times the design size. */
   pixels: Uint8ClampedArray = new Uint8ClampedArray(0);
   frameCount = 0;
@@ -314,12 +322,17 @@ export class Sketch {
   noLoop(): void {}
   loop(): void {}
 
-  /** An offscreen layer of its own, the same size: draw on it, then `image(g, 0, 0)`. */
-  createGraphics(): Sketch {
+  /**
+   * An offscreen layer: draw on it, then `image(g, x, y, w?, h?)`. With no size it is the
+   * frame at the canvas's density. `createGraphics(w, h)` is w×h units at one pixel each
+   * whatever the density, so a grid simulation's cells are exactly its pixels, and the
+   * picture image() scales it to is the same in a half-size preview as in the film.
+   */
+  createGraphics(w?: number, h?: number): Sketch {
     return new Sketch({
-      width: this.width,
-      height: this.height,
-      density: this.density,
+      width: w ?? this.width,
+      height: w === undefined ? this.height : (h ?? w),
+      density: w === undefined ? this.density : 1,
       fps: this.fps,
       duration: this.duration,
     });
@@ -534,6 +547,20 @@ export class Sketch {
     this.ctx.bezierCurveTo(p[2], p[3], p[4], p[5], p[6], p[7]);
     this.paint(false);
   }
+  /** A Path2D or SVG path data, painted with the fill and stroke like any shape. */
+  path(d: Path2D | string): void {
+    const shape = typeof d === 'string' ? new Path2D(d) : d;
+    const ctx = this.ctx;
+    if (this.style.fill) {
+      ctx.fillStyle = this.style.fill;
+      ctx.fill(shape);
+    }
+    if (this.style.stroke && this.style.weight > 0) {
+      ctx.strokeStyle = this.style.stroke;
+      ctx.lineWidth = this.style.weight;
+      ctx.stroke(shape);
+    }
+  }
 
   beginShape(mode?: Mode): void {
     this.shape = { mode, verts: [] };
@@ -635,12 +662,92 @@ export class Sketch {
 
   // ---- images and pixels ----
 
-  /** Draws a createGraphics layer (or a canvas) at (x, y), optionally scaled to w×h. */
-  image(g: Sketch | Canvas, x: number, y: number, w?: number, h?: number): void {
+  /**
+   * Draws a createGraphics layer (or a canvas) at (x, y), optionally scaled to w×h, or
+   * only its part sx, sy, sw, sh (in the layer's own units), as p5's image().
+   */
+  image(
+    g: Sketch | Canvas,
+    x: number,
+    y: number,
+    w?: number,
+    h?: number,
+    sx = 0,
+    sy = 0,
+    sw?: number,
+    sh?: number
+  ): void {
     const src = g instanceof Sketch ? g.canvas : g;
-    const sw = g instanceof Sketch ? g.width : src.width;
-    const sh = g instanceof Sketch ? g.height : src.height;
-    this.ctx.drawImage(src, x, y, w ?? sw, h ?? sh);
+    const d = g instanceof Sketch ? g.density : 1;
+    sw ??= src.width / d - sx;
+    sh ??= src.height / d - sy;
+    this.ctx.drawImage(src, sx * d, sy * d, sw * d, sh * d, x, y, w ?? sw, h ?? sh);
+  }
+  /**
+   * Scaled images are bicubic, smoother than the canvas's default bilinear, which creases a
+   * coarse grid blown up several times along its cells (rings come out faceted); it costs
+   * ~25 ms a full 1080×1920 draw against ~3.
+   */
+  smooth(): void {
+    this.ctx.imageSmoothingEnabled = true;
+    this.ctx.imageSmoothingQuality = 'high';
+  }
+  /** Scaled images keep hard square pixels: pixel art, a grid shown as cells. */
+  noSmooth(): void {
+    this.ctx.imageSmoothingEnabled = false;
+  }
+
+  /**
+   * Glow: adds a blurred copy of the canvas as it stands back onto it, so bright shapes
+   * bleed light over the dark around them. `radius` is the blur's, in design px; with
+   * `threshold` (0..1) only what is brighter glows, so a lit backdrop is not lifted too.
+   * The blur runs on a copy at up to a quarter of the pixels each way, which a wide glow
+   * cannot tell from full size: 13 ms a 1080×1920 frame at radius 24, 22 at radius 6.
+   */
+  bloom(strength = 1, radius = 24, threshold = 0): void {
+    if (strength <= 0 || radius <= 0) return;
+    const { width: W, height: H } = this.canvas;
+    const r = radius * this.density;
+    const k = clamp(Math.round(r / 4), 1, 4);
+    const w = Math.max(1, Math.round(W / k));
+    const h = Math.max(1, Math.round(H / k));
+    const small = createCanvas(w, h);
+    const s = small.getContext('2d');
+    // Mipmapped, so a thin bright line moving a pixel does not flicker in and out of the glow.
+    s.imageSmoothingQuality = 'medium';
+    s.drawImage(this.canvas, 0, 0, w, h);
+    if (threshold > 0) {
+      const img = s.getImageData(0, 0, w, h);
+      const px = img.data;
+      for (let i = 0; i < px.length; i += 4) {
+        const l = Math.max(px[i], px[i + 1], px[i + 2]) / 255;
+        px[i + 3] *= l > threshold ? (l - threshold) / (l * (1 - threshold)) : 0;
+      }
+      s.putImageData(img, 0, 0);
+    }
+    // A wide halo plus a tight one, as light scatters: one wide blur alone spreads a thin
+    // line or a spark so thin it hardly glows. Half each, so a broad flat shape gains its
+    // own light once at strength 1 rather than blowing out to white.
+    const glow = createCanvas(w, h);
+    const g = glow.getContext('2d');
+    g.globalAlpha = 0.5;
+    g.filter = `blur(${r / k}px)`;
+    g.drawImage(small, 0, 0);
+    g.globalCompositeOperation = 'lighter';
+    g.filter = `blur(${r / k / 4}px)`;
+    g.drawImage(small, 0, 0);
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.filter = 'none';
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'low';
+    // globalAlpha stops at 1: a stronger glow is the same glow added more times.
+    const n = Math.ceil(strength);
+    ctx.globalAlpha = strength / n;
+    for (let i = 0; i < n; i++) ctx.drawImage(glow, 0, 0, W, H);
+    ctx.restore();
   }
 
   loadPixels(): void {

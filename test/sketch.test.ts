@@ -88,6 +88,89 @@ describe('the sketch API', () => {
     expect(px(p.pixels, 50, 40, 40)).toEqual([255, 255, 255]);
     expect(px(p.pixels, 50, 10, 10)).toEqual([0, 0, 0]);
   });
+
+  it('gives a sized layer exactly its pixels at any density, scaled up smooth or crisp', () => {
+    const p = new Sketch({ width: 100, height: 100, density: 0.5, fps: 10, duration: 1 });
+    expect(p.createGraphics().canvas.width).toBe(50);
+    const g = p.createGraphics(2, 1);
+    g.loadPixels();
+    expect(g.pixels.length).toBe(2 * 1 * 4);
+    g.pixels.set([255, 0, 0, 255, 0, 0, 255, 255]);
+    g.updatePixels();
+    expect(g.get(1, 0)).toEqual([0, 0, 255, 255]);
+    g.filter('invert');
+    expect(g.get(0, 0)).toEqual([0, 255, 255, 255]);
+    g.filter('invert');
+    const across = () => {
+      p.image(g, 0, 0, p.width, p.height);
+      p.loadPixels();
+      return [0, 20, 25, 30, 49].map((x) => px(p.pixels, 50, x, 25));
+    };
+    p.noSmooth();
+    expect(across()).toEqual([
+      [255, 0, 0],
+      [255, 0, 0],
+      [0, 0, 255],
+      [0, 0, 255],
+      [0, 0, 255],
+    ]);
+    p.smooth();
+    const [left, , mid, , right] = across();
+    expect(left).toEqual([255, 0, 0]);
+    expect(right).toEqual([0, 0, 255]);
+    expect(mid[0]).toBeGreaterThan(60);
+    expect(mid[2]).toBeGreaterThan(60);
+  });
+
+  it('blooms bright shapes into the dark around them, above a threshold', () => {
+    const p = sketch();
+    const scene = () => {
+      p.background(0);
+      p.noStroke();
+      p.fill(255);
+      p.rect(20, 45, 10, 10);
+      p.fill(90);
+      p.rect(70, 45, 10, 10);
+    };
+    const near = () => {
+      p.loadPixels();
+      return { white: px(p.pixels, 100, 35, 50)[0], grey: px(p.pixels, 100, 85, 50)[0] };
+    };
+    scene();
+    p.bloom(1, 8);
+    const glow = near();
+    expect(glow.white).toBeGreaterThan(8);
+    expect(glow.grey).toBeGreaterThan(2);
+    expect(px(p.pixels, 100, 50, 95)).toEqual([0, 0, 0]);
+    const first = [...p.pixels];
+    scene();
+    p.bloom(1, 8);
+    p.loadPixels();
+    expect([...p.pixels]).toEqual(first);
+    scene();
+    p.bloom(1, 8, 0.5);
+    expect(near().grey).toBe(0);
+    expect(near().white).toBeGreaterThan(4);
+  });
+
+  it('fills and strokes Path2D and SVG path data', () => {
+    const p = sketch();
+    p.background(0);
+    p.drawingContext.fillStyle = 'rgb(255,0,0)';
+    p.drawingContext.fill(new p.Path2D('M0 0 H20 V20 H0 Z'));
+    p.noStroke();
+    p.fill(0, 255, 0);
+    p.path('M40 40 H60 V60 H40 Z');
+    p.noFill();
+    p.stroke(0, 0, 255);
+    p.strokeWeight(4);
+    p.path(new p.Path2D('M70 70 H90 V90 H70 Z'));
+    p.loadPixels();
+    expect(px(p.pixels, 100, 10, 10)).toEqual([255, 0, 0]);
+    expect(px(p.pixels, 100, 50, 50)).toEqual([0, 255, 0]);
+    expect(px(p.pixels, 100, 70, 80)).toEqual([0, 0, 255]);
+    expect(px(p.pixels, 100, 80, 80)).toEqual([0, 0, 0]);
+  });
 });
 
 describe('a fluid', () => {

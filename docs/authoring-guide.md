@@ -1340,12 +1340,32 @@ export default function (p) {
   `arc`, `triangle`, `quad`, `bezier`, `beginShape`/`vertex`/
   `curveVertex`/`bezierVertex`/`endShape(CLOSE)`, `push`, `pop`,
   `translate`, `rotate`, `scale`, `rectMode`, `ellipseMode`, `angleMode`,
-  `createGraphics` + `image` for offscreen layers, `loadPixels`/`pixels`/
-  `updatePixels`, `get`, `filter` (BLUR, GRAY, INVERT, THRESHOLD,
-  POSTERIZE), `createVector` and `p.Vector`, and the maths (`map`, `lerp`,
+  `createGraphics` + `image` for offscreen layers (`image(g, x, y, w, h,
+sx, sy, sw, sh)` for a part), `loadPixels`/`pixels`/`updatePixels`,
+  `get`, `filter` (BLUR, GRAY, INVERT, THRESHOLD, POSTERIZE),
+  `createVector` and `p.Vector`, and the maths (`map`, `lerp`,
   `constrain`, `dist`, `noise`…). `p.drawingContext` is the 2D canvas
   itself, for gradients and `shadowBlur` glows. There is no mouse, keyboard,
   DOM or file loading.
+- **A coarse grid** (a simulation, a cellular pattern): `g =
+p.createGraphics(270, 480)` is a layer of exactly 270 × 480 pixels at
+  any density, so its `pixels` are the grid's cells; write them, then
+  `p.image(g, 0, 0, p.width, p.height)` and the canvas scales it up for
+  you, no upscaling in JS. Scaling is bilinear; `p.smooth()` makes it
+  bicubic (rounder curves, ~25 ms a full frame), `p.noSmooth()` keeps
+  hard square cells for pixel art. `createGraphics()` with no size is a
+  frame-sized layer at the canvas's density.
+- **Glow**: `p.bloom(strength = 1, radius = 24, threshold = 0)` adds a
+  blurred copy of the canvas as it stands back onto it, a wide halo and a
+  tight one, so lit shapes bleed light over the dark (what the fluid's
+  `bloom` does for dye). Call it after drawing what should glow and before
+  what should not. `threshold` 0.2–0.5 glows only the bright, so a lit
+  backdrop is not lifted too; strength over 1 glows harder. 13–22 ms a
+  full 1080 × 1920 frame (4 in a preview).
+- **SVG paths**: `p.path("M10 10 C…Z")` fills and strokes path data with
+  the current `fill`/`stroke`; `new p.Path2D(d)` keeps one to reuse, with
+  `p.path(shape)` or `p.drawingContext.fill(shape)`. Reach for it to copy
+  a shape out of a scene's SVG rather than rebuilding it from vertices.
 - **Words go in captions**, not `text()`: captions are shaped, kept out of
   the apps' overlays and voiced. `text()` is for a number or a mark.
 - **`p.fluid(options)`** is a fluid over the whole canvas (Pavel
