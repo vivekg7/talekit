@@ -894,9 +894,14 @@ Default durations in brackets.
 - `aim` (3 s), `shoot` (flight distance ÷ 2400): archery
   ([Archery](#archery-aim-shoot)).
 
-`duration` overrides any default; crossing the frame on foot takes 4–5 s,
-and too short a walk sprints (stride fits speed and size). Walks start and
-end feet together; a jump crosses ground only in the air. Facing changes
+`duration` overrides any default. Left out, a walk lasts its distance ÷
+220 px/s (`run` ÷ 420): about 6 s across a 1280 px frame, 7–8 s from off
+one side to off the other. A walk keeps a walking rhythm up to about the
+walker's own on-screen height a second (perspective included); faster, the
+stride stops growing and the legs patter. The default pace is that limit
+for a 220 px child and 2–4× it for a dog or a mouse, so give a small walker
+a longer `duration` unless it should scurry. Walks start and end feet
+together; a jump crosses ground only in the air. Facing changes
 (`set`, walking back) are 0.2 s turns. Walking up the screen shows a
 person's back, down it the front, so walk mostly across to keep profiles.
 Walking, jumping and pointing look straight ahead.
