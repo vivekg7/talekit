@@ -454,10 +454,11 @@ wider characters further out).
 seat surface with `floor`, the floor y under it for the feet:
 `"bench-seat": { "x": 1010, "y": 604, "floor": 655 }`. Without `floor` the
 spot the actor stood on is the floor, and sitting in place is sitting on
-the ground. `stand` or walking off steps onto the floor in front; an
-animal hops up and down. Someone standing on the seat itself (jumped or
-cast there, like a branch) sits and rises there. A `sit` or `lie` with a
-`to` over 24 px away walks there first.
+the ground. `stand` or walking off steps onto the floor in front, also
+for someone cast on a seat with `floor` (`seated()`); an animal hops up and
+down. Someone who jumped or climbed onto a seat, or stands on one without
+`floor` (a branch), sits and rises there. A `sit` or `lie` with a `to`
+over 24 px away walks there first.
 
 **Places used a certain way (`use`)**: `pose` (`stand`, default, or
 `sit`: on the ground, or on the seat with `floor`), `facing`, and `at`, the
@@ -914,9 +915,9 @@ and back to drag the head under.
 **`lie`**: a person sits (on the ground, or `to` a bed or sofa) and lies
 back head behind, so face them where the feet should point; an animal lies
 on its belly, paws out. A cot is a seat anchor with `floor`: cast a sleeper
-at its `x` and `floor`; getting up steps onto the floor in front. Sleepers
-need `face: { "eyes": "closed" }` (maybe a `"Zzz..."` thought). `stand`
-rises, `sit` sits back up. A `walk`, `run` or `jump` from sitting or lying
+on it; getting up steps onto the floor in front. Sleepers need
+`face: { "eyes": "closed" }` (maybe a `"Zzz..."` thought). `stand` rises,
+`sit` sits back up. A `walk`, `run` or `jump` from sitting or lying
 rises first and ends 0.4 s or 1.3 s later; `stand` first for a slower rise.
 To open a shot already lying or sat, give the `lie` or `sit` at `t: 0` a
 `duration` of `0.05`.

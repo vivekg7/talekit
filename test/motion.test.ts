@@ -302,6 +302,33 @@ describe('knees', () => {
     expect(Math.abs(feet(sitUp, 5) - 640)).toBeLessThan(1.5);
   });
 
+  it('gets up off furniture it was cast on onto the floor in front, never onto its top', () => {
+    const feet = (p: Project, t: number) => Math.max(...feetY(actorAt(p, 'kid', t), t));
+    const onStool = seated(
+      [
+        { t: 0, actor: 'kid', do: 'sit', to: 'stool', duration: 0.05 },
+        { t: 2, actor: 'kid', do: 'stand' },
+        { t: 3, actor: 'kid', do: 'walk', to: { x: 300, y: 640 } },
+      ],
+      { kid: { at: 'stool' } }
+    );
+    expect(actorAt(onStool, 'kid', 1)).toMatchObject({ x: 600, y: 610, seat: 30, sit: 1 });
+    for (const t of [1, 2.6, 3.5]) expect(Math.abs(feet(onStool, t) - 640)).toBeLessThan(1.5);
+    expect(actorAt(onStool, 'kid', 2.6)).toMatchObject({ y: 640, seat: 0 });
+    // Asleep on a cot it was cast on, with or without `to`: up onto the floor.
+    for (const to of [{ to: 'cot' }, {}]) {
+      const p = seated(
+        [
+          { t: 0, actor: 'kid', do: 'lie', duration: 0.05, ...to },
+          { t: 2, actor: 'kid', do: 'stand' },
+        ],
+        { kid: { at: 'cot' } }
+      );
+      p.scenes.park.anchors.cot = { x: 600, y: 600, scale: 1, floor: 640 };
+      expect(Math.abs(feet(p, 4) - 640)).toBeLessThan(1.5);
+    }
+  });
+
   it('sits down on a raised seat it jumped up onto, and gets up on it again', () => {
     const p = seated(
       [

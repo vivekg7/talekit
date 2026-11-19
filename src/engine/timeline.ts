@@ -269,8 +269,11 @@ function seatHeight(scene: Scene, from: Point, at: Point): number {
   return Math.max(0, from.y - at.y);
 }
 
-/** How high a bed is: an anchor with a `floor` under it (a cot); 0 for a spot on the floor. */
-function bedHeight(scene: Scene, at: Point): number {
+/**
+ * How high furniture is: a seat or bed anchor with a `floor` under it (a stool, a cot); 0
+ * for a spot on the floor.
+ */
+function furnitureHeight(scene: Scene, at: Point): number {
   for (const a of Object.values(scene.anchors))
     if (a.floor !== undefined && Math.abs(a.x - at.x) < 1 && Math.abs(a.y - at.y) < 1)
       return Math.max(0, a.floor - a.y);
@@ -1030,6 +1033,9 @@ export function resolveActor(
   let sitting = false;
   let seat = 0;
   let perched = false;
+  // Got up onto where it stands by a jump or a climb, so it stands on it again after sitting
+  // there; cast or walked onto furniture, it gets up onto the floor in front.
+  let climbed = false;
   // A raised bed's height (a cot with a `floor`): `seat` stays 0 while lying on it and takes
   // this as it gets up, stepping down in front as off a seat.
   let bed = 0;
@@ -1290,6 +1296,7 @@ export function resolveActor(
         const through = throughOf(project, scene, a);
         const d = actionDuration(a, point, to, scene, through);
         const t0 = setOff(a.t);
+        climbed = verb === 'jump' || verb === 'climb' || verb === 'fly';
         // A spot on someone is read off them as they are when it lands there.
         if (a.on && to.rides?.base !== a.on) to = { ...to, rides: { base: a.on, at: t0 + d } };
         const via = viaOf(scene, verb, point, to, through);
@@ -1318,9 +1325,11 @@ export function resolveActor(
           rise = undefined;
         }
         // Sitting down where it stands: a person standing on a raised seat (jumped up onto a
-        // branch) sits from there, not from the floor below it.
+        // branch) sits from there, not from the floor below it; on furniture it was cast or
+        // walked onto, it sits with its feet on the floor.
         const fresh = !sitting && !again && !hops;
-        if (fresh) perched = true;
+        const perches = (p: Point) => climbed || furnitureHeight(scene, p) === 0;
+        if (fresh) perched = perches(point);
         const from = point;
         // When it starts to sit: at once, or once it has got there.
         let at = a.t;
@@ -1329,14 +1338,14 @@ export function resolveActor(
           // Where it stands now, and where it will stand to sit (or lie) there.
           const ground = sitting ? { ...point, y: point.y + seat } : point;
           // How far the floor is below it: a cot is lain on from the floor in front of it.
-          const high = verb === 'sit' ? seatHeight(scene, ground, to) : bedHeight(scene, to);
+          const high = verb === 'sit' ? seatHeight(scene, ground, to) : furnitureHeight(scene, to);
           const foot = { ...to, y: to.y + high };
           // Already standing on the seat (cast there): sits where it is, not down to the
           // floor under a high seat and back up.
           const there = Math.hypot(to.x - point.x, to.y - point.y) < 1;
           const far = !there && Math.hypot(foot.x - ground.x, foot.y - ground.y) > APPROACH;
           const up = hops && high > 0 && !there;
-          if (fresh) perched = there;
+          if (fresh) perched = there && perches(to);
           if (far || up) {
             // Up, across to the foot of it and (an animal) up onto it, then down.
             at = setOff(a.t);
@@ -1357,8 +1366,8 @@ export function resolveActor(
             move = undefined;
           }
           // After any getting up to go there, which leaves the bed it was on.
-          bed = verb === 'lie' ? bedHeight(scene, to) : 0;
-        }
+          bed = verb === 'lie' ? furnitureHeight(scene, to) : 0;
+        } else if (verb === 'lie' && fresh && !perched) bed = furnitureHeight(scene, point);
         // Opening a shot already sat or lying (at 0, done in a blink): it is done by the first
         // frame, which would otherwise show it still standing for a frame at the cut.
         if (a.t === 0 && at === 0 && a.duration !== undefined && a.duration <= OPENING)
