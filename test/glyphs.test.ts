@@ -49,4 +49,21 @@ describe('Devanagari text', () => {
     expect(hasDevanagari('Hello, rabbit!')).toBe(false);
     expect(hasDevanagari('আমি।')).toBe(false);
   });
+
+  it('draws every र of a growl, though the font cannot stack rakars', () => {
+    const one = shapedWidth('ग्र', 26);
+    const three = shapedWidth('ग्र्र्र', 26);
+    expect(three).toBeGreaterThan(one + 15);
+    expect(shapedWidth('ग्र्र्र्र', 26)).toBeGreaterThan(three + 5);
+  });
+
+  it('splits a word too long for the line between letters, never inside a conjunct', () => {
+    const lines = wrapText('क्षत्रियस्त्रीकुत्ताक्षत्रियस्त्री', 80, 26);
+    expect(lines.length).toBeGreaterThan(1);
+    expect(lines.join('')).toBe('क्षत्रियस्त्रीकुत्ताक्षत्रियस्त्री');
+    for (const l of lines) {
+      expect(l).not.toMatch(/^\p{M}/u);
+      expect(l).not.toMatch(/\u094d$/);
+    }
+  });
 });

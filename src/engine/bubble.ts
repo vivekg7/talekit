@@ -20,7 +20,10 @@ export function textWidth(text: string, fontSize: number, bold = false): number 
   return w * fontSize;
 }
 
-/** Greedy word wrap. Words longer than the line are split by character. */
+/** Letters as a reader sees them: a Devanagari conjunct with its signs is one (क्षत्रि). */
+const GRAPHEMES = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+
+/** Greedy word wrap. Words longer than the line are split between letters, never inside one. */
 export function wrapText(text: string, maxWidth: number, fontSize: number, bold = false): string[] {
   const lines: string[] = [];
   for (const paragraph of text.split('\n')) {
@@ -33,7 +36,7 @@ export function wrapText(text: string, maxWidth: number, fontSize: number, bold 
         line = word;
       } else {
         let chunk = '';
-        for (const ch of word) {
+        for (const { segment: ch } of GRAPHEMES.segment(word)) {
           if (textWidth(chunk + ch, fontSize, bold) > maxWidth && chunk) {
             lines.push(chunk);
             chunk = '';

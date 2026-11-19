@@ -23,6 +23,13 @@ export const hasDevanagari = (text: string): boolean => DEVANAGARI.test(text);
 /** Whether a line has to be shaped here rather than left to the rasteriser. */
 export const needsShaping = hasDevanagari;
 
+/**
+ * Baloo 2 has no anchor for a second rakar under the first: in a growl (ग्र्र्र) every rakar
+ * after the first lands on it and the line reads ग्र. A ZWNJ after those viramas sets each
+ * extra र as a full letter after a visible virama (ग्र र् र), as fonts without stacking do.
+ */
+const STACKED_RAKAR = /(?<=\u094d\u0930)\u094d(?=\u0930)/g;
+
 /** Weights used: regular text and bold (shouts, titles, captions). */
 const WEIGHT = { regular: 600, bold: 800 };
 
@@ -53,7 +60,7 @@ interface Glyph {
 function shape(text: string, weight: number): { glyphs: Glyph[]; width: number } {
   const font = fontAt(weight);
   const buf = new hb.Buffer();
-  buf.addText(text);
+  buf.addText(text.replace(STACKED_RAKAR, '\u094d\u200c'));
   buf.guessSegmentProperties();
   hb.shape(font, buf);
   const pos = buf.getGlyphPositions();
