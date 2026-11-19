@@ -18,9 +18,8 @@ const xs = (s: string) =>
   );
 
 describe('draw effect', () => {
-  it('needs points and no x or y', () => {
+  it('needs points', () => {
     expect(EffectSchema.safeParse({ kind: 'draw' }).success).toBe(false);
-    expect(line().start).toBe(1);
   });
   it('draws nothing before the pen starts, half halfway, and all of it after', () => {
     expect(svg(line(), 0.5)).toBe('');

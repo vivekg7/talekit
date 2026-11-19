@@ -29,11 +29,11 @@ describe('chains', () => {
   });
 
   it("turns a character's part about its own pivot and cuts its chains", () => {
-    const rig = rigOf(croc());
-    expect(rig.parts.tail.pivot).toEqual([90, 157]);
-    expect(RIGS.quadruped.parts.tail.pivot).toEqual([44, 110]);
+    const c = croc();
+    const rig = rigOf(c);
+    expect(rig.parts.tail.pivot).toEqual(c.pivots!.tail);
     expect(rig.links?.tail.joints).toHaveLength(3);
-    expect(rig.links?.head.joints).toEqual([[201, 133]]);
+    expect(rig.links?.head.joints).toEqual(c.chains!.head);
     // Every quadruped's tail is a chain by default.
     expect(rigOf(CharacterSchema.parse(LIBRARY.characters.lion)).links?.tail).toBeDefined();
   });
@@ -103,10 +103,11 @@ describe('sprawl', () => {
   ) => parentTurn(rig, pose, leg) + (pose.rot[leg] ?? 0) + (pose.bend[leg] ?? 0);
 
   it("takes the character's knees, and bends the hind knee forward and the elbow back", () => {
-    const rig = rigOf(croc());
+    const c = croc();
+    const rig = rigOf(c);
     expect(rig.sprawl).toBe(true);
-    expect(rig.bends.legBR).toEqual([124, 181]);
-    expect(rig.parts.legBR.pivot).toEqual([116, 162]);
+    expect(rig.bends.legBR).toEqual(c.bends!.legBR);
+    expect(rig.parts.legBR.pivot).toEqual(c.pivots!.legBR);
     expect(rig.hocks).toEqual(['legFL', 'legFR']);
     // Other animals keep the rig's.
     const lion = rigOf(CharacterSchema.parse(LIBRARY.characters.lion));

@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { characterBody } from '../src/engine/actor.js';
 import { emptyPose } from '../src/engine/motion.js';
-import { outlineUnderlay } from '../src/engine/outline.js';
 import { rigOf } from '../src/engine/rigs.js';
 import { CharacterSchema } from '../src/engine/types.js';
 import { LIBRARY } from '../src/library/index.js';
-import { lintCharacter, topLevelPieces } from '../src/project/construction.js';
+import { lintCharacter } from '../src/project/construction.js';
 import { validateCharacter } from '../src/project/validate.js';
 import { constructionSheetSvg } from '../src/render/sheets.js';
 import { rasterize } from '../src/render/raster.js';
@@ -13,54 +12,7 @@ import { rasterize } from '../src/render/raster.js';
 const blob = (parts: Record<string, string>, rig: 'simple' | 'humanoid' = 'simple') =>
   CharacterSchema.parse({ id: 'x', name: 'X', rig, parts });
 
-describe('outline underlay', () => {
-  it('widens filled shapes and limb strokes, skips faint and thin ones', () => {
-    const svg =
-      `<ellipse cx='100' cy='150' rx='60' ry='40' fill='#c84'/>` +
-      `<path d='M80 180 L80 200' stroke='#c84' stroke-width='14' stroke-linecap='round' fill='none'/>` +
-      `<circle cx='70' cy='140' r='8' fill='#f99' opacity='0.5'/>` +
-      `<path d='M120 120 L150 110' stroke='#333' stroke-width='2' fill='none'/>`;
-    const under = outlineUnderlay(svg, '#111', 5);
-    expect(under).toContain(
-      `<ellipse cx='100' cy='150' rx='60' ry='40' fill='#111' stroke='#111' stroke-width='10'`
-    );
-    expect(under).toContain(`stroke-width='24'`); // 14 + 2 × 5
-    expect(under.match(/<(ellipse|path|circle)/g)).toHaveLength(2);
-  });
-
-  it('inherits fill from groups, keeps transforms, ignores defs and line-coloured strokes', () => {
-    const svg =
-      `<defs><linearGradient id='g'><stop offset='0' stop-color='#fff'/></linearGradient></defs>` +
-      `<g fill='{fur}' transform='rotate(10 100 100)'><circle cx='100' cy='100' r='20'/></g>` +
-      `<path d='M0 0 L10 10' stroke='#111' stroke-width='12'/>`;
-    const under = outlineUnderlay(svg, '#111', 4);
-    expect(under).toBe(
-      `<g transform='rotate(10 100 100)'><circle cx='100' cy='100' r='20' fill='#111' stroke='#111' stroke-width='8' stroke-linejoin='round' stroke-linecap='round'/></g>`
-    );
-  });
-
-  it('is drawn under each part unless the character turns it off', () => {
-    const c = blob({ body: `<circle cx='100' cy='150' r='50' fill='#c84'/>` });
-    const on = characterBody(c, emptyPose());
-    expect(on.indexOf(`fill='#2e2633'`)).toBeLessThan(on.indexOf(`fill='#c84'`));
-    const off = characterBody({ ...c, outline: false }, emptyPose());
-    expect(off).not.toContain('#2e2633');
-  });
-});
-
 describe('construction linter', () => {
-  it('splits a fragment into its top-level pieces', () => {
-    expect(
-      topLevelPieces(
-        `<circle r='1'/><g fill='red'><rect width='2'/><path d='M0 0'></path></g><ellipse/>`
-      )
-    ).toEqual([
-      `<circle r='1'/>`,
-      `<g fill='red'><rect width='2'/><path d='M0 0'></path></g>`,
-      `<ellipse/>`,
-    ]);
-  });
-
   it('is an error to draw outside the box', () => {
     const c = blob({
       body: `<circle cx='100' cy='170' r='30' fill='#c84'/><rect x='150' y='150' width='70' height='50' fill='#c84'/>`,

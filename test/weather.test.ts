@@ -297,7 +297,7 @@ describe('effects', () => {
     expect(fire(1)).not.toEqual(fire(1.1));
   });
 
-  it('moves a river inside its outline, and needs the outline', () => {
+  it('moves a river inside its outline', () => {
     const river = {
       kind: 'river',
       points: [
@@ -314,15 +314,14 @@ describe('effects', () => {
     expect(water(1)).toContain("clip-path='url(#tk-fx-stage-0-clip)'");
     expect(water(1)).toContain("<path d='M400 450 L700 450 L900 720 L200 720 Z'/>");
     expect(water(1)).not.toEqual(water(1.5));
-    expect(() => SceneSchema.parse({ ...park, effects: [{ kind: 'river' }] })).toThrow();
-    expect(() => SceneSchema.parse({ ...park, effects: [{ kind: 'fire', x: 400 }] })).toThrow();
   });
 
-  it('needs an x except for waves', () => {
-    expect(() => SceneSchema.parse({ ...park, effects: [{ kind: 'fire', y: 600 }] })).toThrow();
-    expect(() =>
-      SceneSchema.parse({ ...park, effects: [{ kind: 'waves', y: 400 }] })
-    ).not.toThrow();
+  it('needs where it is: points for a river, y alone for waves, x and y for the rest', () => {
+    const ok = (effect: object) => SceneSchema.safeParse({ ...park, effects: [effect] }).success;
+    expect(ok({ kind: 'river' })).toBe(false);
+    expect(ok({ kind: 'fire', x: 400 })).toBe(false);
+    expect(ok({ kind: 'fire', y: 600 })).toBe(false);
+    expect(ok({ kind: 'waves', y: 400 })).toBe(true);
   });
 
   it('shows the scene moving on its sheet', () => {

@@ -50,16 +50,10 @@ describe('review notes', () => {
     expect((await loadNotes(root)).map((n) => n.id)).toEqual(['n1', 'n2']);
   });
 
-  it('resolves and reopens', async () => {
-    const a = await addNote(root, { kind: 'shot', id: 'well', t: 1 }, 'x');
-    expect((await setNoteStatus(root, a.id, 'done')).status).toBe('done');
-    expect((await setNoteStatus(root, a.id, 'open')).status).toBe('open');
-    await expect(setNoteStatus(root, 'n99', 'done')).rejects.toThrow("no note 'n99'");
-  });
-
-  it('rejects empty text and bad targets', async () => {
+  it('refuses empty text, a bad target and a note that does not exist', async () => {
     await expect(addNote(root, { kind: 'shot', id: 'well' }, '   ')).rejects.toThrow('empty');
     await expect(addNote(root, { kind: 'prop' as 'shot', id: 'x' }, 'text')).rejects.toThrow();
+    await expect(setNoteStatus(root, 'n99', 'done')).rejects.toThrow("no note 'n99'");
   });
 
   it('describes a note the way the agent reads it', async () => {

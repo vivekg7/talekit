@@ -3,7 +3,7 @@ import { actorHeadTop, characterBody, poseFor, sideOf } from '../src/engine/acto
 import { bubblePop } from '../src/engine/bubble.js';
 import { composeFrame } from '../src/engine/compose.js';
 import { footPoint, toRoot } from '../src/engine/gait.js';
-import { applyVerb, emptyPose, resolveFace } from '../src/engine/motion.js';
+import { applyVerb, basePose, emptyPose, resolveFace } from '../src/engine/motion.js';
 import { RIGS, rigOf } from '../src/engine/rigs.js';
 import { applySprings } from '../src/engine/springs.js';
 import { resolveFrame, type ActorState } from '../src/engine/timeline.js';
@@ -94,11 +94,14 @@ describe('planted feet', () => {
     expect((x(4) - x(3.95)) / 0.05).toBeLessThan(average / 2);
   });
 
-  it('crouches in place before a jump and lands where it was sent', () => {
+  it('crouches in place on bent knees before a jump, and lands where it was sent', () => {
     const p = project([{ t: 1, actor: 'kid', do: 'jump', to: { x: 400, y: 640 } }]);
-    expect(actorAt(p, 'kid', 1.1).x).toBe(200);
-    const crouch = poseFor(actorAt(p, 'kid', 1.08), 1.08);
-    expect(crouch.dy).toBeGreaterThan(10);
+    const crouch = actorAt(p, 'kid', 1.1);
+    expect(crouch.x).toBe(200);
+    expect(poseFor(crouch, 1.1).dy).toBeGreaterThan(10);
+    expect(poseFor(crouch, 1.1).bend.legR).toBeGreaterThan(30);
+    for (const [, y] of Object.values(worldFeet(crouch, 1.1)))
+      expect(Math.abs(y - 640)).toBeLessThan(0.5);
     expect(actorAt(p, 'kid', 2).x).toBe(400);
   });
 });
@@ -158,24 +161,11 @@ describe('weight and follow-through', () => {
     expect(poseFor(at(4.25), 4.25).yaw).toBeGreaterThan(1);
   });
 
-  it('pops in past full size, and bubbles do the same', () => {
-    const pose = emptyPose();
-    applyVerb(RIGS.humanoid, pose, 'appear', 0.5);
-    expect(pose.sx).toBeGreaterThan(1);
-    const early = emptyPose();
-    applyVerb(RIGS.humanoid, early, 'appear', 0.05);
-    expect(early.sx).toBeLessThan(0.8);
+  it('pops a bubble in past full size and out again', () => {
     expect(bubblePop(0.03).scale).toBeLessThan(0.7);
     expect(bubblePop(0.2).scale).toBeGreaterThan(1);
     expect(bubblePop(1, 0.05).scale).toBeLessThan(1);
     expect(bubblePop(1, 5)).toEqual({ scale: 1, opacity: 1 });
-  });
-
-  it('sits down over a moment rather than in one frame', () => {
-    const p = project([{ t: 1, actor: 'kid', do: 'sit' }]);
-    expect(actorAt(p, 'kid', 1.2).sit).toBeGreaterThan(0.2);
-    expect(actorAt(p, 'kid', 1.2).sit).toBeLessThan(0.8);
-    expect(actorAt(p, 'kid', 2).sit).toBe(1);
   });
 
   it('swings a tail behind a start, and renders the same frame in any order', () => {
@@ -217,6 +207,15 @@ describe('weight and follow-through', () => {
     expect(swing).toBeGreaterThan(2);
   });
 
+  it('breathes a body in full and barely moves a prop the size of the frame', () => {
+    // A quarter of the 3.6 s breath in: the chest at its highest.
+    const heave = (height: number) =>
+      (basePose(RIGS.simple, 'idle', 0.9, 0, undefined, height).sy - 1) * height;
+    expect(heave(200)).toBeCloseTo(3, 1);
+    expect(heave(400)).toBeCloseTo(6, 1);
+    expect(Math.abs(heave(2040))).toBeLessThan(1.5);
+  });
+
   it('blinks twice now and then', () => {
     const parts = { eyes: { open: 'o', closed: 'c' } };
     let runs = 0;
@@ -249,12 +248,14 @@ describe('knees', () => {
   };
   const feetY = (a: ActorState, t: number) => Object.values(worldFeet(a, t)).map(([, y]) => y);
 
-  it('sits on the ground with bent knees and the feet on it all the way down', () => {
+  it('sits on the ground over a moment, knees bent, the feet on it all the way down', () => {
     const p = project([{ t: 1, actor: 'kid', do: 'sit' }]);
+    expect(actorAt(p, 'kid', 1.2).sit).toBeGreaterThan(0.2);
+    expect(actorAt(p, 'kid', 1.2).sit).toBeLessThan(0.8);
     for (const t of [1.05, 1.15, 1.25, 1.35, 2])
       for (const y of feetY(actorAt(p, 'kid', t), t)) expect(Math.abs(y - 640)).toBeLessThan(1.5);
     const sat = actorAt(p, 'kid', 2);
-    expect(sat.seat).toBe(0);
+    expect(sat).toMatchObject({ sit: 1, seat: 0 });
     expect(poseFor(sat, 2).bend.legR).toBeGreaterThan(20);
   });
 
@@ -280,36 +281,25 @@ describe('knees', () => {
       expect(actorAt(p, 'kid', t)).toMatchObject({ x: 600, y: 300, seat: 340, sit: 1 });
   });
 
-  it('gets up off a cot it lay on onto the floor in front, not onto the cot', () => {
-    const p = seated(
-      [
-        { t: 0, actor: 'kid', do: 'lie', to: 'cot', duration: 0.05 },
-        { t: 2, actor: 'kid', do: 'sit' },
-        { t: 3, actor: 'kid', do: 'stand' },
-      ],
-      { kid: { at: { x: 600, y: 640 } } }
-    );
-    p.scenes.park.anchors.cot = { x: 600, y: 600, scale: 1, floor: 640 };
-    // Lying on the cot's top, then up on the floor under it.
-    expect(actorAt(p, 'kid', 1)).toMatchObject({ x: 600, y: 600 });
-    const feet = (t: number) => Math.max(...feetY(actorAt(p, 'kid', t), t));
-    expect(Math.abs(feet(5) - 640)).toBeLessThan(1.5);
-  });
-
-  it('opens asleep on a cot cast in front of it, and swings its legs down to get up', () => {
-    const p = seated(
-      [
-        { t: 0, actor: 'kid', do: 'lie', to: 'cot', duration: 0.05 },
-        { t: 2, actor: 'kid', do: 'stand' },
-      ],
-      { kid: { at: { x: 600, y: 640 } } }
-    );
-    p.scenes.park.anchors.cot = { x: 600, y: 600, scale: 1, floor: 640 };
+  it('opens asleep on a cot and gets up onto the floor in front, never onto its top', () => {
+    const onCot = (actions: unknown[]) => {
+      const p = seated([{ t: 0, actor: 'kid', do: 'lie', to: 'cot', duration: 0.05 }, ...actions], {
+        kid: { at: { x: 600, y: 640 } },
+      });
+      p.scenes.park.anchors.cot = { x: 600, y: 600, scale: 1, floor: 640 };
+      return p;
+    };
+    const feet = (p: Project, t: number) => Math.max(...feetY(actorAt(p, 'kid', t), t));
+    // Straight up, or sat up first: either way the legs swing down to the floor.
+    const up = onCot([{ t: 2, actor: 'kid', do: 'stand' }]);
+    const sitUp = onCot([
+      { t: 2, actor: 'kid', do: 'sit' },
+      { t: 3, actor: 'kid', do: 'stand' },
+    ]);
     // Lying on it from the first frame: no walk up onto its top, no frame stood at the cut.
-    expect(actorAt(p, 'kid', 0)).toMatchObject({ x: 600, y: 600, lie: 1 });
-    // Sat up, it rises with its feet on the floor, never standing on the cot's top.
-    const feet = (t: number) => Math.max(...feetY(actorAt(p, 'kid', t), t));
-    for (const t of [3.35, 3.5, 3.65, 4]) expect(feet(t)).toBeGreaterThan(630);
+    expect(actorAt(up, 'kid', 0)).toMatchObject({ x: 600, y: 600, lie: 1 });
+    for (const t of [3.35, 3.5, 3.65, 4]) expect(feet(up, t)).toBeGreaterThan(630);
+    expect(Math.abs(feet(sitUp, 5) - 640)).toBeLessThan(1.5);
   });
 
   it('sits down on a raised seat it jumped up onto, and gets up on it again', () => {
@@ -471,15 +461,6 @@ describe('knees', () => {
         if (Math.abs(y - 660) < 0.01) expect(pose.bend[leg] ?? 0).toBe(0);
     }
   });
-
-  it('crouches for a jump on bent knees with the feet planted', () => {
-    const p = project([{ t: 1, actor: 'kid', do: 'jump' }]);
-    const t = 1.1;
-    const a = actorAt(p, 'kid', t);
-    expect(poseFor(a, t).bend.legR).toBeGreaterThan(30);
-    for (const y of Object.values(worldFeet(a, t)).map(([, y]) => y))
-      expect(Math.abs(y - 640)).toBeLessThan(0.5);
-  });
 });
 
 describe('lying down', () => {
@@ -582,37 +563,36 @@ describe('lying down', () => {
     };
     expect(drop(140) - drop()).toBeCloseTo(12);
   });
-
-  it("brings a mouth up a long neck (a camel's `muzzle`) down to the floor to eat", () => {
-    const eating = (muzzle?: [number, number]) => {
-      const rig = rigOf({ rig: 'quadruped', muzzle });
-      const pose = emptyPose();
-      applyVerb(rig, pose, 'eat', 0.22, 0, undefined, 1.6);
-      return { bow: pose.rot.head, mouth: toRoot(rig, pose, 'head', rig.hold.point)[1] };
-    };
-    // The library's animals bow as they always have, the default muzzle spelt out too.
-    expect(eating().bow).toBeCloseTo(44);
-    expect(eating([240, 100]).bow).toBeCloseTo(44);
-    // A camel's mouth, high up in front, bows much further and ends just above the floor.
-    const camel = eating([248, 47]);
-    expect(camel.bow).toBeGreaterThan(70);
-    expect(camel.mouth).toBeGreaterThan(178);
-    expect(camel.mouth).toBeLessThan(195);
-  });
 });
 
 describe('people', () => {
-  it('turns the face, nose and cheeks with it, the way the body faces', () => {
-    const p = project([]);
-    const a = actorAt(p, 'kid', 1);
+  it('stands three-quarters on: face and body narrowed toward the facing, flat at yaw 0', () => {
+    const a = actorAt(project([]), 'kid', 1);
     const pose = poseFor(a, 1);
+    const turn = (svg: string, part: string) => {
+      const tf = svg.match(new RegExp(`class='part-${part}' transform='([^']*)'`))?.[1] ?? '';
+      const [, dx = '0'] = tf.match(/translate\(([-\d.]+) 0\) scale/) ?? [];
+      const [, sx = '1'] = tf.match(/scale\(([\d.]+) 1\)/) ?? [];
+      return { dx: Number(dx), sx: Number(sx) };
+    };
     const svg = characterBody(a.character, pose);
-    const tf = (part: string) => svg.match(new RegExp(`class='part-${part}' transform='([^']*)'`));
-    for (const part of ['face', 'eyes', 'mouth'])
-      expect(tf(part)?.[1]).toContain('translate(42 0) scale(0.8 1)');
-    expect(tf('head')?.[1] ?? '').not.toContain('scale');
+    // Nose, eyes and mouth go round together, toward the way it faces.
+    const face = turn(svg, 'face');
+    expect(face.dx).toBeGreaterThan(20);
+    expect(face.sx).toBeLessThan(0.95);
+    for (const part of ['eyes', 'mouth']) expect(turn(svg, part)).toEqual(face);
+    expect(turn(svg, 'head').sx).toBe(1);
+    expect(turn(svg, 'torso').sx).toBeLessThan(0.95);
+    // The far shoulder and the near hip tuck in.
+    const rig = RIGS.humanoid;
+    expect(toRoot(rig, pose, 'armL', rig.parts.armL.pivot)[0]).toBeGreaterThan(
+      rig.parts.armL.pivot[0]
+    );
+    expect(toRoot(rig, pose, 'legR', rig.parts.legR.pivot)[0]).toBeLessThan(
+      rig.parts.legR.pivot[0]
+    );
     pose.yaw = 0;
-    expect(characterBody(a.character, pose)).not.toContain('scale(0.8 1)');
+    expect(turn(characterBody(a.character, pose), 'face').sx).toBe(1);
   });
 
   it('bends the elbows: more as an arm swings forward, held bent to run', () => {

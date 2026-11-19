@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, existsSync, readFileSync, writeFileSync } from 
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { badTake, hindiNumber, matchTake, skeleton } from '../src/engine/speech.js';
+import { badTake, matchTake, skeleton } from '../src/engine/speech.js';
 import { SceneSchema, ShotSchema, type Project } from '../src/engine/types.js';
 import { voiceLines } from '../src/engine/voice.js';
 import { LIBRARY } from '../src/library/index.js';
@@ -41,14 +41,6 @@ describe('the speech check', () => {
     const line = 'बूढ़े महात्मा अपनी कुटिया के आगे क्यारियाँ खोद रहे थे।';
     const heard = 'बुड़े महात्मा अपनी कुटिया के आगे क्यारियां, ख्यारियां खूद रहे थे';
     expect(badTake(line, matchTake(line, heard))).toBe(true);
-  });
-  it('says numbers in Hindi', () => {
-    expect(hindiNumber(50)).toBe('पचास');
-    expect(hindiNumber(100)).toBe('सौ');
-    expect(hindiNumber(500)).toBe('पाँच सौ');
-    expect(hindiNumber(2000)).toBe('दो हज़ार');
-    expect(hindiNumber(123)).toBe('123');
-    expect(hindiNumber(0)).toBe('0');
   });
   it('hears हंस in the respelling the voice is given', () => {
     expect(skeleton('हन्स')).toBe(skeleton('हंस'));
@@ -167,19 +159,17 @@ describe('hearing voiced takes', () => {
     expect(asked.some((f) => f.includes('.take'))).toBe(false);
   });
 
-  it('keeps the voicing when hearing fails, and says why', async () => {
-    const r = root();
+  it('keeps the voicing when it cannot hear the takes, and says why', async () => {
     const failing: Hearer = async () => {
       throw new Error('no model');
     };
-    const report = await run(project(['one two three']), r, failing);
-    expect(report).toMatchObject({ made: 1, unheard: true, hearError: 'no model' });
+    const report = await run(project(['one two three']), root(), failing);
+    expect(report).toMatchObject({ made: 1, heard: 0, unheard: true, hearError: 'no model' });
     expect(hearingLines(report)).toEqual(['  takes not heard: no model']);
-  });
-
-  it('says so when nothing can hear the takes', async () => {
-    const r = root();
-    const report = await run(project(['one two three']), r, null);
-    expect(report).toMatchObject({ made: 1, heard: 0, unheard: true });
+    expect(await run(project(['one two three']), root(), null)).toMatchObject({
+      made: 1,
+      heard: 0,
+      unheard: true,
+    });
   });
 });

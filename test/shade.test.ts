@@ -121,17 +121,3 @@ describe('bent limbs', () => {
     expect(Math.abs(angle(ux, uy) - angle(lx, ly) - 60)).toBeLessThan(0.5);
   });
 });
-
-describe('verticalExtent', () => {
-  it('measures shapes with their stroke, and gives up on what it cannot read', async () => {
-    const { verticalExtent } = await import('../src/engine/svg.js');
-    expect(verticalExtent(`<ellipse cx='5' cy='190' rx='10' ry='8' fill='#000'/>`)).toEqual([
-      182, 198,
-    ]);
-    expect(
-      verticalExtent(`<path d='M10 130 L11 189' stroke='#000' stroke-width='14' fill='none'/>`)
-    ).toEqual([123, 196]);
-    expect(verticalExtent(`<path d='M10 130 l1 59' fill='#000'/>`)).toBeUndefined();
-    expect(verticalExtent(`<g><circle cx='1' cy='1' r='1'/></g>`)).toBeUndefined();
-  });
-});

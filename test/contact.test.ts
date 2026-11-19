@@ -68,6 +68,7 @@ describe('strike at something', () => {
     // Before and after the blow the stick is nowhere near.
     expect(dist(touch(p, 1.1), spot)).toBeGreaterThan(60);
     expect(reach(p)).toEqual([]);
+    expect(validateShot(p.shots[0], p)).toEqual([]);
   });
 
   it('reaches down to a spot low in front, as on a washing stone', () => {
@@ -91,11 +92,6 @@ describe('strike at something', () => {
     expect(far.message).toMatch(/Stand 'grownup' closer, about \d+ px from it/);
     const [near] = reach(blow({ x: 470, y: 560 }));
     expect(near.message).toMatch(/past it.*further back/);
-  });
-
-  it('takes an actor in the cast as its target', () => {
-    const p = blow('kid');
-    expect(validateShot(p.shots[0], p).map((x) => x.message)).toEqual([]);
   });
 });
 

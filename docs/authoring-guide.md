@@ -872,7 +872,7 @@ Default durations in brackets.
 - `sit` / `stand` (0.4 s), `lie` (1.3 s): persistent; `sit` on `to` (a
   seat anchor), knees bent; `lie` sits then lies back (four legs: on the
   belly).
-- `bounce`, `spin` (1 s / 0.8 s): squashy hop / full turn (simple rig).
+- `bounce`, `spin` (1 s / 0.8 s): two squashy hops / full turn (simple rig).
 - `appear`, `disappear` (0.4 s): pop in and settle / swell and shrink.
 - `pickup`, `putdown` (1.2 s), `give` (1.4 s): on a prop, with `attach`
   ([Carrying](#carrying-attach)).
@@ -957,7 +957,7 @@ carrier.
 - **`dig`**: `{ "do": "dig", "duration": 3.75 }` with a hoe or spade is as
   many ~1.25 s strokes as fit, the `tip` biting the floor in front with
   clods, dust and a thud. Stand the digger at the bed's edge facing it: the
-  blade lands ~⅓ of their height in front.
+  blade lands about a tool's length in front.
 - **`eat`**: `{ "do": "eat", "sound": "munch" }`; the prop's `grip` reaches
   the lips (grip a roti by its lower edge). Several bites are several
   `eat`s. Give food on a plate or the floor as `to` (the plate actor or a

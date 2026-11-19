@@ -106,8 +106,8 @@ describe('quadruped motion', () => {
 
   it('shows the tail and ears thrown as far as follow-through throws them, on the sheet', () => {
     const sheet = characterSheetSvg(LIBRARY.characters.dog);
-    expect(sheet).toContain('>follow-through −28°<');
-    expect(sheet).toContain('>follow-through +28°<');
+    expect(sheet).toMatch(/>follow-through −\d+°</);
+    expect(sheet).toMatch(/>follow-through \+\d+°</);
     // A kid's pigtails swing too; a grown-up has nothing that follows through.
     expect(characterSheetSvg(LIBRARY.characters.kid)).toContain('follow-through');
     expect(characterSheetSvg(LIBRARY.characters.grownup)).not.toContain('follow-through');

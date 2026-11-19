@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { bubbleSvg } from '../src/engine/bubble.js';
 import { composeFrame } from '../src/engine/compose.js';
 import { safeInsets, uiScale } from '../src/engine/format.js';
+import { subtitles } from '../src/engine/subtitles.js';
 import { resolvePosition } from '../src/engine/timeline.js';
 import { SceneSchema, ShotSchema, type Project } from '../src/engine/types.js';
 import { LIBRARY } from '../src/library/index.js';
@@ -145,37 +146,33 @@ describe("a film's narration", () => {
       .map(Number);
   const line = [{ t: 0, caption: 'They sat together every evening' }];
 
-  it('runs along the bottom while the faces are clear of it', () => {
-    const p = project(FILM, [
-      {
-        id: 's',
-        scene: 'bare',
-        duration: 4,
-        cast: { kid: { at: { x: 640, y: 600 } } },
-        actions: line,
-      },
+  /** The kid stands with its face clear of the bottom strip, or sat low where it would be. */
+  const film = (y: number, actions: unknown[] = line) =>
+    project(FILM, [
+      { id: 's', scene: 'bare', duration: 4, cast: { kid: { at: { x: 640, y } } }, actions },
     ]);
+
+  it('runs along the bottom while the faces are clear of it', () => {
+    const p = film(600);
     const [, y] = strip(composeFrame(p, p.shots[0], 2));
     expect(y).toBeGreaterThan(FILM.height / 2);
   });
 
   it('moves to the top, for the whole line, when it would cover a face at the bottom', () => {
-    // Sat low near the camera: the kid's face is where the strip would be.
-    const p = project(FILM, [
-      {
-        id: 's',
-        scene: 'bare',
-        duration: 4,
-        cast: { kid: { at: { x: 640, y: 840 } } },
-        actions: [
-          ...line,
-          { t: 1.5, do: 'walk', actor: 'kid', to: { x: 640, y: 600 }, duration: 1 },
-        ],
-      },
+    const p = film(840, [
+      ...line,
+      { t: 1.5, do: 'walk', actor: 'kid', to: { x: 640, y: 600 }, duration: 1 },
     ]);
     for (const t of [0.5, 2, 2.8]) {
       const [, y, h] = strip(composeFrame(p, p.shots[0], t));
       expect(y + h).toBeLessThan(FILM.height / 4);
     }
+  });
+
+  it('keeps its subtitle and the lines said under it on the other edge', () => {
+    const said = [...line, { t: 1, actor: 'kid', say: 'Me too' }];
+    const edges = (y: number) => subtitles(film(y, said), 'en').map((s) => s.top);
+    expect(edges(600)).toEqual([true, true]);
+    expect(edges(840)).toEqual([false, false]);
   });
 });

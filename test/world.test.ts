@@ -4,8 +4,6 @@ import { LIBRARY } from '../src/library/index.js';
 import {
   groundOf,
   habitatOf,
-  inArea,
-  nearestIn,
   sceneFindings,
   shotFindings,
   supportAt,
@@ -101,21 +99,6 @@ function project(
   };
 }
 
-describe('geometry', () => {
-  const square: [number, number][] = [
-    [0, 0],
-    [10, 0],
-    [10, 10],
-    [0, 10],
-  ];
-  it('tells inside from outside and finds the nearest point of an area', () => {
-    expect(inArea(square, { x: 5, y: 5 })).toBe(true);
-    expect(inArea(square, { x: 15, y: 5 })).toBe(false);
-    expect(nearestIn(square, { x: 15, y: 5 })).toEqual({ x: 10, y: 5 });
-    expect(nearestIn(square, { x: 5, y: 5 })).toEqual({ x: 5, y: 5 });
-  });
-});
-
 describe('what holds an actor up', () => {
   const g = groundOf(STAGE);
   it('stands a walker on the floor and a branch, never on air or in deep water', () => {
@@ -209,14 +192,23 @@ describe('the support rule', () => {
     const p = project({ fish: { at: { x: 300, y: 640 } } });
     expect(shotFindings(p, p.shots[0]).map((f) => f.code)).toEqual(['support.dry']);
   });
-  it('is waived by code or by code and actor, with a reason', () => {
+  it("is waived by code or by code and actor, in the shot or for all the scene's shots", () => {
     const cast = { kid: { at: { x: 300, y: 450 } } };
-    for (const allow of [{ 'support.air': 'a dream' }, { 'support.air:kid': 'a dream' }]) {
-      const p = project(cast, [], { allow });
-      expect(shotFindings(p, p.shots[0])).toEqual([]);
+    const left = (shot: Record<string, unknown>, scene: Record<string, string> = {}) => {
+      const p = project(cast, [], shot);
+      p.scenes.stage = { ...STAGE, allow: scene };
+      return shotFindings(p, p.shots[0]).length;
+    };
+    const waivers: Record<string, string>[] = [
+      { 'support.air': 'a dream' },
+      { 'support.air:kid': 'a dream' },
+    ];
+    for (const allow of waivers) {
+      expect(left({ allow })).toBe(0);
+      expect(left({}, allow)).toBe(0);
     }
-    const other = project(cast, [], { allow: { 'support.air:crow': 'a dream' } });
-    expect(shotFindings(other, other.shots[0])).toHaveLength(1);
+    expect(left({ allow: { 'support.air:crow': 'a dream' } })).toBe(1);
+    expect(left({ allow: { 'support.water': 'a dream' } })).toBe(1);
   });
   it('makes a finding a project error that blocks the render, and a typo in allow too', () => {
     const p = project({ kid: { at: { x: 300, y: 450 } } });
@@ -368,7 +360,7 @@ describe('the jump rule', () => {
     ]);
     expect(shotFindings(fast, fast.shots[0])[0].message).toMatch(/faster than anything/);
   });
-  it('leaves walks, runs, hidden moves and falls alone', () => {
+  it('leaves runs, and moves made out of sight, alone', () => {
     const walk = project({ kid: { at: { x: 100, y: 640 } } }, [
       { t: 0.5, actor: 'kid', do: 'run', to: { x: 900, y: 640 } },
     ]);

@@ -1,5 +1,9 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { instagramProblems, youtubeProblems } from '../src/project/posts.js';
+import { ShotSchema, type Project } from '../src/engine/types.js';
+import { instagramProblems, postProblems, youtubeProblems } from '../src/project/posts.js';
 
 const messages = (ps: { message: string }[]) => ps.map((p) => p.message).join('\n');
 
@@ -62,6 +66,14 @@ describe('youtube.txt', () => {
     expect(messages(youtubeProblems(close, 200))).toMatch(/5 s after the one before/);
     expect(messages(youtubeProblems(GOOD_YT, 60))).toMatch(/past the end/);
   });
+
+  it('checks a Hindi and an English chapter list each on its own', () => {
+    const english = '\n\nChapters\n0:00 Friends\n0:40 The heart\n1:30 The trick';
+    const both = GOOD_YT.replace('\n\n#', `${english}\n\n#`);
+    expect(youtubeProblems(both, 200)).toEqual([]);
+    const short = both.replace('\n1:30 The trick', '');
+    expect(messages(youtubeProblems(short, 200))).toMatch(/chapters from line 1[0-9]: at least 3/);
+  });
 });
 
 describe('instagram.txt', () => {
@@ -85,5 +97,40 @@ describe('instagram.txt', () => {
     expect(messages(instagramProblems('क'.repeat(2201)))).toMatch(/2201 characters/);
     const tags = Array.from({ length: 31 }, (_, i) => `#t${i}`).join(' ');
     expect(messages(instagramProblems(tags))).toMatch(/31 hashtags/);
+  });
+});
+
+describe('the post files', () => {
+  const posted = (size: { width: number; height: number }, files: Record<string, string>) => {
+    const root = mkdtempSync(path.join(os.tmpdir(), 'talekit-posts-'));
+    mkdirSync(path.join(root, 'out'));
+    for (const [name, text] of Object.entries(files))
+      writeFileSync(path.join(root, 'out', name), text);
+    const project: Project = {
+      meta: { title: 't', ...size, fps: 24, font: 'sans-serif' },
+      characters: {},
+      scenes: {},
+      shots: [ShotSchema.parse({ id: 'a', scene: 's', duration: 200 })],
+    };
+    return postProblems(root, project);
+  };
+  const FILM = { width: 1280, height: 720 };
+  const REEL = { width: 720, height: 1280 };
+
+  it('are asked for once the video is rendered: a reel needs its caption too', async () => {
+    expect(await posted(FILM, {})).toEqual([]);
+    expect(messages(await posted(FILM, { 'movie.mp4': '' }))).toMatch(/^missing: the title/);
+    const old = await posted(FILM, { 'movie.mp4': '', 'description.md': '# t' });
+    expect(messages(old)).toMatch(/description.md is replaced by youtube.txt/);
+    const reel = await posted(REEL, { 'thumbnail.png': '', 'youtube.txt': GOOD_YT });
+    expect(reel.map((p) => [p.where, p.message])).toEqual([
+      ['out/instagram.txt', 'missing: the caption to post the reel with'],
+    ]);
+  });
+
+  it('lint what is there, by the length of the video', async () => {
+    expect(await posted(FILM, { 'movie.mp4': '', 'youtube.txt': GOOD_YT })).toEqual([]);
+    const late = await posted(FILM, { 'youtube.txt': GOOD_YT.replace('1:30', '3:30') });
+    expect(messages(late)).toMatch(/past the end \(200 s\)/);
   });
 });

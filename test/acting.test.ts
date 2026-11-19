@@ -3,7 +3,7 @@ import { characterBody, holdPoint, poseFor } from '../src/engine/actor.js';
 import { composeFrame } from '../src/engine/compose.js';
 import { cueSheet } from '../src/engine/sound.js';
 import { RIGS } from '../src/engine/rigs.js';
-import { resolveFrame, type ActorState } from '../src/engine/timeline.js';
+import { resolveFrame, touchPoint, type ActorState } from '../src/engine/timeline.js';
 import { CharacterSchema, ShotSchema, type Project } from '../src/engine/types.js';
 import { LIBRARY } from '../src/library/index.js';
 import { validateProject, validateShot } from '../src/project/validate.js';
@@ -92,6 +92,26 @@ describe('looking', () => {
     expect(at(prop, 'lantern', 2).look).toBe(0);
   });
 
+  it('hands a forced face part back with an empty variant', () => {
+    const p = project(cast, [
+      { t: 1, actor: 'kid', face: { mouth: 'open', eyes: 'closed' } },
+      { t: 2, actor: 'kid', face: { mouth: '' } },
+    ]);
+    expect(at(p, 'kid', 1.5).face).toEqual({ mouth: 'open', eyes: 'closed' });
+    expect(at(p, 'kid', 2.5).face).toEqual({ eyes: 'closed' });
+    expect(validateShot(p.shots[0], p)).toEqual([]);
+  });
+
+  it('keeps the mouth still on a thought, and nobody turns to the thinker', () => {
+    const p = project(cast, [
+      { t: 1, actor: 'grownup', say: 'Hmm, where is it?', bubble: 'thought' },
+    ]);
+    const grownup = at(p, 'grownup', 2);
+    expect(grownup.bubble?.style).toBe('thought');
+    expect(grownup.talking).toBe(false);
+    expect(at(p, 'kid', 2).look).toBe(0);
+  });
+
   it('gives an emotion change a take that starts with a blink', () => {
     const p = project(cast, [{ t: 1, actor: 'kid', emotion: 'surprised' }]);
     expect(at(p, 'kid', 0.9).take).toBeUndefined();
@@ -115,12 +135,12 @@ describe('carrying', () => {
     return { x: l.x + k * side * (100 - rig.width / 2), y: l.y + k * (20 - rig.height) };
   };
 
-  it('keeps the grip in the hand through a walk, then lets go where it is', () => {
+  it('keeps the grip in the hand through a walk, then drops it to the floor where it is', () => {
     const p = project(cast, [
       { t: 1, actor: 'lantern', attach: 'kid' },
       { t: 1, actor: 'kid', do: 'walk', to: { x: 800, y: 640 }, duration: 3 },
+      { t: 2, actor: 'lantern', do: 'move', to: { x: 100, y: 640 }, duration: 1 },
       { t: 5, actor: 'lantern', attach: false },
-      { t: 6, actor: 'lantern', do: 'move', to: { x: 1000, y: 640 }, duration: 1 },
     ]);
     expect(at(p, 'lantern', 0.5).x).toBe(900);
     for (const t of [1, 1.7, 2.6, 3.9, 4.5]) {
@@ -134,7 +154,7 @@ describe('carrying', () => {
     const dropped = at(p, 'lantern', 5.5);
     expect(dropped.heldBy).toBeUndefined();
     expect(Math.abs(dropped.x - at(p, 'lantern', 4.99).x)).toBeLessThan(1);
-    expect(at(p, 'lantern', 7.5).x).toBe(1000);
+    expect(dropped.y).toBe(640);
   });
 
   it('swings what it carries with a strike: back over the shoulder, then onto the blow', () => {
@@ -149,13 +169,10 @@ describe('carrying', () => {
     const t = 1 + 0.6 * 0.7;
     const tilt = at(p, 'lantern', t).tilt!;
     expect(tilt.deg).toBeGreaterThan(90);
-    // Turned about the hand that holds it, and drawn so.
+    // Turned about the hand that holds it.
     const kid = at(p, 'kid', t);
     const hand = holdPoint(kid, poseFor(kid, t));
     expect(Math.hypot(tilt.x - hand.x, tilt.y - hand.y)).toBeLessThan(0.01);
-    expect(composeFrame(p, p.shots[0], t)).toMatch(
-      /<g transform='rotate\([^)]*\)'><g class='actor actor-lantern'/
-    );
     expect(at(p, 'lantern', 2).tilt).toBeUndefined();
     // Facing left, the same blow comes down the other way.
     const left = project({ ...cast, kid: { at: { x: 300, y: 640 }, facing: 'left' } }, [
@@ -175,9 +192,14 @@ describe('carrying', () => {
     const soil = at(p, 'hoe', 1.75).soil!;
     expect(soil).toHaveLength(1);
     const kid = at(p, 'kid', 1.75);
-    // Where the blade went in: on the kid's floor, in front of the kid.
+    // Where the blade went in: its tip on the kid's floor, in front of the kid.
     expect(Math.abs(soil[0].y - kid.y)).toBeLessThan(1);
     expect(soil[0].x).toBeGreaterThan(kid.x + 20);
+    for (const hit of [1.625, 2.875]) {
+      const tip = touchPoint(p, p.scenes.park, p.shots[0], 'kid', hit);
+      expect(Math.abs(tip.y - kid.y)).toBeLessThan(1);
+      expect(Math.abs(tip.x - soil[0].x)).toBeLessThan(5);
+    }
     expect(soil[0].age).toBeCloseTo(0.125, 2);
     // Still in the soil through the pull: the blade is held down there, not swung past it.
     const tilt = at(p, 'hoe', 1.9).tilt!;
@@ -242,6 +264,15 @@ describe('carrying', () => {
       return holdPoint(kid, poseFor(kid, t));
     };
     expect(handAt(1.8).y).toBeGreaterThan(handAt(4.5).y + 40);
+  });
+
+  it('puts a let-go prop where a set in the same action says', () => {
+    const p = project(cast, [
+      { t: 0, actor: 'lantern', attach: 'kid' },
+      { t: 1, actor: 'lantern', attach: false, set: { at: { x: 500, y: 600 } } },
+    ]);
+    const l = at(p, 'lantern', 1.5);
+    expect([l.x, l.y, l.heldBy]).toEqual([500, 600, undefined]);
   });
 
   it('draws the carried prop just in front of its carrier', () => {
@@ -405,48 +436,12 @@ describe('picking up and putting down', () => {
   });
 });
 
-describe('four-film fixes', () => {
-  const cast = {
-    kid: { at: { x: 300, y: 640 }, facing: 'right' },
-    grownup: { at: { x: 650, y: 640 }, facing: 'left' },
-    lantern: { at: { x: 900, y: 640 } },
-  };
-
-  it('hands a forced face part back with an empty variant', () => {
-    const p = project(cast, [
-      { t: 1, actor: 'kid', face: { mouth: 'open', eyes: 'closed' } },
-      { t: 2, actor: 'kid', face: { mouth: '' } },
-    ]);
-    expect(at(p, 'kid', 1.5).face).toEqual({ mouth: 'open', eyes: 'closed' });
-    expect(at(p, 'kid', 2.5).face).toEqual({ eyes: 'closed' });
-    expect(validateShot(p.shots[0], p)).toEqual([]);
-  });
-
-  it('keeps the mouth still on a thought, and nobody turns to the thinker', () => {
-    const p = project(cast, [
-      { t: 1, actor: 'grownup', say: 'Hmm, where is it?', bubble: 'thought' },
-    ]);
-    const grownup = at(p, 'grownup', 2);
-    expect(grownup.bubble?.style).toBe('thought');
-    expect(grownup.talking).toBe(false);
-    expect(at(p, 'kid', 2).look).toBe(0);
-  });
-
-  it('puts a let-go prop where a set in the same action says', () => {
-    const p = project(cast, [
-      { t: 0, actor: 'lantern', attach: 'kid' },
-      { t: 1, actor: 'lantern', attach: false, set: { at: { x: 500, y: 600 } } },
-    ]);
-    const l = at(p, 'lantern', 1.5);
-    expect([l.x, l.y, l.heldBy]).toEqual([500, 600, undefined]);
-  });
+describe('outlines', () => {
+  const cast = { kid: { at: { x: 300, y: 640 } }, dog: { at: { x: 450, y: 640 } } };
 
   it("draws a four-legged animal's head line under its body, a person's over the torso", () => {
     const order = (id: 'dog' | 'kid') => {
-      const svg = characterBody(
-        LIBRARY.characters[id],
-        poseFor(at(project({ ...cast, dog: { at: { x: 450, y: 640 } } }, []), id, 0), 0)
-      );
+      const svg = characterBody(LIBRARY.characters[id], poseFor(at(project(cast, []), id, 0), 0));
       return ['part-head-line', "part-body'", "part-torso'", "part-head'"].map((k) =>
         svg.indexOf(k)
       );

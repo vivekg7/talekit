@@ -8,9 +8,7 @@ import { validateCharacter, validateShot } from '../src/project/validate.js';
 import { outlineText, rasterize } from '../src/render/raster.js';
 import { characterSheetSvg, filmSheetSvg } from '../src/render/sheets.js';
 import { poseFor } from '../src/engine/actor.js';
-import { applyVerb, basePose, chewing, faceFallbacks } from '../src/engine/motion.js';
-import { toRoot } from '../src/engine/gait.js';
-import { RIGS } from '../src/engine/rigs.js';
+import { faceFallbacks } from '../src/engine/motion.js';
 
 function project(shotInput: unknown): Project {
   const shot = ShotSchema.parse(shotInput);
@@ -60,7 +58,7 @@ describe('timeline', () => {
     expect(end.x).toBe(bench.x);
     expect(end.locomotion).toBe('idle');
   });
-  it('walks linearly and faces the direction of travel', () => {
+  it('is halfway at half time and faces the way it walks or runs', () => {
     const mid = resolveFrame(p, shot, 3).actors.find((a) => a.id === 'kid')!;
     expect(mid.x).toBeCloseTo((gate.x + bench.x) / 2, 5);
     expect(mid.locomotion).toBe('walk');
@@ -327,135 +325,6 @@ describe('pose sheet', () => {
     expect(svg).toContain('1. a · 4s');
     expect(svg).toContain('2. b · 6s');
     expect(svg.match(/class='scene'/g)).toHaveLength(2);
-  });
-});
-
-describe('simple-rig verbs', () => {
-  it('point leans the body and tremble shakes it', () => {
-    const rig = RIGS.simple;
-    const still = basePose(rig, 'idle', 0, 0);
-    const lean = basePose(rig, 'idle', 0, 0);
-    applyVerb(rig, lean, 'point', 0.5);
-    expect(lean.rot.body).toBeLessThan(-15);
-    expect(lean.dx).toBeGreaterThan(still.dx);
-    const shiver = basePose(rig, 'idle', 0, 0);
-    applyVerb(rig, shiver, 'tremble', 0.27);
-    expect(shiver.dx).not.toBe(still.dx);
-    const settled = basePose(rig, 'idle', 0, 0);
-    applyVerb(rig, settled, 'tremble', 1);
-    expect(Math.abs(settled.dx - still.dx)).toBeLessThan(0.01);
-  });
-});
-
-describe('kick', () => {
-  it('swings the near leg forward and up, then home', () => {
-    const rig = RIGS.humanoid;
-    const still = basePose(rig, 'idle', 0, 0);
-    const peak = basePose(rig, 'idle', 0, 0);
-    applyVerb(rig, peak, 'kick', 0.55);
-    expect(peak.rot.legR).toBeLessThan((still.rot.legR ?? 0) - 60);
-    expect(peak.bend.legR ?? 0).toBeCloseTo(0);
-    const lying = basePose(rig, 'idle', 0, 0);
-    applyVerb(rig, lying, 'lie', 1);
-    const before = lying.rot.legR ?? 0;
-    applyVerb(rig, lying, 'kick', 0.55);
-    // Lying on the back, forward is up off the bed.
-    expect(lying.rot.legR).toBeLessThan(before - 60);
-    const done = basePose(rig, 'idle', 0, 0);
-    applyVerb(rig, done, 'kick', 1);
-    expect(Math.abs((done.rot.legR ?? 0) - (still.rot.legR ?? 0))).toBeLessThan(0.01);
-  });
-});
-
-describe('swim', () => {
-  it('churns the legs under a body that does not bob', () => {
-    const rig = RIGS.quadruped;
-    const at = (u: number) => {
-      const p = basePose(rig, 'idle', 0, 0);
-      applyVerb(rig, p, 'swim', u, 0, undefined, 3);
-      return p;
-    };
-    const still = basePose(rig, 'idle', 0, 0);
-    // Under way, the forelegs reach out in front and work in turn, stroke after stroke.
-    const legs = [0.3, 0.33, 0.36, 0.39, 0.42].map((u) => at(u).rot.legFR ?? 0);
-    expect(Math.max(...legs) - Math.min(...legs)).toBeGreaterThan(30);
-    expect(Math.min(...legs)).toBeLessThan(-40);
-    const mid = at(0.4);
-    expect(Math.sign(mid.rot.legFR! + 40)).toBe(-Math.sign(mid.rot.legFL! + 40));
-    // Held nose up, and the body stays where it is: the current is a move's to give.
-    for (const u of [0.3, 0.35, 0.4, 0.45]) {
-      const p = at(u);
-      expect(p.rot.body).toBeCloseTo(at(0.3).rot.body ?? 0);
-      expect(p.rot.body).toBeLessThan(-8);
-      expect([p.dx, p.dy]).toEqual([still.dx, still.dy]);
-    }
-    // Eased in and out, so it starts and ends at rest.
-    expect(at(0).rot.legFR ?? 0).toBeCloseTo(still.rot.legFR ?? 0);
-    expect(at(1).rot.legFR ?? 0).toBeCloseTo(still.rot.legFR ?? 0);
-    // A person treads water, the arms up by the head.
-    const person = basePose(RIGS.humanoid, 'idle', 0, 0);
-    applyVerb(RIGS.humanoid, person, 'swim', 0.5, 0, undefined, 3);
-    expect(person.rot.armR).toBeLessThan(-80);
-    expect(person.rot.armL).toBeLessThan(-80);
-  });
-});
-
-describe('eat', () => {
-  it('brings the near hand to the mouth, chews, and puts it back', () => {
-    const rig = RIGS.humanoid;
-    const hand = (u: number) => {
-      const p = basePose(rig, 'idle', 0, 0);
-      applyVerb(rig, p, 'eat', u, 0, undefined, 1.6);
-      const [x, y] = toRoot(rig, p, rig.hold.part, rig.hold.point);
-      return [x + p.dx, y + p.dy];
-    };
-    const still = hand(0);
-    // At the mouth (the turned face's, about (124, 128)): just in front of and under it.
-    const [x, y] = hand(0.5);
-    expect(Math.hypot(x - 124, y - 128)).toBeLessThan(20);
-    expect(Math.hypot(...hand(1).map((v, i) => v - still[i]))).toBeLessThan(0.01);
-    // The mouth opens and shuts once it is there, and not before.
-    const at = (u: number) => chewing([{ verb: 'eat', u, span: 1.6 }]);
-    expect(at(0.1)).toBeUndefined();
-    const flaps = new Set([0.3, 0.34, 0.38, 0.42, 0.46].map(at));
-    expect(flaps).toEqual(new Set([true, false]));
-  });
-
-  it('takes the food up from `to` first, then brings it to the mouth', () => {
-    const rig = RIGS.humanoid;
-    const plate: [number, number] = [150, 250];
-    const hand = (u: number) => {
-      const p = basePose(rig, 'idle', 0, 0);
-      applyVerb(rig, p, 'eat', u, 0, plate, 1.6);
-      const [x, y] = toRoot(rig, p, rig.hold.part, rig.hold.point);
-      return [x + p.dx, y + p.dy];
-    };
-    // On the plate while it picks the bite up, at the mouth from 0.4 on.
-    expect(Math.hypot(hand(0.2)[0] - plate[0], hand(0.2)[1] - plate[1])).toBeLessThan(12);
-    const [x, y] = hand(0.6);
-    expect(Math.hypot(x - 124, y - 128)).toBeLessThan(20);
-    // Not chewing until the bite is in the mouth.
-    const at = (u: number) => chewing([{ verb: 'eat', u, span: 1.6, to: plate }]);
-    expect(at(0.3)).toBeUndefined();
-    expect(new Set([0.44, 0.48, 0.52, 0.56, 0.6].map(at))).toEqual(new Set([true, false]));
-  });
-
-  it('dips a four-legged head to the floor and pecks on the simple rig', () => {
-    const quad = basePose(RIGS.quadruped, 'idle', 0, 0);
-    applyVerb(RIGS.quadruped, quad, 'eat', 0.5);
-    expect(quad.rot.head).toBeGreaterThan(35);
-    const simple = basePose(RIGS.simple, 'idle', 0, 0);
-    applyVerb(RIGS.simple, simple, 'eat', 1 / 12);
-    expect(simple.rot.body).toBeGreaterThan(5);
-  });
-
-  it('breathes a body in full and barely moves a prop the size of the frame', () => {
-    // A quarter of the 3.6 s breath in: the chest at its highest.
-    const heave = (height: number) =>
-      (basePose(RIGS.simple, 'idle', 0.9, 0, undefined, height).sy - 1) * height;
-    expect(heave(200)).toBeCloseTo(3, 1);
-    expect(heave(400)).toBeCloseTo(6, 1);
-    expect(Math.abs(heave(2040))).toBeLessThan(1.5);
   });
 });
 

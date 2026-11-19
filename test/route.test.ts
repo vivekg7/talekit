@@ -161,6 +161,31 @@ describe('a walk round what is in the way', () => {
     expect(path[path.length - 1].facing).toBe('left');
   });
 
+  it('turns through each corner in `via`, point or anchor, without stopping', () => {
+    const p = project({}, { kid: { at: { x: 300, y: 620 } } }, [
+      {
+        t: 0.5,
+        actor: 'kid',
+        do: 'walk',
+        to: { x: 1000, y: 620 },
+        via: [{ x: 500, y: 700 }, 'bench'],
+      },
+    ]);
+    const shot = p.shots[0];
+    const path = Array.from({ length: 160 }, (_, i) =>
+      resolveActor(p, p.scenes.park, shot, 'kid', i * 0.05)
+    );
+    const going = path.filter((a) => a.locomotion === 'walk');
+    const bench = LIBRARY.scenes.park.anchors.bench;
+    for (const corner of [{ x: 500, y: 700 }, bench])
+      expect(
+        Math.min(...going.map((a) => Math.hypot(a.x - corner.x, a.y - corner.y)))
+      ).toBeLessThan(10);
+    const first = path.indexOf(going[0]);
+    expect(path.slice(first, first + going.length)).toEqual(going);
+    expect(path.at(-1)).toMatchObject({ x: 1000, y: 620 });
+  });
+
   it('walks straight in to a spot on the solid itself (a seat on the cot)', () => {
     const scene = { solids: { cot: { area: WELL, layer: 'svg' as const } } } as Partial<Scene>;
     const p = project(scene, {}, []);
