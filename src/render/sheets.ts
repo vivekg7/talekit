@@ -1,5 +1,6 @@
 import { depthOf, perspectiveAt } from '../engine/depth.js';
-import { groundOf, type Finding } from '../engine/world.js';
+import { groundOf } from '../engine/area.js';
+import type { Finding } from '../engine/world.js';
 import type { Area } from '../engine/types.js';
 import {
   beatWings,
@@ -55,6 +56,10 @@ import {
 import { lintCharacter, partBox } from '../project/construction.js';
 
 const LABEL_FONT = 'Helvetica, Arial, sans-serif';
+
+/** A drawn frame's content without its own `<svg>` wrapper, to nest it in another. */
+export const innerSvg = (svg: string): string =>
+  svg.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '');
 
 interface Cell {
   label: string;
@@ -213,11 +218,13 @@ function bowCells(character: Character, base: () => Pose): Cell[] {
   return [{ label: 'drawn (in an aim)', pose: base(), extra: pulled, shift: -40, flex: 1 }];
 }
 
+/** A character's face on a sheet, at one fixed moment of the blink and the talk. */
+const sheetFace = (c: Character, emotion: Emotion = 'neutral', talking = false, back = false) =>
+  resolveFace(c.parts, { emotion, overrides: {}, talking, t: 0.06, phase: 0.2, back });
+
 /** Every pose the engine can put a character in, so the agent sees the whole range at once. */
 export function characterSheetSvg(character: Character): string {
   const rig = rigOf(character);
-  const face = (emotion: Emotion, talking = false, back = false) =>
-    resolveFace(character.parts, { emotion, overrides: {}, talking, t: 0.06, phase: 0.2, back });
   const make = (
     label: string,
     build: () => Pose,
@@ -226,7 +233,7 @@ export function characterSheetSvg(character: Character): string {
   ): Cell => {
     const pose = build();
     keepOffFloor(rig, pose, 'tail');
-    pose.face = face(emotion, talking, pose.back);
+    pose.face = sheetFace(character, emotion, talking, pose.back);
     beatWings(character, pose, false, 0);
     return { label, pose };
   };
@@ -234,7 +241,7 @@ export function characterSheetSvg(character: Character): string {
   // A pose worked out by the timeline keeps its own face; the sheet's is the neutral one.
   const faced = (pose: Pose): Pose => {
     keepOffFloor(rig, pose, 'tail');
-    pose.face = face('neutral', false, pose.back);
+    pose.face = sheetFace(character, 'neutral', false, pose.back);
     return pose;
   };
   const withVerb =
@@ -470,9 +477,12 @@ export function characterSheetSvg(character: Character): string {
  */
 export function sceneSheetSvg(project: Project, scene: Scene): string {
   const { width: W, height: H } = project.meta;
+  // A bold label outlined in black, readable over any art.
+  const tag = (x: number, y: number, size: number, fill: string, text: string) =>
+    `<text x='${n(x)}' y='${n(y)}' font-family='${LABEL_FONT}' font-size='${size}' font-weight='bold' fill='${fill}' stroke='#000' stroke-width='4' paint-order='stroke'>${text}</text>`;
   const mark = (name: string, x: number, y: number, color: string) =>
     `<g><circle cx='${n(x)}' cy='${n(y)}' r='7' fill='${color}' stroke='#fff' stroke-width='2'/>` +
-    `<text x='${n(x + 11)}' y='${n(y - 9)}' font-family='${LABEL_FONT}' font-size='20' font-weight='bold' fill='${color}' stroke='#000' stroke-width='4' paint-order='stroke'>${escapeXml(name)}</text></g>`;
+    `${tag(x + 11, y - 9, 20, color, escapeXml(name))}</g>`;
   let marks = '';
   for (const s of STAGE_SHORTCUTS) {
     const p = resolvePosition(project, scene, s);
@@ -505,7 +515,7 @@ export function sceneSheetSvg(project: Project, scene: Scene): string {
     const lx = Math.max(8, Math.min(W - 80, top[0]));
     return (
       `<path d='${d}' fill='${color}' fill-opacity='0.18' stroke='${color}' stroke-width='2.5' stroke-dasharray='10 5'/>` +
-      `<text x='${n(lx)}' y='${n(Math.max(18, top[1] - 6))}' font-family='${LABEL_FONT}' font-size='15' font-weight='bold' fill='${color}' stroke='#000' stroke-width='4' paint-order='stroke'>${label}</text>`
+      tag(lx, Math.max(18, top[1] - 6), 15, color, label)
     );
   };
   let world = '';
@@ -544,12 +554,12 @@ export function sceneSheetSvg(project: Project, scene: Scene): string {
     }
     marks +=
       `<g>${arc}<circle cx='${n(at[0])}' cy='${n(at[1])}' r='8' fill='none' stroke='#ff70c8' stroke-width='3'/>` +
-      `<text x='${n(at[0] + 11)}' y='${n(at[1] + 18)}' font-family='${LABEL_FONT}' font-size='16' font-weight='bold' fill='${far > SWAY_FAR ? '#ff3b30' : '#ff70c8'}' stroke='#000' stroke-width='4' paint-order='stroke'>~${escapeXml(id)}${tip ? ` ±${Math.round(far)} px` : ''}</text></g>`;
+      `${tag(at[0] + 11, at[1] + 18, 16, far > SWAY_FAR ? '#ff3b30' : '#ff70c8', `~${escapeXml(id)}${tip ? ` ±${Math.round(far)} px` : ''}`)}</g>`;
   }
   for (const sh of scene.shelters)
     marks +=
       `<path d='M${n(sh.x)} ${n(sh.y)} L${n(sh.x + sh.width)} ${n(sh.y)}' stroke='#4ea8ff' stroke-width='5' stroke-dasharray='14 6'/>` +
-      `<text x='${n(sh.x)}' y='${n(sh.y - 8)}' font-family='${LABEL_FONT}' font-size='18' font-weight='bold' fill='#4ea8ff' stroke='#000' stroke-width='4' paint-order='stroke'>shelter</text>`;
+      tag(sh.x, sh.y - 8, 18, '#4ea8ff', 'shelter');
   const centre = resolvePosition(project, scene, 'center');
   const tallest = Object.values(project.characters).sort((a, b) => b.height - a.height)[0];
   const ghostH = tallest?.height ?? 220;
@@ -565,7 +575,7 @@ export function sceneSheetSvg(project: Project, scene: Scene): string {
       shadows += `<g opacity='${n(th.opacity)}' filter='url(#tk-cast)'>${ghostBox} transform='${floorMap(th, centre.y)}' fill='#000'/></g>`;
     marks +=
       `<g><circle cx='${n(l.x)}' cy='${n(l.y)}' r='13' fill='none' stroke='#ffe14d' stroke-width='4'/>` +
-      `<text x='${n(l.x + 18)}' y='${n(l.y + 7)}' font-family='${LABEL_FONT}' font-size='18' font-weight='bold' fill='#ffe14d' stroke='#000' stroke-width='4' paint-order='stroke'>${l.kind === 'sky' ? 'light (sky)' : 'light (lamp)'}</text></g>`;
+      `${tag(l.x + 18, l.y + 7, 18, '#ffe14d', l.kind === 'sky' ? 'light (sky)' : 'light (lamp)')}</g>`;
   }
   // The scene's perspective: the ghost's height at a few depths, from its farthest anchor
   // to the ground line, so the author sees how big someone is drawn further back.
@@ -583,7 +593,7 @@ export function sceneSheetSvg(project: Project, scene: Scene): string {
       depthBars +=
         `<g><line x1='${n(x - 30)}' y1='${n(y)}' x2='${n(x + 30)}' y2='${n(y)}' stroke='#7fe7ff' stroke-width='3'/>` +
         `<rect x='${n(x - 7)}' y='${n(y - h)}' width='14' height='${n(h)}' rx='7' fill='#7fe7ff' fill-opacity='0.55' stroke='#003a4a' stroke-width='2'/>` +
-        `<text x='${n(x + 12)}' y='${n(y - h + 14)}' font-family='${LABEL_FONT}' font-size='16' font-weight='bold' fill='#7fe7ff' stroke='#000' stroke-width='4' paint-order='stroke'>×${s.toFixed(2)}</text></g>`;
+        `${tag(x + 12, y - h + 14, 16, '#7fe7ff', `×${s.toFixed(2)}`)}</g>`;
     }
   }
   const ghost = `<defs>${CAST_DEFS}</defs>${shadows}<g opacity='0.35'>${ghostBox} fill='#333'/><text x='${n(centre.x)}' y='${n(centre.y - ghostH - 8)}' text-anchor='middle' font-family='${LABEL_FONT}' font-size='16' fill='#333'>${escapeXml(ghostLabel)}</text></g>`;
@@ -652,10 +662,7 @@ function motionStrip(project: Project, scene: Scene): { svg: string; height: num
   if (every) times[3] = Math.round((strikeAt(shot.id, every, 0) + 0.02) * 100) / 100;
   const cells: [string, string][] = times.map((t, i) => [
     `moving · t=${t}s`,
-    composeFrame(withScene, shot, t)
-      .replace(/^<svg[^>]*>/, '')
-      .replace(/<\/svg>$/, '')
-      .replace(/(id='|url\(#)tk-/g, `$1tk-m${i}-`),
+    innerSvg(composeFrame(withScene, shot, t)).replace(/(id='|url\(#)tk-/g, `$1tk-m${i}-`),
   ]);
   return strip(W, H, cells);
 }
@@ -717,7 +724,7 @@ function tileFrames(
   frames.forEach((f, i) => {
     const x = gap + (i % cols) * (cellW + gap);
     const y = gap + Math.floor(i / cols) * (cellH + gap + 22);
-    out += `<svg x='${x}' y='${y}' width='${cellW}' height='${cellH}' viewBox='0 0 ${W} ${H}'>${f.svg.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '')}</svg>`;
+    out += `<svg x='${x}' y='${y}' width='${cellW}' height='${cellH}' viewBox='0 0 ${W} ${H}'>${innerSvg(f.svg)}</svg>`;
     out += `<text x='${x + 4}' y='${y + cellH + 17}' font-family='${LABEL_FONT}' font-size='14' fill='#ddd'>${escapeXml(f.label)}</text>`;
   });
   if (foot) out += `<g transform='translate(${gap} ${top})'>${foot.svg}</g>`;
@@ -886,13 +893,7 @@ export function constructionSheetSvg(character: Character): string {
   const scale = rig.name === 'humanoid' ? 1 : rig.name === 'quadruped' ? 1.2 : 2;
   const pw = rig.width * scale + 60;
   const ph = rig.height * scale + 60;
-  const restFace = resolveFace(character.parts, {
-    emotion: 'neutral',
-    overrides: {},
-    talking: false,
-    t: 0.06,
-    phase: 0.2,
-  });
+  const restFace = sheetFace(character);
   const rest = basePose(rig, 'move', 0, 0);
   rest.face = restFace;
   const drawn = (pose: Pose) => characterBody(character, pose, null);

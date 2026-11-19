@@ -31,14 +31,15 @@ import type {
   Project,
   Scene,
   Shot,
+  Verb,
   Voice,
   Weather,
 } from '../engine/types.js';
 import { isMoveVerb } from '../engine/types.js';
 import { SOUNDS } from '../library/sounds.js';
+import { waived } from '../engine/allow.js';
 import {
   CODES,
-  waived,
   sceneFindings,
   shotFindings,
   unknownWaivers,
@@ -53,6 +54,14 @@ export interface Problem {
   code?: string;
   /** A world finding in a shot: the shot, its time span, who, where, and a fix. */
   finding?: Finding;
+}
+
+/** Adders for a list of problems, by level. */
+function report(out: Problem[]) {
+  return {
+    error: (where: string, message: string) => void out.push({ level: 'error', where, message }),
+    warn: (where: string, message: string) => void out.push({ level: 'warning', where, message }),
+  };
 }
 
 /** A world finding as a problem: always an error, until fixed or waived. */
@@ -141,83 +150,56 @@ export function voiceProblems(where: string, voice: Voice | undefined): Problem[
 
 export function validateCharacter(c: Character): Problem[] {
   const out: Problem[] = [];
+  const { error, warn } = report(out);
   const rig = rigOf(c);
   const where = `character '${c.id}'`;
   out.push(...voiceProblems(where, c.voice));
-  if (!c.parts[rig.required])
-    out.push({ level: 'error', where, message: `rig '${c.rig}' needs a '${rig.required}' part` });
+  if (!c.parts[rig.required]) error(where, `rig '${c.rig}' needs a '${rig.required}' part`);
   for (const [name, part] of Object.entries(c.parts)) {
     const fragments = typeof part === 'string' ? [part] : Object.values(part);
     // A single-string part must draw something. In a variant map an empty string is a
     // legitimate "draw nothing" variant (a beak's closed mouth, a hat that is off), as long
     // as at least one variant draws.
-    if (typeof part === 'string' && !part.trim())
-      out.push({ level: 'error', where, message: `part '${name}' is empty` });
+    if (typeof part === 'string' && !part.trim()) error(where, `part '${name}' is empty`);
     else if (typeof part !== 'string' && !fragments.some((f) => f.trim()))
-      out.push({
-        level: 'error',
+      error(
         where,
-        message: fragments.length
+        fragments.length
           ? `part '${name}': every variant is empty`
-          : `part '${name}' has no variants`,
-      });
+          : `part '${name}' has no variants`
+      );
     for (const f of fragments) {
       const bad = forbiddenMarkup(f);
-      if (bad) out.push({ level: 'error', where, message: `part '${name}' ${bad}` });
+      if (bad) error(where, `part '${name}' ${bad}`);
       const missing = missingColorTokens(f, c.colors);
       if (missing.length)
-        out.push({
-          level: 'error',
-          where,
-          message: `part '${name}' uses undefined colour tokens: ${missing.join(', ')}`,
-        });
+        error(where, `part '${name}' uses undefined colour tokens: ${missing.join(', ')}`);
     }
   }
   for (const name of c.springs ?? [])
-    if (!c.parts[name])
-      out.push({ level: 'warning', where, message: `springs names '${name}', which has no part` });
+    if (!c.parts[name]) warn(where, `springs names '${name}', which has no part`);
   for (const name of c.flaps ?? [])
-    if (!c.parts[name])
-      out.push({ level: 'warning', where, message: `flaps names '${name}', which has no part` });
+    if (!c.parts[name]) warn(where, `flaps names '${name}', which has no part`);
   const base = RIGS[c.rig];
   for (const [name, h] of Object.entries(c.hangs ?? {})) {
     if (base.parts[name])
-      out.push({
-        level: 'error',
-        where,
-        message: `hangs places '${name}', which the ${c.rig} rig already places`,
-      });
+      error(where, `hangs places '${name}', which the ${c.rig} rig already places`);
     else if (!rig.parts[name])
-      out.push({
-        level: 'error',
+      error(
         where,
-        message: `hangs '${name}' from '${h.from}', which is neither a ${c.rig} part nor hung itself, or hangs from '${name}' again`,
-      });
-    if (!c.parts[name])
-      out.push({ level: 'warning', where, message: `hangs names '${name}', which has no part` });
+        `hangs '${name}' from '${h.from}', which is neither a ${c.rig} part nor hung itself, or hangs from '${name}' again`
+      );
+    if (!c.parts[name]) warn(where, `hangs names '${name}', which has no part`);
   }
   if (rig.expected.length) {
     for (const p of rig.expected)
-      if (!c.parts[p])
-        out.push({
-          level: 'warning',
-          where,
-          message: `${c.rig} without '${p}' will not animate it`,
-        });
+      if (!c.parts[p]) warn(where, `${c.rig} without '${p}' will not animate it`);
     const mouth = c.parts.mouth;
     if (mouth && typeof mouth !== 'string' && !mouth.open)
-      out.push({
-        level: 'warning',
-        where,
-        message: `mouth has no 'open' variant, so talking will not flap`,
-      });
+      warn(where, `mouth has no 'open' variant, so talking will not flap`);
     const eyes = c.parts.eyes;
     if (eyes && typeof eyes !== 'string' && !eyes.closed)
-      out.push({
-        level: 'warning',
-        where,
-        message: `eyes have no 'closed' variant, so there is no blinking`,
-      });
+      warn(where, `eyes have no 'closed' variant, so there is no blinking`);
   }
   // Construction is checked on the drawing, so only once the parts are drawable at all.
   if (!out.some((p) => p.level === 'error')) out.push(...lintCharacter(c).problems);
@@ -267,6 +249,7 @@ function needsFar(where: string, weather: Weather | undefined, effects: Effect[]
 
 export function validateScene(s: Scene, width: number, height: number): Problem[] {
   const out: Problem[] = [];
+  const { error, warn } = report(out);
   const where = `scene '${s.id}'`;
   for (const [field, svg] of [
     ['svg', s.svg],
@@ -275,29 +258,23 @@ export function validateScene(s: Scene, width: number, height: number): Problem[
     ['near', s.near],
   ] as const) {
     const bad = svg && forbiddenMarkup(svg);
-    if (bad) out.push({ level: 'error', where, message: `${field} ${bad}` });
+    if (bad) error(where, `${field} ${bad}`);
   }
   // The usual mistake when splitting a scene into layers: the sky left in svg hides `far`.
   if (s.far && coversFrame(s.svg, width, height))
-    out.push({
-      level: 'warning',
+    warn(
       where,
-      message:
-        'svg paints a rect over the whole frame, which hides far; move the sky into far and leave svg transparent above the ground',
-    });
+      'svg paints a rect over the whole frame, which hides far; move the sky into far and leave svg transparent above the ground'
+    );
   if (!s.far) out.push(...needsFar(where, s.weather, s.effects));
   out.push(...waiverProblems(where, s.allow));
   for (const f of sceneFindings(s, width))
     out.push({ level: 'error', where, message: f.message, code: f.code });
   for (const [name, a] of Object.entries(s.anchors)) {
     if ((STAGE_SHORTCUTS as readonly string[]).includes(name))
-      out.push({ level: 'warning', where, message: `anchor '${name}' shadows a stage shortcut` });
+      warn(where, `anchor '${name}' shadows a stage shortcut`);
     if (a.x < -width * 0.5 || a.x > width * 1.5 || a.y < 0 || a.y > height * 1.2)
-      out.push({
-        level: 'warning',
-        where,
-        message: `anchor '${name}' at (${a.x}, ${a.y}) is far outside the frame`,
-      });
+      warn(where, `anchor '${name}' at (${a.x}, ${a.y}) is far outside the frame`);
     // Facing away from its own work point: the turn to `facing` would put the work behind.
     const u = a.use;
     if (
@@ -306,18 +283,13 @@ export function validateScene(s: Scene, width: number, height: number): Problem[
       Math.abs(u.at[0] - a.x) > 8 &&
       u.at[0] > a.x !== (u.facing === 'right')
     )
-      out.push({
-        level: 'warning',
+      warn(
         where,
-        message: `anchor '${name}' faces ${u.facing}, away from its use.at [${u.at[0]}, ${u.at[1]}]`,
-      });
+        `anchor '${name}' faces ${u.facing}, away from its use.at [${u.at[0]}, ${u.at[1]}]`
+      );
   }
   if (Object.keys(s.anchors).length === 0)
-    out.push({
-      level: 'warning',
-      where,
-      message: 'no anchors; only the stage shortcuts left/center/right are available',
-    });
+    warn(where, 'no anchors; only the stage shortcuts left/center/right are available');
   out.push(...swayProblems(s));
   return out;
 }
@@ -328,13 +300,10 @@ export function validateScene(s: Scene, width: number, height: number): Problem[
  */
 function swayProblems(s: Scene): Problem[] {
   const out: Problem[] = [];
+  const { error, warn } = report(out);
   const where = `scene '${s.id}'`;
   for (const id of swayMissing(s))
-    out.push({
-      level: 'error',
-      where,
-      message: `sway: no <g id='${id}'> in svg, far, near or foreground`,
-    });
+    error(where, `sway: no <g id='${id}'> in svg, far, near or foreground`);
   for (const [id, { at, amount }] of Object.entries(s.sway ?? {})) {
     const box = swayBox(s, id);
     if (!box) continue;
@@ -342,22 +311,19 @@ function swayProblems(s: Scene): Problem[] {
     const reach = swayReach(s, id) ?? 0;
     const far = (reach * swayMost(reach, amount ?? 1, s.weather?.wind ?? 0) * Math.PI) / 180;
     if (far > SWAY_FAR)
-      out.push({
-        level: 'warning',
+      warn(
         where,
-        message:
-          `sway '${id}' swings its far end about ${Math.round(far)} px (it reaches ${Math.round(reach)} px from its pivot ${at[0]},${at[1]}): ` +
-          `more than ${SWAY_FAR} px reads as rubber, not a sway. Lower its amount, or sway it in smaller pieces, each from where it is held`,
-      });
+        `sway '${id}' swings its far end about ${Math.round(far)} px (it reaches ${Math.round(reach)} px from its pivot ${at[0]},${at[1]}): ` +
+          `more than ${SWAY_FAR} px reads as rubber, not a sway. Lower its amount, or sway it in smaller pieces, each from where it is held`
+      );
     for (const [name, a] of Object.entries(s.anchors)) {
       const inside = a.x >= box[0] && a.x <= box[2] && a.y >= box[1] && a.y <= box[3];
       // Well above the pivot, not at its foot: a clump of grass at someone's feet is fine.
       if (inside && at[1] - a.y > 0.25 * (box[3] - box[1]))
-        out.push({
-          level: 'warning',
+        warn(
           where,
-          message: `anchor '${name}' is on swaying '${id}': whoever stands or sits there stays still while it moves; take it out of the sway or move the anchor`,
-        });
+          `anchor '${name}' is on swaying '${id}': whoever stands or sits there stays still while it moves; take it out of the sway or move the anchor`
+        );
     }
   }
   return out;
@@ -485,21 +451,30 @@ function lineProblems(shot: Shot, project: Project): Problem[] {
   return out;
 }
 
+/** Verbs whose `to` may name a cast member to work on or aim at, not only a place. */
+const AT_ACTOR: ReadonlySet<Verb> = new Set(['wipe', 'hold', 'strike', 'aim', 'shoot']);
+/** Verbs that read `to` at all. */
+const TAKES_TO: ReadonlySet<Verb> = new Set<Verb>([
+  ...AT_ACTOR,
+  ...(['walk', 'run', 'move', 'fly', 'jump', 'climb', 'sit', 'lie', 'putdown', 'eat'] as const),
+]);
+
 export function validateShot(shot: Shot, project: Project): Problem[] {
   const out: Problem[] = [];
+  const { error, warn } = report(out);
   const where = `shot '${shot.id}'`;
   out.push(...musicProblems(where, shot.music, project));
   out.push(...waiverProblems(where, shot.allow));
   shot.actions.forEach((a, i) => {
     const err = a.sound && unknownSound(project, a.sound);
-    if (err) out.push({ level: 'error', where, message: `action ${i}: ${err}` });
+    if (err) error(where, `action ${i}: ${err}`);
     if (a.volume !== undefined && !a.sound)
-      out.push({ level: 'warning', where, message: `action ${i}: volume only applies to a sound` });
+      warn(where, `action ${i}: volume only applies to a sound`);
   });
   out.push(...lineProblems(shot, project));
   const scene = project.scenes[shot.scene];
   if (!scene) {
-    out.push({ level: 'error', where, message: `unknown scene '${shot.scene}'` });
+    error(where, `unknown scene '${shot.scene}'`);
     return out;
   }
   const positionOk = (p: unknown): string | undefined => {
@@ -521,139 +496,76 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
           ? `on: '${id}' cannot stand on itself`
           : undefined;
   for (const [id, member] of Object.entries(shot.cast)) {
-    if (!project.characters[id])
-      out.push({ level: 'error', where, message: `cast member '${id}' is not a character` });
+    if (!project.characters[id]) error(where, `cast member '${id}' is not a character`);
     const err = positionOk(member.at);
-    if (err) out.push({ level: 'error', where, message: `cast '${id}': ${err}` });
+    if (err) error(where, `cast '${id}': ${err}`);
     const on = onError(id, member.on);
-    if (on) out.push({ level: 'error', where, message: `cast '${id}': ${on}` });
+    if (on) error(where, `cast '${id}': ${on}`);
   }
   if (shot.crossfade > 0) {
     const i = project.shots.findIndex((s) => s.id === shot.id);
     const prev = i > 0 ? project.shots[i - 1] : undefined;
     if (i === 0)
-      out.push({
-        level: 'warning',
-        where,
-        message: 'crossfade on the first shot has nothing to dissolve from; it starts as a cut',
-      });
+      warn(where, 'crossfade on the first shot has nothing to dissolve from; it starts as a cut');
     else if (prev && prev.fadeOut > 0)
-      out.push({
-        level: 'warning',
+      warn(
         where,
-        message: `crossfade after '${prev.id}', which fades out, dissolves from black; drop its fadeOut`,
-      });
+        `crossfade after '${prev.id}', which fades out, dissolves from black; drop its fadeOut`
+      );
     if (shot.crossfade > shot.duration)
-      out.push({
-        level: 'warning',
-        where,
-        message: `crossfade (${shot.crossfade}s) is longer than the shot (${shot.duration}s)`,
-      });
+      warn(where, `crossfade (${shot.crossfade}s) is longer than the shot (${shot.duration}s)`);
   }
-  const follows = (camera: { follow?: string } | undefined, w: string) => {
+  const followed = (camera: { follow?: string } | undefined, w: string) => {
     if (camera?.follow && !shot.cast[camera.follow])
-      out.push({
-        level: 'error',
-        where: w,
-        message: `camera follows '${camera.follow}', who is not in the cast`,
-      });
+      error(w, `camera follows '${camera.follow}', who is not in the cast`);
   };
-  follows(shot.camera, where);
+  followed(shot.camera, where);
   shot.actions.forEach((a, i) => {
     const w = `${where} action[${i}] (t=${a.t})`;
-    follows(a.camera, w);
-    if (a.actor && !shot.cast[a.actor])
-      out.push({ level: 'error', where: w, message: `actor '${a.actor}' is not in the cast` });
+    followed(a.camera, w);
+    if (a.actor && !shot.cast[a.actor]) error(w, `actor '${a.actor}' is not in the cast`);
     // On a line with no move, `to` names who is spoken to.
     const listener = a.say && !a.do && typeof a.to === 'string';
     if (listener && !shot.cast[a.to as string])
-      out.push({
-        level: 'error',
-        where: w,
-        message: `'to' on a line names who is spoken to, and '${a.to}' is not in the cast`,
-      });
-    else if (listener && a.to === a.actor)
-      out.push({ level: 'warning', where: w, message: `'${a.actor}' is speaking to itself` });
+      error(w, `'to' on a line names who is spoken to, and '${a.to}' is not in the cast`);
+    else if (listener && a.to === a.actor) warn(w, `'${a.actor}' is speaking to itself`);
     else if (
       a.to &&
       !listener &&
-      !(
-        (a.do === 'wipe' ||
-          a.do === 'hold' ||
-          a.do === 'strike' ||
-          a.do === 'aim' ||
-          a.do === 'shoot') &&
-        typeof a.to === 'string' &&
-        shot.cast[a.to]
-      )
+      !(a.do && AT_ACTOR.has(a.do) && typeof a.to === 'string' && shot.cast[a.to])
     ) {
       const err = positionOk(a.to);
-      if (err) out.push({ level: 'error', where: w, message: err });
+      if (err) error(w, err);
     }
     if (Array.isArray(a.audience))
       for (const id of a.audience.filter((x) => !shot.cast[x]))
-        out.push({ level: 'error', where: w, message: `audience: '${id}' is not in the cast` });
-    if (a.audience && !a.say)
-      out.push({ level: 'error', where: w, message: 'audience is only read on a line (say)' });
+        error(w, `audience: '${id}' is not in the cast`);
+    if (a.audience && !a.say) error(w, 'audience is only read on a line (say)');
     if (a.reacts && !shot.cast[a.reacts])
-      out.push({
-        level: 'error',
-        where: w,
-        message: `reacts: '${a.reacts}' is not in the cast; name the actor this reacts to`,
-      });
-    else if (a.reacts && a.reacts === a.actor)
-      out.push({ level: 'error', where: w, message: `'${a.actor}' reacts to itself` });
+      error(w, `reacts: '${a.reacts}' is not in the cast; name the actor this reacts to`);
+    else if (a.reacts && a.reacts === a.actor) error(w, `'${a.actor}' reacts to itself`);
     const on = a.actor && onError(a.actor, a.on);
-    if (on) out.push({ level: 'error', where: w, message: on });
+    if (on) error(w, on);
     if (a.attach) {
-      if (!shot.cast[a.attach])
-        out.push({
-          level: 'error',
-          where: w,
-          message: `attach: '${a.attach}' is not in the cast`,
-        });
-      else if (a.attach === a.actor)
-        out.push({ level: 'error', where: w, message: `attach: '${a.actor}' cannot carry itself` });
+      if (!shot.cast[a.attach]) error(w, `attach: '${a.attach}' is not in the cast`);
+      else if (a.attach === a.actor) error(w, `attach: '${a.actor}' cannot carry itself`);
       else if (shot.actions.some((b) => b.actor === a.attach && b.attach))
-        out.push({
-          level: 'warning',
-          where: w,
-          message: `attach: '${a.attach}' is itself carried in this shot; carry one thing at a time`,
-        });
+        warn(w, `attach: '${a.attach}' is itself carried in this shot; carry one thing at a time`);
     }
     if (a.do === 'pickup' && !a.attach)
-      out.push({
-        level: 'error',
-        where: w,
-        message: `pickup needs attach: the id of who picks '${a.actor}' up`,
-      });
+      error(w, `pickup needs attach: the id of who picks '${a.actor}' up`);
     if (a.do === 'give' && a.actor) {
       const holder = holderAt(shot, a.actor, a.t);
-      if (!a.attach)
-        out.push({
-          level: 'error',
-          where: w,
-          message: `give needs attach: the id of who '${a.actor}' is handed to`,
-        });
+      if (!a.attach) error(w, `give needs attach: the id of who '${a.actor}' is handed to`);
       else if (!holder)
-        out.push({
-          level: 'error',
-          where: w,
-          message: `give: no one holds '${a.actor}' at ${a.t}s to hand it over; attach it to the giver first (or use pickup)`,
-        });
-      else if (holder === a.attach)
-        out.push({
-          level: 'error',
-          where: w,
-          message: `give: '${a.attach}' already holds '${a.actor}'`,
-        });
+        error(
+          w,
+          `give: no one holds '${a.actor}' at ${a.t}s to hand it over; attach it to the giver first (or use pickup)`
+        );
+      else if (holder === a.attach) error(w, `give: '${a.attach}' already holds '${a.actor}'`);
     }
     if (a.do === 'putdown' && a.attach !== false)
-      out.push({
-        level: 'error',
-        where: w,
-        message: `putdown needs attach: false (the carrier sets '${a.actor}' down)`,
-      });
+      error(w, `putdown needs attach: false (the carrier sets '${a.actor}' down)`);
     if (
       a.attach &&
       a.do &&
@@ -663,43 +575,13 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
       a.do !== 'putdown' &&
       a.do !== 'give'
     )
-      out.push({
-        level: 'warning',
-        where: w,
-        message: `'${a.do}' in the same action as attach is ignored while it is carried`,
-      });
+      warn(w, `'${a.do}' in the same action as attach is ignored while it is carried`);
     if (a.set?.at) {
       const err = positionOk(a.set.at);
-      if (err) out.push({ level: 'error', where: w, message: err });
+      if (err) error(w, err);
     }
-    if (a.t >= shot.duration)
-      out.push({
-        level: 'warning',
-        where: w,
-        message: `starts at or after the shot ends (${shot.duration}s)`,
-      });
-    if (
-      a.to &&
-      a.do &&
-      ![
-        'walk',
-        'run',
-        'move',
-        'fly',
-        'jump',
-        'climb',
-        'sit',
-        'lie',
-        'putdown',
-        'wipe',
-        'hold',
-        'strike',
-        'eat',
-        'aim',
-        'shoot',
-      ].includes(a.do)
-    )
-      out.push({ level: 'warning', where: w, message: `'to' is ignored for '${a.do}'` });
+    if (a.t >= shot.duration) warn(w, `starts at or after the shot ends (${shot.duration}s)`);
+    if (a.to && a.do && !TAKES_TO.has(a.do)) warn(w, `'to' is ignored for '${a.do}'`);
     out.push(...archery(shot, project, a, w));
     if (a.face && a.actor && shot.cast[a.actor] && project.characters[a.actor]) {
       const parts = project.characters[a.actor].parts;
@@ -707,11 +589,7 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
         const p = parts[part];
         // '' clears an earlier override, so it needs the part but no such variant.
         if (!p || typeof p === 'string' || (variant !== '' && !(variant in p)))
-          out.push({
-            level: 'error',
-            where: w,
-            message: `face: '${a.actor}' has no variant '${variant}' for part '${part}'`,
-          });
+          error(w, `face: '${a.actor}' has no variant '${variant}' for part '${part}'`);
       }
     }
   });
@@ -732,16 +610,15 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
       .filter((b) => b.actor !== cur.actor && cur.from < b.to)
       .sort((a, b) => b.to - a.to)[0];
     if (clash)
-      out.push({
-        level: 'warning',
+      warn(
         where,
-        message: `'${cur.actor}' starts speaking at ${cur.from}s while '${clash.actor}' is still talking until ${clash.to.toFixed(1)}s; the bubbles will overlap`,
-      });
+        `'${cur.actor}' starts speaking at ${cur.from}s while '${clash.actor}' is still talking until ${clash.to.toFixed(1)}s; the bubbles will overlap`
+      );
   }
   out.push(...pickupReach(shot, project));
   out.push(...stepsOff(shot, project));
   if (shot.actions.length === 0 && Object.keys(shot.cast).length === 0)
-    out.push({ level: 'warning', where, message: 'empty shot: no cast and no actions' });
+    warn(where, 'empty shot: no cast and no actions');
   return out;
 }
 

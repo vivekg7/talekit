@@ -2,6 +2,7 @@ import { composeFrame } from '../engine/compose.js';
 import { cullOffFrame } from '../engine/cull.js';
 import { shapedText, shapedWidth } from '../engine/glyphs.js';
 import type { Project, Shot } from '../engine/types.js';
+import { innerSvg } from './sheets.js';
 
 export interface CoverText {
   title: string;
@@ -43,7 +44,7 @@ export function coverSvg(project: Project, shot: Shot, t: number, o: CoverText):
   const [dx, dy] = [f.x * (1 - z), f.y * (1 - z)];
   // The frame was culled for its own camera, keeping shapes up to a frame outside it; the
   // push carries those further out, past where resvg panics (see cull.ts), so cull again.
-  const drawn = frame.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '');
+  const drawn = innerSvg(frame);
   const inner = z === 1 ? drawn : cullOffFrame(drawn, [z, 0, 0, z, dx, dy], W, H);
   const push = z === 1 ? '' : ` transform='translate(${dx} ${dy}) scale(${z})'`;
 

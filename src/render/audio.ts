@@ -25,7 +25,7 @@ const FX: Record<NonNullable<Cue['fx']>, string> = {
   thought: 'highpass=f=140,lowpass=f=6500,aecho=0.85:0.6:45|75:0.28|0.16',
 };
 
-export function sourcePath(project: Project, src: Source): string {
+function sourcePath(project: Project, src: Source): string {
   if ('lib' in src) return path.join(SOUNDS_DIR, SOUNDS[src.lib].file);
   if ('voice' in src) {
     if (!project.audio) throw new Error(`voice '${src.voice}' needs the project loaded from disk`);
@@ -75,6 +75,37 @@ export function decode(
       // Copied out, as a Buffer from the pool need not be 4-byte aligned.
       resolve(new Float32Array(all.buffer.slice(all.byteOffset, all.byteOffset + all.byteLength)));
     });
+  });
+}
+
+/** ffmpeg's input arguments for interleaved float samples at RATE, in a file or on stdin ('-'). */
+export const rawInput = (file: string, channels = 2): string[] => [
+  '-f',
+  'f32le',
+  '-ar',
+  String(RATE),
+  '-ac',
+  String(channels),
+  '-i',
+  file,
+];
+
+/** Write interleaved float samples at RATE to `out`, encoded with these codec arguments. */
+export function encode(
+  samples: Float32Array,
+  channels: number,
+  codec: string[],
+  out: string
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const ff = spawn('ffmpeg', ['-v', 'error', '-y', ...rawInput('-', channels), ...codec, out], {
+      stdio: ['pipe', 'ignore', 'pipe'],
+    });
+    let err = '';
+    ff.stderr.on('data', (d) => (err += d));
+    ff.on('error', reject);
+    ff.on('close', (code) => (code === 0 ? resolve() : reject(new Error(err.trim()))));
+    ff.stdin.end(new Uint8Array(samples.buffer, samples.byteOffset, samples.byteLength));
   });
 }
 

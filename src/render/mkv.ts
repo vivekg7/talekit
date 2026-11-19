@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { cueSheet, shotStarts } from '../engine/sound.js';
 import { assScript, subtitleLanguages, subtitles } from '../engine/subtitles.js';
 import type { Project, Shot } from '../engine/types.js';
-import { mixAudio, RATE } from './audio.js';
+import { mixAudio, rawInput } from './audio.js';
 import { checkLength, runFfmpeg } from './video.js';
 
 const FONT = fileURLToPath(new URL('../../fonts/Baloo2.ttf', import.meta.url));
@@ -125,7 +125,7 @@ export async function writeMkv(
         const raw = `${file}.${voicesKept}.f32`;
         temp.push(raw);
         await writeFile(raw, new Uint8Array(mix.buffer));
-        const input = ['-f', 'f32le', '-ar', String(RATE), '-ac', '2', '-i', raw];
+        const input = rawInput(raw);
         inputs.push(input);
         const level = target === undefined ? undefined : await loudness(bin, input);
         const gain = level === undefined ? 0 : target! - level;

@@ -13,7 +13,8 @@ import { resolveFrame, type FrameState } from '../engine/timeline.js';
 import { standsAmong } from '../engine/effects.js';
 import type { Project, Scene, Shot } from '../engine/types.js';
 import { lineDuration, shorten } from '../engine/voice.js';
-import type { Finding, XY } from '../engine/world.js';
+import type { XY } from '../engine/area.js';
+import type { Finding } from '../engine/world.js';
 
 /**
  * A speaker's face covered more than this (a share of its box, over the line, each pixel by

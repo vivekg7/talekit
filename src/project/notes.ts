@@ -30,7 +30,7 @@ export const NoteTargetSchema = z.object({
   at: z.object({ x: z.number(), y: z.number() }).optional(),
 });
 
-export const NoteSchema = z.object({
+const NoteSchema = z.object({
   id: z.string().min(1),
   target: NoteTargetSchema,
   text: z.string().min(1),
@@ -64,7 +64,7 @@ export async function loadNotes(root: string): Promise<Note[]> {
   return r.data;
 }
 
-export async function saveNotes(root: string, notes: Note[]): Promise<void> {
+async function saveNotes(root: string, notes: Note[]): Promise<void> {
   await writeFile(notesPath(root), JSON.stringify(notes, null, 2) + '\n');
 }
 
@@ -123,47 +123,41 @@ export async function pickNote(root: string, target: NoteTarget, text?: string):
   return note;
 }
 
-export async function setNoteStatus(
-  root: string,
-  id: string,
-  status: Note['status']
-): Promise<Note> {
+/** Change one note, by id, and save it. */
+async function editNote(root: string, id: string, change: (note: Note) => void): Promise<Note> {
   const notes = await loadNotes(root);
   const note = notes.find((n) => n.id === id);
   if (!note) throw new Error(`no note '${id}'`);
-  if (status === 'done' && note.status !== 'done') note.toCheck = true;
-  if (status === 'open') delete note.toCheck;
-  note.status = status;
+  change(note);
   await saveNotes(root, notes);
   return note;
 }
 
+export const setNoteStatus = (root: string, id: string, status: Note['status']): Promise<Note> =>
+  editNote(root, id, (note) => {
+    if (status === 'done' && note.status !== 'done') note.toCheck = true;
+    if (status === 'open') delete note.toCheck;
+    note.status = status;
+  });
+
 /** The person agrees a done note is fixed. */
-export async function checkNote(root: string, id: string): Promise<Note> {
-  const notes = await loadNotes(root);
-  const note = notes.find((n) => n.id === id);
-  if (!note) throw new Error(`no note '${id}'`);
-  if (note.status !== 'done') throw new Error(`note '${id}' is not done yet`);
-  delete note.toCheck;
-  await saveNotes(root, notes);
-  return note;
-}
+export const checkNote = (root: string, id: string): Promise<Note> =>
+  editNote(root, id, (note) => {
+    if (note.status !== 'done') throw new Error(`note '${id}' is not done yet`);
+    delete note.toCheck;
+  });
 
 /**
  * Open a note again, with what is still wrong: the same id keeps the history together, so
  * the agent reads the first ask and what its fix missed in one place.
  */
-export async function reopenNote(root: string, id: string, reply?: string): Promise<Note> {
-  const notes = await loadNotes(root);
-  const note = notes.find((n) => n.id === id);
-  if (!note) throw new Error(`no note '${id}'`);
-  note.status = 'open';
-  delete note.toCheck;
-  const text = reply?.trim();
-  if (text) note.replies = [...(note.replies ?? []), { text, created: new Date().toISOString() }];
-  await saveNotes(root, notes);
-  return note;
-}
+export const reopenNote = (root: string, id: string, reply?: string): Promise<Note> =>
+  editNote(root, id, (note) => {
+    note.status = 'open';
+    delete note.toCheck;
+    const text = reply?.trim();
+    if (text) note.replies = [...(note.replies ?? []), { text, created: new Date().toISOString() }];
+  });
 
 export async function deleteNote(root: string, id: string): Promise<void> {
   const notes = await loadNotes(root);

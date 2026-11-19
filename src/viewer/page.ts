@@ -253,6 +253,7 @@ var problems = null, stems = { key: '', buses: [] }, checkSeq = 0;
 var $ = function (id) { return document.getElementById(id); };
 var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
 var api = function (url, opts) { return fetch(url, opts).then(function (r) { return r.json(); }); };
+var send = function (url, body, method) { return api(url, { method: method || 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }); };
 var store = function (k, v) { try { if (v === undefined) return JSON.parse(localStorage.getItem('talekit:' + k)); localStorage.setItem('talekit:' + k, JSON.stringify(v)); } catch (e) { return null; } };
 var shotStart = function (s) { var sum = 0; for (var i = 0; i < info.shots.length; i++) { if (info.shots[i].id === s.id) break; sum += info.shots[i].duration; } return sum; };
 var rate = function () { return Number($('rate').value); };
@@ -271,7 +272,7 @@ var stateOf = function (n) { return n.status === 'open' ? 'open' : n.toCheck ? '
 var notesOn = function (kind, id) { return info.notes.filter(function (n) { return n.target.kind === kind && n.target.id === id; }); };
 var todo = function (n) { return stateOf(n) !== 'checked'; };
 function patchNote(id, body) {
-  return api('api/notes/' + id, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then(function (r) { if (r.error) alert(r.error); return load(); });
+  return send('api/notes/' + id, body, 'PATCH').then(function (r) { if (r.error) alert(r.error); return load(); });
 }
 function whereOf(n, full) {
   var g = n.target, w = '';
@@ -595,7 +596,7 @@ document.querySelectorAll('#notes-bar button').forEach(function (b) {
 
 function postNote(target, text) {
   if (looking() && target.kind !== 'option') target.options = JSON.parse(JSON.stringify(sel));
-  return api('api/notes', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ target: target, text: text }) }).then(function (r) {
+  return send('api/notes', { target: target, text: text }).then(function (r) {
     if (r.error) alert(r.error); else return load();
   });
 }
@@ -636,7 +637,7 @@ function pickState(q) {
 function postPick(q, c, text) {
   var target = { kind: 'option', id: q };
   if (c) target.choice = c;
-  return api('api/pick', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ target: target, text: text || '' }) }).then(function (r) { if (r.error) alert(r.error); return load(); });
+  return send('api/pick', { target: target, text: text || '' }).then(function (r) { if (r.error) alert(r.error); return load(); });
 }
 /** Pick, with an optional word on why, in place of the buttons in el. */
 function pickFlow(el, q, c, done) {
@@ -949,7 +950,7 @@ $('mix-reset').onclick = function () { sliders().forEach(function (el) { el.valu
 function saveMix() {
   var mix = {};
   sliders().forEach(function (el) { mix[el.dataset.k] = Math.round(gainOf(Number(el.value)) * 1000) / 1000; });
-  return api('api/mix', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mix: mix }) }).then(function (r) {
+  return send('api/mix', { mix: mix }).then(function (r) {
     if (r.error) throw new Error(r.error);
     sound.dirty = false;
   });

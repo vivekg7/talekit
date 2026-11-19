@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import type { Project, Shot } from '../engine/types.js';
-import { mixAudio, RATE } from './audio.js';
+import { mixAudio, rawInput } from './audio.js';
 
 export interface RenderOptions {
   outPath: string;
@@ -49,7 +49,7 @@ export async function renderVideo(
     : await mixAudio(project, shots, { ffmpegPath: opts.ffmpegPath, seconds: plan.length / fps });
   const audioPath = `${opts.outPath}.audio.f32`;
   if (audio) await writeFile(audioPath, new Uint8Array(audio.buffer));
-  const audioIn = audio ? ['-f', 'f32le', '-ar', String(RATE), '-ac', '2', '-i', audioPath] : [];
+  const audioIn = audio ? rawInput(audioPath) : [];
   const audioOut = audio ? ['-map', '0:v', '-map', '1:a', '-c:a', 'aac', '-b:a', '160k'] : [];
 
   const ff = spawn(
@@ -222,7 +222,7 @@ export async function remixVideo(
       'error',
       '-i',
       file,
-      ...(audio ? ['-f', 'f32le', '-ar', String(RATE), '-ac', '2', '-i', audioPath] : []),
+      ...(audio ? rawInput(audioPath) : []),
       '-map',
       '0:v',
       ...(audio ? ['-map', '1:a', '-c:a', 'aac', '-b:a', '160k'] : []),

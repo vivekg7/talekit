@@ -2,8 +2,6 @@ import { Resvg } from '@resvg/resvg-js';
 import { jointRadius } from '../engine/actor.js';
 import { rigOf, type Rig } from '../engine/rigs.js';
 import { applyColors, topLevelPieces } from '../engine/svg.js';
-
-export { topLevelPieces };
 import type { Character } from '../engine/types.js';
 import type { Problem } from './validate.js';
 
@@ -17,7 +15,7 @@ import type { Problem } from './validate.js';
 /** Margin around the canonical box, so overflow is measurable. */
 const M = 60;
 /** Overlap, in canonical units, below which a joint shows a gap once the part moves. */
-export const MIN_OVERLAP = 12;
+const MIN_OVERLAP = 12;
 /** Units a limb may be drawn past the disc round its knee or elbow before the bend shows it. */
 const JOINT_SPILL = 4;
 const FACE = new Set(['eyes', 'mouth', 'face']);

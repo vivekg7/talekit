@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import type { Project, Shot } from '../engine/types.js';
 import { ENVELOPE_RATE, timeActions, voiceLines, type Line } from '../engine/voice.js';
 import { badTake, matchTake, speechLanguage, takeScore } from '../engine/speech.js';
-import { decode, RATE } from '../render/audio.js';
+import { decode, encode, RATE } from '../render/audio.js';
 import { whisperHearer, type Hearer } from './hear.js';
 import {
   loadAudio,
@@ -93,39 +93,6 @@ function level(samples: Float32Array): Float32Array {
   for (const v of samples) peak = Math.max(peak, Math.abs(v));
   const gain = Math.min(10 ** (SPEECH_LEVEL / 20) / Math.max(1e-9, rms), 0.95 / peak);
   return samples.map((v) => v * gain);
-}
-
-/** Write mono samples at RATE as Opus: small enough to keep a film's lines in its repo. */
-function encode(samples: Float32Array, out: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const ff = spawn(
-      'ffmpeg',
-      [
-        '-v',
-        'error',
-        '-y',
-        '-f',
-        'f32le',
-        '-ar',
-        String(RATE),
-        '-ac',
-        '1',
-        '-i',
-        '-',
-        '-c:a',
-        'libopus',
-        '-b:a',
-        '64k',
-        out,
-      ],
-      { stdio: ['pipe', 'ignore', 'pipe'] }
-    );
-    let err = '';
-    ff.stderr.on('data', (d) => (err += d));
-    ff.on('error', reject);
-    ff.on('close', (code) => (code === 0 ? resolve() : reject(new Error(err.trim()))));
-    ff.stdin.end(new Uint8Array(samples.buffer, samples.byteOffset, samples.byteLength));
-  });
 }
 
 /** Loudness every 1/ENVELOPE_RATE s, scaled so the loudest moment is 255. */
@@ -278,7 +245,8 @@ async function sayLine(
   // An engine that copies a voice from a recording has the pitch already.
   const chain = [...TRIM, ...(answer.pitched ? [] : pitchChain(line.voice.pitch))].join(',');
   const samples = level(await decode(raw, 1, 'ffmpeg', chain));
-  await encode(samples, path.join(voicesDir, file));
+  // Opus: small enough to keep a film's lines in its repo.
+  await encode(samples, 1, ['-c:a', 'libopus', '-b:a', '64k'], path.join(voicesDir, file));
   await rm(raw, { force: true });
   const bytes = (await stat(path.join(voicesDir, file))).size;
   return {

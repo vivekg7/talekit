@@ -28,6 +28,8 @@ export interface ProjectPaths {
   /** The project's own sounds and music, named by file name without the extension. */
   audio: string;
   out: string;
+  /** The rendered film. */
+  movie: string;
 }
 
 export function projectPaths(root: string): ProjectPaths {
@@ -40,6 +42,7 @@ export function projectPaths(root: string): ProjectPaths {
     shots: path.join(root, 'shots'),
     audio: path.join(root, 'audio'),
     out: path.join(root, 'out'),
+    movie: path.join(root, 'out', 'movie.mp4'),
   };
 }
 
@@ -78,7 +81,7 @@ async function readJsonFiles(dir: string): Promise<{ file: string; data: unknown
   return out;
 }
 
-export async function loadMeta(root: string): Promise<ProjectMeta> {
+async function loadMeta(root: string): Promise<ProjectMeta> {
   const p = projectPaths(root);
   if (!existsSync(p.meta)) throw new Error(`${p.root} is not a talekit project (no ${META_FILE})`);
   return ProjectMetaSchema.parse(JSON.parse(await readFile(p.meta, 'utf8')));
@@ -221,57 +224,49 @@ export function formatIssues(error: {
     .join('; ');
 }
 
-export async function saveCharacter(root: string, c: Character): Promise<string> {
-  const file = path.join(projectPaths(root).characters, `${c.id}.json`);
-  await mkdir(path.dirname(file), { recursive: true });
-  await writeFile(file, JSON.stringify(c, null, 2) + '\n');
+/** Write `<dir>/<name>.json`, making the folder if need be. */
+async function saveJson(dir: string, name: string, data: object): Promise<string> {
+  const file = path.join(dir, `${name}.json`);
+  await mkdir(dir, { recursive: true });
+  await writeFile(file, JSON.stringify(data, null, 2) + '\n');
   return file;
 }
 
-export async function saveScene(root: string, s: Scene): Promise<string> {
-  const file = path.join(projectPaths(root).scenes, `${s.id}.json`);
-  await mkdir(path.dirname(file), { recursive: true });
-  await writeFile(file, JSON.stringify(s, null, 2) + '\n');
-  return file;
-}
+export const saveCharacter = (root: string, c: Character): Promise<string> =>
+  saveJson(projectPaths(root).characters, c.id, c);
 
-/** The playback position in a saved shot's file name (`07-` is 7), if it has one. */
-export async function shotOrder(root: string, id: string): Promise<number | undefined> {
-  const dir = projectPaths(root).shots;
+export const saveScene = (root: string, s: Scene): Promise<string> =>
+  saveJson(projectPaths(root).scenes, s.id, s);
+
+/** The files in shots/ that hold this shot, whatever their prefix. */
+async function filesOfShot(dir: string, id: string): Promise<string[]> {
+  const out: string[] = [];
   for (const f of existsSync(dir) ? await readdir(dir) : []) {
     if (!f.endsWith('.json')) continue;
     try {
       const data = JSON.parse(await readFile(path.join(dir, f), 'utf8')) as { id?: string };
-      if (data.id === id) {
-        const m = f.match(/^(\d+)-/);
-        return m ? Number(m[1]) : undefined;
-      }
+      if (data.id === id) out.push(f);
     } catch {
       /* unreadable files are loadProject's to report */
     }
   }
-  return undefined;
+  return out;
+}
+
+/** The playback position in a saved shot's file name (`07-` is 7), if it has one. */
+export async function shotOrder(root: string, id: string): Promise<number | undefined> {
+  const [file] = await filesOfShot(projectPaths(root).shots, id);
+  const m = file?.match(/^(\d+)-/);
+  return m ? Number(m[1]) : undefined;
 }
 
 /** Shots play in filename order, so the file name carries an optional numeric prefix. */
 export async function saveShot(root: string, s: Shot, order?: number): Promise<string> {
   const dir = projectPaths(root).shots;
-  await mkdir(dir, { recursive: true });
   // Replace an existing file for this id whatever its prefix, so re-ordering does not duplicate.
-  for (const f of existsSync(dir) ? await readdir(dir) : []) {
-    if (f.endsWith('.json')) {
-      const text = await readFile(path.join(dir, f), 'utf8');
-      try {
-        if ((JSON.parse(text) as { id?: string }).id === s.id) await rm(path.join(dir, f));
-      } catch {
-        /* ignore unreadable files; loadProject reports them */
-      }
-    }
-  }
+  for (const f of await filesOfShot(dir, s.id)) await rm(path.join(dir, f));
   const prefix = order !== undefined ? String(order).padStart(2, '0') + '-' : '';
-  const file = path.join(dir, `${prefix}${s.id}.json`);
-  await writeFile(file, JSON.stringify(storedShot(s), null, 2) + '\n');
-  return file;
+  return saveJson(dir, `${prefix}${s.id}`, storedShot(s));
 }
 
 /** A shot as its file has it: an action placed `after` a line keeps that, not its last time. */

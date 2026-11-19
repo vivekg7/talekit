@@ -1,4 +1,3 @@
-import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import http from 'node:http';
 import os from 'node:os';
@@ -26,9 +25,10 @@ import {
 } from '../project/notes.js';
 import { choiceDirs, listOptions, OPTIONS_DIR, parsePicks } from '../project/options.js';
 import { isProject, loadProject, projectPaths, saveMeta } from '../project/store.js';
-import { mixAudio, RATE } from '../render/audio.js';
+import { encode, mixAudio } from '../render/audio.js';
 import { writeMkv } from '../render/mkv.js';
 import { isPortrait, safeInsets } from '../engine/format.js';
+import { escapeXml } from '../engine/svg.js';
 import { lineDuration, shownText } from '../engine/voice.js';
 import { remixVideo } from '../render/video.js';
 import { bare, STEMS, type DrawRequest, type Stems } from './draw-worker.js';
@@ -218,7 +218,7 @@ async function projectVersion(root: string): Promise<number> {
   };
   await touch(p.meta);
   await touch(path.join(p.root, NOTES_FILE));
-  await touch(path.join(p.out, 'movie.mp4'));
+  await touch(p.movie);
   latest = Math.max(latest, await codeVersion());
   for (const dir of [p.characters, p.scenes, p.shots]) {
     if (!existsSync(dir)) continue;
@@ -276,9 +276,8 @@ async function withOptions(
 
 async function movieInfo(root: string): Promise<{ mtime: number; stale: boolean } | null> {
   const p = projectPaths(root);
-  const file = path.join(p.out, 'movie.mp4');
-  if (!existsSync(file)) return null;
-  const mtime = (await stat(file)).mtimeMs;
+  if (!existsSync(p.movie)) return null;
+  const mtime = (await stat(p.movie)).mtimeMs;
   // Stale when any shot (or scene or character) was written after the render.
   let newest = 0;
   for (const dir of [p.characters, p.scenes, p.shots]) {
@@ -309,21 +308,7 @@ async function makeStem(root: string, project: Project, stems: Stems, bus: Bus):
         const samples = (await mixAudio(quiet, quiet.shots, { buses: [bus] }))!;
         await mkdir(dir, { recursive: true });
         const tmp = `${file}.tmp.m4a`;
-        await new Promise<void>((resolve, reject) => {
-          const ff = spawn(
-            'ffmpeg',
-            [
-              ...['-v', 'error', '-y', '-f', 'f32le', '-ar', String(RATE), '-ac', '2', '-i', '-'],
-              ...['-c:a', 'aac', '-b:a', '160k', tmp],
-            ],
-            { stdio: ['pipe', 'ignore', 'pipe'] }
-          );
-          let err = '';
-          ff.stderr.on('data', (d) => (err += d));
-          ff.on('error', reject);
-          ff.on('close', (code) => (code === 0 ? resolve() : reject(new Error(err.trim()))));
-          ff.stdin.end(new Uint8Array(samples.buffer, samples.byteOffset, samples.byteLength));
-        });
+        await encode(samples, 2, ['-c:a', 'aac', '-b:a', '160k'], tmp);
         await rename(tmp, file);
       })().finally(() => making.delete(file))
     );
@@ -504,6 +489,19 @@ async function projectRoute(
   // The options the page is looking at (`tail:b,chase:a`), laid over the project.
   const opt = url.searchParams.get('opt') ?? '';
   const over = () => choiceDirs(root, parsePicks(opt));
+  // A half-written file from the agent must not take the page down: report, keep polling.
+  const load = async () => {
+    try {
+      return await withOptions(root, over());
+    } catch (e) {
+      json(res, { error: (e as Error).message });
+    }
+  };
+  const movie = () => {
+    const file = projectPaths(root).movie;
+    if (!existsSync(file)) throw new Error('no rendered movie');
+    return file;
+  };
   if (rel === '/') {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(PAGE);
     return;
@@ -513,10 +511,8 @@ async function projectRoute(
     return;
   }
   if (rel === '/movie.mp4') {
-    const file = path.join(projectPaths(root).out, 'movie.mp4');
-    if (!existsSync(file)) throw new Error('no rendered movie');
     // Asked for by its mtime (`?v=`), a render is the same file until the next one.
-    await serveFile(file, 'video/mp4', req, res, cacheFor(url));
+    await serveFile(movie(), 'video/mp4', req, res, cacheFor(url));
     return;
   }
   if (rel === '/thumbnail.png') {
@@ -545,8 +541,7 @@ async function projectRoute(
     return;
   }
   if (rel === '/api/remix' && method === 'POST') {
-    const file = path.join(projectPaths(root).out, 'movie.mp4');
-    if (!existsSync(file)) throw new Error('no rendered movie');
+    const file = movie();
     const project = await loadProject(root);
     const r = await remixVideo(project, file);
     // The .mkv carries the same sound, and more of it: it is built again from the mp4.
@@ -561,13 +556,8 @@ async function projectRoute(
   // The checks' report and the film's sounds come apart from the project, worked out in a
   // worker: the page shows the film first, and they fill in when they are ready.
   if (rel === '/api/problems' || rel === '/api/sound') {
-    let loaded;
-    try {
-      loaded = await withOptions(root, over());
-    } catch (e) {
-      json(res, { error: (e as Error).message });
-      return;
-    }
+    const loaded = await load();
+    if (!loaded) return;
     const { project, over: dirs, optError } = loaded;
     if (rel === '/api/sound') json(res, await checked<Stems>('stems', root, dirs, project));
     else
@@ -575,14 +565,8 @@ async function projectRoute(
     return;
   }
   if (rel === '/api/project') {
-    // A half-written file from the agent must not take the page down: report, keep polling.
-    let loaded;
-    try {
-      loaded = await withOptions(root, over());
-    } catch (e) {
-      json(res, { error: (e as Error).message });
-      return;
-    }
+    const loaded = await load();
+    if (!loaded) return;
     const { project, base, optError } = loaded;
     json(res, {
       title: project.meta.title,
@@ -714,7 +698,7 @@ async function scanBoard(root: string): Promise<{ groups: BoardGroup[]; projects
             path: p,
             name: d.name,
             kind: 'project',
-            movie: existsSync(path.join(full, 'out', 'movie.mp4')),
+            movie: existsSync(projectPaths(full).movie),
             mtime: Math.round((await stat(full)).mtimeMs),
           });
         } else if (depth < 3) subs.push(p);
@@ -830,8 +814,6 @@ function switcher(items: Item[], here: Item) {
     }));
 }
 
-const escHtml = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-
 /**
  * `/` with more than one thing served: a card for each, with its cover and how many of
  * its notes are still open, so a batch of reels can be looked over side by side.
@@ -851,7 +833,7 @@ async function indexPage(items: Item[]): Promise<string> {
         ? `<img loading='lazy' src='/${i.slug}/thumbnail.png' alt=''>`
         : `<div class='none'>${kind}</div>`;
       const badge = open ? `<em>${open} open</em>` : '';
-      return `<a class='card${i.portrait ? ' tall' : ''}' href='/${i.slug}/'>${pic}<b>${escHtml(i.title)}${badge}</b><span>${kind} · ${escHtml(path.basename(i.root))}</span></a>`;
+      return `<a class='card${i.portrait ? ' tall' : ''}' href='/${i.slug}/'>${pic}<b>${escapeXml(i.title)}${badge}</b><span>${kind} · ${escapeXml(path.basename(i.root))}</span></a>`;
     })
   );
   return `<!doctype html><html><head><meta charset='utf-8'><title>talekit review</title><meta name='viewport' content='width=device-width, initial-scale=1'><link rel='icon' href='data:,'><style>body{margin:0;padding:20px;font:15px system-ui,sans-serif;background:#1b1f24;color:#ddd}h1{font-size:17px;margin:0 0 16px}#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px}.card{display:flex;flex-direction:column;gap:4px;color:#ddd;text-decoration:none;background:#242a31;border-radius:8px;padding:8px}.card:hover{background:#2e353e}.card img,.card .none{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:5px;background:#111}.card.tall img,.card.tall .none{aspect-ratio:9/16}.none{display:flex;align-items:center;justify-content:center;color:#666}b{color:#ffd166;font-size:14px}em{font-style:normal;background:#ffd166;color:#000;border-radius:9px;padding:0 6px;font-size:11px;margin-left:6px}span{color:#9aa3ad;font-size:12px}</style></head><body><h1>talekit review · ${shown.length}</h1><div id='grid'>${cards.join('')}</div></body></html>`;

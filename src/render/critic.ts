@@ -10,6 +10,7 @@ import {
 } from '../engine/timeline.js';
 import { isMoveVerb, type Action, type Project, type Shot, type Verb } from '../engine/types.js';
 import { lineDuration, shorten, shownText } from '../engine/voice.js';
+import { innerSvg } from './sheets.js';
 
 /**
  * What the critic looks at (docs/PLAN.md, phase 8.4): a shot's frames at its beats, each
@@ -95,9 +96,10 @@ function whoOf(a: Action): string[] {
 const MAX_BEATS = 11;
 
 /**
- * The moments of a shot worth a look: its first and last frame, the middle of every line
- * (who speaks, who listens, the bubble), every verb at its work or done, merged when they
- * are close. A verb an actor does over and over (a blow every second) is looked at once.
+ * The moments of a shot worth a look: its first and last frame, every line at its middle or
+ * 2 s in, whichever is sooner (who speaks, who listens, the bubble), every verb at its work
+ * or done, merged when they are close. A verb an actor does over and over (a blow every
+ * second) is looked at once.
  */
 export function beatsOf(project: Project, shot: Shot): Beat[] {
   const scene = project.scenes[shot.scene];
@@ -281,7 +283,7 @@ export function criticSheetsSvg(project: Project, shot: Shot): string[] {
     page.forEach((c, i) => {
       const x = gap + (i % cols) * (cellW + gap);
       const y = gap + Math.floor(i / cols) * (cellH + capH + gap);
-      out += `<svg x='${x}' y='${y}' width='${cellW}' height='${cellH}' viewBox='0 0 ${W} ${H}'>${c.svg.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '')}</svg>`;
+      out += `<svg x='${x}' y='${y}' width='${cellW}' height='${cellH}' viewBox='0 0 ${W} ${H}'>${innerSvg(c.svg)}</svg>`;
       texts[i].forEach(({ l, bold }, k) => {
         const ty = y + cellH + 15 + k * lineH;
         const size = bold ? 13 : 11.5;

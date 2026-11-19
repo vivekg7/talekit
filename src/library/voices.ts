@@ -109,7 +109,7 @@ const KOKORO: Record<string, VoiceInfo> = {
   },
 };
 
-export const ENGINES = ['chatterbox', 'kokoro'] as const;
+const ENGINES = ['chatterbox', 'kokoro'] as const;
 
 export const VOICES: Record<string, VoiceInfo> = Object.fromEntries(
   ENGINES.flatMap((engine) =>

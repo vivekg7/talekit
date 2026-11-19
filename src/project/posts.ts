@@ -4,6 +4,7 @@ import path from 'node:path';
 import { isPortrait } from '../engine/format.js';
 import { movieDuration } from '../engine/timeline.js';
 import type { Project } from '../engine/types.js';
+import { projectPaths } from './store.js';
 import type { Problem } from './validate.js';
 
 /**
@@ -13,7 +14,7 @@ import type { Problem } from './validate.js';
  * Instagram show Markdown markers literally and keep every line break, and because pasting
  * Devanagari has been seen to drop a line's first letter, leaving it starting on a vowel sign.
  */
-export const POST_FILES = { youtube: 'youtube.txt', instagram: 'instagram.txt' } as const;
+const POST_FILES = { youtube: 'youtube.txt', instagram: 'instagram.txt' } as const;
 
 // The platforms' own limits, as their upload forms enforce them.
 const YT_TITLE = 100;
@@ -166,14 +167,14 @@ export function instagramProblems(text: string, where = 'out/instagram.txt'): Pr
  * been rendered or its cover drawn: a film needs `youtube.txt`, a reel also `instagram.txt`.
  */
 export async function postProblems(root: string, project: Project): Promise<Problem[]> {
-  const dir = path.join(root, 'out');
-  const file = (name: string) => path.join(dir, name);
+  const p = projectPaths(root);
+  const file = (name: string) => path.join(p.out, name);
   const read = (name: string) => readFile(file(name), 'utf8');
   const out: Problem[] = [];
   const missing = (name: string, why: string) =>
     out.push({ level: 'warning', where: `out/${name}`, message: `missing: ${why}` });
 
-  const released = existsSync(file('movie.mp4')) || existsSync(file('thumbnail.png'));
+  const released = existsSync(p.movie) || existsSync(file('thumbnail.png'));
   const portrait = isPortrait(project.meta);
 
   if (existsSync(file(POST_FILES.youtube)))
