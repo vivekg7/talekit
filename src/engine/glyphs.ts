@@ -10,10 +10,18 @@ import * as hb from 'harfbuzzjs';
 import { readFileSync } from 'node:fs';
 import { n } from './svg.js';
 
-const DEVANAGARI = /[ऀ-ॿ꣠-ꣿ]/;
+/**
+ * Letters and signs of the Devanagari script, the one definition of it. The dandas (।॥) are
+ * left out: Bengali, Gurmukhi and others use them too, so alone they say nothing of the
+ * script; a Hindi line has letters as well, and is shaped whole.
+ */
+const DEVANAGARI = /\p{Script=Devanagari}/u;
+
+/** Whether text is (partly) written in Devanagari. */
+export const hasDevanagari = (text: string): boolean => DEVANAGARI.test(text);
 
 /** Whether a line has to be shaped here rather than left to the rasteriser. */
-export const needsShaping = (text: string): boolean => DEVANAGARI.test(text);
+export const needsShaping = hasDevanagari;
 
 /** Weights used: regular text and bold (shouts, titles, captions). */
 const WEIGHT = { regular: 600, bold: 800 };

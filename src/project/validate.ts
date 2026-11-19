@@ -20,7 +20,7 @@ import {
 import { isPortrait, REEL_SECONDS } from '../engine/format.js';
 import { resolveSound } from '../engine/sources.js';
 import { lineEnd, spokenText, voiceLines, voiceSpec } from '../engine/voice.js';
-import { needsShaping } from '../engine/glyphs.js';
+import { hasDevanagari } from '../engine/glyphs.js';
 import { VOICES } from '../library/voices.js';
 import type {
   Action,
@@ -419,7 +419,7 @@ function lineProblems(shot: Shot, project: Project): Problem[] {
   for (const { line, from, to } of spans) {
     const who = line.actor ?? 'the narrator';
     const info = VOICES[`${line.voice.engine}:${line.voice.name}`];
-    if (info && info.language !== 'hi' && needsShaping(line.text))
+    if (info && info.language !== 'hi' && hasDevanagari(line.text))
       out.push({
         level: 'warning',
         where,

@@ -12,6 +12,7 @@
  * says क्यारियाँ twice. Takes cut short or of another line were at least 0.32 wrong, with
  * runs of 4 and more.
  */
+import { hasDevanagari } from './glyphs.js';
 
 /** How a take compares with its line. */
 export interface TakeMatch {
@@ -155,7 +156,7 @@ function longest(ops: Op[], kind: Op): number {
 /** How what was heard compares with the line. */
 export function matchTake(line: string, heard: string): TakeMatch {
   // A Hindi line's numbers are words: say back what recognition wrote as digits.
-  if (/[\u0900-\u097f]/.test(line))
+  if (hasDevanagari(line))
     heard = heard.replace(/\d[\d,]*/g, (d) => ` ${hindiNumber(Number(d.replace(/,/g, '')))} `);
   const a = [...skeleton(line)];
   const b = [...skeleton(heard)];

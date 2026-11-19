@@ -1,4 +1,5 @@
 import { uiScale } from './format.js';
+import { hasDevanagari } from './glyphs.js';
 import { shotStarts } from './sound.js';
 import type { Project, Shot } from './types.js';
 import { narrationOnTop } from './timeline.js';
@@ -26,7 +27,7 @@ export interface Subtitle {
 /** The language the lines are written in: Hindi when they are in Devanagari, else English. */
 function filmLanguage(project: Project): string {
   const written = project.shots.flatMap((s) => s.actions.map((a) => a.say ?? a.caption ?? ''));
-  return written.some((t) => /\p{Script=Devanagari}/u.test(t)) ? 'hi' : 'en';
+  return written.some(hasDevanagari) ? 'hi' : 'en';
 }
 
 /** Every language the film can be subtitled in: its own first, then its translations'. */

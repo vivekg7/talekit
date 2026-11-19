@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { bubbleSvg, textWidth, wrapText } from '../src/engine/bubble.js';
-import { needsShaping, shapedText, shapedWidth } from '../src/engine/glyphs.js';
+import { hasDevanagari, needsShaping, shapedText, shapedWidth } from '../src/engine/glyphs.js';
 
 const spec = (text: string) => ({
   text,
@@ -41,5 +41,12 @@ describe('Devanagari text', () => {
     expect(a.startsWith(`<g transform='translate(${Math.round(x0 * 100) / 100} 100) scale(`)).toBe(
       true
     );
+  });
+
+  it('is told apart by one definition: letters, not the dandas other scripts share', () => {
+    expect(hasDevanagari('अरे कछुए।')).toBe(true);
+    expect(hasDevanagari('\ua8f2')).toBe(true);
+    expect(hasDevanagari('Hello, rabbit!')).toBe(false);
+    expect(hasDevanagari('আমি।')).toBe(false);
   });
 });
