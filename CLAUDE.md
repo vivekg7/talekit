@@ -11,8 +11,9 @@ the design reasons: read the relevant part before you change the data model.
   - Format: `types.ts` (zod schemas = the file format).
   - Motion: `timeline.ts` (actions → actor state at t), `motion.ts` (verb →
     pose), `gait.ts` (walk/run), `springs.ts` (follow-through, wind), `rigs.ts`
-    (boxes, pivots), `stage.ts` (staging the engine adds by itself, listed
-    by `talekit explain`), `route.ts` (walks round solids).
+    (boxes, pivots), `chain.ts` (parts that bend along their length),
+    `ends.ts` (end-on views), `stage.ts` (staging the engine adds by itself,
+    listed by `talekit explain`), `route.ts` (walks round solids).
   - World: `world.ts` (the rules each shot is checked against; its findings
     block the render unless waived via `allow.ts`), `area.ts` (walk/water
     polygons).
@@ -23,12 +24,14 @@ the design reasons: read the relevant part before you change the data model.
     splashes, footprints).
   - Text and sound: `bubble.ts`, `place.ts` (bubble placement), `glyphs.ts`
     (Devanagari via HarfBuzz), `format.ts` (film vs reel frame), `sound.ts`
-    (cue sheet), `subtitles.ts`, `speech.ts` (does a take say its line).
+    (cue sheet), `sources.ts` (sound lookup), `voice.ts` (line timing, mouth
+    from the take), `subtitles.ts`, `speech.ts` (does a take say its line).
+  - Helpers: `easing.ts` (`hash01`, easing), `svg.ts`.
 - `src/project/` — load/save/validate a project (`store.ts`, `validate.ts`),
-  the character linter (`construction.ts`), visibility checks (`sight.ts`),
-  guide sections (`guide.ts`), review notes (`notes.ts`), options
-  (`options.ts`), voicing and hearing (`voices.ts`, `hear.ts`), and the post
-  text lint (`posts.ts`).
+  `patch_shot` (`patch.ts`), the character linter (`construction.ts`),
+  visibility checks (`sight.ts`), guide sections (`guide.ts`), review notes
+  (`notes.ts`), options (`options.ts`), voicing and hearing (`voices.ts`,
+  `hear.ts`), and the post text lint (`posts.ts`).
 - `src/render/` — resvg rasteriser, ffmpeg encoder on worker threads, the sound
   mixer, the .mkv, preview sheets, the critic (`critic.ts`).
 - `src/library/` — built-in characters, scenes and sounds: the quality bar and

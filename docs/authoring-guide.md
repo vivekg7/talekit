@@ -39,10 +39,12 @@ colors)` (tokens such as hair, skin, dress; without `name`, `old-man` is
 frames)` are full size. Fix with `patch_shot(path, shotId, …)`: `edit`
    merges fields into an action by index (`{ index: 3, fields: { t: 4.5 }
 }`, null removes a field), `remove`, `add`, `set` replaces top-level
-   fields (`duration`, `camera`, `cut`, `allow`; null drops one), `cast`
+   fields (`duration`, `camera`, `crossfade`…; null drops `weather`,
+   `music`, `cut` or `allow`), `cast`
    replaces, adds or (null) removes members. Indices are pre-patch, as
    `get_item` lists them. It validates like `write_shot`, keeps the shot's
    place and returns a sheet of the changed stretch.
+   `delete_item(path, kind, id)` removes a character, scene or shot.
 6. **`render(path, shotId?)`** one shot early to check motion. Before the
    whole film run [the critic](#the-critic) (`critique` without a shot,
    then per shot). A full render returns a film sheet and, unless a reel,
@@ -91,7 +93,7 @@ Keep a film as scripts in the project's `src/` that write the JSON. Copy
 project, so a film and its reel share it; stdlib only; outside the repo
 run with `PYTHONPATH=<talekit>/kit`). Learn the kit from
 `python3 kit/talekit/api.py` (signatures, docstrings, table keys like
-`BEARDS`, `TILAK`, `LOOKS`; ~5k tokens; `api.py people` one module,
+`BEARDS`, `TILAK`, `LOOKS`; ~6k tokens; `api.py people` one module,
 `api.py beard` matching names), not the sources (`people.py` is ~25k
 tokens). Open a function body only when its docstring is not enough.
 
@@ -115,7 +117,7 @@ tokens). Open a function body only when its docstring is not enough.
   `F.after(t, line)` is when the next line can start, from the real voice
   once `talekit voice` ran, else an estimate: run, voice, run again. A
   reply timed `after(0.4)` is written as the format's `after`. Builders
-  `say`, `cap` (English 4th argument, omitted in a reel), `do`, `at`, `cam`
+  `say`, `cap` (English after the text, omitted in a reel), `do`, `at`, `cam`
   …; stock pieces `seated`, `attach`, `pickup`, `putdown`, `release`,
   `smash` (held prop falls, breaks, sounds), `keep` (variant carried into
   the next shot).
@@ -124,7 +126,9 @@ tokens). Open a function body only when its docstring is not enough.
   [Where things can stand](#where-things-can-stand-walk-water-climb-solids)),
   the scene writer.
 
-The output is the same JSON: check every sheet and run `talekit check`.
+The output is the same JSON: check every sheet and run `talekit check`
+(`talekit --help` lists the shell commands: `sheet`, `contact`, `frame`,
+`render`…).
 
 ## Coordinate boxes
 
@@ -478,9 +482,7 @@ more at smaller `scale`).
 
 `foreground` is drawn over the actors (table edge, fence). Water is a
 translucent foreground from the waterline down: a swan is cut there, a
-fish lower swims under it, a lower point sinks deeper. A speaker whose face
-is more than half behind opaque `foreground`/`near` art is `sight.face` (a
-peek round a pillar or a face under see-through water is fine).
+fish lower swims under it, a lower point sinks deeper.
 
 Floor band in the bottom 15–25% of the frame; middle third clear for faces
 and bubbles; a 220 px character is ~⅓ of the frame height. The anchor
@@ -555,9 +557,9 @@ After saving, the engine plays the shot and checks every actor each 0.1 s.
 Already held up: carried (`attach`), riding (`on`), mid-`jump`, falling,
 `visible: false`, or past the frame's left or right edge; a `hidden` actor
 is still held to the ground; climbers are held to `climb` areas. Findings are errors
-(code, shot, time, who, where, a fix when mechanical) from `write_shot`,
-`patch_shot` (with frames of the first three, ringed), `render` and
-`talekit check` (`--frames dir` saves them). The shot saves, but nothing
+(code, shot, time, who, where, a fix when mechanical) from `write_shot` and
+`patch_shot` (the first three pictured, ringed), `render` and `talekit
+check` (`--frames dir` saves a picture of each). The shot saves, but nothing
 renders until each is fixed or waived.
 
 - `support.air`: on no walk area, cannot fly. `support.water`: in deep
@@ -582,8 +584,9 @@ renders until each is fixed or waived.
   swung prop or tool `tip` too far, or a long stick too close); says where
   to stand. `give.reach`: a `give`'s two too far apart or facing away.
 - `sight.face`: a speaker's face more than half behind `foreground`,
-  `near` art or a stage fire's flames during its line. `sight.hidden`: a
-  `hidden` actor shows.
+  `near` art or a stage fire's flames during its line (art under ~70%
+  opacity, such as water, does not count; a peek round a pillar is fine).
+  `sight.hidden`: a `hidden` actor shows.
 
 Waive only what the film means, in the shot's `allow` (or the scene's, for
 all its shots), keyed by code or `code:actor`, with a reason:
@@ -666,7 +669,8 @@ on the ground, fire-pit stones) and name the rest. Paint a fair sky and let
 
 - `rain` (`amount` 0.2 drizzle to 1 downpour), splashing around `ground`;
   `snow` likewise. Both take `top` (y they fall from, for a shelter across
-  the frame top) and `scale` (for a close-up scene drawn large).
+  the frame top); weather `scale` (default 1) sizes drops, flakes and
+  leaves for a close-up scene drawn large.
 - `wind` (-1 to 1, positive blows right): slants rain, carries snow,
   smoke, sparks and leaves, moves clouds, gusts from 0.3, blows springs and
   leans `sail` props ([Carrying](#carrying-attach)).
@@ -835,7 +839,7 @@ Paint shadows of painted things falling the same way.
 - Shots play in file order (`order` on `write_shot`).
 - `crossfade: 1` dissolves in over the first second (time passing, soft
   change of place; the previous shot then needs no `fadeOut`).
-  `fadeIn`/`fadeOut` fade from/to black at the film's start and end.
+  `fadeIn`/`fadeOut` fade the shot from/to black (the film's start and end).
 - **`cut`**: `'next'` (default for a hard cut) carries straight on: in the
   same scene everyone starts as the last shot left them (place, sitting or
   lying, asleep, what they hold, size; nobody appears or vanishes in
@@ -866,7 +870,7 @@ Default durations in brackets.
 - `jump` (0.8 s): crouch, leap in place or to `to`, land with a give.
 - `climb` (distance ÷ 70): up or down a ladder or trunk to `to`, hand over
   hand, back to the viewer (four legs: tipped up the slope, walking).
-- `wave`, `point` (1.5 s): near arm or front paw (simple rig: lean).
+- `wave`, `point` (1.5 s): near arm or front paw.
 - `nod`, `shake` (0.8 s): head yes / no.
 - `tremble` (1.2 s): frightened shiver.
 - `sit` / `stand` (0.4 s), `lie` (1.3 s): persistent; `sit` on `to` (a
@@ -996,8 +1000,9 @@ carrier.
   scene's `sway`. The pose sheet shows a gale's lean.
 - Arrows are not carried ([Archery](#archery-aim-shoot)).
 
-Carrying across cuts is staged: whoever ends a shot carrying starts the
-next with it, cast and attached at `t: 0`, or puts it down first (warned).
+Across a cut, whoever ends a shot carrying starts the next with it (cast
+and attached at `t: 0`) or puts it down first: the engine does not carry it
+over (warned; in the same place, `continuity.cut`).
 `attach` with `appear` is magic; for a real prop, lay it on the floor and
 pick it up.
 
@@ -1074,7 +1079,7 @@ face in frame and other bubbles (beside the head when there is no room
 above); spread talkers out in a crowd or corner.
 
 Devanagari draws in the bundled Baloo 2 whatever the project `font`; write
-it as in a book (`"अरे कछुए, तुम कितने धीमे हो!"`), same 12-word limit.
+it as in a book (`"अरे कछुए, तुम कितने धीमे हो!"`).
 
 **Looks are the engine's job.** A moment after a line starts, the speaker
 turns to its listener and listeners to the speaker (heads tilting too).
@@ -1083,9 +1088,8 @@ go?", "to": "dad" }`); else whoever spoke last; everyone, when the speaker
 is the shot's only talker; plus `audience` (ids or `"all"`). Do not stage
 conversation turns. Only the idle turn: not someone walking, busy with the
 hands (`strike`, `dig`, `eat`, `wipe`, `pickup`…), lying, eyes `closed`, or
-turned by the shot near the line. A `to` listener who cannot turn is
-`attention.listener`; a speaker facing away from its `to`,
-`attention.speaker`. Stop the work before the line, or start the line
+turned by the shot near the line. One who cannot turn when it matters is
+an `attention.*` finding: stop the work before the line, or start the line
 after.
 
 **Reactions**: `reacts` names the cause: `{ "t": 6, "actor": "deer", "do":
@@ -1195,7 +1199,8 @@ adds the sounds of its own motion and sets the mix.
   Loud ones startle ([Dialogue](#dialogue)).
 - **Mix**: only if a listener finds a layer off, `set_audio(path, mix: {
 "music": 0.5 })` scales `voices`, `music`, `ambience` or `effects` film-
-  wide (0.5 = −6 dB, 2 = +6 dB); the review app has sliders.
+  wide (0.5 = −6 dB, 2 = +6 dB); the review app has sliders. `talekit
+remix <dir>` remixes a rendered film without rendering it again.
 
 Project sounds go in `audio/` (`.ogg`, `.wav`, `.mp3`, `.flac`), named by
 file name; a bundled name is replaced.

@@ -529,7 +529,8 @@ are a few lines of our own.
 "Every action has a reaction": wind already moved weather and sway. What did
 not reach anything:
 
-- **Startles** (`stage.ts`, `STARTLES`): a loud sound briefly changes calm
+- **Startles** (`stage.ts`; the loud sounds are `STARTLES` in
+  `library/sounds.ts`): a loud sound briefly changes calm
   faces and turns free heads to its source. A roar said `to` someone startles
   that one only, and a growl nobody: the first cut frightened the lion's own
   allies. The face settles after 1.5 s, because the engine cannot tell whose
@@ -578,7 +579,7 @@ byte-identical.
 
 ## Later (deliberately not now)
 
-- A run with a non-Claude agent, and more MCP ergonomics.
+- More MCP ergonomics.
 - More emotions and eyebrows; image-model backgrounds as a layer.
 - A bundled font for identical Latin text across machines (Devanagari is
   bundled already, 7.7).
