@@ -21,6 +21,7 @@ import {
   contactSheetSvg,
   findingFrameSvg,
   sceneSheetSvg,
+  sheetTarget,
 } from './render/sheets.js';
 import { writeMkv } from './render/mkv.js';
 import { isPortrait } from './engine/format.js';
@@ -37,7 +38,9 @@ const USAGE = `talekit — 2D films, reels and animations made by AI agents
   talekit explain <dir> [shotId]               the turns, walks, sits and startles the engine adds
   talekit library                              list built-in characters and scenes
   talekit copy <dir> <libraryId> [--as <id>]   copy a built-in into the project
-  talekit sheet <dir> <id> [-o file.png]       pose + construction sheet (character) or anchor sheet (scene)
+  talekit sheet <dir> <id> [--kind character|scene] [-o file.png]
+                                               pose + construction sheet (character) or anchor sheet
+                                               (scene); --kind when a character and a scene share the id
   talekit frame <dir> <shotId> [-t 1.5] [-o file.png] [--svg] [--debug]
   talekit contact <dir> <shotId> [-n 6] [-o file.png]
   talekit critic <dir> [shotId] [-o dir]       the critic's checklist, read-through and each shot's frames
@@ -102,6 +105,7 @@ async function main(argv: string[]): Promise<void> {
       height: { type: 'string' },
       fps: { type: 'string' },
       as: { type: 'string' },
+      kind: { type: 'string' },
       out: { type: 'string', short: 'o' },
       time: { type: 'string', short: 't' },
       count: { type: 'string', short: 'n' },
@@ -189,22 +193,20 @@ async function main(argv: string[]): Promise<void> {
     }
     case 'sheet': {
       const [dir, id] = rest;
-      if (!dir || !id) throw new Error('usage: talekit sheet <dir> <id>');
+      if (!dir || !id) throw new Error('usage: talekit sheet <dir> <id> [--kind character|scene]');
       const project = await loadProject(dir);
-      const p = projectPaths(dir);
-      if (project.characters[id]) {
-        const file = values.out ?? path.join(p.out, `sheet-${id}.png`);
-        await savePng(file, characterSheetSvg(project.characters[id]));
+      if (values.kind !== undefined && values.kind !== 'character' && values.kind !== 'scene')
+        throw new Error(`--kind is character or scene, not '${values.kind}'`);
+      const target = sheetTarget(project, id, values.kind);
+      const file = values.out ?? path.join(projectPaths(dir).out, `sheet-${id}.png`);
+      if (target.kind === 'scene') await savePng(file, sceneSheetSvg(project, target.scene));
+      else {
+        await savePng(file, characterSheetSvg(target.character));
         await savePng(
           path.join(path.dirname(file), `construction-${path.basename(file)}`),
-          constructionSheetSvg(project.characters[id])
+          constructionSheetSvg(target.character)
         );
-      } else if (project.scenes[id]) {
-        await savePng(
-          values.out ?? path.join(p.out, `sheet-${id}.png`),
-          sceneSheetSvg(project, project.scenes[id])
-        );
-      } else throw new Error(`no character or scene '${id}'`);
+      }
       return;
     }
     case 'frame': {

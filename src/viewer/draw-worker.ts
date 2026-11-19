@@ -9,7 +9,13 @@ import type { Project } from '../engine/types.js';
 import { lintCharacter } from '../project/construction.js';
 import { loadProject } from '../project/store.js';
 import { formatProblems, validateProject } from '../project/validate.js';
-import { characterSheetSvg, constructionSheetSvg, sceneSheetSvg } from '../render/sheets.js';
+import {
+  characterSheetSvg,
+  constructionSheetSvg,
+  sceneSheetSvg,
+  sheetTarget,
+  type SheetKind,
+} from '../render/sheets.js';
 
 /**
  * The review app's pictures (frames, pose, construction and anchor sheets) and its slow
@@ -19,7 +25,7 @@ import { characterSheetSvg, constructionSheetSvg, sceneSheetSvg } from '../rende
  */
 export type DrawRequest = { root: string; /** option choices laid over it */ over: string[] } & (
   | { kind: 'frame'; shot: string; t: number; debug: boolean }
-  | { kind: 'sheet'; id: string; construction: boolean }
+  | { kind: 'sheet'; id: string; of?: SheetKind; construction: boolean }
   | { kind: 'problems' }
   | { kind: 'stems' }
 );
@@ -108,12 +114,10 @@ async function draw(job: DrawJob): Promise<string | Stems> {
     if (!shot) throw new Error('unknown shot');
     return composeFrame(project, shot, job.t, { debug: job.debug });
   }
-  const character = project.characters[job.id];
-  if (character)
-    return job.construction ? constructionSheetSvg(character) : characterSheetSvg(character);
-  const scene = project.scenes[job.id];
-  if (scene) return sceneSheetSvg(project, scene);
-  throw new Error('unknown id');
+  const target = sheetTarget(project, job.id, job.of);
+  if (target.kind === 'scene') return sceneSheetSvg(project, target.scene);
+  const { character } = target;
+  return job.construction ? constructionSheetSvg(character) : characterSheetSvg(character);
 }
 
 parentPort?.on('message', (job: DrawJob) => {

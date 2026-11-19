@@ -470,6 +470,28 @@ export function characterSheetSvg(character: Character): string {
   return out + '</svg>';
 }
 
+export type SheetKind = 'character' | 'scene';
+
+/**
+ * What `id` names, for a sheet. Characters (props among them) and scenes are stored apart,
+ * so one id can name both: then `kind` must say which, rather than one silently winning.
+ */
+export function sheetTarget(
+  project: Project,
+  id: string,
+  kind?: SheetKind
+): { kind: 'character'; character: Character } | { kind: 'scene'; scene: Scene } {
+  const character = kind === 'scene' ? undefined : project.characters[id];
+  const scene = kind === 'character' ? undefined : project.scenes[id];
+  if (character && scene)
+    throw new Error(
+      `'${id}' is both a character and a scene: add --kind character or --kind scene`
+    );
+  if (character) return { kind: 'character', character };
+  if (scene) return { kind: 'scene', scene };
+  throw new Error(`no ${kind ?? 'character or scene'} '${id}'`);
+}
+
 /**
  * The scene with its anchors, the stage shortcuts, and a ghost for scale: the project's
  * tallest character once there is one (a cast of 100px animals needs a different floor

@@ -6,7 +6,7 @@ import { CharacterSchema, SceneSchema, ShotSchema, type Project } from '../src/e
 import { LIBRARY, nameFromId } from '../src/library/index.js';
 import { validateCharacter, validateShot } from '../src/project/validate.js';
 import { outlineText, rasterize } from '../src/render/raster.js';
-import { characterSheetSvg, filmSheetSvg } from '../src/render/sheets.js';
+import { characterSheetSvg, filmSheetSvg, sheetTarget } from '../src/render/sheets.js';
 import { poseFor } from '../src/engine/actor.js';
 import { faceFallbacks } from '../src/engine/motion.js';
 
@@ -145,6 +145,10 @@ describe('library copies', () => {
     expect(nameFromId('ramu')).toBe('Ramu');
     expect(nameFromId('old-man')).toBe('Old man');
     expect(nameFromId('big_bear')).toBe('Big bear');
+  });
+  it('never share an id between a character and a scene (a copy takes the character)', () => {
+    const scenes = Object.keys(LIBRARY.scenes);
+    expect(Object.keys(LIBRARY.characters).filter((id) => scenes.includes(id))).toEqual([]);
   });
 });
 
@@ -317,6 +321,16 @@ describe('pose sheet', () => {
     expect(list).toContain("angry: eyes → open (no 'angry')");
     expect(list).not.toContain(expect.stringMatching(/^neutral/));
     expect(faceFallbacks(LIBRARY.characters.kid.parts)).toEqual([]);
+  });
+  it('asks which is meant when a character and a scene share an id', () => {
+    const p = project({ id: 'a', scene: 'park', duration: 4 });
+    p.scenes.dog = { ...LIBRARY.scenes.park, id: 'dog' };
+    expect(() => sheetTarget(p, 'dog')).toThrow(/both a character and a scene/);
+    expect(sheetTarget(p, 'dog', 'scene')).toMatchObject({ kind: 'scene', scene: { id: 'dog' } });
+    expect(sheetTarget(p, 'dog', 'character').kind).toBe('character');
+    expect(sheetTarget(p, 'park').kind).toBe('scene');
+    expect(sheetTarget(p, 'kid').kind).toBe('character');
+    expect(() => sheetTarget(p, 'kid', 'scene')).toThrow("no scene 'kid'");
   });
   it('tiles one frame per shot on the film sheet', () => {
     const p = project({ id: 'a', scene: 'park', duration: 4, cast: { kid: { at: 'gate' } } });

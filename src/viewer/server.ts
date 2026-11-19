@@ -620,6 +620,7 @@ async function projectRoute(
       root,
       over: over(),
       id: url.searchParams.get('id') ?? '',
+      of: (['character', 'scene'] as const).find((k) => k === url.searchParams.get('of')),
       construction: url.searchParams.get('kind') === 'construction',
     };
     sendSvg(req, res, url, await ask<string>(root, job, url.searchParams.has('low')));

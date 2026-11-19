@@ -567,7 +567,7 @@ function renderCards(kind) {
   items.forEach(function (c) {
     var card = document.createElement('div'); card.className = 'card';
     var meta = kind === 'characters' ? c.rig + ' rig · ' + c.height + 'px' : 'anchors: ' + (c.anchors.join(', ') || 'none');
-    var sheet = withOpt('api/sheet?id=' + encodeURIComponent(c.id) + '&v=' + info.version);
+    var sheet = withOpt('api/sheet?of=' + k + '&id=' + encodeURIComponent(c.id) + '&v=' + info.version);
     card.innerHTML = "<img loading='lazy' src='" + sheet + "'>" +
       (kind === 'characters' ? "<img loading='lazy' class='construction' title='Construction: what the linter checked' src='" + sheet + "&kind=construction'>" : '') +
       "<div class='body'><div class='title'><b>" + esc(c.name) + '</b><span>' + esc(c.id) + ' · ' + esc(meta) + "</span></div><div class='list'></div>" +
@@ -718,7 +718,7 @@ function renderOptions() {
       var card = document.createElement('div');
       card.className = 'cand' + (won && (won.target.choice || '') === c.id ? ' won' : '');
       var pics = at ? "<img loading='lazy' title='" + esc(at) + ' at ' + tt.toFixed(1) + "s' src='" + withOpt('api/frame?shot=' + encodeURIComponent(at) + '&t=' + tt + '&v=' + info.version + '&low=1', picks) + "'>" : '';
-      chars.forEach(function (id) { pics += "<img loading='lazy' class='sheet' title='" + esc(id) + "' src='" + withOpt('api/sheet?id=' + encodeURIComponent(id) + '&v=' + info.version, picks) + "'>"; });
+      chars.forEach(function (id) { pics += "<img loading='lazy' class='sheet' title='" + esc(id) + "' src='" + withOpt('api/sheet?of=character&id=' + encodeURIComponent(id) + '&v=' + info.version, picks) + "'>"; });
       card.innerHTML = pics + "<div class='body'><b>" + esc(c.id || AS_IS) + '</b>' + (c.label ? '<div>' + esc(c.label) + '</div>' : '') +
         (c.id ? "<div class='what'>" + esc(changesOf(c)) + '</div>' : '') + "<div class='nb'></div></div>";
       card.querySelectorAll('img').forEach(function (img) { img.onclick = function () { lightbox(this.src); }; });

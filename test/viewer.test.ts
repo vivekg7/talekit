@@ -219,6 +219,27 @@ describe('review app', () => {
     }
   });
 
+  it('draws the scene card of a scene that shares a prop id as the scene', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'talekit-sheet-'));
+    await cp('examples/lost-kite', root, { recursive: true });
+    const park = JSON.parse(await readFile(path.join(root, 'scenes/park.json'), 'utf8'));
+    await writeFile(path.join(root, 'scenes/kite.json'), JSON.stringify({ ...park, id: 'kite' }));
+    const app = await serve(root, 4910);
+    const get = (url: string) => fetch(new URL(url, app.url));
+    try {
+      const page = await (await get('')).text();
+      expect(page).toContain("'api/sheet?of=' + k + '&id='");
+      expect(await (await get('api/sheet?of=scene&id=kite')).text()).toContain('bench-seat');
+      expect(await (await get('api/sheet?of=character&id=kite')).text()).not.toContain(
+        'bench-seat'
+      );
+      expect((await (await get('api/sheet?id=kite')).json()).error).toMatch(/both/);
+    } finally {
+      app.close();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it('draws pictures with the engine as it is now, and reloads the page when it changes', async () => {
     const app = await serve('examples/lost-kite', 4870);
     const get = (url: string) => fetch(new URL(url, app.url));
