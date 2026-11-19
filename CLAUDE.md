@@ -1,103 +1,63 @@
 # CLAUDE.md — talekit
 
-talekit renders short 2D story animations from JSON an AI agent writes. The
-agent-facing contract is `docs/authoring-guide.md`; the roadmap and design
-reasoning are in `docs/PLAN.md`. Read both before changing the data model.
+**Goal:** good-quality 2D films, reels and animations, made by AI agents with
+this engine. Agents write JSON (or Python kit scripts) and the engine renders
+it. `docs/authoring-guide.md` is the agent-facing contract. `docs/PLAN.md` holds
+the design reasons: read the relevant part before you change the data model.
 
 ## Layout
 
-- `src/engine/` — pure functions, no I/O. `types.ts` (zod schemas = the file
-  format), `rigs.ts` (canonical boxes and pivots), `motion.ts` (verb → pose),
-  `gait.ts` (planted-foot walk and run), `springs.ts` (follow-through,
-  integrated per shot, blown by the wind, whose gusts are `gusting` in
-  `weather.ts`, which also lean a carried `sail`), `impact.ts` (dust where a
-  jump or a drop lands, a splash where it lands in water, rings and a bow
-  wave round whatever moves in it, footprints in sand and snow),
-  `weather.ts` and `effects.ts` (rain, clouds, fire,
-  waves and the like, drawn from time each frame), `sway.ts` (a scene's
-  tree crowns and grass turning about their pivots), `shade.ts` (the engine-drawn
-  light and shadow on every part), `cast.ts` (each actor's shadow thrown
-  across the floor by the scene's lights), `depth.ts` (the scene's
-  `perspective`, a scale for each floor depth, and the haze that fades
-  actors further back toward the sky's colour), `timeline.ts` (actions →
-  actor state at time t), `stage.ts` (the staging the engine adds on its
-  own: listeners turning to a speaker, a reaction looking at its cause, the
-  face-off before a `give`, a worker walked to a `use` anchor, facing carried
-  across a `cut`, everyone else startled by a loud sound; `talekit explain`
-  lists it), `actor.ts` + `compose.ts` (state → SVG), `cull.ts`
-  (leaves out what resvg would panic on: shapes far off the frame, canvases
-  outside the bounds of the one they are drawn on),
-  `outline.ts` (the engine-drawn outline under every part),
-  `world.ts` (the world model: where feet can stand and the water is, each
-  actor's habitat, and the rules every shot is played against, whose
-  findings block the render until fixed or waived with `allow`, looked up
-  in `allow.ts`), `area.ts` (the polygons behind it: which ground a foot is
-  on, the default habitat, the snap onto a walk area, where a dropped prop
-  lands),
-  `speech.ts` (whether a voiced take says its line: what speech
-  recognition heard, reduced to the sounds a listener tells apart),
-  `format.ts` (a film's frame or a portrait reel's: text scale, the safe
-  area the reel apps leave), `sound.ts` (the cue sheet: what is heard when), `subtitles.ts` (subtitle
-  tracks from the lines and their `translation`),
-  `route.ts` (the way a walk goes round solids and keeps to the walk areas),
-  `bubble.ts` (text wrap and bubble geometry), `place.ts` (where each
-  line's bubble goes: off every face on screen, chosen once per line), `glyphs.ts` (Devanagari
-  shaped with HarfBuzz into outlines, in the bundled `fonts/Baloo2.ttf`).
-- `src/project/` — load/save/validate a project directory; `construction.ts`
-  is the character linter (rasterises parts, checks box, feet, joints);
-  `sight.ts` renders masks of a frame to check what shows (a speaker's
-  face behind the foreground, a `hidden` actor who can be seen);
-  `guide.ts` prints one section of the authoring guide (the critic's
-  checklist), so the guide stays its one copy;
-  `notes.ts` is the review-note store shared by the viewer and the MCP;
-  `options.ts` lists a film's options (`options/<question>/<choice>/`, a
-  second way of drawing or staging something for the person to pick),
-  which `loadProject(root, dirs)` in `store.ts` lays over the project;
-  `voices.ts` speaks the lines and `hear.ts` hears each take (whisper.cpp),
-  saying a line again when its take does not say it;
-  `posts.ts` lints the text a video is posted with (`out/youtube.txt`,
-  `out/instagram.txt`) for `talekit check`.
-- `src/render/` — the critic's sheets and read-through (`critic.ts`: a
-  shot's frames at its beats, captioned with what is meant then), resvg rasteriser, ffmpeg encoder (frames drawn on worker
-  threads, `frame-worker.ts`), the sound mixer (`audio.ts`), the .mkv with
-  its extra sound and subtitle tracks (`mkv.ts`), preview sheets.
-- `src/library/` — built-in characters and scenes (TypeScript modules holding
-  SVG). They are the quality bar and the templates agents copy.
-- `kit/` — the Python kit story scripts import (`kit/talekit/`: drawing
-  helpers, a humanoid wardrobe, voice-paced shot helpers) and the
-  templates a new story starts from (`kit/templates/`); `kit/talekit/api.py`
-  prints its API in brief from the docstrings, for agents to read instead of
-  the source, so a helper's docstring is its documentation. `test/kit.test.ts`
-  runs both through `talekit check`; keep its output in the file format.
-- `src/mcp/server.ts`, `src/cli.ts`, `src/viewer/` — thin interfaces over
-  the same code. The viewer is one small HTTP server (`server.ts`) that
-  serves every film, reel and board of samples under its own path, with
-  two embedded pages (no framework, no build): `page.ts` for a project,
-  `board-page.ts` for a board. It draws frames and sheets in
-  `draw-worker.ts`, started afresh when the source changes.
-- `examples/lost-kite/` — one-minute story used as the integration check.
-  `examples/lighthouse/` — written through the MCP tools as the phase 6 run;
-  it exercises from-scratch characters, custom variants, carrying a prop
-  with `attach`, a layered scene (`far`) and a `crossfade`.
-  `examples/clever-rabbit/` — made by a subagent given only the story and
-  the tool; an all-animal cast, kept as the cold-run fixture. Its well
-  sequence was restaged by hand as the worked example of a point-of-view
-  insert (shots 07 to 09), and its lion, deer and rabbit were moved to the
-  quadruped rig; the monkey and the lion's reflection stay on the simple rig.
+- `src/engine/` — pure functions, no I/O.
+  - Format: `types.ts` (zod schemas = the file format).
+  - Motion: `timeline.ts` (actions → actor state at t), `motion.ts` (verb →
+    pose), `gait.ts` (walk/run), `springs.ts` (follow-through, wind), `rigs.ts`
+    (boxes, pivots), `stage.ts` (staging the engine adds by itself, listed
+    by `talekit explain`), `route.ts` (walks round solids).
+  - World: `world.ts` (the rules each shot is checked against; its findings
+    block the render unless waived via `allow.ts`), `area.ts` (walk/water
+    polygons).
+  - Drawing: `actor.ts` + `compose.ts` (state → SVG), `shade.ts`, `outline.ts`,
+    `cast.ts` (shadows), `depth.ts` (perspective, haze), `cull.ts` (drops
+    shapes resvg would panic on).
+  - Nature: `weather.ts`, `effects.ts`, `sway.ts`, `impact.ts` (dust,
+    splashes, footprints).
+  - Text and sound: `bubble.ts`, `place.ts` (bubble placement), `glyphs.ts`
+    (Devanagari via HarfBuzz), `format.ts` (film vs reel frame), `sound.ts`
+    (cue sheet), `subtitles.ts`, `speech.ts` (does a take say its line).
+- `src/project/` — load/save/validate a project (`store.ts`, `validate.ts`),
+  the character linter (`construction.ts`), visibility checks (`sight.ts`),
+  guide sections (`guide.ts`), review notes (`notes.ts`), options
+  (`options.ts`), voicing and hearing (`voices.ts`, `hear.ts`), and the post
+  text lint (`posts.ts`).
+- `src/render/` — resvg rasteriser, ffmpeg encoder on worker threads, the sound
+  mixer, the .mkv, preview sheets, the critic (`critic.ts`).
+- `src/library/` — built-in characters, scenes and sounds: the quality bar and
+  the templates agents copy.
+- `kit/` — the Python kit that story scripts import, plus the starting
+  templates. A helper's docstring is its documentation (`kit/talekit/api.py`
+  prints them). `test/kit.test.ts` runs the kit through `talekit check`.
+- `src/mcp/server.ts`, `src/cli.ts`, `src/viewer/` — thin interfaces over the
+  same code. The viewer is one HTTP server with two framework-free pages
+  (`page.ts`, `board-page.ts`).
+- `examples/` — `demo` (pose sheets), `lost-kite` (the integration check),
+  `lighthouse` (MCP-written: custom characters, `attach`, `far`, `crossfade`),
+  `clever-rabbit` (cold-run fixture, all-animal cast).
 
 ## Rules
 
-- **The engine owns motion.** Do not add agent-facing knobs for limb angles
-  or per-frame control; add a verb or a parameter to an existing verb.
-- **Schema changes are format changes.** Anything touched in `types.ts` must
-  be reflected in `docs/authoring-guide.md` and in the MCP tool descriptions
-  in the same commit, and the example must still pass `talekit check`.
-- **Every write returns a picture.** A new MCP write tool returns an image of
-  the result; a new engine feature shows up on the relevant sheet.
-- **Keep rendering deterministic.** No randomness; use `hash01(id)` for
+- **The engine owns motion.** Add no agent-facing knobs for limb angles or
+  per-frame control: add a verb, or a parameter to an existing verb.
+- **Schema changes are format changes.** A change to `types.ts` updates the
+  authoring guide and the MCP tool descriptions in the same commit, and the
+  examples must still pass `talekit check`.
+- **Every write returns a picture.** A new MCP write tool returns an image; a
+  new engine feature shows on the relevant sheet.
+- **Rendering stays deterministic.** No randomness: use `hash01(id)` for
   per-actor variation.
-- Inner SVG only in parts and scenes (no `<svg>`, `<image>`, external refs).
-  Single-quoted attributes keep JSON readable.
+- Parts and scenes hold inner SVG only (no `<svg>`, `<image>` or external refs).
+  Use single-quoted attributes so the JSON stays readable.
+- Comments explain only what the code can't: the reason, an invariant, a
+  gotcha. No comments that restate the code.
 
 ## Verify before committing
 
@@ -107,6 +67,6 @@ npx tsx src/cli.ts check examples/lost-kite
 npx tsx src/cli.ts contact examples/lost-kite flying   # look at the png
 ```
 
-Changes to motion or art are visual: render the pose sheet
-(`talekit sheet examples/demo kid`) or a contact sheet and look at it; do not
-claim an animation change works from the code alone.
+Motion and art changes are visual. Render a pose sheet
+(`talekit sheet examples/demo kid`) or a contact sheet and look at it before
+claiming a change works.

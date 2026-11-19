@@ -1,16 +1,12 @@
 # talekit
 
-Story video generation for AI agents. Give your agent a children's story, point
-it at the talekit MCP server, and it designs the characters and scenes, writes
-a shot-by-shot timeline, checks its own work from rendered previews, and
-produces an mp4 of simple 2D animation with comic-style speech bubbles and
-spoken lines.
+**Goal: good-quality 2D films, reels and animations, made by AI agents with
+this engine.**
 
-The idea is "Paper for video": the agent writes a language it is already
-fluent in (SVG fragments + JSON), the engine owns everything that is hard to
-get right by hand (rigging, walks with planted feet, follow-through, faces,
-bubble layout, camera, weather, sound, encoding), and every write returns a
-picture so the agent can see and fix its output.
+The agent writes what it is fluent in (SVG fragments and JSON). The engine
+owns what is hard to get right by hand: rigging, walks with planted feet,
+follow-through, faces, bubble layout, camera, weather, sound and encoding.
+Every write returns a picture, so the agent sees its output and fixes it.
 
 ```
 story ──agent──▶ characters/*.json  scenes/*.json  shots/*.json ──talekit──▶ movie.mp4
@@ -21,8 +17,8 @@ story ──agent──▶ characters/*.json  scenes/*.json  shots/*.json ──
 
 **Kahani ki Potli** is a channel of Hindi stories for children made entirely
 with talekit: Panchatantra fables, Tenali Rama and other classic tales. Each
-story is released as a full film and as a two-minute portrait reel, with Hindi
-and English subtitles.
+story is released as a full film and as a portrait reel of up to three
+minutes, with Hindi and English subtitles.
 
 [![The covers of the first nine Kahani ki Potli films, each drawn by talekit from one frame of its film](docs/showcase.jpg)](https://www.youtube.com/@KahaniKiPotli7)
 
@@ -63,62 +59,21 @@ characters, scenes and shots.
 
 ## Reviewing and output
 
-`talekit serve <film> <reel> --open` serves a review app for each project
-(on 4848 and 4849, or the next free ports) and opens the first in the
-browser, in Firefox when it is already running; a switch in the header goes
-between the film and the reel. Any number of projects can be served at once
-(a batch of reels to choose between): the server's own address then lists
-them as cards with their covers and open-note counts, and past three the
-header switch becomes a list with ‹ › to step through them. The agent does the same with `open_review`
-once both are rendered. Each shows the picture at the film's exact shape, as
-large as the window allows, with this shot's notes and script in a column
-beside it. A film keeps its shots in a strip along the bottom; a reel has
-them in a second column, so the tall picture gets the full height. The
-characters are shown as pose sheets and the scenes as anchor sheets.
+`talekit serve <film> <reel> --open` (or `open_review`) serves a review app
+per project, from port 4848 up. Pick a moment, click to pin a spot, and type
+a note; it is saved to `<project>/notes.json`. Tell the agent "fix my
+notes": `list_notes` gives it each note with the picture you saw, and
+`resolve_note` closes it until you check it. The app reloads as the project
+and the engine change. For a reel it shades the area the apps cover;
+`--lan` serves it to a phone on the local network (no login, so only on a
+trusted network). Sliders per sound layer save the `mix`, and **Save and
+remix video** puts the new sound under the mp4 without drawing any frames.
 
-Pick a moment or an asset and type what is wrong; it is saved to
-`<project>/notes.json`. Click the picture first to pin the spot you mean:
-the agent sees it ringed. The line being spoken shows under the picture,
-and a line in the script can be quoted into the note. Tell the agent "fix
-my notes": `list_notes` hands it each note with a picture of what you saw,
-and `resolve_note` closes it. A closed note waits under _fixed: check it_
-until you agree, or reopen it with what is still wrong, which the agent
-reads with the note. The page follows the directory, so the agent's edits
-appear as it works, and the engine's code too: the paused picture and the
-sheets are drawn by a worker that starts afresh whenever a source file
-changes, so a fix to the engine shows without restarting the app (the
-playing video is still the last render). The address follows the moment
-(`#hua@3.90`), so a copied link opens on it; an address no longer served
-(a reel from an earlier session, refreshed) goes to the server's front
-page. The checks' report and the film's sounds are worked out in a worker
-of their own, read ahead for everything served, and fill in once the
-picture is up, so each tab of a batch opens at once; the browser keeps the
-pictures of a version, so going back to a tab draws nothing again. Play at
-the end of the film starts it again from the top.
-
-For a reel, **safe area** shades what the Shorts and Reels apps draw over
-(caption, buttons, search), and playback can be slowed, sped up or looped
-on one shot. `--lan` (`open_review` with `lan`) serves the apps on the
-local network too, to review a reel on a phone, where it will be watched.
-The app has no login and writes to the project, so anyone on that network
-can add notes; it stays on 127.0.0.1 unless asked.
-
-The film plays with a slider per sound layer (voices, music, ambience,
-effects). **Save** writes the balance to the project's `mix`; **Save and
-remix video** also puts the new sound under `out/movie.mp4` in seconds,
-without drawing a frame (`talekit remix` from the command line).
-
-Beside the mp4, `render` writes `out/movie.mkv`: three sound tracks (the
-full mix, the film without dialogue, and that with the narrator), subtitles
-in the film's language and each translation (off until chosen), and a
-chapter per shot. VLC or MX Player on a phone shows them all.
-
-A movie is delivered three ways: the film's mp4 and .mkv, and the reel's
-mp4. A **reel** for Instagram or YouTube Shorts is a project of its own at
-720 × 1280 (`talekit init <dir> --width 720 --height 1280`): the story told
-again in at most three minutes, mostly by the narrator, in scenes drawn
-tall. Text keeps clear of the apps' overlays, and the render is one mp4,
-with no .mkv.
+Output: the film as `out/movie.mp4` plus `out/movie.mkv` (three sound
+tracks, subtitles per language, a chapter per shot) and the **reel**, a
+separate 720 × 1280 project (`talekit init <dir> --width 720 --height
+1280`) that tells the story again in at most three minutes, mostly through
+the narrator.
 
 ## What the agent writes
 
