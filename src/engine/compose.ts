@@ -36,7 +36,14 @@ import { escapeXml, n } from './svg.js';
 import { defaultGround, isPortrait, safeInsets, uiScale } from './format.js';
 import { resolveFrame, turnBy, type FrameState } from './timeline.js';
 import type { Project, Shot, View, Weather } from './types.js';
-import { effectsSvg, fireLights, type EffectLayer, type FireLight } from './effects.js';
+import {
+  effectsSvg,
+  fireLights,
+  standingEffects,
+  type EffectLayer,
+  type FireLight,
+} from './effects.js';
+import { airOf, hazeAt, type Air } from './depth.js';
 import type { Pose } from './motion.js';
 import { rigOf } from './rigs.js';
 import type { ActorState } from './timeline.js';
@@ -227,7 +234,14 @@ const FIRE_RIM = '#ffb45a';
  * and warmed by the fire, through a filter that scales each colour channel. A fire matters
  * more the darker it is around it.
  */
-function lightOf(actor: ActorState, w: Weather, fires: FireLight[], sky?: CastLight) {
+function lightOf(
+  actor: ActorState,
+  w: Weather,
+  fires: FireLight[],
+  sky?: CastLight,
+  air?: Air,
+  depth = actor.perspective
+) {
   const amount = w.light?.amount ?? 0;
   const tint = w.light ? mix('#ffffff', w.light.color, amount) : '#ffffff';
   const middle = actor.y - (actor.character.height * actor.scale) / 2;
@@ -250,7 +264,20 @@ function lightOf(actor: ActorState, w: Weather, fires: FireLight[], sky?: CastLi
         ? { toward: fire.toward, color: FIRE_RIM, amount: Math.min(0.85, 2.4 * warm) }
         : undefined,
   };
-  return { light, slopes };
+  // The air between: further back, a little of the way toward its colour (depth.ts), each
+  // colour lit as above and then mixed with the air's, lighter and lower in contrast.
+  const haze = hazeAt(air, depth);
+  const tone: Tone = {
+    slopes: slopes.map((v) => v * (1 - haze)),
+    offsets: air ? air.rgb.map((c) => c * haze) : [0, 0, 0],
+  };
+  return { light, tone };
+}
+
+/** A filter's colour change per channel: out = in × slope + offset. */
+interface Tone {
+  slopes: number[];
+  offsets: number[];
 }
 
 /** The way to a light in the sky from a point, never lower than a little above level. */
@@ -262,14 +289,32 @@ function towardSky(sky: CastLight, x: number, y: number): [number, number] {
 }
 
 /** An actor through the channel filter of `lightOf`, or as it is when that does nothing. */
-function lit(svg: string, id: string, slopes: number[]): string {
-  if (!svg || slopes.every((v) => Math.abs(v - 1) < 0.01)) return svg;
-  const fn = (c: string, v: number) => `<feFunc${c} type='linear' slope='${n(v)}'/>`;
+function lit(svg: string, id: string, { slopes, offsets }: Tone): string {
+  if (
+    !svg ||
+    (slopes.every((v) => Math.abs(v - 1) < 0.01) && offsets.every((v) => Math.abs(v) < 0.004))
+  )
+    return svg;
+  const fn = (c: string, i: number) =>
+    `<feFunc${c} type='linear' slope='${n(slopes[i])}'${offsets[i] >= 0.004 ? ` intercept='${n(offsets[i])}'` : ''}/>`;
   return (
     `<defs><filter id='${id}' color-interpolation-filters='sRGB'><feComponentTransfer>` +
-    `${fn('R', slopes[0])}${fn('G', slopes[1])}${fn('B', slopes[2])}</feComponentTransfer></filter></defs>` +
+    `${fn('R', 0)}${fn('G', 1)}${fn('B', 2)}</feComponentTransfer></filter></defs>` +
     `<g filter='url(#${id})'>${svg}</g>`
   );
+}
+
+/**
+ * How far back an actor is drawn, for the order it goes in among the fires standing on the
+ * stage: its feet, or those of whoever carries it or it stands on (as timeline.ts sorts).
+ */
+function rootOf(byId: Map<string, ActorState>, a: ActorState): ActorState {
+  for (let i = 0; i < 8; i++) {
+    const next = byId.get(a.heldBy ?? a.nockedOn ?? a.on ?? '');
+    if (!next) break;
+    a = next;
+  }
+  return a;
 }
 
 /**
@@ -346,13 +391,14 @@ function frameDocument(project: Project, body: string): string {
  * only what is drawn (its alpha) counts. With `only`, that actor alone. Otherwise what is
  * drawn over the actors: the scene's foreground and its near layer, as swayed now (art
  * only: rain, smoke and the like come and go), and with `over`, everyone drawn in front of
- * that actor as well. Drawn `zoom` times the frame's size, of the part of it in `crop` (frame
- * pixels) if given.
+ * that actor as well. With `over` or `front`, also the fires standing on the stage in front
+ * of that actor (effects.ts `standsAmong`), whose flames are drawn over it. Drawn `zoom`
+ * times the frame's size, of the part of it in `crop` (frame pixels) if given.
  */
 export function maskDocument(
   project: Project,
   frame: FrameState,
-  which: { only: string } | { over?: string },
+  which: { only: string } | { over?: string; front?: string },
   zoom = 1,
   crop?: { x: number; y: number; w: number; h: number }
 ): string {
@@ -380,6 +426,14 @@ export function maskDocument(
         .slice(i + 1)
         .map(drawn)
         .join('');
+    const front = which.over ?? which.front;
+    const me = front ? frame.actors.find((a) => a.id === front) : undefined;
+    if (me) {
+      const byId = new Map(frame.actors.map((a) => [a.id, a]));
+      const y = rootOf(byId, me).y;
+      for (const f of standingEffects(scene.effects, frame.t, weather.wind ?? 0, W, H))
+        if (f.y > y) world += f.svg;
+    }
     if (scene.foreground) world += sway(scene.foreground);
     near = sway(scene.near);
   }
@@ -466,9 +520,18 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
           ? (scene.parallax?.near ?? PARALLAX.near)
           : 1
     );
+  // A fire on the stage stands among the actors: its glow goes on the floor with the stage
+  // effects, the fire itself in depth order with them (standingEffects).
   const fx = (plane: EffectLayer) =>
-    effectsSvg(scene.effects, plane, frame.t, w.wind ?? 0, W, H, { zoom: planeZoom(plane) });
+    effectsSvg(scene.effects, plane, frame.t, w.wind ?? 0, W, H, {
+      zoom: planeZoom(plane),
+      among: true,
+    });
+  const standing = standingEffects(scene.effects, frame.t, w.wind ?? 0, W, H);
   const fires = fireLights(scene.effects, frame.t, W, H);
+  // The air between the camera and whoever stands further back (depth.ts).
+  const air = airOf(scene, w, scene.ground ?? defaultGround(project.meta));
+  const byId = new Map(posed.map((p) => [p.actor.id, p.actor]));
   // The scenery that sways in the air, turned for now (and further in a wind).
   const sway = (layer: string | undefined) => swayLayer(layer, scene.sway, frame.t, w.wind ?? 0);
   let world = `<g class='scene'>${sway(scene.svg)}</g>` + fx('stage') + sky.stage;
@@ -491,8 +554,14 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
   const bubbles: string[] = [];
   // The near side of a splash or ring on a waterline, over the water's foreground band.
   let onWater = '';
+  let stood = 0;
   for (const [i, { actor, pose }] of posed.entries()) {
-    const { light, slopes } = lightOf(actor, w, fires, sun);
+    // The fires further back than this actor (and what it carries) go down first; one
+    // standing just where it does (a flare cast at the fire's own spot) behind it.
+    const root = rootOf(byId, actor);
+    while (stood < standing.length && standing[stood].y <= root.y) world += standing[stood++].svg;
+    const depth = root.perspective;
+    const { light, tone } = lightOf(actor, w, fires, sun, air, depth);
     const onIt = overArcher.get(actor.id) ?? [];
     const bow = onIt.map((j) => posed[j]).find((o) => !o.actor.nockedOn);
     const passing = bow ? 1 - bow.actor.behind! : 0;
@@ -510,36 +579,36 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
           renderArchery(actor) +
           renderSoil(actor),
         `tk-lit-${i}`,
-        slopes
+        tone
       );
       let over = '';
       for (const j of onIt) {
         const o = posed[j];
         // A bow's string; an arrow whole.
         if (o.actor.nockedOn) {
-          const ol = lightOf(o.actor, w, fires, sun);
+          const ol = lightOf(o.actor, w, fires, sun, air, depth);
           over += lit(
             renderActor(o.actor, frame.t, o.pose, ol.light) + renderArchery(o.actor),
             `tk-lit-${j}-over`,
-            ol.slopes
+            ol.tone
           );
         } else over += renderArchery(o.actor);
       }
       if (up > 0) world += up < 1 ? `<g opacity='${n(up)}'>${over}</g>` : over;
-      world += lit(renderActor(actor, frame.t, pose, light, near), `tk-lit-${i}-near`, slopes);
+      world += lit(renderActor(actor, frame.t, pose, light, near), `tk-lit-${i}-near`, tone);
       if (bow && passing > 0) {
-        const bl = lightOf(bow.actor, w, fires, sun);
+        const bl = lightOf(bow.actor, w, fires, sun, air, depth);
         world += `<g opacity='${n(passing)}'>${lit(
           renderActor(bow.actor, frame.t, bow.pose, bl.light) + renderArchery(bow.actor),
           `tk-lit-${i}-bow`,
-          bl.slopes
+          bl.tone
         )}</g>`;
       }
     } else
       world += lit(
         renderActor(actor, frame.t, pose, light) + renderArchery(actor) + renderSoil(actor),
         `tk-lit-${i}`,
-        slopes
+        tone
       );
     world += renderImpacts(
       impacts.filter((b) => b.water === undefined),
@@ -565,6 +634,7 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
       world += `<circle cx='${n(actor.x)}' cy='${n(actor.y)}' r='5' fill='#f0f'/>`;
     }
   }
+  while (stood < standing.length) world += standing[stood++].svg;
   world += firelight(fires, w);
   if (scene.foreground) world += `<g class='foreground'>${sway(scene.foreground)}</g>`;
   world += onWater;

@@ -17,7 +17,9 @@ reasoning are in `docs/PLAN.md`. Read both before changing the data model.
   waves and the like, drawn from time each frame), `sway.ts` (a scene's
   tree crowns and grass turning about their pivots), `shade.ts` (the engine-drawn
   light and shadow on every part), `cast.ts` (each actor's shadow thrown
-  across the floor by the scene's lights), `timeline.ts` (actions →
+  across the floor by the scene's lights), `depth.ts` (the scene's
+  `perspective`, a scale for each floor depth, and the haze that fades
+  actors further back toward the sky's colour), `timeline.ts` (actions →
   actor state at time t), `stage.ts` (the staging the engine adds on its
   own: listeners turning to a speaker, a reaction looking at its cause, the
   face-off before a `give`, a worker walked to a `use` anchor, facing carried

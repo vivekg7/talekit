@@ -24,6 +24,7 @@
  * angry stand their ground. One the shot already gives a face or a turn just then is left
  * to it.
  */
+import { anchorScale } from './depth.js';
 import { waived } from './allow.js';
 import { hash01 } from './easing.js';
 import { soundTraits } from './sources.js';
@@ -360,7 +361,7 @@ function approach(
 ): StagedAction | undefined {
   const sits = anchor.use?.pose === 'sit';
   const now = at(id, t);
-  const foot = { x: anchor.x, y: anchor.floor ?? anchor.y, scale: anchor.scale };
+  const foot = { x: anchor.x, y: anchor.floor ?? anchor.y, scale: anchorScale(scene, anchor) };
   const near = atPlace(now, anchor);
   if (near && (!sits || now.sit > 0.5)) return undefined;
   if (!near && now.sit > 0.05) return undefined;

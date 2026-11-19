@@ -23,6 +23,38 @@ export interface EffectView {
   zoom?: number;
   /** Draw every `draw` line whole, wherever its pen is (the scene sheet). */
   finished?: boolean;
+  /**
+   * Leave out of the stage plane what stands among the actors (`standing`), all but the
+   * glow it lays on the floor: the frame draws it in depth order with them.
+   */
+  among?: boolean;
+}
+
+/**
+ * An effect that stands on the ground at its x, y among the actors, drawn in depth order
+ * with them: a fire on the stage, so whoever sits behind it is behind its flames and whoever
+ * is in front of it in front. Smoke rises from a chimney or a flame's tip, a waterfall pours
+ * off a lip, the sea and a river lie flat: all stay behind everyone.
+ */
+export const standsAmong = (e: Effect): boolean => e.kind === 'fire' && effectLayer(e) === 'stage';
+
+/** Each effect standing among the actors (`standsAmong`) now, with the floor y it stands on. */
+export function standingEffects(
+  effects: Effect[],
+  t: number,
+  wind: number,
+  W: number,
+  H: number
+): { y: number; svg: string }[] {
+  const k = uiScale({ width: W, height: H });
+  return effects
+    .map((e, i) =>
+      standsAmong(e)
+        ? { y: e.y ?? 0, svg: fire(e, `tk-fx-stage-${i}`, t, wind, k, 'standing') }
+        : undefined
+    )
+    .filter((x) => x !== undefined)
+    .sort((a, b) => a.y - b.y);
 }
 
 /**
@@ -45,7 +77,7 @@ export function effectsSvg(
       const id = `tk-fx-${layer}-${i}`;
       switch (e.kind) {
         case 'fire':
-          return fire(e, id, t, wind, k);
+          return fire(e, id, t, wind, k, view.among && standsAmong(e) ? 'ground' : 'all');
         case 'smoke':
           return smoke(e, id, t, wind, k);
         case 'waterfall':
@@ -114,17 +146,27 @@ function tongue(x: number, y: number, w: number, h: number, lean: number): strin
  * A campfire: crossed logs, a glow on the ground, three nested flames (red, orange,
  * yellow) and a couple of side tongues, each flickering on its own, and sparks rising.
  */
-function fire(e: Effect, id: string, t: number, wind: number, k: number): string {
+function fire(
+  e: Effect,
+  id: string,
+  t: number,
+  wind: number,
+  k: number,
+  part: 'all' | 'ground' | 'standing' = 'all'
+): string {
   const s = e.size * k;
   const x = e.x ?? 0;
   const y = e.y ?? 0;
   const seed = `${id}:`;
   const flick = wobble(t, seed + 'f');
   const lean = (wind * 26 + 9 * wobble(t, seed + 'l')) * s;
-  let out =
+  // The glow on the ground lies on the floor, under everyone; the rest stands up off it.
+  const glow =
     `<defs><radialGradient id='${id}-glow'><stop offset='0' stop-color='#ffb347' stop-opacity='0.55'/>` +
     `<stop offset='1' stop-color='#ffb347' stop-opacity='0'/></radialGradient></defs>` +
     `<ellipse cx='${n(x)}' cy='${n(y - 4 * s)}' rx='${n((120 + 8 * flick) * s)}' ry='${n((42 + 3 * flick) * s)}' fill='url(#${id}-glow)'/>`;
+  if (part === 'ground') return `<g class='fire-glow'>${glow}</g>`;
+  let out = part === 'all' ? glow : '';
   const log = (angle: number, color: string) =>
     `<g transform='translate(${n(x)} ${n(y - 9 * s)}) rotate(${angle})'>` +
     `<rect x='${n(-50 * s)}' y='${n(-8 * s)}' width='${n(100 * s)}' height='${n(16 * s)}' rx='${n(8 * s)}' fill='${color}' stroke='${LINE}' stroke-width='${n(3 * k)}'/>` +

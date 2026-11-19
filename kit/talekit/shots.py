@@ -171,9 +171,16 @@ def at(where, facing="right", emotion="neutral", visible=True, **more):
     return {"at": where, "facing": facing, "emotion": emotion, "visible": visible, **more}
 
 
-def pt(x, y, scale=None):
-    """A point on the floor that is not an anchor; `scale` as an anchor's (a reel's 1.35)."""
-    return {"x": round(x), "y": round(y), **({"scale": scale} if scale else {})}
+def pt(x, y, scale=None, ground=None):
+    """A point on the floor that is not an anchor; `scale` as an anchor's (a reel's 1.35).
+    Without it, a scene with a `perspective` sizes it by its depth: `ground` is that depth
+    for a spot up on a raised surface (the y the dais meets the floor at)."""
+    return {
+        "x": round(x),
+        "y": round(y),
+        **({"scale": scale} if scale else {}),
+        **({"ground": round(ground)} if ground is not None else {}),
+    }
 
 
 def row(actors, anchor):

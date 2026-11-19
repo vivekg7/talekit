@@ -293,7 +293,7 @@ describe('effects', () => {
   it('moves with time', () => {
     const p = project({ effects });
     const fire = (t: number) =>
-      composeFrame(p, p.shots[0], t).match(/<g class='fire'>.*?<\/g>(?=<)/)?.[0];
+      composeFrame(p, p.shots[0], t).match(/<g class='fire'>.*?(?=<g class='actor)/)?.[0];
     expect(fire(1)).not.toEqual(fire(1.1));
   });
 

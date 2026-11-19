@@ -361,8 +361,23 @@ export const AnchorSchema = z.object({
   x: z.number(),
   /** Floor point: where the character's feet go. */
   y: z.number(),
-  /** Perspective multiplier applied to the character's scale when standing here. */
-  scale: z.number().positive().default(1),
+  /**
+   * Perspective multiplier applied to the character's scale when standing here. Unset, it is
+   * the scene's `perspective` at the anchor's depth (`ground`, `floor` or `y`), else 1.
+   */
+  scale: z
+    .number()
+    .positive()
+    .optional()
+    .describe(
+      "How big whoever stands here is drawn, times the character's height (0.7 for a distant path). Default: the scene's `perspective` at this anchor's depth when the scene has one, else 1"
+    ),
+  ground: z
+    .number()
+    .optional()
+    .describe(
+      "On a raised surface (a platform, a stage, a roof, a cart): the y where the surface it is on meets the ground in front of it. That is how far back it is, for the scene's `perspective` (and the haze on whoever stands there): someone up on a dais at the back is as small as the floor at the dais's foot, not as the floor where their feet are drawn. A seat's `floor` counts the same way"
+    ),
   floor: z
     .number()
     .optional()
@@ -819,6 +834,37 @@ export const SceneSchema = z.object({
     ),
   allow: AllowSchema,
   anchors: z.record(z.string(), AnchorSchema).default({}),
+  perspective: z
+    .tuple([
+      z.tuple([z.number(), z.number().positive()]),
+      z.tuple([z.number(), z.number().positive()]),
+    ])
+    .refine(([a, b]) => a[0] !== b[0], 'the two rows must be at different depths (y)')
+    .optional()
+    .describe(
+      "The ground's perspective, once for the whole scene: two rows of the floor as [y, scale], a far one and a near one ([[499, 0.62], [665, 0.95]]). On flat ground what stands there shrinks in step with its height above the horizon, so the scale is a straight line in y through the two rows, run on past them. An anchor with no `scale` gets the scale at its depth (its `ground`, a seat's `floor`, else its y), and so does a spot in a shot with no `scale`, and the stage shortcuts. An anchor or cast spot whose `scale` is off it by more than a fifth is a world finding (`world.scale`). The anchor sheet draws the ghost's height at a few depths"
+    ),
+  depth: z
+    .object({
+      haze: z
+        .number()
+        .min(0)
+        .max(1)
+        .optional()
+        .describe(
+          "How far the farthest figures fade toward the air colour, 0 (none) to 1 (gone): default 0.3, gentle. Figures at the nearest row have none; it grows with distance, full at two and a half times as far back (two fifths of the near row's size)"
+        ),
+      color: z
+        .string()
+        .optional()
+        .describe(
+          "The air's colour the far figures fade toward (#rrggbb). Default: the horizon colour of the painted sky (the last stop of the first gradient in `far`), else a pale daylight blue tinted by `weather.light`"
+        ),
+    })
+    .optional()
+    .describe(
+      "Aerial perspective: the engine fades whoever stands further back a little toward the air's colour, lighter and lower in contrast, as distance does in a real picture, so far and near read apart. On by default, gentle; { haze: 0 } turns it off"
+    ),
   ambience: AmbienceSchema,
   surface: z
     .enum(['hard', 'grass', 'sand', 'snow'])
@@ -844,7 +890,23 @@ export type SceneInput = z.input<typeof SceneSchema>;
 
 export const PositionSchema = z.union([
   z.string(),
-  z.object({ x: z.number(), y: z.number(), scale: z.number().positive().optional() }),
+  z.object({
+    x: z.number(),
+    y: z.number(),
+    scale: z
+      .number()
+      .positive()
+      .optional()
+      .describe(
+        "As an anchor's scale. Default: the scene's `perspective` at the spot's depth (`ground`, else `y`), else 1"
+      ),
+    ground: z
+      .number()
+      .optional()
+      .describe(
+        "A spot up on a raised surface: the y where that surface meets the ground in front, its depth for the scene's `perspective`"
+      ),
+  }),
 ]);
 export type Position = z.infer<typeof PositionSchema>;
 

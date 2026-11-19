@@ -591,7 +591,8 @@ A scene is an SVG fragment the size of the project (default 1280×720, a
 reel's 720×1280) plus named **anchors**: floor points where characters
 stand. Add one for every door, chair, tree, table and path end you will
 use. An anchor's optional `scale` shrinks whoever stands there (`0.7` for
-a distant path). `ground` is the floor y for the shortcuts `left`,
+a distant path); in a scene with a `perspective` (below), leave it out and
+the engine sizes everyone by how far back they stand. The scene's `ground` is the floor y for the shortcuts `left`,
 `center`, `right`, `offLeft` and `offRight` (default 0.9 × height; off is
 15% of the width outside the edge, 192 px at 1280, which hides anything up
 to about 350 px wide; place wider characters further out).
@@ -790,6 +791,7 @@ every finding is fixed or waived.
 | `support.climb`        | a `climb` goes up (or down) nothing that can be climbed: outside every `climb` area                                                                                                      |
 | `world.walk`           | the scene has no walk areas                                                                                                                                                              |
 | `world.anchor`         | an anchor is on no walk or water area                                                                                                                                                    |
+| `world.scale`          | an anchor's or a cast spot's `scale` is more than a fifth off the scene's `perspective` at its depth                                                                                     |
 | `attention.listener`   | someone spoken to faces away from the speaker                                                                                                                                            |
 | `attention.speaker`    | a speaker faces away from who the line is said to                                                                                                                                        |
 | `attention.reacts`     | someone reacts to what they face away from                                                                                                                                               |
@@ -832,6 +834,65 @@ into depths:
 Interiors usually need no `far`. The library `park` and `street` are
 layered examples. A layered scene's anchor sheet adds each layer alone and
 the camera zoomed into either side; look for gaps there.
+
+### Perspective and haze (`perspective`, `depth`)
+
+Real pictures tell far from near in two ways, and a scene should do both:
+what is further back is drawn **smaller**, and the air between makes it a
+little **paler and softer**. Without them a king on a dais at the back and
+the courtiers at the front read as if they stood side by side.
+
+**Perspective.** On flat ground seen from eye height, the size something is
+drawn at grows in step with how far below the horizon its feet are, so the
+scale is a straight line in floor y. Give it once, as two rows of the
+floor, a far one and a near one, each `[y, scale]`:
+
+```json
+"perspective": [[499, 0.62], [665, 0.95]]
+```
+
+The line runs on past both rows. Then an anchor with no `scale` gets the
+scale at its depth, and so do a spot in a shot with no `scale` and the stage
+shortcuts. Fit the two rows to the art: the size a person should be at the
+back of the floor and at the front (the stones of a fire pit, a doorway, a
+bench are the yardsticks). The anchor sheet draws the ghost's height in cyan
+at five depths, `×0.62` and so on, so check each bar against the art.
+
+**Raised surfaces.** Someone up on a dais, a stage, a roof or a cart is as
+far back as the dais's foot, not as the floor where their feet are drawn,
+which is higher up the frame. Give such an anchor `ground`, the y where the
+surface it is on meets the floor in front of it:
+`"raja": { "x": 1034, "y": 474, "ground": 530 }`. A seat's `floor` counts
+the same way, and a spot in a shot takes `ground` too
+(`{ "x": 905, "y": 496, "ground": 530 }`; the kit's `pt(905, 496,
+ground=530)`). Draw what stands on the dais (a throne, a canopy) at that
+depth's size too, or the king sits on it like a child.
+
+An anchor or a cast spot whose `scale` is more than a fifth off the
+perspective is a `world.scale` finding, which gives the scale it should be.
+Leave the scale out (a point only aimed at, such as a `hold`'s target, needs
+none), give `ground`, or waive it by name for a size the film means (a
+giant, a big nature face). Draw a character's own size with its `height`
+or the cast's `scale`, not with an anchor's.
+
+**Haze.** Every actor, with what it carries, fades a little toward the air's
+colour the further back it stands: lighter, lower in contrast, its outline
+softer. None at the scene's nearest row (its biggest anchor), growing with
+distance, full at twice as far back (half the near row's size), where it has
+gone `depth.haze` of the way, 0.35 by default (a little less at night: 0.35
+× (1 − half the `weather.light` amount)). Gentle on purpose: a face at the
+back still reads. The air's colour is the horizon of the painted sky (the
+last stop of the first gradient in `far`; dusk orange, night blue as the
+scene paints it), else a pale daylight blue tinted by `weather.light`.
+Distance comes from the perspective, or without one from the anchors'
+scales, so a scene where everyone stands at scale 1 has none.
+
+```json
+"depth": { "haze": 0.5, "color": "#cfe3f2" }
+```
+
+`haze` 0 turns it off (an interior where everyone is a few steps apart),
+more for a misty morning; `color` overrides the sky's.
 
 ### Weather and moving nature
 
@@ -901,15 +962,23 @@ over `duration` (default 2 s); what it leaves out goes away.
 ]
 ```
 
-| kind        | where `x`, `y` is                                  | what moves                                                                      |
-| ----------- | -------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `fire`      | the middle of the base, on the ground              | crossed logs (`logs: false` for none), flickering flames, a glow, rising sparks |
-| `smoke`     | where it comes out (a chimney top, a flame's tip)  | puffs rising, swelling, drifting with the wind                                  |
-| `waterfall` | the middle of the lip it pours over                | streaks pouring down `height`, foam, ripples and mist at the foot               |
-| `waves`     | `y` is the far edge of the sea, `height` its depth | rows of crests, a swell rolling in, foam washing up the shore line and back     |
-| `river`     | no `x`, `y`: `points` is the water's outline       | ripples and glints drifting with the current (`flow`), swelling and fading      |
-| `sun`       | the centre of the disc                             | a breathing halo and slowly turning rays                                        |
-| `draw`      | no `x`, `y`: `points` is the line, in pen order    | the line drawn on from `start` over `duration` s, a glowing pen at its tip      |
+| kind   | where `x`, `y` is                     | what moves                                                                      |
+| ------ | ------------------------------------- | ------------------------------------------------------------------------------- |
+| `fire` | the middle of the base, on the ground | crossed logs (`logs: false` for none), flickering flames, a glow, rising sparks |
+
+A `fire` on the stage stands among the actors: its glow lies on the floor
+under everyone, and the fire itself is drawn in depth order with them, by
+its `y`. Whoever sits behind it (feet higher up the frame than its base),
+and the ladle they hold out to it, is behind its flames; whoever is in
+front of it, in front, and so is something cast at the fire's own spot (a
+flare prop leaping up out of it). Flames over a speaker's face count for
+`sight.face`.
+| `smoke` | where it comes out (a chimney top, a flame's tip) | puffs rising, swelling, drifting with the wind |
+| `waterfall` | the middle of the lip it pours over | streaks pouring down `height`, foam, ripples and mist at the foot |
+| `waves` | `y` is the far edge of the sea, `height` its depth | rows of crests, a swell rolling in, foam washing up the shore line and back |
+| `river` | no `x`, `y`: `points` is the water's outline | ripples and glints drifting with the current (`flow`), swelling and fading |
+| `sun` | the centre of the disc | a breathing halo and slowly turning rays |
+| `draw` | no `x`, `y`: `points` is the line, in pen order | the line drawn on from `start` over `duration` s, a glowing pen at its tip |
 
 `size` scales fire (1 is a campfire about 110 px tall), smoke and the sun;
 `color` recolours water, foam, smoke or sun. `layer` defaults to `far` for
@@ -1060,7 +1129,9 @@ falling the same way.
   whatever the cast order or size. To pass behind someone on a shared path,
   use an anchor or point with a smaller `y`.
 - A position (`at`, `to`, `set.at`) is an anchor name or a point in scene
-  pixels, `{ "x": 640, "y": 610, "scale": 0.8 }`. A `to` with a `scale`
+  pixels, `{ "x": 640, "y": 610, "scale": 0.8 }`. A point with no `scale`
+  is 1, or in a scene with a `perspective` the scale at its depth (`ground`
+  for a spot up on a raised surface). A `to` with a `scale`
   tweens the size during `walk`/`move`/`fly`: walking into the distance,
   sinking into a well behind a `foreground`. Anchors survive a scene
   redraw; use points for spots with no name, like a kite in the sky.

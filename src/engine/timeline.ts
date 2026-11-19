@@ -1,3 +1,4 @@
+import { anchorScale, depthOf, perspectiveAt } from './depth.js';
 import { clamp01, easeInOut, easeOut, hash01, lerp, ramp } from './easing.js';
 import {
   actorHeadTop,
@@ -237,20 +238,23 @@ export function resolvePosition(project: Project, scene: Scene, pos: Position): 
   const { width, height } = project.meta;
   const ground = scene.ground ?? defaultGround(project.meta);
   const [left, right] = stageSides(project.meta);
-  if (typeof pos !== 'string') return { x: pos.x, y: pos.y, scale: pos.scale ?? 1 };
+  // Unscaled, a spot is as big as the scene's perspective makes it there (depth.ts).
+  if (typeof pos !== 'string')
+    return { x: pos.x, y: pos.y, scale: pos.scale ?? perspectiveAt(scene, depthOf(pos)) ?? 1 };
   const a = scene.anchors[pos];
-  if (a) return { x: a.x, y: a.y, scale: a.scale };
+  if (a) return { x: a.x, y: a.y, scale: anchorScale(scene, a) };
+  const s = perspectiveAt(scene, ground) ?? 1;
   switch (pos) {
     case 'left':
-      return { x: width * left, y: ground, scale: 1 };
+      return { x: width * left, y: ground, scale: s };
     case 'center':
-      return { x: width * 0.5, y: ground, scale: 1 };
+      return { x: width * 0.5, y: ground, scale: s };
     case 'right':
-      return { x: width * right, y: ground, scale: 1 };
+      return { x: width * right, y: ground, scale: s };
     case 'offLeft':
-      return { x: -width * 0.15, y: ground, scale: 1 };
+      return { x: -width * 0.15, y: ground, scale: s };
     case 'offRight':
-      return { x: width * 1.15, y: ground, scale: 1 };
+      return { x: width * 1.15, y: ground, scale: s };
     default:
       throw new Error(`unknown position '${pos}' in scene '${scene.id}'`);
   }

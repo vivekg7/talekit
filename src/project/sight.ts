@@ -10,7 +10,8 @@ import { waived } from '../engine/allow.js';
 import { maskDocument } from '../engine/compose.js';
 import { faceBoxes } from '../engine/place.js';
 import { resolveFrame, type FrameState } from '../engine/timeline.js';
-import type { Project, Shot } from '../engine/types.js';
+import { standsAmong } from '../engine/effects.js';
+import type { Project, Scene, Shot } from '../engine/types.js';
 import { lineDuration, shorten } from '../engine/voice.js';
 import type { Finding, XY } from '../engine/world.js';
 
@@ -50,12 +51,15 @@ function toScene(frame: FrameState, W: number, H: number, x: number, y: number):
   return { x: r((x - W / 2) / c.zoom + c.x), y: r((y - H / 2) / c.zoom + c.y) };
 }
 
-const hasCover = (frame: FrameState) => !!(frame.scene.foreground || frame.scene.near);
+/** Art drawn over the actors: the foreground, the near layer, a fire standing on the stage. */
+const covers = (scene: Scene) =>
+  !!(scene.foreground || scene.near || scene.effects.some(standsAmong));
+const hasCover = (frame: FrameState) => covers(frame.scene);
 
 /** Each speaker's face clear of the art in front of the actors, through each of its lines. */
 function faceRule(project: Project, shot: Shot): Finding[] {
   const scene = project.scenes[shot.scene];
-  if (!scene.foreground && !scene.near) return [];
+  if (!covers(scene)) return [];
   const { width: W, height: H } = project.meta;
   const allow = [shot.allow, scene.allow];
   const out: Finding[] = [];
@@ -76,7 +80,7 @@ function faceRule(project: Project, shot: Shot): Finding[] {
       const face = faceBoxes(project, frame).find((f) => f.id === id)?.box;
       looked++;
       if (!face || face.x + face.w < 0 || face.x > W || face.y + face.h < 0 || face.y > H) continue;
-      const m = alpha(maskDocument(project, frame, {}, FACE_PX / face.w, face));
+      const m = alpha(maskDocument(project, frame, { front: id }, FACE_PX / face.w, face));
       let sum = 0;
       for (const v of m.a) sum += v;
       covered += sum / 255 / m.a.length;
@@ -93,7 +97,7 @@ function faceRule(project: Project, shot: Shot): Finding[] {
       actors: [id],
       at,
       message:
-        `'${id}''s face is ${r(share * 100)}% behind the scenery drawn in front of the actors (the scene's foreground or near layer) while it says "${words}": ` +
+        `'${id}''s face is ${r(share * 100)}% behind the scenery drawn in front of the actors (the scene's foreground or near layer, or a fire in front of it) while it says "${words}": ` +
         `move it out from behind, or take that part of the art out of the way.`,
     });
   }

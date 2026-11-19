@@ -1,3 +1,4 @@
+import { depthOf, perspectiveAt } from '../engine/depth.js';
 import { groundOf, type Finding } from '../engine/world.js';
 import type { Area } from '../engine/types.js';
 import {
@@ -566,6 +567,25 @@ export function sceneSheetSvg(project: Project, scene: Scene): string {
       `<g><circle cx='${n(l.x)}' cy='${n(l.y)}' r='13' fill='none' stroke='#ffe14d' stroke-width='4'/>` +
       `<text x='${n(l.x + 18)}' y='${n(l.y + 7)}' font-family='${LABEL_FONT}' font-size='18' font-weight='bold' fill='#ffe14d' stroke='#000' stroke-width='4' paint-order='stroke'>${l.kind === 'sky' ? 'light (sky)' : 'light (lamp)'}</text></g>`;
   }
+  // The scene's perspective: the ghost's height at a few depths, from its farthest anchor
+  // to the ground line, so the author sees how big someone is drawn further back.
+  let depthBars = '';
+  if (scene.perspective) {
+    const ys = Object.values(scene.anchors).map(depthOf);
+    const top = Math.min(...ys, scene.perspective[0][0], scene.perspective[1][0]);
+    const bottom = Math.max(...ys, centre.y);
+    const rows = 5;
+    for (let i = 0; i < rows; i++) {
+      const y = top + ((bottom - top) * i) / (rows - 1);
+      const s = perspectiveAt(scene, y)!;
+      const h = ghostH * s;
+      const x = W * (0.06 + (0.88 * i) / (rows - 1));
+      depthBars +=
+        `<g><line x1='${n(x - 30)}' y1='${n(y)}' x2='${n(x + 30)}' y2='${n(y)}' stroke='#7fe7ff' stroke-width='3'/>` +
+        `<rect x='${n(x - 7)}' y='${n(y - h)}' width='14' height='${n(h)}' rx='7' fill='#7fe7ff' fill-opacity='0.55' stroke='#003a4a' stroke-width='2'/>` +
+        `<text x='${n(x + 12)}' y='${n(y - h + 14)}' font-family='${LABEL_FONT}' font-size='16' font-weight='bold' fill='#7fe7ff' stroke='#000' stroke-width='4' paint-order='stroke'>×${s.toFixed(2)}</text></g>`;
+    }
+  }
   const ghost = `<defs>${CAST_DEFS}</defs>${shadows}<g opacity='0.35'>${ghostBox} fill='#333'/><text x='${n(centre.x)}' y='${n(centre.y - ghostH - 8)}' text-anchor='middle' font-family='${LABEL_FONT}' font-size='16' fill='#333'>${escapeXml(ghostLabel)}</text></g>`;
   // Effects stand still at one moment here, where they are placed against the anchors (drawn
   // lines whole); the strip underneath shows them moving with the weather.
@@ -592,7 +612,8 @@ export function sceneSheetSvg(project: Project, scene: Scene): string {
     (scene.near ? `<g>${scene.near}</g>` : '') +
     fx('near') +
     marks +
-    `<text x='12' y='28' font-family='${LABEL_FONT}' font-size='20' fill='#fff' stroke='#000' stroke-width='4' paint-order='stroke'>${escapeXml(scene.name)} (${scene.id}) · green = anchors · yellow = stage shortcuts${scene.shelters.length ? ' · blue = shelters' : ''}${lights.length ? ' · yellow rings = lights' : ''}${scene.sway ? ' · pink = sway pivots' : ''}</text>` +
+    depthBars +
+    `<text x='12' y='28' font-family='${LABEL_FONT}' font-size='20' fill='#fff' stroke='#000' stroke-width='4' paint-order='stroke'>${escapeXml(scene.name)} (${scene.id}) · green = anchors · yellow = stage shortcuts${scene.shelters.length ? ' · blue = shelters' : ''}${lights.length ? ' · yellow rings = lights' : ''}${scene.sway ? ' · pink = sway pivots' : ''}${scene.perspective ? ' · cyan bars = perspective' : ''}</text>` +
     below +
     `</svg>`
   );

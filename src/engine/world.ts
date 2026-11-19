@@ -45,6 +45,7 @@ import {
 } from './timeline.js';
 import { STRIKE_HIT } from './motion.js';
 import { solidAt } from './route.js';
+import { depthOf, offPerspective } from './depth.js';
 import { lineEnd } from './voice.js';
 
 export { waived };
@@ -72,6 +73,7 @@ export interface Finding {
 export const CODES: Record<string, string> = {
   'world.walk': 'the scene has no walk areas',
   'world.anchor': 'an anchor is on no walk or water area',
+  'world.scale': "an anchor's or a cast spot's scale is off the scene's perspective",
   'support.air': 'an actor that cannot fly is held up by nothing',
   'support.water': 'an actor that cannot swim is in deep water',
   'support.dry': 'an actor that lives in water is out of it',
@@ -133,6 +135,10 @@ function nearestOf(areas: Area[], p: XY): { point: XY; d: number } | undefined {
 
 const within = (areas: Area[], p: XY) => (nearestOf(areas, p)?.d ?? Infinity) <= EDGE_TOLERANCE;
 
+/** On a walk or water area: a spot on the floor, not one in the air. */
+const onGround = (g: Ground, p: XY) =>
+  within(g.walk, p) || within(g.deep, p) || within(g.shallow, p);
+
 // ---------------------------------------------------------------------------------------
 // What the stage is, and what an actor is
 
@@ -190,6 +196,26 @@ export function sceneFindings(scene: Scene, width: number): Omit<Finding, 'shot'
   const out: Omit<Finding, 'shot' | 't'>[] = [];
   const allow = [scene.allow];
   const ground = groundOf(scene);
+  // Sizes set by hand against the scene's perspective (depth.ts), for spots on the ground:
+  // one in the air (a bird's, waived as `world.anchor`) has no floor to measure it by.
+  for (const [name, a] of Object.entries(scene.anchors)) {
+    const depth = depthOf(a);
+    const want = offPerspective(scene, depth, a.scale);
+    if (want === undefined || !onGround(ground, { x: a.x, y: a.floor ?? a.y })) continue;
+    if (waived(allow, 'world.scale', name)) continue;
+    out.push({
+      code: 'world.scale',
+      actors: [],
+      at: { x: a.x, y: a.y },
+      message:
+        `anchor '${name}' has scale ${a.scale}, but the scene's perspective makes it ${r2(want)} at its depth (y ${r(depth)}${a.ground !== undefined ? ', its `ground`' : a.floor !== undefined ? ', the floor under the seat' : ''}), ${r((a.scale! / want - 1) * 100)}% off, so it reads as nearer or further than it stands. ` +
+        `Leave its scale out (or set ${r2(want)})` +
+        (a.ground === undefined && a.floor === undefined
+          ? ', or give it `ground`, the y its raised surface meets the floor at, if it stands up on something'
+          : '') +
+        `; allow { 'world.scale:${name}': reason } only for a size the film means (a giant)`,
+    });
+  }
   if (!ground.walk.length) {
     if (!waived(allow, 'world.walk'))
       out.push({
@@ -854,10 +880,42 @@ function nearestOutside(area: Area, p: XY): XY {
 
 const RULES = [supportRule, solidRule, attentionRule, jumpRule];
 
+/** Each cast spot sized by hand (`at: { x, y, scale }`) against the scene's perspective. */
+function scaleRule(project: Project, shot: Shot): Finding[] {
+  const scene = project.scenes[shot.scene];
+  if (!scene?.perspective) return [];
+  const ground = groundOf(scene);
+  const allow = [shot.allow, scene.allow];
+  const out: Finding[] = [];
+  for (const [id, c] of Object.entries(shot.cast)) {
+    if (typeof c.at !== 'object' || c.on) continue;
+    const depth = depthOf(c.at);
+    const want = offPerspective(scene, depth, c.at.scale);
+    if (want === undefined || !onGround(ground, c.at)) continue;
+    if (waived(allow, 'world.scale', id)) continue;
+    out.push({
+      code: 'world.scale',
+      shot: shot.id,
+      t: [0, 0],
+      actors: [id],
+      at: { x: c.at.x, y: c.at.y },
+      message:
+        `'${id}' is cast at (${r(c.at.x)}, ${r(c.at.y)}) with scale ${c.at.scale}, but the scene's perspective makes it ${r2(want)} at that depth (y ${r(depth)}), ${r((c.at.scale! / want - 1) * 100)}% off. ` +
+        `Leave the scale out and the perspective sizes it` +
+        (c.at.ground === undefined
+          ? ', giving `ground` (the y a raised surface meets the floor at) for a spot up on one'
+          : ''),
+      fix: { path: `/cast/${id}/at/scale`, value: r2(want) },
+    });
+  }
+  return out;
+}
+
 /** Every finding in a shot, waivers applied. */
 export function shotFindings(project: Project, shot: Shot): Finding[] {
   const samples = sampleShot(project, shot);
   return [
+    ...scaleRule(project, shot),
     ...RULES.flatMap((rule) => rule(project, shot, samples)),
     ...giveRule(project, shot),
     ...cutRule(project, shot),
