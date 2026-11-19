@@ -12,10 +12,12 @@ import {
   type ProjectMeta,
   type Scene,
   type Shot,
+  type SketchFile,
   type VoiceClip,
 } from '../engine/types.js';
 import { badTake, matchTake, type TakeMatch } from '../engine/speech.js';
 import { timeActions } from '../engine/voice.js';
+import { loadSketches, sketchAt, sketchFile } from '../render/sketch.js';
 
 export const META_FILE = 'talekit.json';
 
@@ -25,6 +27,8 @@ export interface ProjectPaths {
   characters: string;
   scenes: string;
   shots: string;
+  /** Code drawn on the stage (render/sketch.ts), sketches/<id>.js. */
+  sketches: string;
   /** The project's own sounds and music, named by file name without the extension. */
   audio: string;
   out: string;
@@ -40,6 +44,7 @@ export function projectPaths(root: string): ProjectPaths {
     characters: path.join(root, 'characters'),
     scenes: path.join(root, 'scenes'),
     shots: path.join(root, 'shots'),
+    sketches: path.join(root, 'sketches'),
     audio: path.join(root, 'audio'),
     out: path.join(root, 'out'),
     movie: path.join(root, 'out', 'movie.mp4'),
@@ -107,6 +112,7 @@ export async function loadProject(root: string, over: string[] = []): Promise<Pr
   const characters: Record<string, Character> = {};
   const scenes: Record<string, Scene> = {};
   const shotFiles: { file: string; shot: Shot }[] = [];
+  const sketches: Record<string, SketchFile> = {};
   const layers = [p.root, ...over.map((o) => path.resolve(o))];
 
   for (const [i, dir] of layers.entries()) {
@@ -131,6 +137,10 @@ export async function loadProject(root: string, over: string[] = []): Promise<Pr
         else shotFiles.push({ file, shot: r.data });
       }
     }
+    const code = path.join(dir, 'sketches');
+    for (const f of existsSync(code) ? (await readdir(code)).sort() : [])
+      if (f.endsWith('.js') && !f.startsWith('.'))
+        sketches[f.slice(0, -3)] = await sketchFile(path.join(code, f));
     if (i && existsSync(path.join(dir, META_FILE))) {
       const extra = JSON.parse(await readFile(path.join(dir, META_FILE), 'utf8')) as object;
       meta = ProjectMetaSchema.parse({ ...meta, ...extra });
@@ -148,6 +158,10 @@ export async function loadProject(root: string, over: string[] = []): Promise<Pr
       audio = { ...audio, files: { ...audio.files, [name]: path.join(more.dir, f) } };
   }
   const project: Project = { meta, characters, scenes, shots, audio };
+  if (Object.keys(sketches).length) {
+    project.sketches = sketches;
+    await loadSketches(project);
+  }
   for (const shot of shots) timeActions(project, shot);
   return project;
 }
@@ -222,6 +236,37 @@ export function formatIssues(error: {
   return error.issues
     .map((i) => `${i.path.length ? i.path.map(String).join('.') + ': ' : ''}${i.message}`)
     .join('; ');
+}
+
+/**
+ * Save sketches/<id>.js once it imports and draws its first frame: a sketch that throws is
+ * never written, so the project it would break still loads.
+ */
+export async function saveSketch(root: string, id: string, code: string): Promise<string> {
+  const p = projectPaths(root);
+  const meta = await loadMeta(root);
+  await mkdir(p.sketches, { recursive: true });
+  const trial = path.join(p.sketches, `.${id}.trial.js`);
+  await writeFile(trial, code);
+  try {
+    const project: Project = {
+      meta,
+      characters: {},
+      scenes: {},
+      shots: [],
+      sketches: { [id]: await sketchFile(trial) },
+    };
+    await loadSketches(project);
+    const shot = ShotSchema.parse({ id: 'trial', scene: 'trial', duration: 1, sketch: id });
+    sketchAt(project, shot, 0, 0.25);
+  } catch (e) {
+    throw new Error((e as Error).message.replaceAll(`.${id}.trial.js`, `${id}.js`));
+  } finally {
+    await rm(trial, { force: true });
+  }
+  const file = path.join(p.sketches, `${id}.js`);
+  await writeFile(file, code);
+  return file;
 }
 
 /** Write `<dir>/<name>.json`, making the folder if need be. */

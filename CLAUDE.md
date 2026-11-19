@@ -34,6 +34,10 @@ the design reasons: read the relevant part before you change the data model.
   `hear.ts`), and the post text lint (`posts.ts`).
 - `src/render/` — resvg rasteriser, ffmpeg encoder on worker threads, the sound
   mixer, the .mkv, preview sheets, the critic (`critic.ts`).
+- `src/sketch/` — the open canvas a shot's `sketch` draws with: `p5.ts` (a
+  p5.js-style API over a Skia canvas), `noise.ts` (seeded chance), `fluid.ts`
+  (a fluid simulation). `src/render/sketch.ts` runs sketches frame by frame
+  and hands each frame to the engine as a picture.
 - `src/library/` — built-in characters, scenes and sounds: the quality bar and
   the templates agents copy.
 - `kit/` — the Python kit that story scripts import, plus the starting

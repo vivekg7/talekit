@@ -45,3 +45,41 @@ describe('copy_from_library', () => {
     expect(existsSync(path.join(root, 'scenes/Bad Id.json'))).toBe(false);
   });
 });
+
+describe('write_sketch', () => {
+  let root: string;
+  let client: Client;
+  beforeAll(async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), 'talekit-mcp-'));
+    await createProject(root, { title: 'Sketch', width: 360, height: 640, fps: 12 });
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    await buildServer().connect(a);
+    client = new Client({ name: 'test', version: '0' });
+    await client.connect(b);
+  });
+  afterAll(async () => {
+    await client.close();
+    await rm(root, { recursive: true, force: true });
+  });
+  const write = (code: string) =>
+    client.callTool({
+      name: 'write_sketch',
+      arguments: { path: root, id: 'dots', code, seconds: 2, frames: 2 },
+    }) as Promise<{ content: { type: string; text?: string }[]; isError?: boolean }>;
+
+  it('saves code that draws, and answers with its frames', async () => {
+    const r = await write(
+      'export default (p) => { p.draw = () => { p.background(20); p.circle(p.time * 100, 300, 40); }; }'
+    );
+    expect(r.isError).toBeFalsy();
+    expect(r.content[0].text).toMatch(/sketches\/dots\.js; not in a shot yet: 2s of it/);
+    expect(r.content.some((c) => c.type === 'image')).toBe(true);
+  });
+
+  it('keeps code that throws out of the project, with the line it threw on', async () => {
+    const r = await write('export default (p) => {\n  p.setup = () => p.nope();\n};');
+    expect(r.isError).toBe(true);
+    expect(r.content[0].text).toMatch(/p\.nope is not a function/);
+    expect((await loadProject(root)).sketches?.dots).toBeDefined();
+  });
+});

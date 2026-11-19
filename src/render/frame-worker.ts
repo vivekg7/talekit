@@ -1,9 +1,9 @@
 import v8 from 'node:v8';
 import vm from 'node:vm';
 import { parentPort, workerData } from 'node:worker_threads';
-import { composeFrame } from '../engine/compose.js';
 import type { Project } from '../engine/types.js';
 import { rasterizePixels } from './raster.js';
+import { frameSvg, loadSketches } from './sketch.js';
 
 /**
  * One of renderVideo's workers: it holds its own copy of the project and draws the frames
@@ -30,7 +30,7 @@ interface Job {
 function draw({ seq, shot, t }: Job): void {
   try {
     const { pixels, width, height } = rasterizePixels(
-      composeFrame(project, project.shots[shot], t)
+      frameSvg(project, project.shots[shot], t, { density: 1 })
     );
     if (width !== project.meta.width || height !== project.meta.height)
       throw new Error(
@@ -45,17 +45,25 @@ function draw({ seq, shot, t }: Job): void {
 
 const queue: Job[] = [];
 let busy = false;
+/** Its own import of the sketches, before the first frame. */
+const sketches = loadSketches(project);
+let failed: string | undefined;
+sketches.catch((e: Error) => (failed = e.stack ?? String(e)));
 
 function next(): void {
   const job = queue.shift();
   busy = !!job;
   if (!job) return;
-  draw(job);
+  if (failed) parentPort!.postMessage({ seq: job.seq, error: failed });
+  else draw(job);
   gc({ type: 'minor' });
   setImmediate(next);
 }
 
 parentPort!.on('message', (job: Job) => {
   queue.push(job);
-  if (!busy) next();
+  if (!busy) {
+    busy = true;
+    sketches.finally(next).catch(() => {});
+  }
 });

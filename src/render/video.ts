@@ -127,12 +127,15 @@ export async function renderVideo(
     w.on('error', fail);
   }
 
+  // A sketch has state, carried from frame to frame by the worker that runs it: each run
+  // of shots joined by a sketch (one, or two dissolving into each other) goes to one worker.
+  const lanes = sketchLanes(shots, count);
   try {
     let sent = 0;
     let written = 0;
     const send = () => {
       for (; sent < plan.length && sent < written + 2 * count; sent++)
-        pool[sent % count].postMessage({ seq: sent, ...plan[sent] });
+        pool[lanes[plan[sent].shot] ?? sent % count].postMessage({ seq: sent, ...plan[sent] });
     };
     send();
     while (written < plan.length) {
@@ -161,6 +164,26 @@ export async function renderVideo(
     if (audio) await rm(audioPath, { force: true });
   }
   return { frames: plan.length, seconds: plan.length / fps };
+}
+
+/**
+ * The worker for each shot's frames that must all be drawn by one (undefined: any). A shot
+ * with a sketch, and one dissolving from or into it, which draws the other's past its end.
+ */
+export function sketchLanes(shots: Shot[], workers: number): (number | undefined)[] {
+  const lanes: (number | undefined)[] = [];
+  let next = 0;
+  shots.forEach((s, i) => {
+    const joined = i > 0 && s.crossfade > 0 && lanes[i - 1] !== undefined;
+    if (joined) lanes.push(lanes[i - 1]);
+    else if (
+      s.sketch ||
+      (i + 1 < shots.length && shots[i + 1].crossfade > 0 && shots[i + 1].sketch)
+    )
+      lanes.push(next++ % workers);
+    else lanes.push(undefined);
+  });
+  return lanes;
 }
 
 /** Run ffmpeg to the end; resolves with what it printed, whatever its exit code. */

@@ -54,6 +54,11 @@ export interface ComposeOptions {
   debug?: boolean;
   /** Leave out the words: speech bubbles and captions (a banner sets its own). */
   quiet?: boolean;
+  /**
+   * A shot's sketch at an instant, as the href of a picture the frame's size (render/
+   * sketch.ts runs the code; the engine never does). Without it a sketch draws nothing.
+   */
+  canvas?: (shot: Shot, t: number) => string | undefined;
 }
 
 /** How fast the far and near layers move with the camera, the stage being 1. */
@@ -515,7 +520,14 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
   const byId = new Map(posed.map((p) => [p.actor.id, p.actor]));
   // The scenery that sways in the air, turned for now (and further in a wind).
   const sway = (layer: string | undefined) => swayLayer(layer, scene.sway, frame.t, w.wind ?? 0);
-  let world = `<g class='scene'>${sway(scene.svg)}</g>` + fx('stage') + sky.stage;
+  const canvas = frame.shot.sketch && opts.canvas?.(frame.shot, frame.t);
+  let world =
+    (canvas
+      ? `<image class='sketch' width='${W}' height='${H}' preserveAspectRatio='none' href='${canvas}'/>`
+      : '') +
+    `<g class='scene'>${sway(scene.svg)}</g>` +
+    fx('stage') +
+    sky.stage;
   // Footprints in sand or snow lie on the floor, under the shadows.
   world += renderPrints(project, frame.shot, frame.t);
   world += posed.map(({ actor, pose }) => renderShadow(actor, pose)).join('');

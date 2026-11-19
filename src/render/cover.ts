@@ -1,4 +1,4 @@
-import { composeFrame } from '../engine/compose.js';
+import { frameSvg } from './sketch.js';
 import { cullOffFrame } from '../engine/cull.js';
 import { shapedText, shapedWidth } from '../engine/glyphs.js';
 import type { Project, Shot } from '../engine/types.js';
@@ -37,7 +37,7 @@ export function coverSvg(project: Project, shot: Shot, t: number, o: CoverText):
   const { width: W, height: H } = project.meta;
   const tall = H > W;
   if (o.banner && tall) throw new Error('a banner is drawn from a film, not a reel');
-  const frame = composeFrame(project, shot, t, { quiet: o.banner || o.quiet });
+  const frame = frameSvg(project, shot, t, { quiet: o.banner || o.quiet, density: 1 });
   // Scaling about a point inside the frame by 1 or more never uncovers an edge.
   const z = Math.max(1, o.zoom ?? 1);
   const f = o.focus ?? { x: W / 2, y: H / 2 };

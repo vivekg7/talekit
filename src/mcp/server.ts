@@ -4,12 +4,13 @@ import { readFile, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
-import { composeFrame } from '../engine/compose.js';
+import { frameSvg } from '../render/sketch.js';
 import { movieDuration, STAGE_SHORTCUTS } from '../engine/timeline.js';
 import { staging, stagedWhat } from '../engine/stage.js';
 import {
   AnchorSchema,
   CharacterSchema,
+  IdSchema,
   SceneSchema,
   MixSchema,
   MusicSchema,
@@ -31,6 +32,7 @@ import {
   saveCharacter,
   saveMeta,
   saveScene,
+  saveSketch,
   saveShot,
   storedShot,
   shotOrder,
@@ -536,6 +538,61 @@ export function buildServer(): McpServer {
   );
 
   server.registerTool(
+    'write_sketch',
+    {
+      title: 'Write sketch',
+      description:
+        "Save p5-style code (sketches/<id>.js) that a shot draws on its stage with `sketch: '<id>'`: for what shapes and SVG cannot draw, such as ink swirling in water, glowing smoke, particles, generative patterns. Format: authoring guide, Sketches. The code must import and draw its first frame, or nothing is saved and its error comes back with the lines of the sketch it came from. Returns evenly spaced frames: of the first shot that uses it, or of the sketch alone over `seconds` if none does yet. Frames are drawn at half the film's pixels.",
+      inputSchema: {
+        path: pathArg,
+        id: IdSchema,
+        code: z
+          .string()
+          .min(1)
+          .describe(
+            'An ES module: export default function (p) { p.setup = () => {…}; p.draw = () => {…}; }'
+          ),
+        seconds: z
+          .number()
+          .positive()
+          .max(60)
+          .optional()
+          .describe('How long to run it when no shot uses it yet (default 6)'),
+        frames: z.number().int().min(1).max(12).optional().describe('Frames shown (default 6)'),
+      },
+    },
+    async ({ path: root, id, code, seconds, frames }) => {
+      try {
+        const file = await saveSketch(root, id, code);
+        const project = await loadProject(root);
+        const used = project.shots.find((s) => s.sketch === id);
+        const alone = 'sketch-preview';
+        const shot =
+          used ?? ShotSchema.parse({ id: alone, scene: alone, duration: seconds ?? 6, sketch: id });
+        const shown = used
+          ? project
+          : {
+              ...project,
+              scenes: {
+                ...project.scenes,
+                [alone]: SceneSchema.parse({ id: alone, name: 'Sketch alone', svg: '' }),
+              },
+              shots: [shot],
+            };
+        const what = used
+          ? `frames of shot '${used.id}'`
+          : `not in a shot yet: ${shot.duration}s of it`;
+        return ok(
+          text(`wrote ${file}; ${what}`),
+          reduced(contactSheetSvg(shown, shot, frames ?? 6), SHOT_SHEET)
+        );
+      } catch (e) {
+        return fail((e as Error).message);
+      }
+    }
+  );
+
+  server.registerTool(
     'write_shot',
     {
       title: 'Write shot',
@@ -713,7 +770,7 @@ export function buildServer(): McpServer {
         const project = await loadProject(root);
         const shot = project.shots.find((s) => s.id === shotId);
         if (!shot) return fail(`no shot '${shotId}'`);
-        return ok(text(`${shotId} @ ${t}s`), image(composeFrame(project, shot, t, { debug })));
+        return ok(text(`${shotId} @ ${t}s`), image(frameSvg(project, shot, t, { debug })));
       } catch (e) {
         return fail((e as Error).message);
       }
@@ -1023,13 +1080,13 @@ export function buildServer(): McpServer {
             }
             const shot = project.shots.find((s) => s.id === (q.shot ?? q.touches[0]));
             if (shot) {
-              content.push(image(composeFrame(project, shot, q.t ?? shot.duration / 2)));
+              content.push(image(frameSvg(project, shot, q.t ?? shot.duration / 2)));
               pictures++;
             }
             continue;
           }
           const shot = kind === 'shot' ? project.shots.find((s) => s.id === id) : undefined;
-          const frame = shot && composeFrame(project, shot, t ?? shot.duration / 2);
+          const frame = shot && frameSvg(project, shot, t ?? shot.duration / 2);
           const svg = frame
             ? at
               ? markSpot(frame, at, project.meta)

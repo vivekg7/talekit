@@ -1,4 +1,5 @@
 import { Resvg } from '@resvg/resvg-js';
+import { picturePng } from './sketch.js';
 
 const FONT_OPTS = { loadSystemFonts: true, defaultFontFamily: 'Helvetica' } as const;
 const NO_FONTS = { loadSystemFonts: false } as const;
@@ -49,14 +50,23 @@ function options(svg: string, width?: number) {
   };
 }
 
-export function rasterize(svg: string, width?: number): Buffer {
+/** resvg with the frame's sketch pictures handed over (render/sketch.ts). */
+function resvgOf(svg: string, width?: number): Resvg {
   const s = outlineText(svg);
-  return new Resvg(s, options(s, width)).render().asPng();
+  const r = new Resvg(s, options(s, width));
+  for (const href of r.imagesToResolve()) {
+    const png = picturePng(href);
+    if (png) r.resolveImage(href, png);
+  }
+  return r;
+}
+
+export function rasterize(svg: string, width?: number): Buffer {
+  return resvgOf(svg, width).render().asPng();
 }
 
 /** A frame as raw RGBA, for the encoder: no PNG to pack here and unpack in ffmpeg. */
 export function rasterizePixels(svg: string): { pixels: Buffer; width: number; height: number } {
-  const s = outlineText(svg);
-  const img = new Resvg(s, options(s)).render();
+  const img = resvgOf(svg).render();
   return { pixels: img.pixels, width: img.width, height: img.height };
 }

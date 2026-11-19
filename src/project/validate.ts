@@ -36,6 +36,7 @@ import type {
   Weather,
 } from '../engine/types.js';
 import { isMoveVerb } from '../engine/types.js';
+import { sketchAt } from '../render/sketch.js';
 import { SOUNDS } from '../library/sounds.js';
 import { waived } from '../engine/allow.js';
 import {
@@ -472,6 +473,10 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
       warn(where, `action ${i}: volume only applies to a sound`);
   });
   out.push(...lineProblems(shot, project));
+  if (shot.sketch) {
+    const err = sketchProblem(project, shot);
+    if (err) error(where, err);
+  }
   const scene = project.scenes[shot.scene];
   if (!scene) {
     error(where, `unknown scene '${shot.scene}'`);
@@ -821,3 +826,23 @@ export function formatProblems(problems: Problem[]): string {
 
 export const hasErrors = (problems: Problem[]): boolean =>
   problems.some((p) => p.level === 'error');
+
+/**
+ * A shot's sketch is in sketches/ and draws its first frame (small, to be quick). A later
+ * frame that throws stops the render with the sketch's own stack.
+ */
+function sketchProblem(project: Project, shot: Shot): string | undefined {
+  // Not loaded from disk (a test's project in memory): nothing to look in.
+  if (!project.audio) return undefined;
+  const id = shot.sketch!;
+  if (!project.sketches?.[id]) {
+    const have = Object.keys(project.sketches ?? {});
+    return `unknown sketch '${id}': write sketches/${id}.js (have: ${have.join(', ') || 'none'})`;
+  }
+  try {
+    sketchAt(project, shot, 0, 0.25);
+  } catch (e) {
+    return (e as Error).message;
+  }
+  return undefined;
+}

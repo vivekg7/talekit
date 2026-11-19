@@ -3,7 +3,7 @@ import { setImmediate as turn } from 'node:timers/promises';
 import v8 from 'node:v8';
 import vm from 'node:vm';
 import { parentPort } from 'node:worker_threads';
-import { composeFrame } from '../engine/compose.js';
+import { frameSvg, inlinePictures } from '../render/sketch.js';
 import { cueSheet, type Bus } from '../engine/sound.js';
 import type { Project } from '../engine/types.js';
 import { lintCharacter } from '../project/construction.js';
@@ -112,7 +112,7 @@ async function draw(job: DrawJob): Promise<string | Stems> {
   if (job.kind === 'frame') {
     const shot = project.shots.find((s) => s.id === job.shot);
     if (!shot) throw new Error('unknown shot');
-    return composeFrame(project, shot, job.t, { debug: job.debug });
+    return inlinePictures(frameSvg(project, shot, job.t, { debug: job.debug }));
   }
   const target = sheetTarget(project, job.id, job.of);
   if (target.kind === 'scene') return sceneSheetSvg(project, target.scene);

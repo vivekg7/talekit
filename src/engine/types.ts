@@ -1082,6 +1082,9 @@ export const ShotSchema = z.object({
   music: MusicSchema.optional().describe(
     "This shot's music instead of the project's: a track name, { track, volume }, or false for silence"
   ),
+  sketch: IdSchema.optional().describe(
+    "A sketch drawn on the stage under the scene's svg and the cast: the id of sketches/<id>.js, p5-style code for what shapes and SVG cannot draw (ink in water, glowing smoke, particles, generative patterns). It runs from the shot's start, one draw() per frame, and moves with the camera like the stage"
+  ),
   allow: AllowSchema,
   actions: z.array(ActionSchema).default([]),
 });
@@ -1130,8 +1133,17 @@ export interface Project {
   scenes: Record<string, Scene>;
   /** In playback order. */
   shots: Shot[];
+  /** The sketches/ folder's code, by id; absent when the project was not loaded from disk. */
+  sketches?: Record<string, SketchFile>;
   /** What the project's audio/ folder holds; absent when the project was not loaded from disk. */
   audio?: ProjectAudio;
+}
+
+export interface SketchFile {
+  /** Absolute path of sketches/<id>.js. */
+  file: string;
+  /** Its modification time: an edited sketch is run afresh. */
+  version: number;
 }
 
 export interface ProjectAudio {

@@ -818,6 +818,8 @@ Paint shadows of painted things falling the same way.
 
 - `cast` places everyone at the start; nobody else is in the shot.
   `visible: false` hides until an `appear`.
+- `sketch: "<id>"` draws code on the stage under everything else
+  ([Sketches](#sketches-the-open-canvas)).
 - `hidden: true`: someone meant to be out of sight behind nearer art (a spy
   behind a `foreground` boulder); the check flags any part that shows
   (`sight.hidden`). Art under ~70% opacity does not hide. For a peek,
@@ -1276,6 +1278,108 @@ voices; scenes and shots are new.
   the camera; never paint a character large into a scene.
 - `render` writes only `out/movie.mp4` (one track, text burnt in; no
   .mkv).
+
+## Sketches: the open canvas
+
+For what shapes and SVG cannot draw (ink swirling in water, glowing smoke,
+thousands of particles, a pattern that grows, anything per pixel) a shot
+runs code on a canvas: `sketch: "<id>"` draws `sketches/<id>.js` on the
+stage, under the scene's `svg`, the cast, bubbles and captions, moving with
+the camera like the stage. Write it with `write_sketch(path, id, code)`: it
+is saved only if it draws its first frame, and returns frames of the shot
+that uses it (or of the sketch alone). A sketch is a backdrop or a whole
+reel; everything else about the shot (captions, sounds, camera, fades,
+music) is as usual.
+
+The code is p5.js in instance mode, a plain ES module:
+
+```js
+export default function (p) {
+  let f;
+  p.setup = () => {
+    f = p.fluid({ curl: 14, dyeDissipation: 1.1 });
+  };
+  p.draw = () => {
+    if (p.time < 2)
+      f.jet(
+        p.width / 2,
+        300,
+        0,
+        900,
+        18,
+        [1, 0.4, 0].map((c) => c * 0.9)
+      );
+    f.step(1 / p.fps);
+    f.draw({ background: [0.02, 0.015, 0], bloom: 1, sunrays: 0.8 });
+    p.noStroke();
+    p.fill(255, 200, 80);
+    p.circle(p.width / 2, 300, 24 + 6 * p.sin(p.time * 8)); // drawn over the dye
+  };
+}
+```
+
+- **Time is the film's.** `draw()` runs once per frame at the project's
+  fps, from the shot's start; `p.time` is the shot's seconds at this frame,
+  `p.frameCount` counts from 1, `p.duration` is the shot's length. Write
+  the choreography against `p.time` (a puff at 3.2 s, a fade over the last
+  2 s), and let the canvas keep what earlier frames drew: a translucent
+  `background()` leaves trails. To open on something already moving,
+  run the simulation ahead in `setup`.
+- **The same frames every run.** `random()`, `randomGaussian()` and
+  `noise()` are seeded (`randomSeed`, `noiseSeed` to vary them); never use
+  `Math.random()` or the clock.
+- **Design pixels.** `p.width` × `p.height` is the project's frame,
+  whatever `createCanvas` asks. Previews draw at half the pixels
+  (`pixelDensity()` says which): shapes come out the same, a fluid nearly
+  so. Code that touches `p.pixels` reads the canvas's own size from
+  `p.canvas.width`.
+- **p5's drawing**: `background`, `clear`, `fill`, `noFill`, `stroke`,
+  `noStroke`, `strokeWeight`, `strokeCap`, `strokeJoin`, `colorMode`
+  (RGB, HSB, HSL), `color`, `lerpColor`, `blendMode` (ADD, SCREEN,
+  MULTIPLY…), `point`, `line`, `rect`, `square`, `ellipse`, `circle`,
+  `arc`, `triangle`, `quad`, `bezier`, `beginShape`/`vertex`/
+  `curveVertex`/`bezierVertex`/`endShape(CLOSE)`, `push`, `pop`,
+  `translate`, `rotate`, `scale`, `rectMode`, `ellipseMode`, `angleMode`,
+  `createGraphics` + `image` for offscreen layers, `loadPixels`/`pixels`/
+  `updatePixels`, `get`, `filter` (BLUR, GRAY, INVERT, THRESHOLD,
+  POSTERIZE), `createVector` and `p.Vector`, and the maths (`map`, `lerp`,
+  `constrain`, `dist`, `noise`…). `p.drawingContext` is the 2D canvas
+  itself, for gradients and `shadowBlur` glows. There is no mouse, keyboard,
+  DOM or file loading.
+- **Words go in captions**, not `text()`: captions are shaped, kept out of
+  the apps' overlays and voiced. `text()` is for a number or a mark.
+- **`p.fluid(options)`** is a fluid over the whole canvas (Pavel
+  Dobryakov's WebGL fluid, run on the CPU): velocity on a coarse grid
+  (`resolution` cells across the short side, default 256), dye at the
+  canvas's pixels, so folded dye shows fine filaments.
+  - Push it: `f.splat(x, y, vx, vy, r, [r, g, b])` is an impulse;
+    `f.jet(x, y, vx, vy, r, color, grip)` called every step holds a nozzle
+    at that speed; `f.swirl(x, y, r, spin)` whirls it. Positions and radii
+    in design pixels, speeds in px/s, dye 0..1 per channel and more for
+    dense (white-hot on dark, deep ink on white); add a stream's dye times
+    its step's `dt`.
+  - `f.step(dt)`: two steps a frame (`dt = 1 / p.fps / 2`) for fast jets.
+  - `f.draw(look)` paints it over the whole canvas, `look` = `{ background:
+[r, g, b], shading, bloom, bloomThreshold, bloomKnee, sunrays,
+exposure }`: glow on dark (`background` near black, `bloom` 0.8–1,
+    `sunrays` 0.8) or ink on paper (`[1, 1, 1]`, `bloom: 0, sunrays: 0`).
+  - `f.options` (`curl`, `dyeDissipation`, `velocityDissipation`,
+    `pressureIterations`, `sharp`) can change between steps: raise
+    `dyeDissipation` to clear the page or fade to black for a loop.
+  - Tuning: `curl` 10–20 gives coherent jets and round eddies, 30+
+    turbulence. On dark, `dyeDissipation` about 1 or the frame floods; on
+    white about 0.2. A puff is a short shove (0.2 s of `jet` with all its
+    dye at once): a long push trails a thin stem.
+- **It runs in order.** Frame n is what `draw()` leaves after n + 1 calls,
+  so a preview at 20 s runs the 600 frames before it, and the film draws a
+  sketch shot on one worker. A full-size fluid costs about a second a frame
+  to render; shapes cost little.
+- **Its scene** can be empty: `svg: ""` and `allow: { "world.walk": "the
+sketch fills the frame; nobody stands in it" }`. Draw over the sketch in
+  the scene's `svg` (a frame, a window) or stand a cast in front of it as
+  usual.
+- An error in the code stops `check` and the render with the sketch's own
+  line (`sketches/<id>.js:12:5`).
 
 ## Options and samples
 

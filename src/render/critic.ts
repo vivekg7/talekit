@@ -1,4 +1,4 @@
-import { composeFrame } from '../engine/compose.js';
+import { frameSvg } from './sketch.js';
 import { shotBefore, staged } from '../engine/stage.js';
 import { needsShaping, shapedText } from '../engine/glyphs.js';
 import { escapeXml, scopeIds } from '../engine/svg.js';
@@ -231,7 +231,7 @@ export function criticCells(project: Project, shot: Shot): CriticCell[] {
     cells.push({
       title: `end of ${prev.id} (the shot before; ${how})`,
       lines: [],
-      svg: composeFrame(project, prev, Math.max(0, prev.duration - (prev.fadeOut ?? 0) - 0.05)),
+      svg: frameSvg(project, prev, Math.max(0, prev.duration - (prev.fadeOut ?? 0) - 0.05)),
     });
   }
   for (const b of beatsOf(project, shot)) {
@@ -239,7 +239,7 @@ export function criticCells(project: Project, shot: Shot): CriticCell[] {
     cells.push({
       title: `${shot.id} ${head}`,
       lines: [states],
-      svg: composeFrame(project, shot, b.t),
+      svg: frameSvg(project, shot, b.t),
     });
   }
   return cells;

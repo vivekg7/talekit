@@ -22,6 +22,7 @@ import { MAX_TURN, springParts } from '../engine/springs.js';
 import { SWAY_FAR, swayMost, swayTip } from '../engine/sway.js';
 import { LOOK_LIMIT, sailLean } from '../engine/timeline.js';
 import { composeFrame, layerTransform, PARALLAX } from '../engine/compose.js';
+import { frameSvg } from './sketch.js';
 import { CAST_DEFS, castLights, floorMap, throwOf } from '../engine/cast.js';
 import { effectsSvg, fireLights, type EffectLayer } from '../engine/effects.js';
 import { strikeAt } from '../engine/weather.js';
@@ -880,7 +881,7 @@ export function contactSheetSvg(
   const times = Array.from({ length: count }, (_, i) => from + ((i + 0.5) / count) * (to - from));
   const frames = times.map((t) => ({
     label: `${shot.id} · t=${t.toFixed(2)}s`,
-    svg: composeFrame(project, shot, t),
+    svg: frameSvg(project, shot, t),
   }));
   const marks = times.map((t) => ({ t }));
   return tileFrames(project, frames, cols, 630, audioLane(project, [shot], marks, from, to, true));
@@ -890,7 +891,7 @@ export function contactSheetSvg(
 export function filmSheetSvg(project: Project, shots: Shot[]): string {
   const frames = shots.map((shot, i) => ({
     label: `${i + 1}. ${shot.id} · ${shot.duration}s`,
-    svg: composeFrame(project, shot, shot.duration / 2),
+    svg: frameSvg(project, shot, shot.duration / 2),
   }));
   return tileFrames(project, frames, shots.length > 4 ? 3 : 2, shots.length > 4 ? 420 : 630);
 }
@@ -1035,7 +1036,7 @@ export function findingFrameSvg(project: Project, f: Finding): string {
   if (!shot) throw new Error(`no shot '${f.shot}'`);
   const { width: W, height: H } = project.meta;
   const t = Math.min(Math.max(f.t[0], Math.min(0.1, f.t[1])), shot.duration - 1e-3);
-  const svg = composeFrame(project, shot, t);
+  const svg = frameSvg(project, shot, t);
   let mark = '';
   if (f.at) {
     const c = resolveCamera(project, project.scenes[shot.scene], shot, t);

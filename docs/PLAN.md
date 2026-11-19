@@ -19,8 +19,8 @@ it; open work is marked **Open**.
    pivots (a rig), so an LLM-drawn character animates reliably.
 3. **Every write returns a picture.** Pose sheet, scene with anchors, contact
    sheet. Without that loop quality collapses.
-4. **Plain files on disk.** A project is a directory of JSON: any editor, any
-   agent, git-friendly. The MCP server is a thin layer over the CLI's library.
+4. **Plain files on disk.** A project is a directory of JSON (and a sketch's
+   JavaScript, 7.11): any editor, any agent, git-friendly. The MCP server is a thin layer over the CLI's library.
 5. **Deterministic rendering.** A frame is a pure function
    `(project, shot, t) -> SVG`; previews, tests and the video agree.
 6. **The engine fixes whatever has one right answer** (a listener faces the
@@ -51,7 +51,8 @@ engine (pure TypeScript, no I/O)   stage → timeline → motion/gait/springs �
    │                               world.ts: the findings that block a render
    │                               sound.ts: the cue sheet
    ▼
-render   resvg on worker threads → raw RGBA → ffmpeg; audio mixer; .mkv; sheets
+render   sketches (sketch/: p5-style canvas, fluid) run in order → a picture on the stage
+   │       resvg on worker threads → raw RGBA → ffmpeg; audio mixer; .mkv; sheets
    │
    ▼
 interfaces   cli.ts, viewer/ (review app), mcp/server.ts (stdio)
@@ -324,6 +325,53 @@ whip pan.
 - **Reels are narrator-led** (a guide rule, no engine change): reels that kept
   the films' dialogue cut causal beats to fit (the hare stopping to eat, which
   is why he sleeps).
+
+### 7.11 The open canvas (sketches)
+
+Fluid reels drawn as SVG polylines looked thin next to a real fluid
+simulation: its look comes from a dye _field_, a colour in every pixel, where
+folded dye shows thousands of filaments and the light comes from the field's
+gradient. No amount of SVG gets there, so a shot can run code on a raster
+canvas (`sketch`), drawn on the stage and composed with everything else.
+
+- **p5.js in instance mode** is the API (`sketch/p5.ts`): agents write it
+  fluently, and its model (setup, draw per frame, fill/stroke state, a canvas
+  that keeps what was drawn) suits frames. It is a subset over a Skia canvas
+  (`@napi-rs/canvas`): p5's semantics need a real raster canvas (trails,
+  pixels, blend modes), which resvg cannot be. Rejected: real p5 under jsdom
+  (a DOM to fake, unseeded chance) and collecting shapes as SVG (a trail of
+  ten thousand circles never clears).
+- **Time and chance are the film's**: draw runs once per frame at the
+  project's fps, `p.time` is the shot's seconds, `random` and `noise` are
+  seeded. Sketches are `.js`, not `.ts`, so they import in Node 20 without a
+  loader.
+- **Stateful, and still a function of t.** A simulation cannot jump to t, so
+  frame n is what draw leaves after n + 1 calls; the runner
+  (`render/sketch.ts`) keeps runs and carries them forward, so frames asked in
+  order (the film, a contact sheet) cost one draw each. The film sends a
+  sketch shot's frames, and a dissolve into or out of one, to a single worker.
+- **The engine never runs code**: `composeFrame` takes a `canvas` callback
+  that gives the picture's href, so the engine stays pure and a test's
+  project draws without it.
+- **A picture in the SVG, not pixels composited after.** The canvas is an
+  `<image>` at the start of the stage layer, so it sits in depth like the
+  scene (over `far`, under `svg`), moves with the camera, dissolves with its
+  shot, and every caller that draws a frame (film, previews, sheets, critic,
+  covers, the review app) shows it with no path of its own. Compositing pixels
+  after resvg would have saved ~55 ms a full-size frame but put the canvas
+  only under or over everything, and given previews a second path.
+- **Handed to resvg, not encoded into the SVG**: hrefs on a host that cannot
+  resolve (`sketch.talekit.invalid`), resolved from memory with a stored
+  (uncompressed) PNG. Measured at 1080 × 1920: Skia's PNG encoder 250 ms, a
+  stored PNG 6 ms plus 60 ms for resvg to draw it; base64 in the SVG cost
+  300 ms to parse. The review app, a browser, gets them inline.
+- **Previews draw at half density**: the same picture from shapes, nearly the
+  same from a fluid (its grid is fixed, its dye half as fine), a quarter of
+  the dye's cost. The film and covers draw at full size.
+- **The fluid** (`sketch/fluid.ts`) is a CPU port of Pavel Dobryakov's WebGL
+  Fluid Simulation: vorticity confinement, pressure by red-black SOR warm
+  started, MacCormack dye advection at the canvas's resolution, then shading,
+  bloom and sun rays. About a second a full-size frame on one core.
 
 ### 7.10 Voices that sound human — Open
 
