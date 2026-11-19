@@ -59,11 +59,12 @@ characters, scenes and shots.
 
 ## Reviewing and output
 
-`talekit serve <film> <reel> --open` (or `open_review`) serves a review app
-per project, from port 4848 up. Pick a moment, click to pin a spot, and type
-a note; it is saved to `<project>/notes.json`. Tell the agent "fix my
-notes": `list_notes` gives it each note with the picture you saw, and
-`resolve_note` closes it until you check it. The app reloads as the project
+`talekit serve <film> <reel> --open` (or `open_review`) serves the review
+app for both from one server at http://127.0.0.1:4848, each project under
+its own path. Pick a moment, click to pin a spot, and type a note; it is
+saved to `<project>/notes.json`. Tell the agent "fix my notes": `list_notes`
+gives it each note with the picture you saw, and `resolve_note` closes it
+until you check it. The app reloads as the project
 and the engine change. For a reel it shades the area the apps cover;
 `--lan` serves it to a phone on the local network (no login, so only on a
 trusted network). Sliders per sound layer save the `mix`, and **Save and
@@ -135,7 +136,7 @@ scripts" in the guide.
 | `set_audio`                | sets the music, narrator and mix, returns a **map of the film's sound**  |
 | `critique`                 | the critic's checklist and read-through, or a shot's frames at its beats |
 | `render`                   | mp4 of one shot or the whole film, plus a **film sheet** (frame/shot)    |
-| `open_review`              | review apps for the film and the reel, opened in the browser             |
+| `open_review`              | the review app for the film, the reel or a board of samples              |
 | `list_notes`               | review notes left in the app, each with the frame or sheet it points at  |
 | `resolve_note`             | marks a note done once the fix is in                                     |
 
@@ -155,7 +156,7 @@ talekit cover <dir> <shot> -t 3 --title "…"   (out/thumbnail.png)
 talekit cover <dir> <shot> -t 3 --title "…" --banner   (out/banner.png, 2560 × 1440)
 ```
 
-`node dist/cli.js` with no arguments prints every option.
+`talekit --help` prints every option.
 
 ## How it works
 
@@ -166,8 +167,8 @@ rasterises with resvg on worker threads, streams raw frames into ffmpeg
 renders in about ten seconds on an M-series Mac. Lines are spoken by a
 Python sidecar on MLX (`tools/tts/`) and cached in the project, so a render
 is the same every time and needs no model once the lines exist. The module
-layout is in [CLAUDE.md](CLAUDE.md); the roadmap and the reasoning behind
-the design are in [docs/PLAN.md](docs/PLAN.md).
+layout is in [CLAUDE.md](CLAUDE.md); the design decisions and their reasons
+are in [docs/PLAN.md](docs/PLAN.md).
 
 Latin text uses system fonts (the default stack starts with Chalkboard SE),
 so output can differ slightly between machines. Hindi (Devanagari) is shaped

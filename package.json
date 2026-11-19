@@ -1,10 +1,15 @@
 {
   "name": "talekit",
   "version": "0.1.0",
-  "description": "Story video generation for AI agents: rigged 2D characters, scenes with anchors, a shot timeline, and an MCP server with visual previews.",
+  "description": "Good-quality 2D films, reels and animations made by AI agents: they write characters, scenes and shots as JSON; the engine animates, voices and renders them, and answers every write with a picture.",
   "type": "module",
   "license": "MIT",
   "author": "Vivek Kumar Gupta <vivek@ivy.homes>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vivekg7/talekit.git"
+  },
+  "homepage": "https://github.com/vivekg7/talekit#readme",
   "bin": {
     "talekit": "dist/cli.js"
   },

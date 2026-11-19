@@ -28,32 +28,32 @@ import { remixVideo, renderVideo } from './render/video.js';
 import { hearingLines, makeVoices, type VoiceReport } from './project/voices.js';
 import { listOptions } from './project/options.js';
 
-const USAGE = `talekit — story video generation for AI agents
+const USAGE = `talekit — 2D films, reels and animations made by AI agents
+(the file format and workflow: docs/authoring-guide.md)
 
-  talekit init <dir> --title "My story" [--width 1280 --height 720 --fps 24]
-  talekit check <dir> [--frames dir]           validate every file and cross reference, the world
-                                               (what stands on what), and the post text in out/
-                                               (youtube.txt, instagram.txt); --frames saves a
-                                               picture of each world finding, the spot ringed
-  talekit explain <dir> [shotId]               what the engine adds to each shot on its own
-                                               (listeners turning to a speaker, and so on)
+  talekit init <dir> --title "…" [--width 1280 --height 720 --fps 24]   720x1280 is a reel
+  talekit check <dir> [--frames dir]           validate files, cross references, the world and the
+                                               post text in out/; --frames: a ringed picture per world finding
+  talekit explain <dir> [shotId]               the turns, walks, sits and startles the engine adds
   talekit library                              list built-in characters and scenes
   talekit copy <dir> <libraryId> [--as <id>]   copy a built-in into the project
   talekit sheet <dir> <id> [-o file.png]       pose + construction sheet (character) or anchor sheet (scene)
   talekit frame <dir> <shotId> [-t 1.5] [-o file.png] [--svg] [--debug]
   talekit contact <dir> <shotId> [-n 6] [-o file.png]
-  talekit critic <dir> [shotId] [-o dir]       what the critic looks at (authoring guide, The critic): its
-                                               checklist, the read-through (out/critic/readthrough.md) and
-                                               each shot's frames at its beats, captioned (out/critic/*.png)
-  talekit cover <dir> <shotId> -t <sec> --title "…" [--sub "…"] [--tag "…"] [--zoom 1.3 --focus x,y] [--quiet] [--banner] [-o file.png]
-                                               the thumbnail: a frame with the title over it (out/thumbnail.png),
-                                               and the command that drew it (out/thumbnail.txt); --banner draws a
-                                               2560x1440 YouTube channel banner from a film instead (out/banner.png)
-  talekit voice <dir> [shotId]                 speak the lines that have no audio yet (local TTS)
-  talekit render <dir> [shotId] [-o file.mp4] [--silent]   the whole film (not a reel) also writes a .mkv
-  talekit remix <dir> [-o file.mp4]            mix the sound again under a rendered film (after a mix change)
-  talekit mkv <dir> [-o file.mp4]              build the .mkv again from the rendered mp4 (after a translation)
-  talekit serve <dir> [dir...] [--port 4848] [--open] [--lan]   one review server for a film, its reel, a batch of reels and any board of samples; --open opens the first, --lan for a phone
+  talekit critic <dir> [shotId] [-o dir]       the critic's checklist, read-through and each shot's frames
+                                               at its beats (into out/critic/)
+  talekit cover <dir> <shotId> -t <sec> --title "…" [--sub "…"] [--tag "…"]
+                [--zoom 1.3 --focus x,y] [--quiet] [--banner] [-o file.png]
+                                               the thumbnail (out/thumbnail.png, its command in .txt);
+                                               --banner: a 2560x1440 channel banner (out/banner.png)
+  talekit voice <dir> [shotId]                 speak and hear the lines that have no audio yet
+  talekit render <dir> [shotId] [-o file.mp4] [--silent]
+                                               a whole film (not a reel) also gets a .mkv; --silent: no sound
+  talekit remix <dir> [-o file.mp4]            new sound under a rendered film (after a mix change)
+  talekit mkv <dir> [-o file.mp4]              rebuild the .mkv from the rendered mp4 (after translations)
+  talekit serve <dir> [dir...] [--port 4848] [--open] [--lan]
+                                               one review server for films, reels and boards of samples;
+                                               --open opens the first, --lan serves it to a phone
   talekit mcp                                  start the MCP server on stdio
 `;
 
@@ -343,7 +343,7 @@ async function main(argv: string[]): Promise<void> {
       const shots = shotId ? project.shots.filter((s) => s.id === shotId) : project.shots;
       if (shotId && !shots.length) throw new Error(`no shot '${shotId}'`);
       const p = projectPaths(dir);
-      const outPath = values.out ?? path.join(p.out, shotId ? `${shotId}.mp4` : 'movie.mp4');
+      const outPath = values.out ?? (shotId ? path.join(p.out, `${shotId}.mp4`) : p.movie);
       const started = Date.now();
       // Lines written since the last voicing are spoken first; without the sidecar they stay silent.
       if (!values.silent)
@@ -377,7 +377,7 @@ async function main(argv: string[]): Promise<void> {
       const [dir] = rest;
       if (!dir) throw new Error('usage: talekit remix <dir> [-o file.mp4]');
       const project = await loadProject(dir);
-      const file = values.out ?? path.join(projectPaths(dir).out, 'movie.mp4');
+      const file = values.out ?? projectPaths(dir).movie;
       const r = await remixVideo(project, file);
       console.log(`${file}  (new sound under ${r.seconds.toFixed(1)}s)`);
       if (!isPortrait(project.meta)) console.log(await mkvBeside(project, file));
@@ -389,9 +389,7 @@ async function main(argv: string[]): Promise<void> {
       const project = await loadProject(dir);
       const problems = validateProject(project);
       if (hasErrors(problems)) throw new Error(formatProblems(problems));
-      console.log(
-        await mkvBeside(project, values.out ?? path.join(projectPaths(dir).out, 'movie.mp4'))
-      );
+      console.log(await mkvBeside(project, values.out ?? projectPaths(dir).movie));
       return;
     }
     case 'serve': {

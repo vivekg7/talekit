@@ -25,6 +25,7 @@ import { timeActions, voiceLines } from '../engine/voice.js';
 import { LIBRARY, nameFromId } from '../library/index.js';
 import {
   createProject,
+  isProject,
   loadProject,
   projectPaths,
   saveCharacter,
@@ -72,7 +73,6 @@ import { MOUTH_SOUNDS, SOUNDS, STARTLES } from '../library/sounds.js';
 import { VOICES } from '../library/voices.js';
 import { describeNote, loadNotes, markSpot, setNoteStatus, type Note } from '../project/notes.js';
 import { choiceDirs, listOptions, type Question } from '../project/options.js';
-import { isProject } from '../project/store.js';
 
 type Content =
   { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: 'image/png' };
@@ -265,7 +265,7 @@ export function buildServer(): McpServer {
     {
       title: 'Authoring guide',
       description:
-        'READ THIS FIRST. How to design characters, scenes and shots for talekit: coordinate boxes, rig pivots, part variants, anchors, the action vocabulary and the recommended workflow.',
+        'READ THIS FIRST. The authoring guide: the workflow and the file format of characters, scenes and shots, sound, the reel and the critic. Other tools point to its sections by name.',
       inputSchema: {},
     },
     async () => ok(text(await readFile(guidePath(), 'utf8')))
@@ -276,7 +276,7 @@ export function buildServer(): McpServer {
     {
       title: 'Create project',
       description:
-        'Create a new talekit project directory with talekit.json and empty characters/, scenes/, shots/ folders.',
+        'Create a project directory: talekit.json and empty characters/, scenes/, shots/ and out/.',
       inputSchema: {
         path: pathArg,
         title: z.string(),
@@ -284,7 +284,7 @@ export function buildServer(): McpServer {
           .number()
           .int()
           .optional()
-          .describe('Default 1280. 720 with height 1280 makes a portrait reel (authoring guide)'),
+          .describe('Default 1280; 720 for a portrait reel (authoring guide, A reel)'),
         height: z.number().int().optional().describe('Default 720; 1280 for a reel'),
         fps: z.number().int().optional().describe('Default 24'),
       },
@@ -311,7 +311,7 @@ export function buildServer(): McpServer {
     {
       title: 'Project info',
       description:
-        'Summary of a project: characters with their parts and variants, scenes with anchors, shots in playback order, validation problems, and how many review notes are open.',
+        'Summary of a project: characters with their parts and variants, scenes with anchors, shots in playback order, sound, validation problems, open review notes and options.',
       inputSchema: { path: pathArg },
     },
     async ({ path: root }) => {
@@ -339,7 +339,7 @@ export function buildServer(): McpServer {
     {
       title: 'Get character, scene or shot',
       description:
-        'Return the stored JSON of one character, scene or shot so it can be edited and written back; for a shot, also its actions numbered as patch_shot addresses them.',
+        'The stored JSON of one character, scene or shot, to edit and write back; for a shot, also its actions numbered as patch_shot addresses them.',
       inputSchema: { path: pathArg, kind: z.enum(['character', 'scene', 'shot']), id: z.string() },
     },
     async ({ path: root, kind, id }) => {
@@ -368,7 +368,7 @@ export function buildServer(): McpServer {
     {
       title: 'List built-in library',
       description:
-        'Built-in characters and scenes that can be copied into a project (and recoloured) as starting points. Copying is much more reliable than drawing from scratch. Scenes ending in -tall are drawn 720 x 1280 for a portrait reel; the rest are 1280 x 720.',
+        'Built-in characters and scenes to copy (copy_from_library) and recolour: far more reliable than drawing from scratch. Scenes ending in -tall are 720x1280, for a reel; the rest 1280x720.',
       inputSchema: {},
     },
     async () =>
@@ -395,7 +395,7 @@ export function buildServer(): McpServer {
     {
       title: 'Get library item JSON',
       description:
-        'The full JSON of a built-in character or scene without copying it into the project. Read a character on the rig you are about to draw (`kid` for the humanoid, `dog` for the quadruped, `bird` for the simple rig) to see how its parts and variants are laid out, then write your own with write_character. A painted scene (jungle, cave, hut, pond) comes back without its long SVG layers: copy it instead, and its anchor sheet shows the picture.',
+        'The JSON of a built-in character or scene, without copying it. Before write_character, read one on the same rig (`kid` humanoid, `dog` quadruped, `bird` simple) to see how its parts and variants are laid out. A painted scene comes back without its long SVG layers: copy it instead, and its anchor sheet shows the picture.',
       inputSchema: { libraryId: z.string() },
     },
     async ({ libraryId }) => {
@@ -413,7 +413,7 @@ export function buildServer(): McpServer {
     {
       title: 'Copy from library',
       description:
-        'Copy a built-in character or scene into the project under a new id, optionally overriding colour tokens and the display name, or adding anchors to a scene. Returns the pose sheet (a library drawing already passes construction, so no construction sheet), or the anchor sheet.',
+        'Copy a built-in character or scene into the project, optionally under a new id, name, colours, height or (scene) added anchors. Returns the pose sheet (a library drawing already passes construction) or the anchor sheet.',
       inputSchema: {
         path: pathArg,
         libraryId: z.string(),
@@ -425,7 +425,7 @@ export function buildServer(): McpServer {
           .string()
           .optional()
           .describe(
-            "Display name, e.g. the character name in the story (default: from asId, 'old-man' → 'Old man', else the library name)"
+            "Display name (default: a character's from asId, 'old-man' → 'Old man'; else the library name)"
           ),
         colors: z
           .record(z.string(), z.string())
@@ -436,7 +436,7 @@ export function buildServer(): McpServer {
           .record(z.string(), AnchorSchema)
           .optional()
           .describe(
-            'Scene only: anchors added to the copy, or replacing one of the same name, e.g. { "well": { "x": 400, "y": 652 } }; the rest of the scene is copied as it is'
+            'Scene only: anchors added, or replacing one of the same name, e.g. { "well": { "x": 400, "y": 652 } }'
           ),
       },
     },
@@ -486,7 +486,7 @@ export function buildServer(): McpServer {
     {
       title: 'Write character',
       description:
-        'Validate and save a character (creates or replaces characters/<id>.json). Returns two pictures. The pose sheet shows every pose and expression the engine can produce, plus one cell per variant of any other part (selected in shots with a `face` action), each standing in its ground shadow when it casts one. The construction sheet shows what the construction linter checked: part boxes and pivots, the silhouette, swing poses that open any gap at a joint, and numbered red boxes matching the numbered warnings in the text (a limb not reaching into the torso or body, an ear not sunk into the head, a leg that only touches the body, feet off the line, a limb drawn wider across its knee or elbow than the round joint it bends about, which splits the joint when it bends); parts listed in `springs` (follow-through: a tail, ears) are labelled with ~, and the pose sheet shows them thrown 28° each way, as far as follow-through ever throws them. A part the rig does not know (a pigtail, a ponytail, a scarf end) can be placed with `hangs` (the part it hangs from and the point it is tied at) so it moves with that part and, listed in `springs`, swings about its tie; the linter checks it as a joint. The wings of a flying bird are hung parts listed in `flaps`: drawn spread at mid-beat, they beat while it flies, showing their `spread` variant in the air and `folded` at rest. A rig part whose joint is drawn away from the rig pivot turns about its own point with `pivots` ({ tail: [84, 128] }), and `chains` bends a part along its length like a leg at the knee instead of turning it stiff ({ tail: 4 }, or the joints: { head: [[201, 111]] } for a neck and a head); a quadruped tail is a chain of 4 by default. Legs drawn shorter or lower take `pivots` at the hip and `bends` at the knee ({ legBR: [124, 181] }), and a reptile drawn low on splayed legs says `sprawl: true`: it walks with its feet flat and lies down by letting its belly down, never sitting back on its haunches. A bow is a prop with a `bowstring` (the two ends of its string; the engine draws the string, and its sheet shows it drawn back), an arrow a prop with `grip` at its nock and `tip` at its head, a tool a prop with `tip` at its working end (the blade of a hoe, the bowl of a ladle: what a `dig`, `strike`, `hold` or `wipe` puts on its target), and `mark` is where an arrow aimed at a character hits it (the eye of a bird); the pose sheet of a person shows them drawing a bow (`aim`) and just after a `shoot`. A prop with `sail` (an umbrella 1, a flag about 0.6) catches the `wind` of the weather while carried: it leans downwind about its `grip` and gusts, a flag turned in the hand to stream downwind, and the holding arm gives with it; its pose sheet shows it leaned as far as a gale leans it. An animal seen from above (a maze) can give `ends`: whole drawings of it from behind (`back`) and from the front (`front`) in the same box, which the engine draws and walks (`legL`/`legR` lifting in turn, a part with a pivot swaying) while a walk goes mostly up or down the screen; the pose sheet shows each standing and mid-stride. Drawing outside the canonical box is an error. The engine adds the outline and the shading itself; do not draw either. Fix and re-write until both sheets look right and the warnings are gone. A `voice` (list_voices) speaks its lines in every shot that has them. `habitat` says where it can be with nothing holding it up: land (the default; plus air for one with `flaps`), water (a fish, a boat), air (a kite, the moon, a dust cloud).',
+        "Validate and save a character (characters/<id>.json, created or replaced). Format: authoring guide, Coordinate boxes (rigs, variants, springs, pivots and chains), Drawing style and Construction; the engine draws the outline and shading, so draw neither. Returns two pictures. The pose sheet: every pose and expression the engine can produce, a cell per variant of any other part, `springs` parts thrown as far as follow-through throws them, and what the character's extras do (`ends` standing and mid-stride, a bow drawn back, a person aiming and just after a `shoot`, a `sail` prop leaned in a gale). The construction sheet: part boxes and pivots, the silhouette, swing poses that open a gap at a joint, springs labelled ~, and a numbered red box per numbered warning. Rewrite until both sheets look right and the warnings are gone. A new `voice` speaks this character's unvoiced lines in every shot.",
       inputSchema: { path: pathArg, character: CharacterSchema },
     },
     async ({ path: root, character }) => {
@@ -514,7 +514,7 @@ export function buildServer(): McpServer {
     {
       title: 'Write scene',
       description:
-        "Validate and save a scene (scenes/<id>.json). Returns the scene with anchors and stage shortcuts marked, plus a ghost showing how tall a 220px character is, so you can check scale and placement. A layered scene (`far` behind the stage, `near` in front of it) gets a strip underneath: each layer alone, then the camera zoomed into either side, where the far layer must still fill the frame and should sit differently behind the stage. A scene with `weather`, `effects` or `sway` gets a row of the empty scene at a few moments, to show the rain, clouds, flames, waves, swaying trees or lines drawn on (a `draw` effect, which the sheet itself shows whole) moving; the pivot of each swaying group is ringed in pink, with the arc its far end sweeps at its furthest turn and how far that is (over 40 px reads as rubber and is warned about; keep perches and anchors off swaying groups: nothing on one moves with it; a group turns rigidly about its one pivot, so sway clothes on a line one cloth at a time, each from its pegs). Lights (`lights` for a sun, moon or lamp painted into the art; a `sun` effect and every fire count too) are ringed in yellow, with the shadow each throws of the ghost, so you can check the shadows fall away from what the picture shows as the light. Every scene says where feet can stand (`walk`: a polygon round the floor and round each thing stood on above it, a stair, a rock top, a branch) and where the water is (`water`; water drawn under a translucent foreground band gives the top of the band as its `waterline`, where the engine lays the splash of whatever goes in and the rings and bow wave round a swimmer; `surface` sets the footsteps, and `sand` or `snow` keeps the print of every foot that comes down on a walk area, or with `trail` only each walker's last N, the oldest faintest), and a scene with a ladder, a climbable tree trunk or a wall gives `climb` areas round them, from the ground to the top. Things on the floor that feet cannot pass through (a well, a cot, a trunk, a boulder) are `solids`: each a footprint polygon on the floor and the `layer` its picture is in (`svg`, walks go round its front; `foreground`, round its back), and walks go round them and keep to the walk areas on their own. The sheet hatches walk areas green, water blue, climb areas orange and solids red, so check them against the art. An anchor can say how the place is used (`use`: the pose, the facing and the work point `at`, as at a washing stone); the sheet draws its facing as an arrow and `at` as a pink cross, to check against the art. An anchor on no walk or water area is a world finding: reported, and saved anyway, but an error until fixed or waived in `allow` (a spot in the sky for a bird). Give the ground its `perspective` once, two rows of the floor as [y, scale] ([[499, 0.62], [665, 0.95]]): anchors and shot spots with no `scale` are then sized by their depth (an anchor up on a dais or a stage gives `ground`, the y the dais meets the floor at; a seat's `floor` counts the same), the sheet draws the ghost's height at five depths in cyan, and an anchor whose `scale` is more than a fifth off it is a `world.scale` finding giving the scale it should be. Actors further back fade a little toward the painted sky's horizon colour (aerial perspective), gently by default; `depth: { haze: 0..1, color }` tunes it, haze 0 turns it off. A stage `fire` stands among the actors in depth order: whoever sits behind it is drawn behind its flames, its glow on the floor under everyone.",
+        "Validate and save a scene (scenes/<id>.json). Format: authoring guide, Scenes and its subsections. Returns the anchor sheet, to check against the art: anchors and stage shortcuts marked (a `use` anchor's facing as an arrow, its `at` as a pink cross), a ghost of the project's tallest character (220px if none) for scale, drawn at five depths in cyan with a `perspective`, walk areas hatched green, water blue, climb orange and solids red, and lights ringed in yellow with the shadow each throws of the ghost. A layered scene adds each layer alone and the camera zoomed into either side (`far` must still fill the frame); one with `weather`, `effects` or `sway` adds the empty scene at a few moments, each swaying group's pivot ringed in pink with the arc its far end sweeps (over 40 px warns). World findings (no walk areas, an anchor on no walk or water area, a `scale` off the perspective) do not stop the save, but block the render until fixed or waived in `allow` with a reason.",
       inputSchema: { path: pathArg, scene: SceneSchema },
     },
     async ({ path: root, scene }) => {
@@ -541,7 +541,7 @@ export function buildServer(): McpServer {
     {
       title: 'Write shot',
       description:
-        "Validate and save a shot (shots/<NN>-<id>.json; `order` sets NN and therefore playback order). Cross-checks cast, anchors, face variants, who a line is spoken `to`, who carries what (`attach`; a `pickup` the carrier cannot reach says where to stand; `do: 'give'` on a held prop hands it to the one attached, both reaching out to where their hands meet), who stands on whom (`on`), archery (an `aim` needs a bow in the hand and its `arrow` in the cast; a `shoot` needs an aim to loose, or on an arrow off any bow a `to`) and whether a `crossfade` has a shot to dissolve from, and warns when two actors speak at once. A shot that carries straight on from the one before in the same scene (a hard cut, unless it says `cut: 'later'`; a crossfade is read as later) is held to how that one left everyone: where they stood, sitting or lying, asleep, what they held, their size, and nobody appearing or vanishing in sight (`continuity.cut`, which gives the spot); whoever it has facing the other way is turned at its start. Screen direction is held across a cut to another place: someone who goes off one side and comes on moving back the way they came is a finding (`continuity.direction`; waive it for a new trip), and so are two who swap sides across a cut that carries straight on, an insert or a closer view (`continuity.line`, the 180° rule; `cut: 'later'` if time has passed). The project check also warns when someone ends a shot carrying a prop and starts the next one, in another place or later, empty-handed. Listeners turn to face the speaker on their own, and the speaker turns to its `to` (`audience` adds listeners, `reacts` makes a reaction look at its cause first); do not stage those turns, and the text lists the ones the engine added. Lines of characters with a `voice`, and captions when the project has a narrator, are spoken now, each with the emotion its speaker has then; a spoken line lasts as long as it takes to say (give a reply `after` in place of `t` and it starts that long after the line before it ends, however long that turns out), and warnings say when one is cut off by the end of the shot, talks over the narrator or runs into the speaker's own next line, or when a growl or a laugh is written out for the voice to read (mark it *…* and add a `sound`). Returns a contact sheet of evenly spaced frames so you can check staging, timing and bubbles, with the sound under it (a row per speaker, effects, ambience, music; a line outlined in red is cut off); it is drawn smaller than preview_shot draws it, so use that when a detail is hard to make out. Once saved, the world check plays the shot and holds every actor to what it can rest on (its character's `habitat`): feet on the scene's walk areas, a swimmer in water, a flier anywhere, a climber (`climb`, up a ladder or trunk to `to`) inside a `climb` area; a `walk` or `run` goes round the scene's solids and keeps to its walk areas on its own (stage it whole, not in legs), and standing inside a solid is a finding (`support.solid`); carried, ridden (`on`) and mid-jump actors are held up already, and a walker glided off the ground with `move` is a finding (climb, jump or fall instead), as is a `give` whose two stand too far apart or face away for their hands to meet (`give.reach`), and a `strike`, `wipe` or `hold` at a `to` whose hand (or the end of the stick a blow swings, or the `tip` of a tool a wipe or hold is done with) does not land on it (`contact.reach`); the engine turns the doer to its `to` first, a `strike` with a `to` brings what it swings down onto it, and a `wipe` or `hold` by someone carrying a tool (a prop with a `tip`: a ladle, a brush) puts the tool's tip on its `to`, not the hand (give the spot the tip goes to: in the fire, in the bowl). An `eat` with a `to` (a share on a plate in the cast, or a spot on the food) sends the hand down to the food first and brings the bite up to the mouth; without one the hand comes up with whatever it holds, empty if nothing. A carried tool at rest never goes into the floor in front of its holder, and a seated holder props one up 30° above level. A speaker whose face is more than half behind the scene's `foreground` or `near` art (or a stage fire in front of it) while saying a line is a finding (`sight.face`), and so is any of an actor marked `hidden` (cast `hidden: true`, out of sight behind the art or someone nearer, a spy behind a boulder) that shows (`sight.hidden`): `set: { hidden: false }` for a peek out. A `to` naming an anchor with a `use` (a washing stone) lands on its work point, and the engine walks the doer there and sits it down first, if it has the time. In a scene with a `perspective`, a point { x, y } with no `scale` is sized by its depth (give `ground`, the y a raised surface meets the floor at, for a spot up on a dais), and a cast spot whose `scale` is more than a fifth off it is a finding (`world.scale`). Each finding comes back as an error with a frame of it, the spot ringed; it blocks the render until the shot is fixed or the finding is waived in the shot's `allow` with a reason (only when the film means it: a ghost floats).",
+        "Validate and save a shot (shots/<NN>-<id>.json; `order` sets NN, its place in the film). Format: authoring guide, Shots and its subsections. A broken cross-reference (cast, anchors, variants, `to`, `attach`, `on`, archery, `crossfade`) stops the write; warnings cover lines that overlap, are cut off by the shot's end or write a sound out for the voice to read. Lines with a voice, and captions when there is a narrator, are spoken now, so `after` timings follow the real voice. The text lists the turns, walks and sits the engine added: do not stage those. Once saved, the world check plays the shot (authoring guide, World findings); each finding comes back as an error with a frame of it, the spot ringed, and blocks the render until fixed or waived in `allow` with a reason (only when the film means it: a ghost floats). Returns a contact sheet of evenly spaced frames with the sound lanes under it (a line outlined in red is cut off), drawn smaller than preview_shot draws it.",
       inputSchema: {
         path: pathArg,
         shot: ShotSchema,
@@ -557,7 +557,7 @@ export function buildServer(): McpServer {
           .min(1)
           .max(12)
           .optional()
-          .describe('Contact sheet frame count (default 6, in two columns of 630px)'),
+          .describe('Contact sheet frames (default 6)'),
       },
     },
     async ({ path: root, shot, order, frames }) => {
@@ -590,7 +590,7 @@ export function buildServer(): McpServer {
     {
       title: 'Patch shot',
       description:
-        "Change a saved shot without writing it out again: replace top-level fields (`set`), add, replace or take out cast members (`cast`), merge fields into actions by index (`edit`; null removes a field), take actions out (`remove`) or add new ones (`add`). Indices are the shot's actions before the patch, as `get_item` and this tool list them. The result is validated exactly as write_shot validates and keeps the shot's place in the film. Returns the actions renumbered and a contact sheet of the stretch the change shows in (the whole shot after a `set` or `cast` change); preview_shot shows all of it. For a shot restaged from scratch, use write_shot.",
+        'Change a saved shot without rewriting it: replace top-level fields (`set`), add, replace or remove cast members (`cast`), merge fields into actions by index (`edit`), take actions out (`remove`) or add new ones (`add`). Indices are the actions before the patch, as get_item lists them. Validated and checked as write_shot is; the shot keeps its place. Returns the actions renumbered and a contact sheet of the stretch the change shows in (the whole shot after `set` or `cast`). To restage a shot from scratch, use write_shot.',
       inputSchema: {
         path: pathArg,
         shotId: z.string(),
@@ -598,14 +598,12 @@ export function buildServer(): McpServer {
           .partialRecord(z.enum(SETTABLE), z.unknown())
           .optional()
           .describe(
-            `Top-level fields replaced whole (${SETTABLE.join(', ')}), as in write_shot; null drops the shot's own (weather, music, cut, allow)`
+            `Top-level fields replaced whole (${SETTABLE.join(', ')}); null drops an optional one`
           ),
         cast: z
           .record(z.string(), z.unknown())
           .optional()
-          .describe(
-            'Cast members by id, each replaced whole as in write_shot, or null to take one out'
-          ),
+          .describe('Cast members by id, each added or replaced whole, or null to take one out'),
         edit: z
           .array(
             z.object({
@@ -613,7 +611,7 @@ export function buildServer(): McpServer {
               fields: z
                 .record(z.string(), z.unknown())
                 .describe(
-                  'Action fields to change, e.g. { "t": 3.5 } or { "say": "…" }; null removes one. An action placed `after` a line takes { "after": 0.5 }, or { "t": 3.5, "after": null } for a fixed time'
+                  'Fields to change, e.g. { "t": 3.5 } or { "say": "…" }; null removes one. An action timed `after` a line takes { "after": 0.5 }, or { "t": 3.5, "after": null } for a fixed time'
                 ),
             })
           )
@@ -625,7 +623,7 @@ export function buildServer(): McpServer {
         add: z
           .array(z.record(z.string(), z.unknown()))
           .optional()
-          .describe('New actions, written as in write_shot; they take their place by t'),
+          .describe('New actions, as in write_shot; each takes its place by t'),
         frames: z
           .number()
           .int()
@@ -633,7 +631,7 @@ export function buildServer(): McpServer {
           .max(12)
           .optional()
           .describe(
-            'Contact sheet frame count (default 4 over the changed stretch, 6 over a whole shot)'
+            'Contact sheet frames (default 4 over the changed stretch, 6 over a whole shot)'
           ),
       },
     },
@@ -681,12 +679,10 @@ export function buildServer(): McpServer {
       try {
         const p = projectPaths(root);
         if (kind === 'shot') {
-          const project = await loadProject(root);
-          if (!project.shots.some((s) => s.id === id)) return fail(`no shot '${id}'`);
-          await saveShot(
-            root,
-            project.shots.find((s) => s.id === id)!
-          ); // normalises the file name
+          const shot = (await loadProject(root)).shots.find((s) => s.id === id);
+          if (!shot) return fail(`no shot '${id}'`);
+          // Saved with no order, the file is <id>.json whatever its prefix was.
+          await saveShot(root, shot);
           await rm(path.join(p.shots, `${id}.json`));
         } else {
           const file = path.join(kind === 'character' ? p.characters : p.scenes, `${id}.json`);
@@ -705,7 +701,7 @@ export function buildServer(): McpServer {
     {
       title: 'Preview one frame',
       description:
-        'Render a single frame of a shot at time t (seconds from the start of the shot). Use debug=true to mark anchors and feet points.',
+        "One frame of a shot at t seconds from its start, at full size. debug marks the anchors and each actor's feet point.",
       inputSchema: {
         path: pathArg,
         shotId: z.string(),
@@ -730,7 +726,7 @@ export function buildServer(): McpServer {
     {
       title: 'Preview a shot',
       description:
-        'Contact sheet of evenly spaced frames from a shot (default 6, up to 12), at full size: the closer look at a sheet that write_shot or patch_shot returned smaller.',
+        'Contact sheet of evenly spaced frames of a shot (default 6) at full size: the closer look at the smaller sheet write_shot or patch_shot returned.',
       inputSchema: {
         path: pathArg,
         shotId: z.string(),
@@ -757,7 +753,7 @@ export function buildServer(): McpServer {
     {
       title: 'Render video',
       description:
-        "Render the whole movie (or one shot) to an H.264 mp4 in <project>/out/, with its sound: voices, music, ambience and effects (lines not yet spoken are spoken first). The whole movie, unless it is a portrait reel, also gets a movie.mkv: the same picture with three sound tracks (the full mix, music and effects without the dialogue, and that with the narrator), a subtitle track in the film's language and one per language the lines' `translation` gives (off until chosen), and a chapter per shot. Validation errors block rendering, world findings included (an actor standing on air, a land animal in deep water: fix the shot, or waive one in `allow` with a reason). Every voiced take is heard by speech recognition and said again (up to three takes, `chatterbox:` voices only) when it does not say its line; one that never does is a `speech.mismatch` error: reword the line, or listen to it and waive it. A minute of 720p takes about ten seconds. Returns a film sheet: one frame from the middle of each rendered shot, so you can confirm the cut without opening the file.",
+        'Render the whole film (or one shot) to an mp4 in <project>/out/ with its sound, speaking any unvoiced lines first. The whole film, unless a portrait reel, also gets movie.mkv (authoring guide, Subtitles and the .mkv). Validation errors block it, world findings included, and so does a voiced line no take says (`speech.mismatch`: reword it, or listen and waive it). A minute of 720p takes about ten seconds. Returns a film sheet: one frame from the middle of each shot rendered.',
       inputSchema: { path: pathArg, shotId: z.string().optional() },
     },
     async ({ path: root, shotId }) => {
@@ -767,7 +763,8 @@ export function buildServer(): McpServer {
         if (hasErrors(problems)) return fail(formatProblems(problems));
         const shots = shotId ? project.shots.filter((s) => s.id === shotId) : project.shots;
         if (!shots.length) return fail(shotId ? `no shot '${shotId}'` : 'no shots to render');
-        const outPath = path.join(projectPaths(root).out, shotId ? `${shotId}.mp4` : 'movie.mp4');
+        const p = projectPaths(root);
+        const outPath = shotId ? path.join(p.out, `${shotId}.mp4`) : p.movie;
         const started = Date.now();
         const spoken = await voice(root, project, shots);
         // A take spoken just now that no retake could make say its line stops it too.
@@ -798,7 +795,7 @@ export function buildServer(): McpServer {
     {
       title: 'Critique a film',
       description:
-        "Look at the film the way the person will, before they do (authoring guide, The critic): the checks catch what has one right answer, this is for the rest (a tail that comes off, a moon in front of the trees, a hut said to hold a sleeping man that shows empty, a moral said in a hurry). Without shotId: the critic's checklist and the read-through, every line in the order it is heard with its time, speaker, voice and English, and the stretches where nobody speaks. With shotId: that shot's frames at its beats (first and last, the middle of every line, every verb at its work or done, and the last frame of the shot before, across the cut), each captioned with what is meant to happen then, a few frames to an image. Go through the read-through once and every shot once against the checklist; it is best done by an agent that has not written the film. It is judgment: it adds to `talekit check` and replaces none of it.",
+        "Look at the film as the person will, for what the checks cannot judge (authoring guide, The critic); best done by an agent that did not write it. Without shotId: the critic's checklist and the read-through (every line in the order heard, with its time, speaker, voice and English, and the stretches where nobody speaks). With shotId: the shot's frames at its beats (first and last, mid-line, each verb at work or done, and the frame before the cut), each captioned with what is meant to happen. Go through the read-through once and every shot once. It adds to `talekit check` and replaces none of it.",
       inputSchema: { path: pathArg, shotId: z.string().optional() },
     },
     async ({ path: root, shotId }) => {
@@ -832,7 +829,7 @@ export function buildServer(): McpServer {
     {
       title: 'Open the review app',
       description:
-        "Serve the review app for each folder on one server at 127.0.0.1, each under its own path, and open the first in the person's browser (Firefox when it is running, else the default), so they can watch and leave notes; each page has a switch to the others. A project (the film and its reel, after both are rendered) gets the film review with its options; any other folder is a board of samples (sounds, videos, pictures, sample projects) to listen to, note and pick from. A folder already served keeps its address. With lan, also on the local network, for reviewing a reel on a phone (anyone on that network can open it): only when the person asks. Returns the addresses: tell the person.",
+        "Serve the review app for each folder from one server on 127.0.0.1, each under its own path (a folder already served keeps it), and open the first in the person's browser. A project (the film and its reel, once rendered) gets the film review with its options; any other folder a board of samples (sounds, videos, pictures, sample projects) to note and pick from. Returns the addresses: tell the person.",
       inputSchema: {
         paths: z
           .array(z.string())
@@ -841,7 +838,9 @@ export function buildServer(): McpServer {
         lan: z
           .boolean()
           .optional()
-          .describe('Also serve on the local network, for a phone; only when asked'),
+          .describe(
+            'Also serve on the local network, for a phone (anyone on it can open it); only when the person asks'
+          ),
       },
     },
     async ({ paths, lan }) => {
@@ -868,7 +867,7 @@ export function buildServer(): McpServer {
     {
       title: 'List voices',
       description:
-        "Voices a character (`voice`) or the project's narrator (set_audio) can speak in, by language, and the two engines that speak them. Lines are spoken by a local model when a shot is written, each with its speaker's emotion, and a voiced line lasts as long as it takes to say.",
+        "Voices for a character's `voice` or the narrator (set_audio), by language, the two engines that speak them, and how to write one.",
       inputSchema: {},
     },
     async () => {
@@ -906,7 +905,7 @@ export function buildServer(): McpServer {
     {
       title: 'List sounds',
       description:
-        "Bundled music, ambience and sound effects, by name. Music goes in set_audio or a shot's `music`, ambience in a scene's `ambience`, effects in a `sound` action. A project can add its own files to its audio/ folder and use them by file name without the extension. Rain, wind, fire, waterfalls, waves and thunder are heard from weather and effects on their own, and footsteps from walking; do not add them. A sound marked `startles` makes everyone else in the shot jump on its own (see a `sound` action's `startles`), and one marked `mouth` opens its actor's mouth while it sounds.",
+        "Bundled music, ambience and sound effects by name, marking those that startle the others in the shot or open the actor's mouth. A project's own files in audio/ are named by file name. What the engine already sounds (weather, fire, footsteps and the like) must not be added: authoring guide, Sound.",
       inputSchema: {},
     },
     async () => {
@@ -955,7 +954,7 @@ export function buildServer(): McpServer {
     {
       title: 'Set music, narrator and mix',
       description:
-        "Set the project's music (under every shot that does not choose its own), its narrator voice (who reads the captions) and its mix (a volume per layer: voices, music, ambience, effects; only when a listener says one is too loud or too quiet); null clears one, leaving it out keeps it. Setting a narrator speaks every caption that has no audio yet. Returns a map of the whole film's sound: a row per speaker, the effects, the ambience and the music, against the clock, with the cuts numbered. A line outlined in red is still being said when its shot cuts.",
+        "Set the project's music (under every shot without its own), narrator voice (reads the captions) and mix (a volume per layer, only when a listener finds one off); null clears one, leaving it out keeps it. A narrator speaks every unvoiced caption. Returns a map of the film's sound against the clock: a row per speaker, effects, ambience and music, the cuts numbered, a line outlined in red still being said when its shot cuts.",
       inputSchema: {
         path: pathArg,
         music: MusicSchema.nullable().optional(),
@@ -993,7 +992,7 @@ export function buildServer(): McpServer {
     {
       title: 'List review notes',
       description:
-        'Notes a person left in the review app (open_review) on a character, a scene, one moment of a shot, an option, or (on a board of samples) a file. Each open note on a project comes with a picture of what they were looking at: the frame at that moment for a shot note, the pose or anchor sheet for an asset note. A shot note may name a spot they clicked, "at (x, y)" in frame pixels, ringed on its picture: that is what the note is about. "looking at option q:c" means they wrote it with that choice laid over the film; the picture has it. "picked c" on an option is their choice: write it into the film (into its source too, if the story is generated), delete options/<question>/, then resolve the note; "picked" on a file is the sample they chose. "reopened: ..." is what they added when an earlier fix did not settle it; fix that too. Fix what the note asks, check the result, then call resolve_note.',
+        'Notes the person left in the review app (open_review) on a character, a scene, a moment of a shot, an option or (on a board) a file. Each open project note comes with the picture they were looking at (the frame, or the pose or anchor sheet); a clicked spot, "at (x, y)", is ringed on it. Reading them ("reopened", "looking at option", "picked"): authoring guide, Workflow (Review) and Options and samples. Fix what each asks, check the result, then resolve_note.',
       inputSchema: {
         path: pathArg,
         all: z.boolean().optional().describe('Include resolved notes (default: open only)'),
@@ -1063,7 +1062,7 @@ export function buildServer(): McpServer {
     {
       title: 'Resolve a review note',
       description:
-        'Mark a review note done (or reopen it with status "open"). Do this only after the fix is written and checked; the person sees the status change in the review app.',
+        'Mark a review note done, or reopen it (status "open"), only once the fix is written and checked; the person sees the status in the review app.',
       inputSchema: {
         path: pathArg,
         id: z.string().describe('Note id, e.g. n3'),
