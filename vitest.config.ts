@@ -1,9 +1,10 @@
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    // Voiced takes are not heard by speech recognition in tests (a fake hearer is passed
-    // where the speech check itself is tested), so the suite needs no model or whisper-cli.
+    // Worktrees under .claude/ hold copies of the suite.
+    exclude: [...configDefaults.exclude, '.claude/**'],
+    // Tests pass a fake hearer where they need one, so no whisper model is required.
     env: { TALEKIT_HEAR: 'off' },
   },
 });
