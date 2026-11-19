@@ -542,7 +542,7 @@ export function buildServer(): McpServer {
     {
       title: 'Write sketch',
       description:
-        "Save p5-style code (sketches/<id>.js) that a shot draws on its stage with `sketch: '<id>'`: for what shapes and SVG cannot draw, such as ink swirling in water, glowing smoke, particles, generative patterns. Format: authoring guide, Sketches. The code must import and draw its first frame, or nothing is saved and its error comes back with the lines of the sketch it came from. Returns evenly spaced frames: of the first shot that uses it, or of the sketch alone over `seconds` if none does yet. Frames are drawn at half the film's pixels.",
+        "Save p5-style code (sketches/<id>.js) that a shot draws on its stage with `sketch: '<id>'`: for what shapes and SVG cannot draw, such as ink swirling in water, glowing smoke, particles, generative patterns. Format: authoring guide, Sketches. The code must import and draw its first frame, or nothing is saved and its error comes back with the lines of the sketch it came from. A shot's `sketchParams` reach the code as p.params; p.camera and p.view are the shot's camera, and `p.screen = true` in setup draws what the camera shows, sharp at any zoom (with p.applyCamera()); p.update, if set, steps the state every frame and draw() runs only for frames shown. Returns evenly spaced frames: of the first shot that uses it, or of the sketch alone over `seconds` if none does yet. Frames are drawn at half the film's pixels.",
       inputSchema: {
         path: pathArg,
         id: IdSchema,

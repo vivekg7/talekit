@@ -10,7 +10,7 @@ import { LIBRARY, copyFromLibrary } from './library/index.js';
 import { createProject, loadProject, projectPaths } from './project/store.js';
 import { formatProblems, hasErrors, speechProblems, validateProject } from './project/validate.js';
 import { postProblems } from './project/posts.js';
-import { frameSvg, inlinePictures } from './render/sketch.js';
+import { frameSvg, inlinePictures, tunedShot } from './render/sketch.js';
 import { rasterize } from './render/raster.js';
 import { criticSheetsSvg, readThrough } from './render/critic.js';
 import { guideSection } from './project/guide.js';
@@ -41,8 +41,11 @@ const USAGE = `talekit — 2D films, reels and animations made by AI agents
   talekit sheet <dir> <id> [--kind character|scene] [-o file.png]
                                                pose + construction sheet (character) or anchor sheet
                                                (scene); --kind when a character and a scene share the id
-  talekit frame <dir> <shotId> [-t 1.5] [-o file.png] [--svg] [--debug]
-  talekit contact <dir> <shotId> [-n 6] [-o file.png]
+  talekit frame <dir> <shotId> [-t 1.5] [-o file.png] [--svg] [--debug] [--param k=v]
+                                               -t 3,9,15: one picture per time, the sketch run once
+                                               (out/frame-<shot>-<t>.png, or -o's name with -<t>)
+  talekit contact <dir> <shotId> [-n 6] [-o file.png] [--param k=v]
+                                               --param: a sketchParams value for this picture only
   talekit critic <dir> [shotId] [-o dir]       the critic's checklist, read-through and each shot's frames
                                                at its beats (into out/critic/)
   talekit cover <dir> <shotId> -t <sec> --title "…" [--sub "…"] [--tag "…"]
@@ -118,6 +121,7 @@ async function main(argv: string[]): Promise<void> {
       silent: { type: 'boolean' },
       banner: { type: 'boolean' },
       quiet: { type: 'boolean' },
+      param: { type: 'string', multiple: true },
       help: { type: 'boolean', short: 'h' },
     },
   });
@@ -213,25 +217,34 @@ async function main(argv: string[]): Promise<void> {
       const [dir, shotId] = rest;
       if (!dir || !shotId) throw new Error('usage: talekit frame <dir> <shotId> [-t sec]');
       const project = await loadProject(dir);
-      const shot = project.shots.find((s) => s.id === shotId);
-      if (!shot) throw new Error(`no shot '${shotId}'`);
-      const t = num(values.time) ?? 0;
-      const svg = frameSvg(project, shot, t, { debug: values.debug, density: 1 });
-      const p = projectPaths(dir);
-      if (values.svg) {
-        const file = values.out ?? path.join(p.out, `frame-${shotId}-${t}.svg`);
-        await mkdir(path.dirname(file), { recursive: true });
-        await writeFile(file, inlinePictures(svg));
-        console.log(file);
-      } else await savePng(values.out ?? path.join(p.out, `frame-${shotId}-${t}.png`), svg);
+      const shot = tunedShot(project, shotId, values.param);
+      const times = (values.time ?? '0').split(',').map(Number);
+      if (times.some((t) => !Number.isFinite(t) || t < 0))
+        throw new Error(`-t is seconds, or several joined by commas: not '${values.time}'`);
+      const ext = values.svg ? '.svg' : '.png';
+      const fileAt = (t: number) =>
+        !values.out
+          ? path.join(projectPaths(dir).out, `frame-${shotId}-${t}${ext}`)
+          : times.length > 1
+            ? values.out.replace(/(\.\w+)?$/, `-${t}$1`)
+            : values.out;
+      // In time order, so a sketch runs once through all of them.
+      for (const t of [...times].sort((a, b) => a - b)) {
+        const svg = frameSvg(project, shot, t, { debug: values.debug, density: 1 });
+        if (values.svg) {
+          const file = fileAt(t);
+          await mkdir(path.dirname(file), { recursive: true });
+          await writeFile(file, inlinePictures(svg));
+          console.log(file);
+        } else await savePng(fileAt(t), svg);
+      }
       return;
     }
     case 'contact': {
       const [dir, shotId] = rest;
       if (!dir || !shotId) throw new Error('usage: talekit contact <dir> <shotId> [-n 6]');
       const project = await loadProject(dir);
-      const shot = project.shots.find((s) => s.id === shotId);
-      if (!shot) throw new Error(`no shot '${shotId}'`);
+      const shot = tunedShot(project, shotId, values.param);
       const p = projectPaths(dir);
       await savePng(
         values.out ?? path.join(p.out, `contact-${shotId}.png`),

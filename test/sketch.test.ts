@@ -1,4 +1,5 @@
-import { mkdtemp, mkdir, readdir, writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { mkdtemp, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { Resvg } from '@resvg/resvg-js';
@@ -8,7 +9,7 @@ import type { Project } from '../src/engine/types.js';
 import { loadProject, saveSketch } from '../src/project/store.js';
 import { validateProject } from '../src/project/validate.js';
 import { rasterizePixels } from '../src/render/raster.js';
-import { frameSvg, inlinePictures, sketchAt } from '../src/render/sketch.js';
+import { frameSvg, inlinePictures, sketchAt, tunedShot } from '../src/render/sketch.js';
 import { sketchLanes } from '../src/render/video.js';
 import { Fluid } from '../src/sketch/fluid.js';
 import { Sketch } from '../src/sketch/p5.js';
@@ -184,6 +185,21 @@ describe('a fluid', () => {
     f.render(out, { background: [0, 0, 0], bloom: 0, sunrays: 0 });
     expect(out[(50 * 100 + 40) * 4]).toBeGreaterThan(out[(10 * 100 + 10) * 4] + 50);
   });
+
+  it('renders a frame the same however many frames were rendered before it', () => {
+    const shown = (every: boolean) => {
+      const f = new Fluid(60, 60, 60, 60, { resolution: 16 });
+      const out = new Uint8ClampedArray(60 * 60 * 4);
+      f.splat(20, 30, 300, 0, 6, [0.02, 0.01, 0]);
+      for (let i = 0; i < 5; i++) {
+        f.step(1 / 30);
+        if (every) f.render(out);
+      }
+      f.render(out);
+      return [...out];
+    };
+    expect(shown(false)).toEqual(shown(true));
+  });
 });
 
 describe('a sketch in a shot', () => {
@@ -270,4 +286,127 @@ describe('render lanes', () => {
     ]);
     expect(sketchLanes([shot(), shot('a', 1)], 4)).toEqual([0, 0]);
   });
+});
+
+describe('a sketch told more', () => {
+  /** Dots that drift right, each frame's picture painted whole from where they are. */
+  const drift = (split: boolean) => `export default function (p) {
+  let xs = [];
+  p.setup = () => { for (let i = 0; i < 20; i++) xs.push(p.random(200)); };
+  const step = () => { xs = xs.map((x, i) => (x + 3 + p.random(2) + i * 0.1) % 200); };
+  const paint = () => {
+    p.background(0);
+    p.noStroke();
+    p.fill(255, 200, 0);
+    xs.forEach((x, i) => p.circle(x, 20 + i * 18, 9));
+  };
+  ${split ? 'p.update = step; p.draw = () => { globalThis.draws = (globalThis.draws ?? 0) + 1; paint(); };' : 'p.draw = () => { step(); paint(); };'}
+}`;
+  const canvasAt = async (code: string, times: number[]) => {
+    const p = await loadProject(await sketchProject(code));
+    let s: Sketch | undefined;
+    for (const t of times) s = sketchAt(p, p.shots[0], t, 1);
+    return [...s!.drawingContext.getImageData(0, 0, 200, 400).data];
+  };
+
+  it('with update split from draw, skips drawing on the way and leaves the same picture', async () => {
+    const g = globalThis as { draws?: number };
+    const plain = await canvasAt(drift(false), [1.5]);
+    g.draws = 0;
+    const jumped = await canvasAt(drift(true), [1.5]);
+    expect(g.draws).toBe(1);
+    const film = await canvasAt(
+      drift(true),
+      Array.from({ length: 16 }, (_, i) => i / 10)
+    );
+    expect(g.draws).toBe(17);
+    expect(jumped).toEqual(plain);
+    expect(film).toEqual(plain);
+  });
+
+  /** A hairline down the frame and a square, both placed in design pixels. */
+  const LINE = (screen: boolean) => `export default function (p) {
+  p.setup = () => { p.screen = ${screen}; };
+  p.draw = () => {
+    p.background(255);
+    p.applyCamera();
+    p.stroke(0);
+    p.strokeWeight(1 / p.camera.zoom);
+    p.line(80.25, 0, 80.25, 400);
+    p.noStroke();
+    p.fill(0, 0, 255);
+    p.rect(110, 190, 10, 10);
+  };
+}`;
+  const zoomed = async (screen: boolean) => {
+    const root = await sketchProject(LINE(screen), { camera: { zoom: 2, x: 100, y: 200 } });
+    const p = await loadProject(root);
+    const s = sketchAt(p, p.shots[0], 0, 1);
+    expect(s.view).toEqual({ x: 50, y: 100, width: 100, height: 200 });
+    const { pixels, width } = rasterizePixels(frameSvg(p, p.shots[0], 0, { density: 1 }));
+    const row = Array.from({ length: 40 }, (_, i) => px(pixels, width, 40 + i, 300)[0]);
+    return { inked: row.filter((v) => v < 250).length, darkest: Math.min(...row), pixels, width };
+  };
+
+  it('can draw what the camera shows, so a zoom stays sharp', async () => {
+    const world = await zoomed(false);
+    const screen = await zoomed(true);
+    // Design x 80.25 lands at 100 + 2 × (80.25 - 100) = 60.5 on screen: one pixel, black.
+    expect(screen.inked).toBe(1);
+    expect(screen.darkest).toBe(0);
+    expect(world.inked).toBeGreaterThan(1);
+    expect(world.darkest).toBeGreaterThan(40);
+    // Either way the square is where the camera puts it: 120..140 × 180..200 on screen.
+    for (const { pixels, width } of [world, screen]) {
+      expect(px(pixels, width, 130, 190)).toEqual([0, 0, 255]);
+      expect(px(pixels, width, 145, 190)).toEqual([255, 255, 255]);
+    }
+  });
+
+  it('starts afresh when a camera it read has moved', async () => {
+    const root = await sketchProject(LINE(true), { camera: { zoom: 2, x: 100, y: 200 } });
+    const p = await loadProject(root);
+    expect(sketchAt(p, p.shots[0], 0.5, 1).camera.x).toBe(100);
+    p.shots[0] = { ...p.shots[0], camera: { zoom: 2, x: 90, y: 200 } };
+    expect(sketchAt(p, p.shots[0], 0.5, 1).camera.x).toBe(90);
+  });
+
+  const SIZED = `export default function (p) {
+  p.draw = () => {
+    p.background(255, 0, 0);
+    p.noStroke();
+    p.fill(p.params.ink === 'green' ? [0, 255, 0] : [0, 0, 255]);
+    if (p.params.on) p.rect(0, 0, p.params.size, 10);
+  };
+}`;
+
+  it("hands the shot's params to its sketch, and a --param overrides one", async () => {
+    const root = await sketchProject(SIZED, { sketchParams: { size: 50, on: true } });
+    const p = await loadProject(root);
+    const at = (x: number) => {
+      const { pixels, width } = rasterizePixels(frameSvg(p, p.shots[0], 0, { density: 1 }));
+      return px(pixels, width, x, 5);
+    };
+    expect(at(40)).toEqual([0, 0, 255]);
+    expect(at(70)).toEqual([255, 0, 0]);
+    tunedShot(p, 's', ['size=100', 'ink=green']);
+    expect(p.shots[0].sketchParams).toEqual({ size: 100, on: true, ink: 'green' });
+    expect(at(70)).toEqual([0, 255, 0]);
+    expect(() => tunedShot(p, 's', ['size'])).toThrow(/key=value/);
+  });
+
+  it('draws several times in one run from the CLI, each with its --param', () => {
+    return sketchProject(SIZED, { sketchParams: { size: 50, on: true } }).then(async (root) => {
+      const r = spawnSync(
+        'npx',
+        ['tsx', 'src/cli.ts', 'frame', root, 's', '-t', '1,0.5', '--param', 'size=120', '--svg'],
+        { encoding: 'utf8' }
+      );
+      expect(r.status, r.stderr).toBe(0);
+      const files = r.stdout.trim().split('\n');
+      expect(files.map((f) => path.basename(f))).toEqual(['frame-s-0.5.svg', 'frame-s-1.svg']);
+      const img = new Resvg(await readFile(files[1], 'utf8')).render();
+      expect(px(img.pixels, img.width, 110, 5)).toEqual([0, 0, 255]);
+    });
+  }, 30_000);
 });

@@ -1083,8 +1083,14 @@ export const ShotSchema = z.object({
     "This shot's music instead of the project's: a track name, { track, volume }, or false for silence"
   ),
   sketch: IdSchema.optional().describe(
-    "A sketch drawn on the stage under the scene's svg and the cast: the id of sketches/<id>.js, p5-style code for what shapes and SVG cannot draw (ink in water, glowing smoke, particles, generative patterns). It runs from the shot's start, one draw() per frame, and moves with the camera like the stage"
+    "A sketch drawn on the stage under the scene's svg and the cast: the id of sketches/<id>.js, p5-style code for what shapes and SVG cannot draw (ink in water, glowing smoke, particles, generative patterns). It runs from the shot's start, one draw() per frame, and moves with the camera like the stage (or, with p.screen, draws what the camera shows, sharp at any zoom)"
   ),
+  sketchParams: z
+    .record(z.string(), z.union([z.number(), z.string(), z.boolean()]))
+    .optional()
+    .describe(
+      'Values handed to the sketch as p.params (p.params.speed), so one sketch serves several shots and tuning is an edit here: { "speed": 2, "palette": "dusk", "trails": true }'
+    ),
   allow: AllowSchema,
   actions: z.array(ActionSchema).default([]),
 });

@@ -236,6 +236,23 @@ export interface SketchSettings {
   fps: number;
   /** The shot's length, seconds. */
   duration: number;
+  /** The shot's `sketchParams`. */
+  params?: Readonly<Record<string, SketchParam>>;
+}
+
+export type SketchParam = number | string | boolean;
+/** The shot's camera: the design point at the frame's centre, and how close. */
+export interface SketchCamera {
+  x: number;
+  y: number;
+  zoom: number;
+}
+/** The rectangle of the design the camera shows, in design pixels. */
+export interface SketchView {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 /**
@@ -260,6 +277,24 @@ export class Sketch {
   deltaTime: number;
   setup?: () => void;
   draw?: () => void;
+  /**
+   * Advances the state alone. When set, the runner calls it every frame and draw() only for
+   * the frames it shows, so a late preview skips drawing the frames before it; draw() must
+   * then paint the whole picture from the state.
+   */
+  update?: () => void;
+  /** The shot's `sketchParams` (and a CLI `--param`), read-only. */
+  readonly params: Readonly<Record<string, SketchParam>>;
+  /** The shot's camera at this frame (render/sketch.ts keeps it current). */
+  camera: SketchCamera;
+  /** What that camera shows of the design. */
+  view: SketchView;
+  /**
+   * Set (in setup) for a canvas in screen space: the picture is the frame as the camera
+   * shows it, put over the far layer without the camera's scaling, so a zoom stays sharp.
+   * Draw after applyCamera() to work in design pixels.
+   */
+  screen = false;
 
   private readonly density: number;
   private readonly ctx: SKRSContext2D;
@@ -291,6 +326,9 @@ export class Sketch {
     this.duration = s.duration;
     this.deltaTime = 1000 / s.fps;
     this.density = s.density;
+    this.params = Object.freeze({ ...s.params });
+    this.camera = { x: s.width / 2, y: s.height / 2, zoom: 1 };
+    this.view = { x: 0, y: 0, width: s.width, height: s.height };
     this.canvas = createCanvas(
       Math.max(1, Math.round(s.width * s.density)),
       Math.max(1, Math.round(s.height * s.density))
@@ -459,6 +497,18 @@ export class Sketch {
   }
   resetMatrix(): void {
     this.ctx.setTransform(this.density, 0, 0, this.density, 0, 0);
+  }
+  /**
+   * From here on design pixels land where the camera shows them: on a `screen` canvas, the
+   * camera's transform; otherwise resetMatrix(), as the frame moves the canvas itself. A
+   * createGraphics layer takes its sketch's camera: `g.applyCamera(p)`.
+   */
+  applyCamera(of: Sketch = this): void {
+    if (!of.screen) return this.resetMatrix();
+    const { x, y, zoom } = of.camera;
+    const k = this.density * zoom;
+    const d = this.density;
+    this.ctx.setTransform(k, 0, 0, k, d * (this.width / 2) - k * x, d * (this.height / 2) - k * y);
   }
 
   // ---- shapes ----

@@ -2,8 +2,9 @@ import { stat } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import zlib from 'node:zlib';
 import { composeFrame, type ComposeOptions } from '../engine/compose.js';
+import { resolveCamera } from '../engine/timeline.js';
 import type { Project, Shot, SketchFile } from '../engine/types.js';
-import { Sketch } from '../sketch/p5.js';
+import { Sketch, type SketchCamera, type SketchView } from '../sketch/p5.js';
 
 /**
  * Sketches in frames: a shot's `sketch` (sketches/<id>.js, drawn with the API in
@@ -14,7 +15,8 @@ import { Sketch } from '../sketch/p5.js';
  * A sketch has state (a fluid, particles, a trail left on its canvas), so frame n is what
  * draw() leaves after its (n+1)th call: a frame is still a pure function of (project, shot,
  * t), but reached by running from the start. A run is kept and carried forward, so frames
- * asked for in order cost one draw() each; asking for an earlier one starts it again.
+ * asked for in order cost one draw() each; asking for an earlier one starts it again. A
+ * sketch that splits `update` from `draw` is only drawn at the frames asked for.
  */
 
 type SketchMain = (p: Sketch) => void;
@@ -48,11 +50,60 @@ export async function loadSketches(project: Project): Promise<void> {
 interface Run {
   sketch: Sketch;
   frame: number;
+  /** Names its pictures: a run started afresh (other params, another camera) never reuses one. */
+  id: number;
+  /** The shot's camera moves, once the code has read the camera: its pictures depend on them. */
+  saw?: string;
+  /** Where the camera is read from: the latest call's project and shot. */
+  from: { project: Project; shot: Shot };
 }
 
 /** Kept runs, most recent last; few, as a fluid's fields at full size take ~100 MB. */
 const runs = new Map<string, Run>();
 const KEEP_RUNS = 3;
+let started = 0;
+
+/**
+ * What the shot's camera depends on. A camera that follows someone goes where they walk, so
+ * then the whole shot and its scene; otherwise only its moves.
+ */
+function cameraKey(project: Project, shot: Shot): string {
+  const moves = [shot.camera, ...shot.actions.flatMap((a) => (a.camera ? [a] : []))];
+  const follows = [shot.camera, ...shot.actions.map((a) => a.camera)].some((c) => c?.follow);
+  return JSON.stringify(follows ? [shot, project.scenes[shot.scene]] : moves);
+}
+
+/**
+ * The run's `camera` and `view`, worked out when the code reads them (a following camera
+ * resolves the actor's path many times) and noted, so a camera edit starts the run afresh.
+ */
+function watchCamera(run: Run): void {
+  let at: { time: number; camera: SketchCamera; view: SketchView } | undefined;
+  const now = () => {
+    const { time } = run.sketch;
+    if (at?.time === time) return at;
+    const { project, shot } = run.from;
+    const { width: W, height: H } = project.meta;
+    run.saw ??= cameraKey(project, shot);
+    const scene = project.scenes[shot.scene];
+    const c = scene ? resolveCamera(project, scene, shot, time) : { x: W / 2, y: H / 2, zoom: 1 };
+    const camera = { x: c.x, y: c.y, zoom: c.zoom };
+    const view = {
+      x: c.x - W / 2 / c.zoom,
+      y: c.y - H / 2 / c.zoom,
+      width: W / c.zoom,
+      height: H / c.zoom,
+    };
+    at = { time, camera, view };
+    return at;
+  };
+  Object.defineProperty(run.sketch, 'camera', { get: () => now().camera });
+  Object.defineProperty(run.sketch, 'view', { get: () => now().view });
+}
+
+/** A shot's params as one string, the same whatever order they were written in. */
+const paramsKey = (shot: Shot) =>
+  JSON.stringify(Object.entries(shot.sketchParams ?? {}).sort(([a], [b]) => (a < b ? -1 : 1)));
 
 /** The frame of a shot a time falls in. */
 export const sketchFrameAt = (project: Project, t: number): number =>
@@ -63,29 +114,44 @@ export const sketchFrameAt = (project: Project, t: number): number =>
  * the sketch's own stack when its code does.
  */
 export function sketchAt(project: Project, shot: Shot, t: number, density: number): Sketch {
+  return runTo(project, shot, t, density).sketch;
+}
+
+function runTo(project: Project, shot: Shot, t: number, density: number): Run {
   const id = shot.sketch!;
   const file = project.sketches?.[id];
   if (!file) throw new Error(`shot ${shot.id}: no sketch '${id}' in sketches/`);
   const main = modules.get(moduleKey(file));
   if (!main) throw new Error(`sketches/${id}.js was not loaded (loadSketches)`);
-  const key = `${moduleKey(file)}\0${shot.id}\0${shot.duration}\0${density}`;
+  const key = `${moduleKey(file)}\0${shot.id}\0${shot.duration}\0${density}\0${paramsKey(shot)}`;
   const want = sketchFrameAt(project, t);
   let run = runs.get(key);
   runs.delete(key);
   try {
-    if (!run || run.frame > want) {
+    if (!run || run.frame > want || (run.saw && run.saw !== cameraKey(project, shot))) {
       const { width, height, fps } = project.meta;
-      const sketch = new Sketch({ width, height, fps, density, duration: shot.duration });
+      const sketch = new Sketch({
+        width,
+        height,
+        fps,
+        density,
+        duration: shot.duration,
+        params: shot.sketchParams,
+      });
+      run = { sketch, frame: -1, id: ++started, from: { project, shot } };
+      watchCamera(run);
       main(sketch);
       sketch.setup?.();
-      run = { sketch, frame: -1 };
     }
+    run.from = { project, shot };
     const { sketch } = run;
     while (run.frame < want) {
       run.frame++;
       sketch.frameCount = run.frame + 1;
       sketch.time = run.frame / project.meta.fps;
-      sketch.draw?.();
+      // The film asks for every frame, so draws every one; a preview skips to its frame.
+      sketch.update?.();
+      if (!sketch.update || run.frame === want) sketch.draw?.();
     }
   } catch (e) {
     throw new Error(
@@ -94,7 +160,32 @@ export function sketchAt(project: Project, shot: Shot, t: number, density: numbe
   }
   runs.set(key, run);
   for (const k of runs.keys()) if (runs.size > KEEP_RUNS) runs.delete(k);
-  return run.sketch;
+  return run;
+}
+
+/**
+ * The shot, with `--param k=v` laid over its sketchParams for this picture (the CLI's
+ * tuning, put in the project as loaded): a number or true/false reads as one, anything else
+ * as text.
+ */
+export function tunedShot(project: Project, shotId: string, params: string[] = []): Shot {
+  const i = project.shots.findIndex((s) => s.id === shotId);
+  if (i < 0) throw new Error(`no shot '${shotId}'`);
+  if (!params.length) return project.shots[i];
+  if (!project.shots[i].sketch) throw new Error(`--param: shot '${shotId}' has no sketch`);
+  const over = Object.fromEntries(
+    params.map((kv) => {
+      const at = kv.indexOf('=');
+      if (at < 1) throw new Error(`--param takes key=value, not '${kv}'`);
+      const v = kv.slice(at + 1);
+      const value =
+        v === 'true' ? true : v === 'false' ? false : v.trim() && Number.isFinite(+v) ? +v : v;
+      return [kv.slice(0, at), value];
+    })
+  );
+  const shot = { ...project.shots[i], sketchParams: { ...project.shots[i].sketchParams, ...over } };
+  project.shots[i] = shot;
+  return shot;
 }
 
 /** The error and the lines of its stack in the sketch itself, named as in the project. */
@@ -139,11 +230,10 @@ function keepPicture(href: string, sketch: Sketch): void {
 export function sketchCanvas(project: Project, density: number): ComposeOptions['canvas'] {
   return (shot, t) => {
     if (!shot.sketch) return undefined;
-    const sketch = sketchAt(project, shot, t, density);
-    const v = project.sketches![shot.sketch].version;
-    const href = `${PICTURE_HOST}${encodeURIComponent(shot.id)}/${shot.sketch}-${v}/${sketchFrameAt(project, t)}@${density}.png`;
+    const { sketch, id } = runTo(project, shot, t, density);
+    const href = `${PICTURE_HOST}${encodeURIComponent(shot.id)}/${shot.sketch}/${id}/${sketchFrameAt(project, t)}@${density}.png`;
     keepPicture(href, sketch);
-    return href;
+    return { href, screen: sketch.screen };
   };
 }
 

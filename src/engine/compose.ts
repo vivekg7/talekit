@@ -56,9 +56,10 @@ export interface ComposeOptions {
   quiet?: boolean;
   /**
    * A shot's sketch at an instant, as the href of a picture the frame's size (render/
-   * sketch.ts runs the code; the engine never does). Without it a sketch draws nothing.
+   * sketch.ts runs the code; the engine never does), and whether it is drawn in screen
+   * space, the camera already applied. Without it a sketch draws nothing.
    */
-  canvas?: (shot: Shot, t: number) => string | undefined;
+  canvas?: (shot: Shot, t: number) => { href: string; screen: boolean } | undefined;
 }
 
 /** How fast the far and near layers move with the camera, the stage being 1. */
@@ -520,11 +521,12 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
   const byId = new Map(posed.map((p) => [p.actor.id, p.actor]));
   // The scenery that sways in the air, turned for now (and further in a wind).
   const sway = (layer: string | undefined) => swayLayer(layer, scene.sway, frame.t, w.wind ?? 0);
-  const canvas = frame.shot.sketch && opts.canvas?.(frame.shot, frame.t);
+  const canvas = frame.shot.sketch ? opts.canvas?.(frame.shot, frame.t) : undefined;
+  const sketch = canvas
+    ? `<image class='sketch' width='${W}' height='${H}' preserveAspectRatio='none' href='${canvas.href}'/>`
+    : '';
   let world =
-    (canvas
-      ? `<image class='sketch' width='${W}' height='${H}' preserveAspectRatio='none' href='${canvas}'/>`
-      : '') +
+    (canvas?.screen ? '' : sketch) +
     `<g class='scene'>${sway(scene.svg)}</g>` +
     fx('stage') +
     sky.stage;
@@ -660,6 +662,9 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
   let picture =
     far +
     sky.far +
+    // A screen canvas goes just under the stage, where a world one starts it: the same depth,
+    // drawn pixel for pixel rather than scaled by the camera.
+    (canvas?.screen ? sketch : '') +
     layer('camera', world, 1) +
     sky.front +
     (nearSvg ? layer('near', nearSvg, nearP) : '') +

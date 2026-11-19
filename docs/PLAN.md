@@ -350,6 +350,51 @@ canvas (`sketch`), drawn on the stage and composed with everything else.
   (`render/sketch.ts`) keeps runs and carries them forward, so frames asked in
   order (the film, a contact sheet) cost one draw each. The film sends a
   sketch shot's frames, and a dissolve into or out of one, to a single worker.
+- **Late previews** (2026-11): a preview at 33 s replayed 990 draws in a fresh
+  process. Two remedies, both keeping frame n a function of t. An opt-in
+  `p.update` steps the state every frame and `draw()` runs only for frames
+  shown; it is opt-in because a sketch that leaves trails on its canvas
+  needs every draw, and the film, which shows every frame, calls both
+  anyway, so a split sketch's film and previews are the same pixels. And
+  `frame -t 3,9,15` draws several times in one run, in time order.
+  Measured on split copies at full size: thinkpaws-jets-1 at 4 s, 87 s to
+  63 s (each skipped frame saves the fluid's shading and bloom);
+  thinkpaws-flock-1 at 33 s, 65 s to 59 s (its simulation is the cost, not
+  its drawing); six times of the flock in one run 58 s, against about
+  three minutes as six calls. A fluid's dither was seeded by how many times
+  it had been rendered, so a split frame differed in its grain; it is now
+  seeded by its steps. No snapshots of state to jump from: a sketch's state
+  is arbitrary JS, so saving it would need the sketch's help.
+- **The camera, seen by the sketch** (2026-11). A canvas on the stage is a
+  bitmap the camera scales, so a zoom blurs it, and agents wrote their own
+  cameras inside sketches to stay sharp. Now `p.camera` and `p.view` are
+  the shot's camera at the frame (resolved by the runner with the engine's
+  `resolveCamera`), and `p.screen = true` asks for a canvas in screen space:
+  compose puts it just before the camera group instead of first inside it,
+  the same depth (over `far`, under the scene's `svg`), but with no
+  transform, so resvg draws it pixel for pixel; `applyCamera()` gives the
+  sketch the camera's transform (a no-op in world mode, so one sketch
+  works both ways). Declared in the code, not the shot: the runner has run
+  setup before compose asks for the picture, so the canvas callback returns
+  `{ href, screen }` and the schema stays out of it; whether a sketch is
+  drawn for the screen is a fact about its code. The camera is the only one
+  (shake is an actor verb, not a camera move), and a lightning flash or
+  vignette goes over the whole frame either way. A preview at a t between
+  frames places the scene by the camera at t and the screen canvas by the
+  camera at its frame: under one frame of camera movement, and none in
+  the film, whose times are frames.
+- **Parameters** (2026-11): `sketchParams` on the shot, `p.params` in the
+  code, so one sketch serves several shots and tuning is a JSON edit;
+  `--param k=v` on `frame` and `contact` overrides one for a picture.
+  Values are numbers, text and booleans: enough to tune, and what a CLI
+  flag can say.
+- **The run cache's key** is the sketch file's version, the shot, its
+  length, the density and its params. The camera joins it only once the
+  code has read `p.camera` or `p.view` (a getter notices), since most
+  sketches never do and a camera edit should not replay them. A following
+  camera depends on where its actor walks, so then the whole shot and its
+  scene are the camera's key. A picture's href names its run, so a
+  restarted run never shows a kept picture of another.
 - **The engine never runs code**: `composeFrame` takes a `canvas` callback
   that gives the picture's href, so the engine stays pure and a test's
   project draws without it.

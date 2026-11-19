@@ -818,8 +818,8 @@ Paint shadows of painted things falling the same way.
 
 - `cast` places everyone at the start; nobody else is in the shot.
   `visible: false` hides until an `appear`.
-- `sketch: "<id>"` draws code on the stage under everything else
-  ([Sketches](#sketches-the-open-canvas)).
+- `sketch: "<id>"` draws code on the stage under everything else, and
+  `sketchParams` hands it values ([Sketches](#sketches-the-open-canvas)).
 - `hidden: true`: someone meant to be out of sight behind nearer art (a spy
   behind a `foreground` boulder); the check flags any part that shows
   (`sight.hidden`). Art under ~70% opacity does not hide. For a peek,
@@ -1285,7 +1285,7 @@ For what shapes and SVG cannot draw (ink swirling in water, glowing smoke,
 thousands of particles, a pattern that grows, anything per pixel) a shot
 runs code on a canvas: `sketch: "<id>"` draws `sketches/<id>.js` on the
 stage, under the scene's `svg`, the cast, bubbles and captions, moving with
-the camera like the stage. Write it with `write_sketch(path, id, code)`: it
+the camera like the stage (or drawn as the camera sees it, below). Write it with `write_sketch(path, id, code)`: it
 is saved only if it draws its first frame, and returns frames of the shot
 that uses it (or of the sketch alone). A sketch is a backdrop or a whole
 reel; everything else about the shot (captions, sounds, camera, fades,
@@ -1393,7 +1393,37 @@ exposure }`: glow on dark (`background` near black, `bloom` 0.8–1,
 - **It runs in order.** Frame n is what `draw()` leaves after n + 1 calls,
   so a preview at 20 s runs the 600 frames before it, and the film draws a
   sketch shot on one worker. A full-size fluid costs about a second a frame
-  to render; shapes cost little.
+  to render; shapes cost little. Ask for several times at once, in one run:
+  `talekit frame <dir> <shot> -t 3,9,15` writes `out/frame-<shot>-3.png`
+  and so on (with `-o x.png`, `x-3.png`…); a contact sheet is one run too.
+- **`p.update`** splits moving on from drawing: define it and it runs every
+  frame, `draw()` only for the frames shown (the film still shows each), so
+  a late preview skips drawing the frames before it. `draw()` must then
+  paint the whole picture from the state (no trails left on the canvas);
+  without `update`, every frame draws as before. Worth it when drawing
+  costs more than stepping (rendering a fluid, a field drawn per pixel);
+  where the stepping is the cost, a jump gains little.
+- **The camera.** `p.camera` is the shot's camera at this frame, `{ x, y,
+zoom }` (the design point at the frame's centre), and `p.view` the part
+  of the design it shows, `{ x, y, width, height }`. By default the
+  finished canvas is moved and scaled by the camera like the stage, so a
+  zoom of 2 shows its pixels twice the size, soft. Set `p.screen = true`
+  in `setup` for a sharp zoom: the canvas is then the frame as the camera
+  sees it, at full resolution; call `p.applyCamera()` before drawing to
+  draw in design pixels (a no-op without `screen`, so the code works
+  either way; `g.applyCamera(p)` on a `createGraphics` layer). Divide a
+  stroke by `p.camera.zoom` to keep it a hairline; sample a grid or field
+  over `p.view` to spend its cells on what shows. A screen canvas keeps
+  screen pixels, so a trail left on it slides when the camera moves:
+  redraw each frame. Rather than a pan or zoom of your own inside the
+  sketch, use the shot's `camera` and camera actions: they move the scene
+  and the cast with it.
+- **Parameters.** A shot's `sketchParams: { "speed": 2, "ink": "dusk",
+"trails": true }` (numbers, text, true/false) is `p.params` in the code,
+  so one sketch serves several shots, and tuning is a JSON edit
+  (`patch_shot` with `set: { sketchParams }`). To try values without
+  editing: `talekit frame|contact <dir> <shot> --param speed=3 --param
+ink=dawn`.
 - **Its scene** can be empty: `svg: ""` and `allow: { "world.walk": "the
 sketch fills the frame; nobody stands in it" }`. Draw over the sketch in
   the scene's `svg` (a frame, a window) or stand a cast in front of it as

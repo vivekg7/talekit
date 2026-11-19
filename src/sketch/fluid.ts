@@ -113,7 +113,11 @@ export class Fluid {
   dye: Float32Array[];
   private tmp: Float32Array[];
   private readonly back: Float32Array[];
-  private frame = 0;
+  /**
+   * Seeds the dither: counted in steps, not renders, so a frame is the same however many
+   * were drawn before it (a sketch with `update` draws only those shown).
+   */
+  private steps = 0;
 
   /** `width`×`height` design px, drawn at `pixelWidth`×`pixelHeight`. */
   constructor(
@@ -247,6 +251,7 @@ export class Fluid {
 
   /** Move the fluid on by dt seconds. Steps of a frame or less; two a frame for fast jets. */
   step(dt: number): void {
+    this.steps++;
     const { SW, SH, vx, vy, div, pr } = this;
     const curl = this.curlF;
     const P = this.options;
@@ -402,7 +407,7 @@ export class Fluid {
 
   /** The dye as a picture, into `out` (RGBA, the dye's size), every pixel opaque. */
   render(out: Uint8ClampedArray, look: Partial<FluidLook> = {}): void {
-    display(this, { ...LOOK, ...look }, out, this.frame++);
+    display(this, { ...LOOK, ...look }, out, this.steps);
   }
 }
 

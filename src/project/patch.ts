@@ -30,6 +30,8 @@ export const SETTABLE = [
   'cut',
   'weather',
   'music',
+  'sketch',
+  'sketchParams',
   'allow',
 ] as const;
 

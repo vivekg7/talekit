@@ -234,9 +234,10 @@ class Film:
 
     def shot(self, id, scene, end, cast, actions, camera=None, tail=0.6, **more):
         """Add a shot that runs to `end` plus `tail`. `more` takes any other shot field:
-        music, sketch (sketches/<id>.js drawn on the stage), crossfade, cut ('later' when
-        time has passed since the last shot; else, in the same scene, its cast starts as
-        that one left them, and in another, two who show in both keep their sides),
+        music, sketch (sketches/<id>.js drawn on the stage), sketchParams (a dict of
+        numbers, text and booleans the sketch reads as p.params), crossfade, cut ('later'
+        when time has passed since the last shot; else, in the same scene, its cast starts
+        as that one left them, and in another, two who show in both keep their sides),
         fadeIn, fadeOut, weather, description, allow (world findings waived on purpose,
         each with its reason)."""
         self.shots.append(
