@@ -35,7 +35,7 @@ import {
   type Pose,
 } from '../engine/motion.js';
 import { rigOf } from '../engine/rigs.js';
-import { escapeXml, n } from '../engine/svg.js';
+import { escapeXml, n, scopeIds } from '../engine/svg.js';
 import {
   STAGE_SHORTCUTS,
   resolveCamera,
@@ -463,8 +463,12 @@ export function characterSheetSvg(character: Character): string {
     if (cell.nearOver) body += characterBody(strung, cell.pose, undefined, 1, near);
     const x = cx + cellW / 2 - (cell.shift ?? 0);
     const scale = (rig.height / character.height) * (cell.zoom ?? 1);
-    if (shadow) out += shadowSvg(character, cell.pose, x, feetY, scale, 1);
-    out += placeCharacter(character, body, x, feetY, scale, 'right');
+    // Each cell's ids its own: a knee's clip is placed for its pose (svg.ts `scopeIds`).
+    out += scopeIds(
+      (shadow ? shadowSvg(character, cell.pose, x, feetY, scale, 1) : '') +
+        placeCharacter(character, body, x, feetY, scale, 'right'),
+      `tk-c${i}-`
+    );
     out += `<text x='${cx + cellW / 2}' y='${cy + cellH - 22}' text-anchor='middle' font-family='${LABEL_FONT}' font-size='${cell.label.length > 18 ? 12 : 16}' fill='#555'>${escapeXml(cell.label)}</text>`;
   });
   return out + '</svg>';
@@ -651,15 +655,23 @@ export function sceneSheetSvg(project: Project, scene: Scene): string {
   );
 }
 
-/** A row of small labelled pictures, each a whole frame, starting at y = 0. */
-function strip(W: number, H: number, cells: [string, string][]): { svg: string; height: number } {
+/**
+ * A row of small labelled pictures, each a whole frame, starting at y = 0. `tag` keeps one
+ * strip's ids apart from another's on the same sheet.
+ */
+function strip(
+  W: number,
+  H: number,
+  cells: [string, string][],
+  tag: string
+): { svg: string; height: number } {
   const gap = 10;
   const cw = (W - gap * (cells.length + 1)) / cells.length;
   const ch = (cw * H) / W;
   let svg = `<rect width='${W}' height='${n(ch + 2 * gap + 24)}' fill='#222'/>`;
   cells.forEach(([label, inner], i) => {
     const x = gap + i * (cw + gap);
-    svg += `<svg x='${n(x)}' y='${gap}' width='${n(cw)}' height='${n(ch)}' viewBox='0 0 ${W} ${H}'>${inner}</svg>`;
+    svg += `<svg x='${n(x)}' y='${gap}' width='${n(cw)}' height='${n(ch)}' viewBox='0 0 ${W} ${H}'>${scopeIds(inner, `tk-${tag}${i}-`)}</svg>`;
     svg += `<text x='${n(x + 4)}' y='${n(gap + ch + 18)}' font-family='${LABEL_FONT}' font-size='15' fill='#ddd'>${escapeXml(label)}</text>`;
   });
   return { svg, height: ch + 2 * gap + 24 };
@@ -668,8 +680,7 @@ function strip(W: number, H: number, cells: [string, string][]): { svg: string; 
 /**
  * Under a scene with weather or effects: the empty scene as the film draws it at a few
  * moments, so falling rain, drifting clouds, flames and waves show that they move and
- * where they reach. Ids are renamed per cell: they are global to the sheet, and a flash
- * filter differs from one moment to the next.
+ * where they reach.
  */
 function motionStrip(project: Project, scene: Scene): { svg: string; height: number } {
   const { width: W, height: H } = project.meta;
@@ -684,9 +695,9 @@ function motionStrip(project: Project, scene: Scene): { svg: string; height: num
   if (every) times[3] = Math.round((strikeAt(shot.id, every, 0) + 0.02) * 100) / 100;
   const cells: [string, string][] = times.map((t, i) => [
     `moving · t=${t}s`,
-    innerSvg(composeFrame(withScene, shot, t)).replace(/(id='|url\(#)tk-/g, `$1tk-m${i}-`),
+    innerSvg(composeFrame(withScene, shot, t)),
   ]);
-  return strip(W, H, cells);
+  return strip(W, H, cells, 'm');
 }
 
 /**
@@ -719,13 +730,13 @@ function layerStrip(project: Project, scene: Scene): { svg: string; height: numb
     [`camera ${zoom}× left`, view({ zoom, x: W / (2 * zoom), y }, ['far', 'stage', 'near'])],
     [`camera ${zoom}× right`, view({ zoom, x: W - W / (2 * zoom), y }, ['far', 'stage', 'near'])],
   ];
-  return strip(W, H, cells);
+  return strip(W, H, cells, 'l');
 }
 
 /**
  * Tile labelled frames. Two columns of 630px: wide enough to tell a thought bubble from a
  * speech bubble and read its text, and the sheet stays under the size at which image
- * models downscale it.
+ * models downscale it. Each frame keeps its own ids (svg.ts `scopeIds`).
  */
 function tileFrames(
   project: Project,
@@ -746,7 +757,7 @@ function tileFrames(
   frames.forEach((f, i) => {
     const x = gap + (i % cols) * (cellW + gap);
     const y = gap + Math.floor(i / cols) * (cellH + gap + 22);
-    out += `<svg x='${x}' y='${y}' width='${cellW}' height='${cellH}' viewBox='0 0 ${W} ${H}'>${innerSvg(f.svg)}</svg>`;
+    out += `<svg x='${x}' y='${y}' width='${cellW}' height='${cellH}' viewBox='0 0 ${W} ${H}'>${scopeIds(innerSvg(f.svg), `tk-f${i}-`)}</svg>`;
     out += `<text x='${x + 4}' y='${y + cellH + 17}' font-family='${LABEL_FONT}' font-size='14' fill='#ddd'>${escapeXml(f.label)}</text>`;
   });
   if (foot) out += `<g transform='translate(${gap} ${top})'>${foot.svg}</g>`;
@@ -927,6 +938,7 @@ export function constructionSheetSvg(character: Character): string {
     );
     return p;
   };
+  // Each panel's ids its own: the swings bend the knees two ways (svg.ts `scopeIds`).
   const panel = (i: number, label: string, inner: string) => {
     const x = 10 + i * (pw + 10);
     return (
@@ -934,7 +946,7 @@ export function constructionSheetSvg(character: Character): string {
       `<g transform='translate(30 30) scale(${scale})'>` +
       `<rect width='${rig.width}' height='${rig.height}' fill='none' stroke='#9aa5b1' stroke-dasharray='4 4' stroke-width='${1 / scale}'/>` +
       `<line x1='-20' y1='${rig.height}' x2='${rig.width + 20}' y2='${rig.height}' stroke='#e63946' stroke-width='${1.5 / scale}'/>` +
-      `${inner}</g>` +
+      `${scopeIds(inner, `tk-p${i}-`)}</g>` +
       `<text x='${pw / 2}' y='${ph + 20}' text-anchor='middle' font-family='${LABEL_FONT}' font-size='15' fill='#555'>${escapeXml(label)}</text></g>`
     );
   };

@@ -205,3 +205,19 @@ function flatten(d: string): [number, number][][] | undefined {
   if (cur.length) out.push(cur);
   return out.filter((pts) => pts.length > 1);
 }
+
+/**
+ * `svg` with every id it defines, and each reference to one (`url(#…)`, `href='#…'`), given
+ * `prefix`. Ids are global to a document and resvg resolves every use to one definition
+ * (the last), so pictures of different moments put in one document (a dissolve, a sheet)
+ * must each keep their own: a shadow's gradient or a bent knee's clip from one frame would
+ * draw another. References to ids it does not define, such as the frame's shared defs,
+ * stay as they are.
+ */
+export function scopeIds(svg: string, prefix: string): string {
+  const own = new Set([...svg.matchAll(/\sid=(['"])(.+?)\1/g)].map((m) => m[2]));
+  if (!own.size) return svg;
+  return svg.replace(/(\sid=['"]|url\(\s*['"]?#|href=['"]#)([^'")\s]+)/g, (m, head, id) =>
+    own.has(id) ? head + prefix + id : m
+  );
+}

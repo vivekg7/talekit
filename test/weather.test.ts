@@ -140,7 +140,7 @@ describe('weather', () => {
       shots: [ShotSchema.parse({ id: 'a', scene: fields.id, duration: 14, cast: {} })],
     };
     const sheet = contactSheetSvg(p, p.shots[0]);
-    const ids = [...sheet.matchAll(/<filter id='(tk-heat[^']*)'/g)].map((m) => m[1]);
+    const ids = [...sheet.matchAll(/<filter id='([^']*tk-heat[^']*)'/g)].map((m) => m[1]);
     expect(ids).toHaveLength(6);
     expect(new Set(ids).size).toBe(6);
     expect(rasterize(sheet).subarray(1, 4).toString()).toBe('PNG');
@@ -351,7 +351,7 @@ describe('effects', () => {
     const sheet = sceneSheetSvg(p, p.scenes.wet);
     expect(sheet).toContain('moving · t=0.4s');
     // Ids inside each moment are its own, so one moment's flash cannot light another.
-    expect(sheet).toContain("id='tk-m1-fx-stage-0-glow'");
+    expect(sheet).toContain("id='tk-m1-tk-fx-stage-0-glow'");
     const sheltered = project({ shelters: [{ x: 100, y: 400, width: 200 }] });
     expect(sceneSheetSvg(sheltered, sheltered.scenes.wet)).toContain('blue = shelters');
   });

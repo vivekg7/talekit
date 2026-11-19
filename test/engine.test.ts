@@ -5,8 +5,16 @@ import { cameraBetween, resolveFrame } from '../src/engine/timeline.js';
 import { CharacterSchema, SceneSchema, ShotSchema, type Project } from '../src/engine/types.js';
 import { LIBRARY, nameFromId } from '../src/library/index.js';
 import { validateCharacter, validateShot } from '../src/project/validate.js';
-import { outlineText, rasterize } from '../src/render/raster.js';
-import { characterSheetSvg, filmSheetSvg, sheetTarget } from '../src/render/sheets.js';
+import { outlineText, rasterize, rasterizePixels } from '../src/render/raster.js';
+import { criticSheetsSvg } from '../src/render/critic.js';
+import {
+  characterSheetSvg,
+  constructionSheetSvg,
+  contactSheetSvg,
+  filmSheetSvg,
+  innerSvg,
+  sheetTarget,
+} from '../src/render/sheets.js';
 import { poseFor } from '../src/engine/actor.js';
 import { faceFallbacks } from '../src/engine/motion.js';
 
@@ -339,6 +347,77 @@ describe('pose sheet', () => {
     expect(svg).toContain('1. a · 4s');
     expect(svg).toContain('2. b · 6s');
     expect(svg.match(/class='scene'/g)).toHaveLength(2);
+  });
+});
+
+describe('frames in one picture', () => {
+  // A kid walking across a sunlit park: its cast shadow's gradient and its bent knees' clips
+  // are defined anew each frame, under the same ids.
+  const walk = (): Project => {
+    const park = { ...LIBRARY.scenes.park, lights: [{ kind: 'sun' as const, x: 200, y: 100 }] };
+    const p = project({
+      id: 'a',
+      scene: 'park',
+      duration: 4,
+      cast: { kid: { at: { x: 250, y: 600 } } },
+      actions: [{ t: 0, actor: 'kid', do: 'walk', to: { x: 1000, y: 620 }, duration: 4 }],
+    });
+    // 1260x630 so a 630px cell is the frame at exactly half size.
+    return { ...p, meta: { ...p.meta, width: 1260, height: 630 }, scenes: { park } };
+  };
+  /** Ids defined more than once with different definitions: resvg draws every use with one. */
+  const clashes = (svg: string) => {
+    const defs = new Map<string, Set<string>>();
+    for (const m of svg.matchAll(/<(\w+)\b[^>]*\sid='([^']+)'[^>]*?(\/?)>/g)) {
+      const end = m[3] ? m.index! + m[0].length : svg.indexOf(`</${m[1]}>`, m.index!);
+      (defs.get(m[2]) ?? defs.set(m[2], new Set()).get(m[2])!).add(svg.slice(m.index!, end));
+    }
+    return [...defs].filter(([, d]) => d.size > 1).map(([id]) => id);
+  };
+
+  it('keeps each frame of a sheet drawn as it is on its own', () => {
+    const p = walk();
+    const shot = p.shots[0];
+    const sheet = contactSheetSvg(p, shot, 4);
+    expect(composeFrame(p, shot, 0.5)).toMatch(/id='tk-cast-0-0-g'/);
+    expect(clashes(sheet)).toEqual([]);
+    // Each cell's pixels are its frame's, drawn alone at the cell's size.
+    const all = rasterizePixels(sheet);
+    [0.5, 1.5, 2.5, 3.5].forEach((t, i) => {
+      const alone = rasterizePixels(
+        `<svg xmlns='http://www.w3.org/2000/svg' width='630' height='315'><svg width='630' height='315' viewBox='0 0 1260 630'>${innerSvg(composeFrame(p, shot, t))}</svg></svg>`
+      );
+      const [x0, y0] = [10 + (i % 2) * 640, 10 + Math.floor(i / 2) * 347];
+      let off = 0;
+      for (let y = 0; y < 315; y++)
+        for (let x = 0; x < 630; x++)
+          for (let c = 0; c < 4; c++) {
+            const a = all.pixels[((y0 + y) * all.width + x0 + x) * 4 + c];
+            if (Math.abs(a - alone.pixels[(y * 630 + x) * 4 + c]) > 2) off++;
+          }
+      expect(off, `cell ${i} (t=${t})`).toBe(0);
+    });
+  });
+
+  it('keeps ids apart on every sheet and across a dissolve', () => {
+    const p = walk();
+    p.shots.push(
+      ShotSchema.parse({
+        id: 'b',
+        scene: 'park',
+        duration: 3,
+        crossfade: 1,
+        cast: { kid: { at: { x: 900, y: 640 } } },
+      })
+    );
+    expect(clashes(filmSheetSvg(p, p.shots))).toEqual([]);
+    for (const sheet of criticSheetsSvg(p, p.shots[0])) expect(clashes(sheet)).toEqual([]);
+    // Mid-dissolve the outgoing frame lies under the incoming one, both with the kid's shadow.
+    const fade = composeFrame(p, p.shots[1], 0.5);
+    expect(fade).toMatch(/id='tk-out-tk-cast-0-0-g'/);
+    expect(clashes(fade)).toEqual([]);
+    expect(clashes(characterSheetSvg(LIBRARY.characters.kid))).toEqual([]);
+    expect(clashes(constructionSheetSvg(LIBRARY.characters.kid))).toEqual([]);
   });
 });
 

@@ -32,7 +32,7 @@ import { bubblePlace, bubbleSpec } from './place.js';
 import { needsShaping, shapedText } from './glyphs.js';
 import { clamp01, easeInOut } from './easing.js';
 import { cullOffFrame, IDENTITY, type Affine } from './cull.js';
-import { escapeXml, n } from './svg.js';
+import { escapeXml, n, scopeIds } from './svg.js';
 import { defaultGround, isPortrait, safeInsets, uiScale } from './format.js';
 import { resolveFrame, turnBy, type FrameState } from './timeline.js';
 import type { Project, Shot, View, Weather } from './types.js';
@@ -152,12 +152,17 @@ export function composeFrame(
   const prev = t < dissolve ? previousShot(project, shot) : undefined;
   if (!prev) return frameDocument(project, frameBody(project, frame, opts));
   // A dissolve: the previous shot carries on past its end underneath while this one fades up.
-  const under = frameBody(project, resolveFrame(project, prev, prev.duration + t), opts);
+  // Its ids are its own, or an actor's shadow or bent knee in it would be drawn with the
+  // incoming frame's.
+  const under = scopeIds(
+    frameBody(project, resolveFrame(project, prev, prev.duration + t), opts),
+    'tk-out-'
+  );
   const { width: W, height: H } = project.meta;
   // Faded with a filter over the frame, not group opacity: resvg 2.6 panics on an opacity
   // group that holds another one (a translucent cloud) beside a layer pushed wholly off
-  // the frame (the near layer of a close-up). The id names the slope: a sheet of frames gives
-  // every use of one id the same definition (weather.ts `heatHaze`).
+  // the frame (the near layer of a close-up). The id names the slope, a second guard beside
+  // svg.ts `scopeIds` where frames share one picture.
   const slope = n(easeInOut(t / dissolve));
   const id = `tk-dissolve-${slope.replace('.', '_')}`;
   const fade =

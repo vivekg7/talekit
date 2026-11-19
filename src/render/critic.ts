@@ -1,7 +1,7 @@
 import { composeFrame } from '../engine/compose.js';
 import { shotBefore, staged } from '../engine/stage.js';
 import { needsShaping, shapedText } from '../engine/glyphs.js';
-import { escapeXml } from '../engine/svg.js';
+import { escapeXml, scopeIds } from '../engine/svg.js';
 import {
   actionDuration,
   resolveActor,
@@ -283,7 +283,7 @@ export function criticSheetsSvg(project: Project, shot: Shot): string[] {
     page.forEach((c, i) => {
       const x = gap + (i % cols) * (cellW + gap);
       const y = gap + Math.floor(i / cols) * (cellH + capH + gap);
-      out += `<svg x='${x}' y='${y}' width='${cellW}' height='${cellH}' viewBox='0 0 ${W} ${H}'>${innerSvg(c.svg)}</svg>`;
+      out += `<svg x='${x}' y='${y}' width='${cellW}' height='${cellH}' viewBox='0 0 ${W} ${H}'>${scopeIds(innerSvg(c.svg), `tk-f${i}-`)}</svg>`;
       texts[i].forEach(({ l, bold }, k) => {
         const ty = y + cellH + 15 + k * lineH;
         const size = bold ? 13 : 11.5;
