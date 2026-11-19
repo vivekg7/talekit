@@ -12,7 +12,7 @@
  * about it. Going into an end view and out of it, the drawing narrows through the swap, as a
  * turn does.
  */
-import { clamp01, easeInOut } from './easing.js';
+import { clamp01, easeInOut, TAU, wrap } from './easing.js';
 import { gaitPhase, legFalls } from './gait.js';
 import { DEFAULT_LINE_COLOR, OUTLINE_PX, outlineFor } from './outline.js';
 import { rigOf, type Rig } from './rigs.js';
@@ -75,7 +75,7 @@ export function endSide(end: End, leg: string): -1 | 1 {
 
 /** How high a foot is off the floor at `phase` of the cycle, for a leg landing at `land`. */
 function lift(phase: number, land: number): number {
-  const u = (((phase - land) % 1) + 1) % 1;
+  const u = wrap(phase - land, 1);
   return u < STANCE ? 0 : Math.sin((Math.PI * (u - STANCE)) / (1 - STANCE));
 }
 
@@ -125,7 +125,7 @@ export function endBody(
       if (h) tf = `translate(0 ${n(-h)})`;
     } else {
       const pivot = view.pivots[name];
-      const sway = pivot && walking ? SWAY * Math.sin(2 * Math.PI * p + Math.PI / 2) : 0;
+      const sway = pivot && walking ? SWAY * Math.sin(TAU * p + Math.PI / 2) : 0;
       tf = [
         bob ? `translate(0 ${n(bob)})` : '',
         sway ? `rotate(${n(sway)} ${pivot![0]} ${pivot![1]})` : '',
@@ -141,7 +141,7 @@ export function endBody(
     out += `<g class='part-${end}-${name}'${tf ? ` transform='${tf}'` : ''}>${under}${svg}${shade}</g>`;
   }
   // Rocking over the planted foot: toward the side whose hind (or fore) leg is down.
-  const rock = walking ? ROCK * Math.sin(2 * Math.PI * p) : 0;
+  const rock = walking ? ROCK * Math.sin(TAU * p) : 0;
   return rock ? `<g transform='rotate(${n(rock)} ${cx} ${rig.height})'>${out}</g>` : out;
 }
 

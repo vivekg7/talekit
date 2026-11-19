@@ -23,18 +23,14 @@ const ShelterSpanSchema = z.object({
 });
 
 /** Who a line is spoken by: a voice from list_voices, optionally faster, slower, higher or lower. */
+const VoiceIdSchema = z
+  .string()
+  .regex(/^[a-z0-9]+:[A-Za-z0-9_-]+$/, "a voice is 'engine:name', e.g. 'chatterbox:hf_alpha'");
 export const VoiceSchema = z
   .union([
-    z
-      .string()
-      .regex(/^[a-z0-9]+:[A-Za-z0-9_-]+$/, "a voice is 'engine:name', e.g. 'chatterbox:hf_alpha'"),
+    VoiceIdSchema,
     z.object({
-      id: z
-        .string()
-        .regex(
-          /^[a-z0-9]+:[A-Za-z0-9_-]+$/,
-          "a voice is 'engine:name', e.g. 'chatterbox:hf_alpha'"
-        ),
+      id: VoiceIdSchema,
       speed: z
         .number()
         .min(0.5)
@@ -756,7 +752,7 @@ export const SceneSchema = z.object({
         .max(1)
         .optional()
         .describe(
-          "How far the farthest figures fade toward the air colour, 0 (none) to 1 (gone): default 0.3, gentle. Figures at the nearest row have none; it grows with distance, full at two and a half times as far back (two fifths of the near row's size)"
+          "How far the farthest figures fade toward the air colour, 0 (none) to 1 (gone): default 0.35 (less at night), gentle. Figures at the nearest row have none; it grows with distance, full at twice as far back (half the near row's size)"
         ),
       color: z
         .string()
@@ -1055,7 +1051,6 @@ export const CastMemberSchema = z.object({
     "The id of the actor this one starts the shot standing on (a mouse already on a sleeping lion's back), so it is drawn in front of it and rides along on it; `at` is the spot on its top"
   ),
 });
-export type CastMember = z.infer<typeof CastMemberSchema>;
 
 export const ShotSchema = z.object({
   id: IdSchema,
@@ -1091,7 +1086,6 @@ export const ShotSchema = z.object({
   actions: z.array(ActionSchema).default([]),
 });
 export type Shot = z.infer<typeof ShotSchema>;
-export type ShotInput = z.input<typeof ShotSchema>;
 
 /**
  * Volume per layer of the film's sound, on top of the engine's own levels. Left out is 1
@@ -1128,7 +1122,6 @@ export const ProjectMetaSchema = z.object({
   mix: MixSchema.optional(),
 });
 export type ProjectMeta = z.infer<typeof ProjectMetaSchema>;
-export type ProjectMetaInput = z.input<typeof ProjectMetaSchema>;
 
 /** Everything needed to render, fully loaded in memory. */
 export interface Project {

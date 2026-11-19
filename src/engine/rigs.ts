@@ -2,7 +2,7 @@ import { linkFor, type Link, type Pt } from './chain.js';
 import { spanAt } from './svg.js';
 import type { Character, RigName } from './types.js';
 
-export interface RigPart {
+interface RigPart {
   parent?: string;
   /** In canonical coordinates. */
   pivot: [number, number];
@@ -162,7 +162,7 @@ export const HUMANOID: Rig = {
  * Simple: 200×200 box, base on y=200. One `body` part plus optional face parts.
  * Good for animals, props and anything that moves by bobbing rather than walking.
  */
-export const SIMPLE: Rig = {
+const SIMPLE: Rig = {
   name: 'simple',
   width: 200,
   height: 200,
@@ -257,8 +257,6 @@ export function rigPart(rig: Rig, name: string): RigPart {
   return rig.parts[name] ?? rig.unknown;
 }
 
-const HUNG = new WeakMap<object, Rig>();
-
 /**
  * The rig a character is drawn on, with its own `hangs` (child parts, linted as joints; a
  * chain that loops or never reaches a rig part falls back to `unknown`), `pivots`, `bends`
@@ -346,6 +344,8 @@ function shaped(character: RigSource): Rig {
 }
 
 const MOVED = new WeakMap<Rig, Map<string, Rig>>();
+
+const HUNG = new WeakMap<object, Rig>();
 
 function hungRig(character: Pick<Character, 'rig' | 'hangs'>): Rig {
   const base = RIGS[character.rig];

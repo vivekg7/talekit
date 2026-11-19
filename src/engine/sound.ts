@@ -1,9 +1,8 @@
-import { landingsOf } from './impact.js';
+import { goesSomewhere, landingsOf } from './impact.js';
 import { clamp01, hash01 } from './easing.js';
 import { footfalls, gaitPhase } from './gait.js';
 import { rigOf } from './rigs.js';
 import { digHits, STRIKE_HIT } from './motion.js';
-import { staged } from './stage.js';
 import {
   actionDuration,
   attachTime,
@@ -15,7 +14,6 @@ import {
   resolvePosition,
 } from './timeline.js';
 import type {
-  Action,
   Character,
   Effect,
   Mix,
@@ -212,12 +210,7 @@ function footsteps(project: Project, shot: Shot, at0: number): Cue[] {
     const name =
       ch && (ch.rig === 'humanoid' && SOFT.has(scene.surface) ? 'step-grass' : STEP[ch.rig]);
     if (!name) continue;
-    // Whoever goes anywhere: a walk or run, a sit or lie that walks over first, or a walk
-    // the engine stages on its own (to a `use` anchor).
-    const goes = (a: Action) =>
-      a.actor === id &&
-      (a.do === 'walk' || a.do === 'run' || ((a.do === 'sit' || a.do === 'lie') && !!a.to));
-    if (!staged(project, scene, shot).actions.some(goes)) continue;
+    if (!goesSomewhere(project, scene, shot, id)) continue;
     const rig = rigOf(ch);
     let prev: { loco: string; phase: number; t: number } | undefined;
     let n = 0;
@@ -229,7 +222,7 @@ function footsteps(project: Project, shot: Shot, at0: number): Cue[] {
         (loco === 'walk' || loco === 'run') && s.travel && s.visible
           ? gaitPhase(rig, loco, s.travel)
           : undefined;
-      if (phase === undefined || loco === 'idle') {
+      if (phase === undefined) {
         prev = undefined;
         continue;
       }

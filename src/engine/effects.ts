@@ -1,5 +1,6 @@
-import { clamp01, hash01, TAU } from './easing.js';
+import { clamp01, hash01, TAU, wrap } from './easing.js';
 import { uiScale } from './format.js';
+import { DEFAULT_LINE_COLOR as LINE } from './outline.js';
 import { n } from './svg.js';
 import type { Effect } from './types.js';
 import { mix } from './weather.js';
@@ -11,8 +12,6 @@ import { mix } from './weather.js';
  */
 
 export type EffectLayer = 'far' | 'stage' | 'front' | 'near';
-
-const LINE = '#2e2633';
 
 export const effectLayer = (e: Effect): EffectLayer =>
   e.layer ?? (e.kind === 'sun' ? 'far' : 'stage');
@@ -314,7 +313,7 @@ function waves(e: Effect, id: string, t: number, W: number, k: number): string {
     let row = '';
     for (let i = 0; i < marks; i++) {
       const g = (key: string) => hash01(`${id}:crest:${r}:${i}:${key}`);
-      const cx = x0 + ((((i * gap + g('x') * gap * 0.5 + drift) % span) + span) % span);
+      const cx = x0 + wrap(i * gap + g('x') * gap * 0.5 + drift, span);
       // Each crest rises and sinks back in its own time.
       const life = Math.sin(TAU * (0.25 + 0.2 * g('f')) * t + TAU * g('p'));
       if (life <= 0) continue;
@@ -374,7 +373,6 @@ function river(e: Effect, id: string, t: number, k: number): string {
   const depth = Math.max(1, Math.max(...ys) - top);
   const [fx, fy] = e.flow ?? [18, 0];
   const color = e.color ?? '#f4f7e4';
-  const wrap = (v: number, span: number) => ((v % span) + span) % span;
   // Where a mark is at t, and how near (0 far, 1 at the bottom) that is.
   const place = (key: string, slow: number) => {
     const u = hash01(`${key}:u`) * bw;

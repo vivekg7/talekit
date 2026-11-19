@@ -150,7 +150,7 @@ export function composeFrame(
   const frame = resolveFrame(project, shot, t);
   const dissolve = Math.min(shot.crossfade, shot.duration);
   const prev = t < dissolve ? previousShot(project, shot) : undefined;
-  if (!prev) return composeFrameState(project, frame, opts);
+  if (!prev) return frameDocument(project, frameBody(project, frame, opts));
   // A dissolve: the previous shot carries on past its end underneath while this one fades up.
   const under = frameBody(project, resolveFrame(project, prev, prev.duration + t), opts);
   const { width: W, height: H } = project.meta;
@@ -364,23 +364,13 @@ function previousShot(project: Project, shot: Shot): Shot | undefined {
   return i > 0 ? project.shots[i - 1] : undefined;
 }
 
-export function composeFrameState(
-  project: Project,
-  frame: FrameState,
-  opts: ComposeOptions = {}
-): string {
-  return frameDocument(project, frameBody(project, frame, opts));
-}
+const frameDocument = (project: Project, body: string) =>
+  svgDocument(project.meta.width, project.meta.height, body);
 
-function frameDocument(project: Project, body: string): string {
-  const { width: W, height: H } = project.meta;
-  return (
-    `<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' width='${W}' height='${H}' viewBox='0 0 ${W} ${H}'>` +
-    `<defs>${FRAME_DEFS}</defs>` +
-    body +
-    `</svg>`
-  );
-}
+/** A w×h SVG document with the frame's shared definitions. */
+const svgDocument = (w: number, h: number, body: string) =>
+  `<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' width='${w}' height='${h}' viewBox='0 0 ${w} ${h}'>` +
+  `<defs>${FRAME_DEFS}</defs>${body}</svg>`;
 
 /**
  * A mask of one frame for the sight checks (project/sight.ts), at the frame's size, where
@@ -451,14 +441,11 @@ export function maskDocument(
     ph,
     FRAME_DEFS
   );
-  return (
-    `<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' width='${pw}' height='${ph}' viewBox='0 0 ${pw} ${ph}'>` +
-    `<defs>${FRAME_DEFS}</defs>${picture}</svg>`
-  );
+  return svgDocument(pw, ph, picture);
 }
 
 /** How much of a bow is drawn over its archer as it comes up (`Pose.bow.raise`), faded so it never jumps sides. */
-export function bowOver(raise: number): number {
+function bowOver(raise: number): number {
   return clamp01((raise - 0.15) / 0.35);
 }
 
@@ -470,6 +457,8 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
   const scene = frame.scene;
   const layer = (cls: string, svg: string, p: number) =>
     `<g class='${cls}' transform='${layerTransform(c, W, H, p)}'>${svg}</g>`;
+  const farP = scene.parallax?.far ?? PARALLAX.far;
+  const nearP = scene.parallax?.near ?? PARALLAX.near;
 
   // Poses first: the shadows all go down before any actor, so one never lies across another.
   const posed = frame.actors.map((actor) => {
@@ -504,14 +493,7 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
   );
   // Each plane zooms as its layer does (layerTransform), for lines kept fine on screen.
   const planeZoom = (plane: EffectLayer) =>
-    Math.pow(
-      c.zoom,
-      plane === 'far'
-        ? (scene.parallax?.far ?? PARALLAX.far)
-        : plane === 'near'
-          ? (scene.parallax?.near ?? PARALLAX.near)
-          : 1
-    );
+    Math.pow(c.zoom, plane === 'far' ? farP : plane === 'near' ? nearP : 1);
   // A fire on the stage stands among the actors: its glow goes on the floor with the stage
   // effects, the fire itself in depth order with them (standingEffects).
   const fx = (plane: EffectLayer) =>
@@ -644,7 +626,7 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
       : '';
 
   const farSvg = sway(scene.far) + fx('far') + sky.sky;
-  let far = farSvg ? layer('far', farSvg, scene.parallax?.far ?? PARALLAX.far) : '';
+  let far = farSvg ? layer('far', farSvg, farP) : '';
   if (far && sky.haze) {
     // The haze's noise is fixed to the filtered group's coordinates: shift that group up by
     // the scroll and the layer back down inside it, and the noise rises through the scenery.
@@ -661,7 +643,7 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
     sky.far +
     layer('camera', world, 1) +
     sky.front +
-    (nearSvg ? layer('near', nearSvg, scene.parallax?.near ?? PARALLAX.near) : '') +
+    (nearSvg ? layer('near', nearSvg, nearP) : '') +
     sky.light;
   if (sky.flash)
     picture = `<defs>${flashFilter('tk-flash', sky.flash, W, H)}</defs><g filter='url(#tk-flash)'>${picture}</g>`;

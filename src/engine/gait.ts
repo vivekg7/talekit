@@ -1,4 +1,4 @@
-import { curlPoint, linkAngles } from './chain.js';
+import { curlPoint, linkAngles, rotate, type Pt } from './chain.js';
 import { clamp01, TAU } from './easing.js';
 import type { Pose } from './motion.js';
 import { rigPart, type Rig } from './rigs.js';
@@ -140,13 +140,7 @@ function restAngle(rig: Rig, leg: string): number {
 const RAD = Math.PI / 180;
 const frac = (v: number): number => v - Math.floor(v);
 
-export type Pt = [number, number];
-const rotate = ([x, y]: Pt, deg: number, [cx, cy]: Pt): Pt => {
-  const a = deg * RAD;
-  const dx = x - cx;
-  const dy = y - cy;
-  return [cx + dx * Math.cos(a) - dy * Math.sin(a), cy + dx * Math.sin(a) + dy * Math.cos(a)];
-};
+export type { Pt };
 
 /**
  * How narrow the body is drawn at this turn (`Rig.turn`): 1 front-on, `bodyNarrow` at
@@ -163,7 +157,7 @@ export function bodyWidth(rig: Rig, pose: Pose, most = 2): number {
  * Only as far as three-quarters: past that (a walker turning further toward the way they
  * go) a hip moving under a planted foot would drag the foot along.
  */
-export function limbStep(rig: Rig, pose: Pose, part: string): number {
+function limbStep(rig: Rig, pose: Pose, part: string): number {
   if (!rig.turn?.limbs.includes(part)) return 0;
   return (rigPart(rig, part).pivot[0] - rig.turn.centre) * (bodyWidth(rig, pose, 1) - 1);
 }
@@ -379,10 +373,9 @@ export function stride(
     dy = gait.bob * (H - Math.min(...down.map((l) => ys[l]))) + give;
   } else {
     // In the air: from the last take-off to the next landing on a hop.
-    const since = Math.min(
-      ...Object.entries(gait.legs).map(([, o]) => frac(pl.phase - o) - gait.duty)
-    );
-    const until = Math.min(...Object.entries(gait.legs).map(([, o]) => 1 - frac(pl.phase - o)));
+    const lands = Object.values(gait.legs);
+    const since = Math.min(...lands.map((o) => frac(pl.phase - o) - gait.duty));
+    const until = Math.min(...lands.map((o) => 1 - frac(pl.phase - o)));
     const g = since / (since + until);
     const a = gait.bob * stanceDrop(rig, pl, pl.phase - since - 1e-6);
     const b = gait.bob * stanceDrop(rig, pl, pl.phase + until + 1e-6);
@@ -430,7 +423,7 @@ export function raiseFoot(rig: Rig, pose: Pose, leg: string, by: number): void {
   // out in front of its hip): their rest angles come off the turns worked out below.
   const thigh = Math.hypot(knee[0] - pivot[0], knee[1] - pivot[1]);
   const shin = Math.hypot(pivot[0] - knee[0], rig.height - knee[1]);
-  const restUp = Math.atan2(-(knee[0] - pivot[0]), knee[1] - pivot[1]);
+  const restUp = restAngle(rig, leg);
   const restDown = Math.atan2(-(pivot[0] - knee[0]), rig.height - knee[1]);
   const hip = toRoot(rig, pose, leg, pivot);
   const foot = toRoot(rig, pose, leg, [pivot[0], rig.height]);

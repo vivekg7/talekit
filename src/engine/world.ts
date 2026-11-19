@@ -47,13 +47,7 @@ import { STRIKE_HIT } from './motion.js';
 import { solidAt } from './route.js';
 import { depthOf, offPerspective } from './depth.js';
 import { lineEnd } from './voice.js';
-
-export { waived };
 import type { Allow, Area, Habitat, Project, Scene, Shot, View } from './types.js';
-
-export { groundOf, habitatOf, inArea, nearestIn };
-export type { Ground };
-export type { XY };
 
 export interface Finding {
   /** What kind of mistake, `support.air`: the key a waiver names. */
@@ -229,8 +223,7 @@ export function sceneFindings(scene: Scene, width: number): Omit<Finding, 'shot'
   for (const [name, a] of Object.entries(scene.anchors)) {
     if (a.x < 0 || a.x > width) continue;
     const p = { x: a.x, y: a.floor ?? a.y };
-    if (within(ground.walk, p) || within(ground.deep, p) || within(ground.shallow, p)) continue;
-    if (waived(allow, 'world.anchor', name)) continue;
+    if (onGround(ground, p) || waived(allow, 'world.anchor', name)) continue;
     const near = nearestOf(ground.walk, p);
     out.push({
       code: 'world.anchor',
@@ -322,7 +315,7 @@ interface Run {
 
 function supportFinding(shot: Shot, id: string, run: Run, ground: Ground): Finding {
   const { code, at } = run;
-  const span = run.t0 === run.t1 ? `at ${r1(run.t0)}s` : `from ${r1(run.t0)}s to ${r1(run.t1)}s`;
+  const span = spanOf(run);
   const target =
     code === 'support.dry'
       ? [...ground.deep, ...ground.shallow]
@@ -830,8 +823,7 @@ function solidRule(project: Project, shot: Shot, samples: Sample[]): Finding[] {
         run.t0 === 0 && run.still && typeof cast.at === 'object'
           ? { path: `/cast/${id}/at`, value: { ...cast.at, x: r(edge.x), y: r(edge.y) } }
           : undefined;
-      const span =
-        run.t0 === run.t1 ? `at ${r1(run.t0)}s` : `from ${r1(run.t0)}s to ${r1(run.t1)}s`;
+      const span = spanOf(run);
       out.push({
         code: 'support.solid',
         shot: shot.id,
@@ -923,6 +915,10 @@ export function shotFindings(project: Project, shot: Shot): Finding[] {
     ...contactRule(project, shot),
   ];
 }
+
+/** When a run of samples was, for a message: `at 1.2s`, or `from 1.2s to 3s`. */
+const spanOf = ({ t0, t1 }: { t0: number; t1: number }) =>
+  t0 === t1 ? `at ${r1(t0)}s` : `from ${r1(t0)}s to ${r1(t1)}s`;
 
 const r = (v: number) => Math.round(v);
 const r1 = (v: number) => Math.round(v * 10) / 10;

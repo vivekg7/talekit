@@ -26,7 +26,7 @@ export interface Link {
 }
 
 /** The most links a part may be cut into. */
-export const MAX_LINKS = 8;
+const MAX_LINKS = 8;
 
 const RAD = Math.PI / 180;
 
@@ -35,7 +35,7 @@ const RAD = Math.PI / 180;
  * ellipse centres and extremes, rect corners, line ends, and every point of an absolute
  * path (an arc's end point). A relative path is skipped, as elsewhere (the house style).
  */
-export function shapePoints(svg: string): Pt[] {
+function shapePoints(svg: string): Pt[] {
   const pts: Pt[] = [];
   for (const [, tag, attrs] of svg.matchAll(/<(\w+)([^>]*)>/g)) {
     const a: Record<string, number> = {};
@@ -159,7 +159,7 @@ export function linkAngles(link: Link, pose: Pose, part: string): number[] {
   return link.shares.map((s, i) => s * turn + (curl?.[i] ?? 0));
 }
 
-function rotate([x, y]: Pt, deg: number, [cx, cy]: Pt): Pt {
+export function rotate([x, y]: Pt, deg: number, [cx, cy]: Pt): Pt {
   const r = deg * RAD;
   const c = Math.cos(r);
   const s = Math.sin(r);
@@ -167,7 +167,7 @@ function rotate([x, y]: Pt, deg: number, [cx, cy]: Pt): Pt {
 }
 
 /** Whether a point drawn in the part lies past joint `i`: on the tip's side of its cut. */
-export function pastJoint(link: Link, i: number, [x, y]: Pt): boolean {
+function pastJoint(link: Link, i: number, [x, y]: Pt): boolean {
   const [jx, jy] = link.joints[i];
   const [dx, dy] = link.dirs[i];
   return (x - jx) * dx + (y - jy) * dy > 0;

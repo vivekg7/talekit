@@ -15,13 +15,13 @@ import { mix } from './weather.js';
 const SMALLEST = 0.05;
 
 /** An anchor's scale off the scene's perspective by more than this share is a finding. */
-export const SCALE_OFF = 0.2;
+const SCALE_OFF = 0.2;
 
 /**
  * Aerial perspective: the farthest figures move this share of the way toward the air's
  * colour by default (`depth.haze`). Gentle: a face at the back of a yajna ground still reads.
  */
-export const HAZE = 0.35;
+const HAZE = 0.35;
 /**
  * The haze is full this many times further back than the nearest row (scale 1/HAZE_FAR of
  * it): distance ∝ 1/scale, so a figure two thirds the size of the front row is 1.5 times as

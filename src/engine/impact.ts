@@ -1,6 +1,6 @@
 import { groundOf, inArea, type Ground } from './area.js';
 import { poseFor, sideOf } from './actor.js';
-import { easeOut, hash01 } from './easing.js';
+import { clamp01, easeOut, hash01, lerp } from './easing.js';
 import { endFeet, endOf, endSide } from './ends.js';
 import { footPoint, gaitPhase, legFalls } from './gait.js';
 import { rigOf } from './rigs.js';
@@ -45,7 +45,7 @@ export interface Impact extends Landing {
 }
 
 /** Seconds each lasts. */
-export const IMPACT_LIFE: Record<ImpactKind, number> = { dust: 0.7, splash: 0.9, ring: 1.6 };
+const IMPACT_LIFE: Record<ImpactKind, number> = { dust: 0.7, splash: 0.9, ring: 1.6 };
 /** Samples a second when finding where a jump or a drop comes down. */
 const RATE = 60;
 /** Seconds after a jump or drop begins in which it is looked for: it has landed by then. */
@@ -92,20 +92,31 @@ function wet(ground: Ground, s: ActorState): boolean {
   );
 }
 
-const MEMO = new WeakMap<Shot, Map<string, { project: Project; landings: Landing[] }>>();
+/**
+ * `compute` remembered per shot and actor, for as long as the project is the same one: each
+ * is read off the whole shot, and asked for on every frame.
+ */
+function perActor<T>(
+  compute: (project: Project, shot: Shot, id: string) => T
+): (project: Project, shot: Shot, id: string) => T {
+  const memo = new WeakMap<Shot, Map<string, { project: Project; value: T }>>();
+  return (project, shot, id) => {
+    let byActor = memo.get(shot);
+    if (!byActor) memo.set(shot, (byActor = new Map()));
+    const known = byActor.get(id);
+    if (known && known.project === project) return known.value;
+    const value = compute(project, shot, id);
+    byActor.set(id, { project, value });
+    return value;
+  };
+}
 
 /** Every landing, splash and ring of one actor through a shot, in time order. */
-export function landingsOf(project: Project, shot: Shot, id: string): Landing[] {
-  let byActor = MEMO.get(shot);
-  if (!byActor) MEMO.set(shot, (byActor = new Map()));
-  const known = byActor.get(id);
-  if (known && known.project === project) return known.landings;
+export const landingsOf = perActor((project, shot, id): Landing[] => {
   const scene = project.scenes[shot.scene];
   const character = project.characters[id];
-  const landings = scene && character && shot.cast[id] ? find(project, scene, shot, id) : [];
-  byActor.set(id, { project, landings });
-  return landings;
-}
+  return scene && character && shot.cast[id] ? find(project, scene, shot, id) : [];
+});
 
 function find(project: Project, scene: Scene, shot: Shot, id: string): Landing[] {
   const ground = groundOf(scene);
@@ -373,14 +384,8 @@ export interface Wake {
   water?: number;
 }
 
-const TRACKS = new WeakMap<Shot, Map<string, { project: Project; track: (Wet | undefined)[] }>>();
-
 /** Where an actor is in the water through a shot, WAKE_RATE times a second. */
-function trackOf(project: Project, shot: Shot, id: string): (Wet | undefined)[] {
-  let byActor = TRACKS.get(shot);
-  if (!byActor) TRACKS.set(shot, (byActor = new Map()));
-  const known = byActor.get(id);
-  if (known && known.project === project) return known.track;
+const trackOf = perActor((project, shot, id): (Wet | undefined)[] => {
   const scene = project.scenes[shot.scene];
   const character = project.characters[id];
   let track: (Wet | undefined)[] = [];
@@ -422,9 +427,8 @@ function trackOf(project: Project, shot: Shot, id: string): (Wet | undefined)[] 
           : { ...p, vx: 0, vy: 0 };
       });
   }
-  byActor.set(id, { project, track });
   return track;
-}
+});
 
 /** A swimmer's place at time t, between the samples either side; none out of the water. */
 function wetAt(track: (Wet | undefined)[], t: number): Wet | undefined {
@@ -435,15 +439,14 @@ function wetAt(track: (Wet | undefined)[], t: number): Wet | undefined {
   const b = track[i + 1];
   const u = f - i;
   if (!a || !b) return a && u < 1e-6 ? a : undefined;
-  const mix = (p: number, q: number) => p + (q - p) * u;
   return {
     ...a,
-    x: mix(a.x, b.x),
-    y: mix(a.y, b.y),
-    size: mix(a.size, b.size),
-    front: mix(a.front, b.front),
-    vx: mix(a.vx, b.vx),
-    vy: mix(a.vy, b.vy),
+    x: lerp(a.x, b.x, u),
+    y: lerp(a.y, b.y, u),
+    size: lerp(a.size, b.size, u),
+    front: lerp(a.front, b.front, u),
+    vx: lerp(a.vx, b.vx, u),
+    vy: lerp(a.vy, b.vy, u),
   };
 }
 
@@ -472,7 +475,7 @@ export function wakeAt(project: Project, shot: Shot, id: string, t: number): Wak
     const gx = p.vx;
     const gy = p.vy / FLAT;
     const speed = Math.hypot(gx, gy);
-    const strength = Math.min(1, Math.max(0, (speed / p.size - WAKE_FROM) / WAKE_FULL));
+    const strength = clamp01((speed / p.size - WAKE_FROM) / WAKE_FULL);
     const [ux, uy] = speed > 1e-6 ? [gx / speed, gy / speed] : [1, 0];
     const fx = p.x + ux * p.front;
     const fy = p.y + uy * p.front * FLAT;
@@ -553,37 +556,37 @@ export interface Print {
   kind: 'foot' | 'pad';
 }
 
-const PRINTS = new WeakMap<Shot, Map<string, { project: Project; prints: Print[] }>>();
-
 /**
  * Every print an actor's feet leave in a shot, in time order: one where each foot comes
  * down in a walk or a run, on a scene whose `surface` keeps them (sand, snow). Only feet
  * on a walk area, out of the water, standing on the floor (not sitting, lying, carried,
  * ridden or up on something).
  */
-export function printsOf(project: Project, shot: Shot, id: string): Print[] {
-  let byActor = PRINTS.get(shot);
-  if (!byActor) PRINTS.set(shot, (byActor = new Map()));
-  const known = byActor.get(id);
-  if (known && known.project === project) return known.prints;
+export const printsOf = perActor((project, shot, id): Print[] => {
   const scene = project.scenes[shot.scene];
   const character = project.characters[id];
-  const prints =
-    scene && character && shot.cast[id] && PRINTED[scene.surface]
-      ? findPrints(project, scene, shot, id)
-      : [];
-  byActor.set(id, { project, prints });
-  return prints;
+  return scene && character && shot.cast[id] && PRINTED[scene.surface]
+    ? findPrints(project, scene, shot, id)
+    : [];
+});
+
+/**
+ * Whether an actor goes anywhere in a shot, so its feet come down: a walk or run, a sit or
+ * lie that walks over first, or a walk the engine stages on its own (to a `use` anchor).
+ */
+export function goesSomewhere(project: Project, scene: Scene, shot: Shot, id: string): boolean {
+  return staged(project, scene, shot).actions.some(
+    (a) =>
+      a.actor === id &&
+      (a.do === 'walk' || a.do === 'run' || ((a.do === 'sit' || a.do === 'lie') && !!a.to))
+  );
 }
 
 function findPrints(project: Project, scene: Scene, shot: Shot, id: string): Print[] {
   const character = project.characters[id];
   const rig = rigOf(character);
   if (!rig.feet.length) return [];
-  const goes = (a: Shot['actions'][number]) =>
-    a.actor === id &&
-    (a.do === 'walk' || a.do === 'run' || ((a.do === 'sit' || a.do === 'lie') && !!a.to));
-  if (!staged(project, scene, shot).actions.some(goes)) return [];
+  if (!goesSomewhere(project, scene, shot, id)) return [];
   const ground = groundOf(scene);
   const water = [...ground.deep, ...ground.shallow];
   const at = (t: number) => resolveActor(project, scene, shot, id, t, 1);

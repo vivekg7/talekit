@@ -4,6 +4,8 @@ export const easeInOut = (u: number): number =>
   u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
 export const easeOut = (u: number): number => 1 - (1 - u) * (1 - u);
 export const TAU = Math.PI * 2;
+/** `v` wrapped into [0, span). */
+export const wrap = (v: number, span: number): number => ((v % span) + span) % span;
 
 /** Deterministic 0..1 value from a string, used for per-actor phase offsets. */
 export function hash01(s: string): number {

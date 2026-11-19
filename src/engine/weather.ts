@@ -1,4 +1,5 @@
-import { clamp01, easeInOut, hash01, lerp, TAU } from './easing.js';
+import { clamp01, easeInOut, hash01, lerp, TAU, wrap } from './easing.js';
+import { DEFAULT_LINE_COLOR as LINE } from './outline.js';
 import { n } from './svg.js';
 import type { Scene, Shot, View, Weather } from './types.js';
 import { uiScale } from './format.js';
@@ -46,7 +47,6 @@ const SNOW: Record<BandName, Band> = {
 const RAIN_COLOR = '#e6edf6';
 const SNOW_COLOR = '#ffffff';
 const LEAF_COLORS = ['#d9822b', '#e8b33a', '#b5542c', '#8fb34a'];
-const LINE = '#2e2633';
 /** How far a raindrop moves sideways for each pixel it falls, at wind 1. */
 const SLANT = 0.5;
 /** Rain with no wind given still leans a little; dead-straight rain looks ruled. */
@@ -174,8 +174,6 @@ function blendWeather(a: Weather, b: Weather, u: number): Weather {
   };
 }
 
-const wrap = (v: number, span: number) => ((v % span) + span) % span;
-
 /** The weather at shot time t, seen through camera c. `ground` is the scene's floor y. */
 export function weatherView(
   w: Weather,
@@ -257,7 +255,7 @@ export function weatherView(
  * they cover it and darkens it under storm clouds. The scene paints a fair sky, and a
  * `weather` turn that clears the clouds brings its blue back. Screen space.
  */
-export function skyGrade(amount: number, dark: number, W: number, H: number): string | undefined {
+function skyGrade(amount: number, dark: number, W: number, H: number): string | undefined {
   // Below the least the schema allows, a turn is clearing the sky.
   const fade = clamp01(amount / 0.1);
   const cover = clamp01((amount - 0.3) / 0.6) * fade;
@@ -372,8 +370,9 @@ function drips(
   );
 }
 
-const bandCount = (b: Band, amount: number, ctx: Ctx) =>
-  Math.round(b.count * (amount / 0.5) * (ctx.W / ctx.H / (16 / 9)));
+/** How many of `count` (as at amount 0.5 on a 16:9 frame) there are at `amount` on this frame. */
+const howMany = (count: number, amount: number, { W, H }: Ctx) =>
+  Math.round(count * (amount / 0.5) * (W / H / (16 / 9)));
 
 function rain(name: BandName, amount: number, ctx: Ctx, top: number): string {
   const b = RAIN[name];
@@ -381,7 +380,7 @@ function rain(name: BandName, amount: number, ctx: Ctx, top: number): string {
   let out = '';
   let edge = '';
   let width = 0;
-  for (let i = 0, count = bandCount(b, amount, ctx); i < count; i++) {
+  for (let i = 0, count = howMany(b.count, amount, ctx); i < count; i++) {
     const { x, y, size: len, grow, h } = place(`rain:${name}`, b, i, ctx, slant);
     width = b.width * grow;
     if (y <= top) continue;
@@ -408,7 +407,7 @@ function snow(name: BandName, amount: number, ctx: Ctx, top: number): string {
   // Snow is light: the wind carries it much further than it slants rain.
   const slant = ctx.wind * 1.6;
   let out = '';
-  for (let i = 0, count = bandCount(b, amount, ctx); i < count; i++) {
+  for (let i = 0, count = howMany(b.count, amount, ctx); i < count; i++) {
     const { x, y, size: r, grow, h } = place(`snow:${name}`, b, i, ctx, slant);
     if (y <= top) continue;
     // Each flake sways on its own rhythm as it falls.
@@ -428,7 +427,7 @@ function snow(name: BandName, amount: number, ctx: Ctx, top: number): string {
  */
 function splashes(amount: number, ctx: Ctx, ground: number, shelters: Span[]): string {
   const { W, H, t, k } = ctx;
-  const slots = Math.round(30 * (amount / 0.5) * (W / H / (16 / 9)));
+  const slots = howMany(30, amount, ctx);
   let out = '';
   for (let i = 0; i < slots; i++) {
     const period = 0.45 + 0.35 * hash01(`splash:${i}:T`);
@@ -458,7 +457,7 @@ function splashes(amount: number, ctx: Ctx, ground: number, shelters: Span[]): s
 /** Leaves tumbling down and across, turning over as they go. Screen space, in front. */
 function leaves(amount: number, colors: string[], ctx: Ctx): string {
   const { W, H, t, k, wind } = ctx;
-  const count = Math.round(14 * (amount / 0.5) * (W / H / (16 / 9)));
+  const count = howMany(14, amount, ctx);
   const drift = (40 + 260 * Math.abs(wind)) * (wind < 0 ? -1 : 1);
   let out = '';
   for (let i = 0; i < count; i++) {
@@ -598,7 +597,7 @@ export function mix(a: string, b: string, u: number): string {
 }
 
 /** Strikes still lighting the frame at t: the shot's `lightning` actions and the weather's. */
-export function strikeTimes(w: Weather | undefined, shot: Shot, t: number): number[] {
+function strikeTimes(w: Weather | undefined, shot: Shot, t: number): number[] {
   const out = shot.actions
     .filter((a) => a.lightning && a.t <= t && t - a.t < STRIKE_LIFE)
     .map((a) => a.t);

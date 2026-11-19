@@ -34,7 +34,7 @@ import { isMoveVerb } from './types.js';
 import { lineEnd } from './voice.js';
 
 /** An action the engine added, and why. */
-export type StagedAction = Action & { staged: string };
+type StagedAction = Action & { staged: string };
 
 /** Verbs that keep the hands and eyes on the work: someone doing one does not turn. */
 export const BUSY: ReadonlySet<Verb> = new Set([

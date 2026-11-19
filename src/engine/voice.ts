@@ -82,12 +82,7 @@ function hash(s: string): string {
  * The cache key of a line: the same voice saying the same words in the same way is the
  * same audio.
  */
-export function lineKey(
-  voice: VoiceSpec,
-  text: string,
-  style: Line['style'],
-  emotion: Emotion
-): string {
+function lineKey(voice: VoiceSpec, text: string, style: Line['style'], emotion: Emotion): string {
   return hash(
     `${voice.engine}:${voice.name}|${voice.speed}|${voice.pitch}|${style}|${emotion}|${text.trim()}`
   );

@@ -24,7 +24,7 @@ export interface Subtitle {
 }
 
 /** The language the lines are written in: Hindi when they are in Devanagari, else English. */
-export function filmLanguage(project: Project): string {
+function filmLanguage(project: Project): string {
   const written = project.shots.flatMap((s) => s.actions.map((a) => a.say ?? a.caption ?? ''));
   return written.some((t) => /\p{Script=Devanagari}/u.test(t)) ? 'hi' : 'en';
 }
@@ -87,7 +87,7 @@ function assTime(s: number): string {
 }
 
 /** The family name of the bundled font, which the .mkv carries. */
-export const SUBTITLE_FONT = 'Baloo 2';
+const SUBTITLE_FONT = 'Baloo 2';
 
 /**
  * A subtitle track as an Advanced SubStation script: white text with a dark outline in the

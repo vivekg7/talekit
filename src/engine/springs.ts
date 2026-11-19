@@ -1,5 +1,5 @@
 import { poseFor } from './actor.js';
-import { toRoot } from './gait.js';
+import { toRoot, type Pt } from './gait.js';
 import type { Pose } from './motion.js';
 import { rigPart, rigOf, type Rig } from './rigs.js';
 import { resolveActor, type ActorState } from './timeline.js';
@@ -39,7 +39,6 @@ const WIND_LEAN = 14;
 const WIND_SHIFT = 3;
 const W0 = 2 * Math.PI * HZ;
 
-type Pt = [number, number];
 /** Where the pivots are, how far what they hang from is turned, and which way it faces. */
 type Sample = { pos: Pt[]; turn: number[]; side: number };
 

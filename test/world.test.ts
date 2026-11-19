@@ -1,13 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { CharacterSchema, SceneSchema, ShotSchema, type Project } from '../src/engine/types.js';
 import { LIBRARY } from '../src/library/index.js';
-import {
-  groundOf,
-  habitatOf,
-  sceneFindings,
-  shotFindings,
-  supportAt,
-} from '../src/engine/world.js';
+import { groundOf, habitatOf } from '../src/engine/area.js';
+import { sceneFindings, shotFindings, supportAt } from '../src/engine/world.js';
 import { validateProject, validateScene, validateShot } from '../src/project/validate.js';
 import { findingFrameSvg } from '../src/render/sheets.js';
 import { resolveActor } from '../src/engine/timeline.js';

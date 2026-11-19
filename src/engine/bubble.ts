@@ -1,3 +1,4 @@
+import { TAU } from './easing.js';
 import { needsShaping, shapedText, shapedWidth } from './glyphs.js';
 import { escapeXml, n } from './svg.js';
 import { safeInsets } from './format.js';
@@ -26,23 +27,20 @@ export function wrapText(text: string, maxWidth: number, fontSize: number, bold 
     let line = '';
     for (const word of paragraph.split(/\s+/).filter(Boolean)) {
       const candidate = line ? `${line} ${word}` : word;
-      if (textWidth(candidate, fontSize, bold) <= maxWidth || !line) {
-        if (textWidth(candidate, fontSize, bold) > maxWidth && !line) {
-          let chunk = '';
-          for (const ch of word) {
-            if (textWidth(chunk + ch, fontSize, bold) > maxWidth && chunk) {
-              lines.push(chunk);
-              chunk = '';
-            }
-            chunk += ch;
-          }
-          line = chunk;
-        } else {
-          line = candidate;
-        }
-      } else {
+      if (textWidth(candidate, fontSize, bold) <= maxWidth) line = candidate;
+      else if (line) {
         lines.push(line);
         line = word;
+      } else {
+        let chunk = '';
+        for (const ch of word) {
+          if (textWidth(chunk + ch, fontSize, bold) > maxWidth && chunk) {
+            lines.push(chunk);
+            chunk = '';
+          }
+          chunk += ch;
+        }
+        line = chunk;
       }
     }
     if (line) lines.push(line);
@@ -241,10 +239,10 @@ function bubbleShape(spec: BubbleSpec): string {
   if (spec.style === 'shout') {
     const cx = x + w / 2;
     const cy = y + h / 2;
-    const n = 18;
+    const spikes = 18;
     const pts: string[] = [];
-    for (let i = 0; i < n * 2; i++) {
-      const a = (Math.PI * 2 * i) / (n * 2) - Math.PI / 2;
+    for (let i = 0; i < spikes * 2; i++) {
+      const a = (TAU * i) / (spikes * 2) - Math.PI / 2;
       const spike = i % 2 === 0 ? 1.28 : 1.05;
       pts.push(`${cx + (Math.cos(a) * w * spike) / 2},${cy + (Math.sin(a) * h * spike) / 2}`);
     }

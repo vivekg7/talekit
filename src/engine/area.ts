@@ -1,4 +1,5 @@
 /** Areas on the stage (walk, water): polygons of [x, y] corners in scene pixels. */
+import { clamp01 } from './easing.js';
 import type { Area, Character, Habitat, Scene } from './types.js';
 
 export type XY = { x: number; y: number };
@@ -33,7 +34,7 @@ export function nearestOnEdge(area: Area, p: XY): XY {
     const dx = bx - ax;
     const dy = by - ay;
     const len = dx * dx + dy * dy;
-    const u = len ? Math.max(0, Math.min(1, ((p.x - ax) * dx + (p.y - ay) * dy) / len)) : 0;
+    const u = len ? clamp01(((p.x - ax) * dx + (p.y - ay) * dy) / len) : 0;
     const q = { x: ax + u * dx, y: ay + u * dy };
     const d = dist(q, p);
     if (d < bestD) {

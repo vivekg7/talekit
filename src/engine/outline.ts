@@ -64,7 +64,7 @@ interface Paint {
 }
 
 /** Attributes of one tag, with `style='a:b'` declarations folded in. */
-export function parseAttrs(src: string): Record<string, string> {
+function parseAttrs(src: string): Record<string, string> {
   const out: Record<string, string> = {};
   for (const m of src.matchAll(/([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(?:'([^']*)'|"([^"]*)")/g))
     out[m[1]] = m[2] ?? m[3];

@@ -1,3 +1,4 @@
+import { clamp01 } from './easing.js';
 import { topLevelPieces } from './svg.js';
 
 /**
@@ -379,7 +380,7 @@ function foldOpacity(ps: Piece[], paint: Paint): void {
     const key = fill ? 'fill-opacity' : 'stroke-opacity';
     const was = Number(a[key] ?? paint[key] ?? 1);
     if (!Number.isFinite(was)) continue;
-    const v = Math.round(Math.max(0, Math.min(1, alpha)) * Math.max(0, Math.min(1, was)) * 1e4);
+    const v = Math.round(clamp01(alpha) * clamp01(was) * 1e4);
     let tag = p.raw
       .replace(/\sopacity\s*=\s*(['"])[^'"]*\1/, '')
       .replace(new RegExp(`\\s${key}\\s*=\\s*(['"])[^'"]*\\1`), '');
@@ -509,20 +510,6 @@ export function cullOffFrame(svg: string, m: Affine, W: number, H: number, defs 
  */
 export function fragmentBox(svg: string): [number, number, number, number] | undefined {
   let box: Box | undefined;
-  const add = (b: Box, t: Affine) => {
-    for (const [x, y] of [
-      [b[0], b[1]],
-      [b[2], b[1]],
-      [b[0], b[3]],
-      [b[2], b[3]],
-    ]) {
-      const X = t[0] * x + t[2] * y + t[4];
-      const Y = t[1] * x + t[3] * y + t[5];
-      box = box
-        ? [Math.min(box[0], X), Math.min(box[1], Y), Math.max(box[2], X), Math.max(box[3], Y)]
-        : [X, Y, X, Y];
-    }
-  };
   const walk = (frag: string, t: Affine) => {
     for (const piece of topLevelPieces(frag)) {
       const open = piece.match(/^<([a-zA-Z]+)\b[^>]*?>/);
@@ -537,7 +524,7 @@ export function fragmentBox(svg: string): [number, number, number, number] | und
         continue;
       }
       const b = shapeBox(tag, a);
-      if (b) add(b, tt);
+      if (b) box = union(box, mapBox(b, tt));
     }
   };
   walk(svg, IDENTITY);

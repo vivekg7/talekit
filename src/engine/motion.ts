@@ -1,4 +1,4 @@
-import { clamp01, easeInOut, easeOut, hash01, TAU } from './easing.js';
+import { clamp01, easeInOut, easeOut, hash01, lerp, TAU } from './easing.js';
 import { parentTurn, plantFeet, raiseFoot, stride, toRoot, type Pt, type Travel } from './gait.js';
 import { HUMANOID, QUADRUPED, type Rig } from './rigs.js';
 import type { Emotion, Verb } from './types.js';
@@ -170,7 +170,7 @@ export const VERB_DURATION: Partial<Record<Verb, number>> = {
 export const STOOP = { down: 0.42, grab: 0.5, up: 0.58 };
 
 /** How far down a stoop is at progress u: 0 standing, 1 with the hand at the floor. */
-export function stoopDepth(u: number): number {
+function stoopDepth(u: number): number {
   if (u < STOOP.down) return easeInOut(u / STOOP.down);
   if (u < STOOP.up) return 1;
   return 1 - easeInOut((u - STOOP.up) / (1 - STOOP.up));
@@ -448,7 +448,7 @@ function tuckUnder(rig: Rig, leg: string, h: number): [number, number] {
   const turn = -90 + Math.asin(Math.min(1, Math.max(0, h / upper))) * DEG;
   return [turn, 80 - turn];
 }
-const mix = (a: number, b: number, u: number): number => a + (b - a) * u;
+
 /** How far below the hips a person sits: on the seat of the trousers. */
 const SEAT_DEPTH = 12;
 /**
@@ -488,8 +488,7 @@ function foldLeg(
  * and elbows rise out at its sides.
  */
 function sprawlDown(rig: Rig, pose: Pose, k: number): void {
-  const [ox, oy] = pose.off.body ?? [0, 0];
-  pose.off.body = [ox, oy + (rig.height - (rig.belly ?? rig.height)) * k];
+  nudge(pose, 'body', 0, (rig.height - (rig.belly ?? rig.height)) * k);
   plantFeet(rig, pose, QUAD_LEGS);
 }
 
@@ -550,15 +549,15 @@ function strikeBeats(u: number): { up: number; down: number } {
 }
 
 /** Seconds a stroke of a `dig` takes, about: a `dig` is as many whole strokes as fit. */
-export const DIG_STROKE = 1.25;
+const DIG_STROKE = 1.25;
 /** A `dig` stroke: the share of it at which the blade bites the soil. */
-export const DIG_HIT = 0.5;
+const DIG_HIT = 0.5;
 
 /** How long a `dig`'s clods fly and settle after each blow, seconds. */
 export const SOIL_TIME = 0.75;
 
 /** How many strokes a `dig` of `span` seconds makes. */
-export function digStrokes(span: number): number {
+function digStrokes(span: number): number {
   return Math.max(1, Math.round(span / DIG_STROKE));
 }
 
@@ -610,7 +609,7 @@ export const NOCKED_DOWN = -25;
  */
 export const ANCHOR: Pt = [94, 141];
 /** The far hand, at the end of the far arm hanging straight: the bow hand (`Rig.farHold`). */
-export const FAR_HAND: Pt = HUMANOID.farHold!.point;
+const FAR_HAND: Pt = HUMANOID.farHold!.point;
 /**
  * How far the near shoulder comes back and up as the string is drawn (box units): the
  * shoulder blade pulled in behind the draw, so the folded arm's elbow goes back past the
@@ -646,7 +645,7 @@ const FLICK = 16;
  * `pull` the string back from rest to the cheek, `flick` the hand thrown back as it lets
  * go, `down` the bow coming down at the end.
  */
-export function aimBeats(
+function aimBeats(
   e: number,
   span: number,
   loose?: number
@@ -699,19 +698,20 @@ function armTo(
   const fa = ua - side * folded;
   const swing = (ua - Math.atan2(elbow[1] - part.pivot[1], elbow[0] - part.pivot[0])) * DEG;
   const forearm = (fa - Math.atan2(hand[1] - elbow[1], hand[0] - elbow[0])) * DEG;
-  const wrap = (deg: number) => ((((deg + 180) % 360) + 360) % 360) - 180;
-  const rot = wrap(swing - parentTurn(rig, pose, arm));
-  const bend = wrap(forearm - swing);
+  const rot = wrap180(swing - parentTurn(rig, pose, arm));
+  const bend = wrap180(forearm - swing);
   // Mixed from the arm as it is, the short way round; or `forward`, swung up in front of
   // the body rather than back behind it, however far round that is.
   const from = pose.rot[arm] ?? 0;
-  let turn = wrap(rot - from);
+  let turn = wrap180(rot - from);
   if (forward && turn > 90) turn -= 360;
   pose.rot[arm] = from + turn * k;
-  pose.bend[arm] = mix(pose.bend[arm] ?? 0, bend, fold);
+  pose.bend[arm] = lerp(pose.bend[arm] ?? 0, bend, fold);
 }
 
 const clampCos = (c: number) => Math.max(-1, Math.min(1, c));
+/** An angle in degrees brought into -180..180. */
+export const wrap180 = (deg: number) => ((((deg + 180) % 360) + 360) % 360) - 180;
 
 /**
  * Drawing a bow at `to` (box units with the body offset), a right-handed archer seen from
@@ -750,9 +750,9 @@ function aimPose(
     const lift = Math.max(-25, Math.min(65, deg));
     // Up, the body leans back from the hips and the head tips back further; down, it is
     // more the body that bends over, so the face stays clear of the string.
-    pose.rot.torso = mix(torso0, -(lift > 0 ? 0.3 : 0.45) * lift, k);
-    pose.rot.head = mix(head0, -(lift > 0 ? 0.62 : 0.3) * lift, k);
-    pose.yaw = mix(yaw0, 1.45, k);
+    pose.rot.torso = lerp(torso0, -(lift > 0 ? 0.3 : 0.45) * lift, k);
+    pose.rot.head = lerp(head0, -(lift > 0 ? 0.62 : 0.3) * lift, k);
+    pose.yaw = lerp(yaw0, 1.45, k);
     anchor = toRoot(rig, pose, 'head', ANCHOR);
     const gx = to[0] - pose.dx - anchor[0];
     const gy = to[1] - pose.dy - anchor[1];
@@ -761,15 +761,14 @@ function aimPose(
   const rad = (deg * Math.PI) / 180;
   const u: Pt = [Math.cos(rad), -Math.sin(rad)];
   // Feet set apart and planted, the near foot forward.
-  pose.rot.legR = mix(pose.rot.legR ?? 0, -6, k);
-  pose.rot.legL = mix(pose.rot.legL ?? 0, 6, k);
-  pose.bend.legR = mix(pose.bend.legR ?? 0, 0, k);
-  pose.bend.legL = mix(pose.bend.legL ?? 0, 0, k);
+  pose.rot.legR = lerp(pose.rot.legR ?? 0, -6, k);
+  pose.rot.legL = lerp(pose.rot.legL ?? 0, 6, k);
+  pose.bend.legR = lerp(pose.bend.legR ?? 0, 0, k);
+  pose.bend.legL = lerp(pose.bend.legL ?? 0, 0, k);
   plantFeet(rig, pose, ['legL', 'legR']);
   // The bow hand: on the line from the anchor, an arm's length (just short of straight)
   // from the far shoulder.
-  const [fx, fy] = pose.off.armL ?? [0, 0];
-  pose.off.armL = [fx + BOW_SHOULDER[0] * k, fy + BOW_SHOULDER[1] * k];
+  nudge(pose, 'armL', BOW_SHOULDER[0] * k, BOW_SHOULDER[1] * k);
   const [sx, sy] = toRoot(rig, pose, 'armL', arm.pivot);
   const ax = anchor[0] - sx;
   const ay = anchor[1] - sy;
@@ -781,10 +780,9 @@ function aimPose(
   armTo(rig, pose, 'armL', FAR_HAND, bowHand, false, k);
   // The drawing hand: on the string by the bow, pulled back to the anchor; let go, thrown
   // back a little past it and open. The near shoulder comes back for the draw.
-  const [ox, oy] = pose.off.armR ?? [0, 0];
-  pose.off.armR = [ox + DRAW_SHOULDER[0] * k, oy + DRAW_SHOULDER[1] * k];
+  nudge(pose, 'armR', DRAW_SHOULDER[0] * k, DRAW_SHOULDER[1] * k);
   const rest: Pt = [bowHand[0] - BRACE * u[0], bowHand[1] - BRACE * u[1]];
-  let hand: Pt = [mix(rest[0], anchor[0], pull), mix(rest[1], anchor[1], pull)];
+  let hand: Pt = [lerp(rest[0], anchor[0], pull), lerp(rest[1], anchor[1], pull)];
   if (flick > 0)
     hand = [anchor[0] - FLICK * flick * u[0], anchor[1] - FLICK * flick * u[1] - 4 * flick];
   // Handed over: the near hand, carrying the bow, goes with the far one as it comes up,
@@ -802,9 +800,9 @@ function aimPose(
     const meet = toRoot(rig, ghost, 'armL', FAR_HAND);
     const far = toRoot(rig, pose, 'armL', FAR_HAND);
     const there = easeInOut(clamp01((e - HAND_OVER.pass) / HAND_OVER.passing));
-    const grip: Pt = [mix(meet[0], far[0], there), mix(meet[1], far[1], there)];
+    const grip: Pt = [lerp(meet[0], far[0], there), lerp(meet[1], far[1], there)];
     onString = easeInOut(clamp01((e - HAND_OVER.leave) / HAND_OVER.toString));
-    hand = [mix(grip[0], hand[0], onString), mix(grip[1], hand[1], onString)];
+    hand = [lerp(grip[0], hand[0], onString), lerp(grip[1], hand[1], onString)];
     kNear = easeInOut(clamp01(e / HAND_OVER.meet));
     held = easeInOut(clamp01((e - HAND_OVER.pass) / HAND_OVER.passing));
   }
@@ -815,7 +813,7 @@ function aimPose(
   const loosed = loose !== undefined && e >= loose;
   pose.bow = {
     // Lowered with the arrow still on the string, it comes to point at the floor in front.
-    deg: loosed ? deg : mix(deg, NOCKED_DOWN, down),
+    deg: loosed ? deg : lerp(deg, NOCKED_DOWN, down),
     // Turned as it comes up; lowered unloosed, it stays turned to point down.
     turn: loosed || down === 0 ? raise : 1,
     draw: pull * k * onString,
@@ -921,7 +919,7 @@ function eatBow(rig: Rig): number {
   if (mx === QUADRUPED.hold.point[0] && my === QUADRUPED.hold.point[1]) return EAT_BOW;
   const { neck, r, alpha } = eatNeck(rig);
   if (EAT_MOUTH - neck > r) return SHORT_BOW;
-  const turn = (Math.asin((EAT_MOUTH - neck) / r) - alpha) * (180 / Math.PI) - EAT_DIP;
+  const turn = (Math.asin((EAT_MOUTH - neck) / r) - alpha) * DEG - EAT_DIP;
   // A mouth low already (a crocodile's long jaw, close over the ground) only nods.
   if (turn < EAT_BOW) return SHORT_BOW;
   return Math.min(130, turn);
@@ -951,10 +949,10 @@ function quadrupedVerb(rig: Rig, pose: Pose, verb: Verb, u: number, span: number
       const { k, phi } = swimBeats(u, span);
       const s = Math.sin(phi);
       const c = Math.sin(phi + Math.PI);
-      pose.rot.legFR = (pose.rot.legFR ?? 0) + k * (-40 + 32 * s);
-      pose.rot.legFL = (pose.rot.legFL ?? 0) + k * (-40 + 32 * c);
-      pose.rot.legBR = (pose.rot.legBR ?? 0) + k * (22 + 20 * c);
-      pose.rot.legBL = (pose.rot.legBL ?? 0) + k * (22 + 20 * s);
+      add('legFR', k * (-40 + 32 * s));
+      add('legFL', k * (-40 + 32 * c));
+      add('legBR', k * (22 + 20 * c));
+      add('legBL', k * (22 + 20 * s));
       add('body', -12 * k);
       add('head', -14 * k);
       add('tail', 10 * k + 4 * k * Math.sin(phi * 0.5));
@@ -1065,7 +1063,7 @@ function quadrupedVerb(rig: Rig, pose: Pose, verb: Verb, u: number, span: number
         return true;
       }
       const [ox, oy] = pose.off.body ?? [0, 0];
-      pose.off.body = [ox, mix(oy, rig.height - (rig.belly ?? rig.height), l)];
+      pose.off.body = [ox, lerp(oy, rig.height - (rig.belly ?? rig.height), l)];
       pose.rot.body = (pose.rot.body ?? 0) * (1 - l);
       for (const leg of QUAD_LEGS) {
         const hip = toRoot(rig, pose, 'body', rig.parts[leg].pivot);
@@ -1083,8 +1081,8 @@ function quadrupedVerb(rig: Rig, pose: Pose, verb: Verb, u: number, span: number
             : reachOut(rig, leg, floor + LIE_TUCK * l);
         pose.rot[leg] = hind
           ? turn - pose.rot.body
-          : mix(pose.rot[leg] ?? 0, turn - pose.rot.body, l);
-        pose.bend[leg] = hind ? bend : mix(pose.bend[leg] ?? 0, bend, l);
+          : lerp(pose.rot[leg] ?? 0, turn - pose.rot.body, l);
+        pose.bend[leg] = hind ? bend : lerp(pose.bend[leg] ?? 0, bend, l);
       }
       if (!rig.hooves && l > 0) pose.loose = ['legBR'];
       // The neck sinks into the shoulders rather than the head tipping onto its face, and
@@ -1139,7 +1137,7 @@ const WIPE_AT: Pt = [206, 214];
  * over only as far as needed to bring the shoulder in reach (not at all if `stoop` is false).
  * Out of reach, the hand gets as near as it can.
  */
-export function reachTo(rig: Rig, pose: Pose, to: Pt, k: number, stoop = true): void {
+function reachTo(rig: Rig, pose: Pose, to: Pt, k: number, stoop = true): void {
   const arm = rig.parts.armR;
   const elbow = rig.bends.armR;
   if (!arm || !elbow) return;
@@ -1175,12 +1173,11 @@ export function reachTo(rig: Rig, pose: Pose, to: Pt, k: number, stoop = true): 
   const folded = Math.PI - Math.acos((upper ** 2 + fore ** 2 - d ** 2) / (2 * upper * fore));
   const swing = (up - Math.atan2(elbow[1] - arm.pivot[1], elbow[0] - arm.pivot[0])) * DEG;
   const forearm = (up - folded - Math.atan2(hand[1] - elbow[1], hand[0] - elbow[0])) * DEG;
-  const wrap = (deg: number) => ((((deg + 180) % 360) + 360) % 360) - 180;
-  const rot = wrap(swing - parentTurn(rig, leaned(l), 'armR'));
-  const bend = wrap(forearm - swing);
+  const rot = wrap180(swing - parentTurn(rig, leaned(l), 'armR'));
+  const bend = wrap180(forearm - swing);
   lean(rig, pose, l * k);
-  pose.rot.armR = mix(pose.rot.armR ?? 0, rot, k);
-  pose.bend.armR = mix(pose.bend.armR ?? 0, bend, k);
+  pose.rot.armR = lerp(pose.rot.armR ?? 0, rot, k);
+  pose.bend.armR = lerp(pose.bend.armR ?? 0, bend, k);
 }
 
 /**
@@ -1356,10 +1353,10 @@ export function applyVerb(
       const k = stoopDepth(u);
       if (humanoid && to) reachTo(rig, pose, to, k);
       else if (humanoid) {
-        pose.rot.armR = mix(pose.rot.armR ?? 0, -54, k);
-        pose.bend.armR = mix(pose.bend.armR ?? 0, -6, k);
-        pose.rot.armL = mix(pose.rot.armL ?? 0, -34, k);
-        pose.bend.armL = mix(pose.bend.armL ?? 0, -30, k);
+        pose.rot.armR = lerp(pose.rot.armR ?? 0, -54, k);
+        pose.bend.armR = lerp(pose.bend.armR ?? 0, -6, k);
+        pose.rot.armL = lerp(pose.rot.armL ?? 0, -34, k);
+        pose.bend.armL = lerp(pose.bend.armL ?? 0, -30, k);
         lean(rig, pose, k);
       } else {
         pose.rot.body = (pose.rot.body ?? 0) + 22 * k;
@@ -1473,10 +1470,10 @@ export function applyVerb(
       const s = Math.sin(phi);
       const c = Math.sin(phi + Math.PI);
       if (humanoid) {
-        pose.rot.armR = mix(pose.rot.armR ?? 0, -130 + 45 * s, k);
-        pose.rot.armL = mix(pose.rot.armL ?? 0, -130 + 45 * c, k);
-        pose.bend.armR = mix(pose.bend.armR ?? 0, -30 + 20 * s, k);
-        pose.bend.armL = mix(pose.bend.armL ?? 0, -30 + 20 * c, k);
+        pose.rot.armR = lerp(pose.rot.armR ?? 0, -130 + 45 * s, k);
+        pose.rot.armL = lerp(pose.rot.armL ?? 0, -130 + 45 * c, k);
+        pose.bend.armR = lerp(pose.bend.armR ?? 0, -30 + 20 * s, k);
+        pose.bend.armL = lerp(pose.bend.armL ?? 0, -30 + 20 * c, k);
         pose.rot.legR = (pose.rot.legR ?? 0) + k * 18 * s;
         pose.rot.legL = (pose.rot.legL ?? 0) + k * 18 * c;
         pose.rot.head = (pose.rot.head ?? 0) - 8 * k;
@@ -1490,7 +1487,7 @@ export function applyVerb(
       const { draw, out } = kickBeats(u);
       if (humanoid) {
         pose.rot.legR = (pose.rot.legR ?? 0) + 18 * draw - 70 * out;
-        pose.bend.legR = mix(mix(pose.bend.legR ?? 0, 70, draw), 0, Math.min(1, out));
+        pose.bend.legR = lerp(lerp(pose.bend.legR ?? 0, 70, draw), 0, Math.min(1, out));
         pose.rot.armL = (pose.rot.armL ?? 0) - 25 * out;
         pose.rot.armR = (pose.rot.armR ?? 0) + 20 * out;
       } else {
@@ -1507,7 +1504,7 @@ export function applyVerb(
         pose.rot.head = (pose.rot.head ?? 0) + 5 * m * k;
         const [x, y] = toRoot(rig, pose, 'head', EAT_AT);
         const mouth: Pt = [x + pose.dx, y + pose.dy];
-        reachTo(rig, pose, [mix(to[0], mouth[0], m), mix(to[1], mouth[1], m)], k);
+        reachTo(rig, pose, [lerp(to[0], mouth[0], m), lerp(to[1], mouth[1], m)], k);
         pose.rot.head += 2.5 * chew;
         nudge(pose, 'head', 0, 1.5 * Math.max(0, chew));
         break;
@@ -1557,7 +1554,7 @@ export function applyVerb(
         // Hands come to rest on the thighs.
         pose.rot.armL = -10 * k;
         pose.rot.armR = -10 * k;
-        pose.bend.armL = pose.bend.armR = mix(-8, -25, k);
+        pose.bend.armL = pose.bend.armR = lerp(-8, -25, k);
         // Standing, the feet are on the floor `seat` below the anchor; sat, the hips are on it.
         pose.dy += fall * k + seat * (1 - k);
         pose.rot.torso = 0;
@@ -1571,14 +1568,14 @@ export function applyVerb(
         pose.dy -= (BACK_DEPTH - seatDepth(rig, seat)) * l;
         pose.rot.torso = (pose.rot.torso ?? 0) - 90 * l;
         pose.rot.head = (pose.rot.head ?? 0) + 20 * l;
-        pose.rot.armL = mix(pose.rot.armL ?? 0, 2, l);
-        pose.rot.armR = mix(pose.rot.armR ?? 0, 4, l);
-        pose.bend.armL = mix(pose.bend.armL ?? 0, -6, l);
-        pose.bend.armR = mix(pose.bend.armR ?? 0, -6, l);
+        pose.rot.armL = lerp(pose.rot.armL ?? 0, 2, l);
+        pose.rot.armR = lerp(pose.rot.armR ?? 0, 4, l);
+        pose.bend.armL = lerp(pose.bend.armL ?? 0, -6, l);
+        pose.bend.armR = lerp(pose.bend.armR ?? 0, -6, l);
         for (const leg of ['legL', 'legR']) {
           const [turn, bend] = foldLeg(rig, leg, BACK_DEPTH, 5, 0);
-          pose.rot[leg] = mix(pose.rot[leg] ?? 0, turn, l);
-          pose.bend[leg] = mix(pose.bend[leg] ?? 0, bend, l);
+          pose.rot[leg] = lerp(pose.rot[leg] ?? 0, turn, l);
+          pose.bend[leg] = lerp(pose.bend[leg] ?? 0, bend, l);
         }
         // The shadow runs from the head, a whole torso behind the hips, to the feet.
         const hip = rig.parts.legR.pivot[1];
@@ -1618,10 +1615,7 @@ export function applyTake(rig: Rig, pose: Pose, emotion: Emotion, u: number): vo
   const [tilt, rise, stretch] = TAKES[emotion];
   const head = rig.name === 'simple' ? 'body' : 'head';
   pose.rot[head] = (pose.rot[head] ?? 0) + tilt * k * (head === 'body' ? 0.5 : 1);
-  if (head === 'head') {
-    const [ox, oy] = pose.off.head ?? [0, 0];
-    pose.off.head = [ox, oy - rise * k];
-  }
+  if (head === 'head') nudge(pose, 'head', 0, -rise * k);
   pose.sy *= 1 + stretch * k;
   pose.sx *= 1 - stretch * 0.5 * k;
 }
@@ -1678,7 +1672,7 @@ export function faceFallbacks(parts: Record<string, string | Record<string, stri
   return out;
 }
 
-export interface FaceContext {
+interface FaceContext {
   emotion: Emotion;
   /** Explicit overrides from a `face` action. */
   overrides: Record<string, string>;

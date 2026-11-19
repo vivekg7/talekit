@@ -126,7 +126,7 @@ export function poseFor(actor: ActorState, t: number): Pose {
 const TIP = 40;
 
 /** Wing beats a second, and how far a wing swings either side of its drawing (degrees). */
-export const WINGBEAT = { hz: 2.4, deg: 40 };
+const WINGBEAT = { hz: 2.4, deg: 40 };
 
 /**
  * Wings (`flaps`) beat while flying, `cycle` (0..1) through a beat: a quicker downstroke
@@ -464,7 +464,7 @@ export function characterBody(
     `<g class='part-${name}'${tf ? ` transform='${tf}'` : ''}${fade ? ` opacity='${n(1 - fade)}'` : ''}>${inner}</g>`;
   // A fused part's outline goes down just before the part it joins, so that part's fill
   // covers the line where they overlap; the fused part's own fill still draws in its turn.
-  const joined = new Set(drawn.map((d) => d.name));
+  const present = new Set(drawn.map((d) => d.name));
   let out = '';
   for (const d of drawn) {
     const limb = (f: (typeof drawn)[number], draw: 'all' | 'lines' | 'fills') => {
@@ -484,7 +484,7 @@ export function characterBody(
     for (const f of drawn)
       if (f.under && fuse(f.name) === d.name)
         out += group(`${f.name}-line`, f.tf, limb(f, 'lines') || f.under);
-    const fused = fuse(d.name) && joined.has(fuse(d.name)!);
+    const fused = fuse(d.name) && present.has(fuse(d.name)!);
     const inner =
       limb(d, fused ? 'fills' : 'all') || (fused ? '' : d.under) + d.svg + d.shade(d.svg);
     out += group(d.name, d.tf, inner, d.fade);
@@ -766,7 +766,7 @@ export function renderShadow(actor: ActorState, pose: Pose): string {
 const END_WIDE = 0.6;
 
 /** A point in the actor's box, through the pose's root (not its spin), in the scene. */
-export function boxToScene(
+function boxToScene(
   actor: ActorState,
   pose: Pose,
   [bx, by]: [number, number]
@@ -780,11 +780,7 @@ export function boxToScene(
 }
 
 /** Where a point in the scene is in the actor's box: boxToScene the other way. */
-export function sceneToBox(
-  actor: ActorState,
-  pose: Pose,
-  p: { x: number; y: number }
-): [number, number] {
+function sceneToBox(actor: ActorState, pose: Pose, p: { x: number; y: number }): [number, number] {
   const rig = rigOf(actor.character);
   const s = (actor.character.height / rig.height) * actor.scale;
   return [
@@ -858,12 +854,7 @@ export function holdPoint(actor: ActorState, pose: Pose, far = false): { x: numb
  * draws a bow's string, drawn over the string and the arrow (see compose.ts).
  */
 export function onNearArm(rig: Rig, name: string): boolean {
-  const seen = new Set<string>();
-  for (let cur: string | undefined = name; cur && !seen.has(cur); cur = rigPart(rig, cur).parent) {
-    if (cur === rig.hold.part) return true;
-    seen.add(cur);
-  }
-  return false;
+  return chainOf(rig, name).includes(rig.hold.part);
 }
 
 /**
