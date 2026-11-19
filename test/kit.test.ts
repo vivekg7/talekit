@@ -1,10 +1,11 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtemp, mkdir, copyFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, copyFile, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { characterBody } from '../src/engine/actor.js';
 import { emptyPose } from '../src/engine/motion.js';
+import { voiceLines } from '../src/engine/voice.js';
 import { copyFromLibrary } from '../src/library/index.js';
 import { createProject, loadProject } from '../src/project/store.js';
 import { validateProject } from '../src/project/validate.js';
@@ -169,6 +170,77 @@ describe.skipIf(!python)('python kit', () => {
       { t: 0.5, actor: 'a', do: 'nod' },
     ]);
   });
+
+  // Two speakers say the same words; one has changed voice since a take was made of it.
+  it('paces each line by the take the engine plays for it, else by the estimate', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'talekit-pace-'));
+    await createProject(dir, { title: 'pace', narrator: 'kokoro:hm_nar' });
+    await copyFromLibrary(dir, 'hut');
+    const voice = async (id: string, v: string) => {
+      await copyFromLibrary(dir, 'deer', id);
+      const f = path.join(dir, 'characters', `${id}.json`);
+      const c = JSON.parse(await readFile(f, 'utf8'));
+      // A float written by Python (1.0) is the number 1 to the engine's key.
+      await writeFile(f, JSON.stringify({ ...c, voice: 'VOICE' }).replace('"VOICE"', v));
+    };
+    const X = 'हाँ, यही सही है।';
+    const script = `
+import sys
+from talekit.shots import *
+F = Film(sys.argv[1])
+t = 0.3
+a = [cap(t, '...एक दिन')]
+t = F.after(t, '...एक दिन')
+a += [say(t, 'a', '${X}')]
+t = F.after(t, '${X}')
+a += [say(t, 'b', '${X}', emotion='happy')]
+t = F.after(t, '${X}')
+F.shot('one', 'hut', t, {'a': at(pt(400, 600), emotion='sad'), 'b': at(pt(800, 600), 'left')}, a)
+F.write()`;
+    const paced = () => {
+      run(['-', dir], script);
+      return loadProject(dir);
+    };
+    const takes: Record<string, object> = {};
+    const voiceAll = async (secs: Record<string, number>) => {
+      for (const l of voiceLines(await paced())) {
+        const [engine, name] = [l.voice.engine, l.voice.name];
+        takes[l.key] = {
+          file: `${l.key}.ogg`,
+          voice: `${engine}:${name}`,
+          speed: l.voice.speed,
+          pitch: l.voice.pitch,
+          emotion: l.emotion,
+          style: l.style,
+          text: l.text,
+          duration: secs[l.actor ?? 'narrator'],
+          envelope: '',
+        };
+        await writeFile(path.join(dir, 'audio', 'voices', `${l.key}.ogg`), '');
+      }
+      await writeFile(path.join(dir, 'audio', 'voices', 'index.json'), JSON.stringify(takes));
+    };
+    try {
+      await mkdir(path.join(dir, 'audio', 'voices'), { recursive: true });
+      await voice('a', '"kokoro:hm_old"');
+      await voice('b', '{"id": "kokoro:hf_b", "speed": 1.0, "pitch": -2}');
+      await voiceAll({ narrator: 2, a: 9, b: 3 });
+      await voice('a', '{"id": "kokoro:hm_a", "speed": 0.9}');
+      await voiceAll({ narrator: 2, a: 1, b: 3 });
+      // Each line its own take plus the linger (0.5) and the gap (0.35); a's old one unused.
+      const one = (await paced()).shots[0];
+      expect(one.actions.map((a) => a.t)).toEqual([0.3, 3.15, 5]);
+      expect(one.duration).toBe(9.45);
+      // b's voice changes and nothing has said the line in it yet: the estimate, not a's take.
+      await voice('b', '"kokoro:hf_new"');
+      const est = Math.round((X.length / 11.5 + 0.9) * 100) / 100;
+      expect((await paced()).shots[0].duration).toBe(
+        Math.round((5 + est + 0.35 + 0.6) * 100) / 100
+      );
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  }, 30_000);
 
   // The brief agents read instead of the source: it must cover the kit and stay brief.
   it('prints the API in brief, whole or narrowed to a module or a name', () => {

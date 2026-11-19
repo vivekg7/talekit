@@ -14,9 +14,12 @@ the files.
     F.write()
 
 **Pacing.** `F.after(t, text)` is when the next line can start after `text` was said at t:
-its voice's real length once `talekit voice` has spoken it (audio/voices/index.json), else
-an estimate from its length, plus a linger and a gap. So the loop is: run the script,
-`talekit voice <project>`, run it again, and every shot fits its voices.
+the length of the take the engine plays for it once `talekit voice` has spoken it (by the
+speaker's voice now, the bubble and the feeling, from the say() or cap() of that text),
+else an estimate from its length, plus a linger and a gap. So the loop is: run the script,
+`talekit voice <project>`, run it again, and every shot fits its voices. A feeling only the
+shot's cast gives is not known yet: of several takes the neutral one is assumed, and
+F.shot() names a line paced by the wrong one.
 
 **Replies.** `say(after(0.4), ...)` in place of a time writes the format's `after`: the
 engine starts the reply 0.4 s after the line before it has been said, so it holds whatever
@@ -32,6 +35,7 @@ so anything the helpers do not cover is written as a dict next to them."""
 import glob
 import json
 import os
+import re
 
 from .characters import option, project_dir
 
@@ -62,6 +66,63 @@ __all__ = [
 ]  # fmt: skip
 
 
+# Every say(), cap(), feel() and do() made, in order, and where each Film.shot() closed a
+# shot in it: Film.after() finds a line's speaker and feeling here, before its shot exists.
+_made, _cuts = [], []
+
+
+def _act(a):
+    _made.append(a)
+    return a
+
+
+def _words(text):
+    """What the voice says, as voice.ts `spokenText`: empty when no letter is left."""
+    words = re.sub(r"\s+", " ", re.sub(r"\*[^*]*\*", " ", text))
+    words = re.sub(r"^[\s!?,.;:।…-]+", "", words).strip()
+    return words if any(ch.isalpha() for ch in words) else ""
+
+
+def _spec(v):
+    """A voice (an id, {id, speed, pitch}, or an index entry) as (id, speed, pitch)."""
+    if isinstance(v, str):
+        return v, 1.0, 0.0
+    return v.get("id", v.get("voice")), float(v.get("speed", 1)), float(v.get("pitch", 0))
+
+
+def _num(x):
+    return str(int(x)) if x == int(x) else repr(x)
+
+
+def _key(voice, style, emotion, text):
+    """A line's key in audio/voices/index.json, as voice.ts `lineKey` makes it: FNV-1a twice
+    over the UTF-16 code units of voice, speed, pitch, style, emotion and words."""
+    vid, speed, pitch = _spec(voice)
+    engine, name = (vid.split(":") + ["undefined"])[:2]
+    s = f"{engine}:{name}|{_num(speed)}|{_num(pitch)}|{style}|{emotion}|{text.strip()}".encode("utf-16-le")
+    a, b = 0x811C9DC5, 0x01000193 ^ 0x5BD1E995
+    for i in range(0, len(s), 2):
+        c = s[i] | s[i + 1] << 8
+        a = ((a ^ c) * 0x01000193) & 0xFFFFFFFF
+        b = ((b ^ c) * 0x01000195) & 0xFFFFFFFF
+    return f"{a:08x}{b:08x}"
+
+
+def _emotion(actions, line, t, start):
+    """The speaker's emotion as `line` is said at t, as voice.ts `emotionAt`: the last one
+    set by then, else `start`, the cast's. One placed after() has no time yet: it counts
+    when it comes before the line."""
+    at, emotion, before = float("-inf"), start, True
+    for a in actions:
+        if a.get("actor") == line["actor"] and a.get("emotion"):
+            if "t" not in a:
+                emotion = a["emotion"] if before else emotion
+            elif at <= a["t"] <= line.get("t", t):
+                at, emotion = a["t"], a["emotion"]
+        before = before and a is not line
+    return emotion
+
+
 def spoken(text):
     """The words a voice reads: *marked* sounds in a line are shown, not spoken."""
     out, on = "", False
@@ -87,31 +148,89 @@ class Film:
         self.rate = rate
         self.shots = []
         self.parent = None
-        self.voiced = {}
-        for f in glob.glob(os.path.join(project, "audio", "voices", "*.json")):
+        self.voices, self.narrator = {}, None
+        self._cast(project)
+        self.takes = {}  # spoken words -> the takes the engine can find (key -> entry)
+        voices = os.path.join(project, "audio", "voices")
+        try:
+            with open(os.path.join(voices, "index.json")) as fh:
+                index = json.load(fh)
+        except FileNotFoundError:
+            index = {}
+        for k, e in index.items():
+            whole = all(f in e for f in ("file", "voice", "style", "emotion", "text"))
+            if (
+                whole
+                and os.path.exists(os.path.join(voices, e["file"]))
+                and k == _key(e, e["style"], e["emotion"], e["text"])
+            ):
+                self.takes.setdefault(e["text"], {})[k] = e
+        self.paced = {}  # id of the line, or its text -> the duration paced by, None if estimated
+
+    def _cast(self, folder):
+        """The speakers' voices as the engine reads them: characters/*.json by id, the
+        narrator from talekit.json; an option's folder is read over the project's."""
+        for f in sorted(glob.glob(os.path.join(folder, "characters", "*.json"))):
             with open(f) as fh:
-                for v in json.load(fh).values():
-                    if isinstance(v, dict) and "text" in v and "duration" in v:
-                        self.voiced[v["text"]] = v["duration"]
+                c = json.load(fh)
+            if "id" in c:
+                self.voices[c["id"]] = c.get("voice")
+        try:
+            with open(os.path.join(folder, "talekit.json")) as fh:
+                self.narrator = json.load(fh).get("narrator", self.narrator)
+        except FileNotFoundError:
+            pass
 
     def anchors(self, scene):
         """The anchors of one of the project's scenes: {'name': {'x', 'y', ...}}."""
         with open(os.path.join(self.project, "scenes", f"{scene}.json")) as fh:
             return json.load(fh)["anchors"]
 
-    def up(self, text):
+    def _take(self, line, text, t):
+        """The duration of the take the engine plays for `text`, said by the say() or cap()
+        `line` at t, else None. Without `line`, the one take of it in a voice of the cast."""
+        takes = self.takes.get(_words(text), {}).values()
+        if line is None:
+            mine = {_spec(v) for v in [*self.voices.values(), self.narrator] if v}
+            found = {e["duration"] for e in takes if _spec(e) in mine}
+        else:
+            voice, style, emotion = self._voicing(line, t)
+            if not voice:
+                return None
+            takes = [e for e in takes if _spec(e) == _spec(voice) and e["style"] == style]
+            # A feeling the cast sets alone is at()'s default, neutral, unless that has no take.
+            found = {e["duration"] for e in takes if e["emotion"] == (emotion or "neutral")}
+            if not found and emotion is None:
+                found = {e["duration"] for e in takes}
+        return found.pop() if len(found) == 1 else None
+
+    def _voicing(self, line, t):
+        """Voice, style and emotion of a line as voice.ts works them out. The emotion is None
+        when the cast sets it: the shot's cast is not written yet."""
+        if "say" not in line:
+            return self.narrator, line.get("captionStyle", "narration"), "neutral"
+        i = next(i for i in range(len(_made) - 1, -1, -1) if _made[i] is line)
+        start = max([c for c in _cuts if c <= i], default=0)
+        end = min([c for c in _cuts if c > i], default=len(_made))
+        return self.voices.get(line["actor"]), line.get("bubble", "speech"), _emotion(_made[start:end], line, t, None)
+
+    def up(self, text, t=None):
         """Seconds a line is up: its voice and the linger after it (an estimate until voiced)."""
         words = spoken(text)
         if not words:
             return 1.8
-        d = self.voiced.get(words) or self.voiced.get(text)
+        line = next((a for a in reversed(_made) if text in (a.get("say"), a.get("caption"))), None)
+        d = self.paced[id(line) if line else text] = self._take(line, text, t)
         if d:
             return d + self.linger
         return round(len(words) / self.rate + 0.9, 2)
 
+    def _paced(self, line, text):
+        return self.paced.get(id(line), self.paced.get(text, False))
+
     def after(self, t, text, gap=None):
         """When the next line can start after `text`, said at t."""
-        return round(t + self.up(text) + (self.gap if gap is None else gap), 2)
+        return round(t + self.up(text, t) + (self.gap if gap is None else gap), 2)
 
     def shot(self, id, scene, end, cast, actions, camera=None, tail=0.6, **more):
         """Add a shot that runs to `end` plus `tail`. `more` takes any other shot field:
@@ -130,6 +249,24 @@ class Film:
                 **more,
             }
         )
+        _cuts.append(len(_made))
+        for a in actions:
+            text = a.get("say", a.get("caption"))
+            paced = self._paced(a, text)
+            if paced is False or "t" not in a:
+                continue
+            if "say" in a:
+                start = (cast.get(a["actor"]) or {}).get("emotion", "neutral")
+                voice, style = self.voices.get(a["actor"]), a.get("bubble", "speech")
+                emotion = _emotion(actions, a, a["t"], start)
+            else:
+                voice, style, emotion = self.narrator, a.get("captionStyle", "narration"), "neutral"
+            words = _words(text)
+            take = voice and words and self.takes.get(words, {}).get(_key(voice, style, emotion, words))
+            if take and take["duration"] != paced:
+                how = "an estimate" if paced is None else f"a {paced} s take"
+                print(f"{id}: {text!r} paced by {how}, not its {emotion} take ({take['duration']} s):"
+                      " give its say() the emotion")  # fmt: skip
 
     def option(self, question, choice, **about):
         """A Film for a second way of staging some shots, written into the option's choice
@@ -139,6 +276,7 @@ class Film:
         Film. Call it once this Film has its own shots. It is paced by the same voices."""
         alt = Film(self.project, self.gap, self.linger, self.rate)
         alt.project = option(self.project, question, choice, **about)
+        alt._cast(alt.project)
         alt.parent = self
         return alt
 
@@ -158,7 +296,8 @@ class Film:
                 json.dump(s, fh, ensure_ascii=False, indent=1)
             total += s["duration"]
             print(f"{n} {s['id']:12s} {s['duration']:6.2f}")
-        print(len(self.shots), "shots,", round(total, 1), "s,", len(self.voiced), "voiced lines known")
+        known = sum(map(len, self.takes.values()))
+        print(len(self.shots), "shots,", round(total, 1), "s,", known, "voiced lines known")
 
 
 # ---------------------------------------------------------------- where
@@ -211,7 +350,7 @@ def _dur(duration):
 def say(t, actor, text, en=None, **more):
     """A spoken line. `more`: to (who they say it to), bubble ('shout', 'thought'),
     emotion, duration."""
-    return {**_when(t), "actor": actor, "say": text, **({"translation": {"en": en}} if en else {}), **more}
+    return _act({**_when(t), "actor": actor, "say": text, **({"translation": {"en": en}} if en else {}), **more})
 
 
 def cap(t, text, en=None, style="narration", **more):
@@ -219,7 +358,7 @@ def cap(t, text, en=None, style="narration", **more):
     if en in ("title", "narration"):
         raise ValueError(f"cap({text!r}): the third argument is the English; write style={en!r}")
     tr = {"translation": {"en": en}} if en else {}
-    return {**_when(t), "caption": text, "captionStyle": style, **tr, **more}
+    return _act({**_when(t), "caption": text, "captionStyle": style, **tr, **more})
 
 
 def do(t, actor, verb, duration=None, **more):
@@ -227,11 +366,11 @@ def do(t, actor, verb, duration=None, **more):
     hold, aim, shoot, ...). `more`: to, which for a wipe names what is dusted (an actor, whose middle
     the hand goes round on), for a hold whom the hand rests on (their shoulder), for an aim what is
     aimed at (an actor's `mark`, an anchor, a spot); arrow, the arrow an aim puts on the string."""
-    return {**_when(t), "actor": actor, "do": verb, **more, **_dur(duration)}
+    return _act({**_when(t), "actor": actor, "do": verb, **more, **_dur(duration)})
 
 
 def feel(t, actor, emotion):
-    return {**_when(t), "actor": actor, "emotion": emotion}
+    return _act({**_when(t), "actor": actor, "emotion": emotion})
 
 
 def turn(t, actor, facing):

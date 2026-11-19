@@ -80,7 +80,8 @@ function hash(s: string): string {
 
 /**
  * The cache key of a line: the same voice saying the same words in the same way is the
- * same audio.
+ * same audio. kit/talekit/shots.py derives it too (with spokenText and emotionAt) to pace
+ * lines before their shots exist: change both; test/kit.test.ts catches drift.
  */
 function lineKey(voice: VoiceSpec, text: string, style: Line['style'], emotion: Emotion): string {
   return hash(
