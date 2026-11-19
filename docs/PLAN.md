@@ -1,34 +1,37 @@
 # talekit — build plan
 
-talekit turns a written story into a simple 2D animated video. An AI agent
-drives it through an MCP server: it designs characters and scenes, writes a
-shot timeline, looks at rendered previews, fixes what looks wrong, and renders
-an mp4. The product idea is "Paper for video": give the agent a language it is
-fluent in (SVG + JSON), own the hard parts (rigging, motion, layout, encoding)
-inside the engine, and close the loop with pictures.
+**Goal:** good-quality 2D story films and portrait reels, made by AI agents
+through the talekit engine. The agent writes what happens, in SVG and JSON it
+is fluent in; the engine owns the hard parts (rigs, motion, staging, layout,
+sound, encoding) and answers every write with a picture.
 
-This file is the design reasoning: what was decided, why, and what was
-rejected. The file format itself is `docs/authoring-guide.md`.
+This file is the design record: what was decided, why, and what was rejected.
+The file format is `docs/authoring-guide.md`; the module layout is in
+`CLAUDE.md`. Finished work is kept as decisions, not as a history of building
+it; open work is marked **Open**.
 
 ## Principles
 
-1. **The agent never animates a limb.** It writes _what happens when_ (a shot
-   timeline). Walk cycles, blinking, mouth flaps, easing, bubble layout and
-   camera moves are engine code. Agent-authored motion looks wrong nearly
-   every time, so the engine is where quality lives.
-2. **Constrain the drawing.** Characters are drawn into a fixed canonical box
-   with known pivot points (a rig). The agent fills in shapes; the engine
-   knows where the shoulders and hips are. This is what makes an LLM-drawn
-   character animate reliably.
-3. **Every write returns a picture.** `write_character` returns a pose sheet,
-   `write_scene` the scene with anchors labelled, `write_shot` a contact
-   sheet. Without that loop the output quality collapses.
-4. **Plain files on disk.** A project is a directory of JSON files: any
-   editor, any agent, git-friendly. The MCP server is a thin layer over the
-   same library the CLI uses.
+1. **The agent never animates a limb.** It writes _what happens when_. Walk
+   cycles, blinking, mouths, easing, bubble layout and camera moves are engine
+   code: agent-authored motion looks wrong nearly every time.
+2. **Constrain the drawing.** Characters are drawn into a fixed box with known
+   pivots (a rig), so an LLM-drawn character animates reliably.
+3. **Every write returns a picture.** Pose sheet, scene with anchors, contact
+   sheet. Without that loop quality collapses.
+4. **Plain files on disk.** A project is a directory of JSON: any editor, any
+   agent, git-friendly. The MCP server is a thin layer over the CLI's library.
 5. **Deterministic rendering.** A frame is a pure function
-   `(project, shot, t) -> SVG string`. Rasterising and encoding are separate
-   steps, so previews, tests and the final video all agree.
+   `(project, shot, t) -> SVG`; previews, tests and the video agree.
+6. **The engine fixes whatever has one right answer** (a listener faces the
+   speaker, a dropped pot falls straight, a walk goes round the well). It
+   works these out on load and never writes them back: the file says what was
+   meant, `talekit explain` says what the engine made of it.
+7. **Everything else is an error with a way out.** When the engine cannot know
+   what was meant, the finding blocks the render until fixed or waived with a
+   reason (`allow`). No soft warnings for staging mistakes: agents learn to
+   skip warnings, and each skipped one reaches the person as a glitch. A check
+   that cries wolf is tuned, not demoted.
 
 ## Architecture
 
@@ -49,1443 +52,534 @@ render   resvg on worker threads → raw RGBA → ffmpeg; audio mixer; .mkv; she
 interfaces   cli.ts, viewer/ (review app), mcp/server.ts (stdio)
 ```
 
-The module-by-module layout is in `CLAUDE.md`.
-
 ## Data model
 
-- **Character**: a rig (`humanoid`, `quadruped` or `simple`) and parts, each
-  an SVG fragment or a map of named variants (`mouth: { closed, open, … }`),
-  drawn in the rig's box with the rig's pivots. `colors` are named tokens
-  substituted into the SVG (`{skin}`), so library characters recolour without
-  redrawing.
-- **Scene**: SVG drawn at project size, with named floor anchors
-  (`door: { x, y, scale? }`) so the timeline can say "walk to the door"; the
-  stage shortcuts `left`, `center`, `right`, `offLeft`, `offRight` always
-  exist. Optional `foreground`, `far` and `near` layers.
-- **Shot**: a scene, a cast placed at anchors, and timed actions
-  (`{ t, actor?, do?, to?, say?, emotion?, caption?, camera?, set?, … }`).
-  The movie is the shots in filename order.
-
-The full schema is the authoring guide.
+- **Character**: a rig (`humanoid`, `quadruped`, `simple`) and parts, each an
+  SVG fragment or named variants, drawn in the rig's box. `colors` are tokens
+  (`{skin}`), so library characters recolour without redrawing.
+- **Scene**: SVG at project size with named floor anchors; `left`, `center`,
+  `right`, `offLeft`, `offRight` always exist. Optional `foreground`, `far`,
+  `near` layers, and the world model (walk, water, solids, lights,
+  perspective).
+- **Shot**: a scene, a cast at anchors, and timed actions. The movie is the
+  shots in filename order.
 
 ## Phases
 
-- [x] **Phase 1 — Engine core.** Types and validation, rigs, motion,
-      timeline, compose, bubbles.
-- [x] **Phase 2 — Render.** resvg rasteriser, ffmpeg encoder, pose, anchor
-      and contact sheets.
-- [x] **Phase 3 — Library + example.** Hand-drawn built-ins as the quality
-      bar and copy-and-recolour starting points; a one-minute example that
-      doubles as the integration test. Jungle, cave and village hut were
-      added (2026-10-23) from the Hindi films' painted scenes, because the
-      lion-and-mouse agent spent a tenth of its run reading older films'
-      scene generators for a forest. They are 90 to 180 KB of SVG each, so
-      `get_library_item` leaves their long layers out and `copy_from_library`
-      takes `anchors`, so a story adds its own places without writing the
-      scene out again.
-- [x] **Phase 4 — MCP server.** Every write validates and returns an image.
-      `patch_shot` came later (2026-10-23): film agents rewrote whole shots
-      to move one line, or wrote Python patchers to avoid it. It edits by
-      action index and returns a sheet of only the stretch that changed.
-      The same day the returned pictures were made smaller: a picture costs
-      about width × height / 750 tokens and sheets were 18% of a film
-      agent's input. Shot and scene sheets are 1000 px wide, the pose sheet
-      1200 px, both checked by eye against Devanagari bubbles and the
-      smallest faces; the construction sheet and `preview_shot` /
-      `preview_frame`, the closer looks, stay full size.
-- [x] **Phase 5 — Viewer.** Grown into a review app after the clever-rabbit
-      run: the person could not see the assets, could not point at a moment,
-      and had no channel back to the agent except prose. It shows every
-      asset as its sheet, plays live frames or the mp4, and saves notes
-      against an asset or a shot time to `notes.json`; the agent reads them
-      with `list_notes` (each with the picture the person saw) and closes
-      them with `resolve_note`, the loop Paper uses. Notes are plain files so
-      the viewer and the MCP share only the directory; the page polls mtimes
-      rather than watching, to stay dependency-free.
-      Reworked after eight released films (2026-11-06). The picture was
-      sized by the space left over rather than by the film, so a reel came
-      out 214 px wide on a laptop and scenery past the frame's edges showed
-      round it. The frame now keeps the film's shape and gets the full
-      height, and a reel's shots move to a side column. Notes kept quoting
-      lines and describing places ("the jackal's tail, bottom left"), so the
-      line being spoken is shown and a click pins a spot, which `list_notes`
-      rings on the picture. Fixes that missed came back as fresh notes that
-      lost the first ask, so a resolved note waits for the person to agree,
-      and reopening it adds a reply to the same note. Notes done before
-      `toCheck` existed count as checked, so released films stay quiet.
-      One server and options, 2026-11-14. A film and its reel were two
-      servers on two ports, and voice and music trials were hand-made HTML
-      pages beside the stories, so a person had several tabs and no notes
-      on the trials. Now one server holds every film, reel and board, each
-      under its own path. A board is any folder that is not a project: its
-      sounds, videos, pictures and sample projects, each with a player,
-      notes and a pick. Where the agent cannot tell which of two ways the
-      person wants, it writes an option (`options/<question>/<choice>/`,
-      laid like the project and over it by `loadProject`), which the person
-      switches between in the film and picks; the pick is a note, and the
-      agent writes it into the source and deletes the folder. Options stay
-      out of the file format proper (`check` and `render` never see them),
-      because the films are generated from Python sources a server could
-      not write back to.
-- [ ] **Phase 6 — Polish loop.** Run the MCP on a fresh story, watch where
-      the agent struggles, fix the guide or the engine. Two passes so far.
-      `examples/lighthouse` led to empty variants, custom variants on the
-      pose sheet, a warning on overlapping speech and, later, `attach`.
-      `examples/clever-rabbit`, made by a subagent given only the story,
-      led to tool argument names in the guide, `get_library_item`, larger
-      contact frames, a film sheet from `render` and more. A review of
-      it found the key beat missing: the lion never saw anything in the
-      well, staged as a 70 px reflection at the rim of a side-on well. The
-      fix was staging, not engine (a point-of-view shot down the shaft,
-      shots 07 to 09), and the guide gained the rule: when the plot turns on
-      what a character sees, cut to what they see. Next: a run with a
-      non-Claude agent, and a story that needs humanoid interaction.
-- [x] **Phase 7 — Video quality.** Art direction, the quadruped rig,
-      motion with weight, light, sound and reels; see below.
-- [x] **Phase 8 — The world model.** Where things can stand, what holds
-      them up, who looks at whom, what carries across a cut, and a critic's
-      pass, played against every shot before it renders; see below.
+- [x] **1 — Engine core.** Types, rigs, motion, timeline, compose, bubbles.
+- [x] **2 — Render.** resvg, ffmpeg, pose / anchor / contact sheets.
+- [x] **3 — Library + example.** Hand-drawn built-ins are the quality bar and
+      the starting points. Large painted scenes (90–180 KB) are summarised by
+      `get_library_item`, and `copy_from_library` takes `anchors`, so a story
+      adds places without rewriting the scene: agents had spent a tenth of a
+      run reading old scene generators.
+- [x] **4 — MCP server.** Every write validates and returns an image.
+      `patch_shot` edits by action index and returns only the changed
+      stretch, because agents rewrote whole shots to move one line. Returned
+      sheets are 1000 px wide (pose sheet 1200): a picture costs about
+      w × h / 750 tokens and sheets were 18% of an agent's input; closer looks
+      stay full size.
+- [x] **5 — Viewer / review app.** The person must see the assets, point at a
+      moment and talk back in something better than prose. Notes are plain
+      files (`notes.json`) shared with the MCP (`list_notes` with the picture
+      seen, `resolve_note`); the page polls mtimes to stay dependency-free.
+      The frame keeps the film's shape; a click pins a spot; a resolved note
+      waits for the person to agree, and reopening replies on the same note
+      (fresh notes lost the first ask). One server holds every film, reel
+      and board (a non-project folder of samples, each with notes and a
+      pick). **Options** (`options/<question>/<choice>/`, laid over the
+      project by `loadProject`) are written only where the agent cannot tell
+      which way the person wants it; they stay out of the format (`check` and
+      `render` never see them) because films are generated from Python
+      sources a server could not write back to.
+- [ ] **6 — Polish loop.** Run the MCP on a fresh story, watch where the agent
+      struggles, fix the guide or the engine. `examples/lighthouse` and
+      `examples/clever-rabbit` were the two runs. The rabbit's key beat (the
+      lion seeing his reflection) was missed as a 70 px reflection on a
+      side-on well; the fix was staging, a point-of-view shot down the shaft,
+      and the guide's rule: when the plot turns on what a character sees, cut
+      to what they see. **Open:** a run with a non-Claude agent, and a story
+      that needs humanoid interaction.
+- [x] **7 — Video quality.** Below.
+- [x] **8 — The world model.** Below.
 
 ## Phase 7 — Video quality
 
-Reviewing the three films (2026-10-21) put the ceiling in the engine's
-output, not the tool loop: agent-drawn characters looked generated (a deer
-leg overlapping its body by six units read as detached), animals bobbed like
-stickers, nothing had weight, nobody looked at anyone, and scenes were one
-flat layer. Audio went last on purpose, since it would mask the visual
-problems.
-
-Decisions taken early: one drawing style for everything (**outlined
-cartoon**, Bluey-like); animals come from a **library of rigged species**
-that agents recolour and adapt, drawing from scratch stays the exception;
-movement is **procedural with springs**, not a physics engine (rigid bodies
-give ragdolls, not cartoon motion, and would break determinism and preview
-speed).
-
-Each pass ends with all examples re-rendered, before and after side by side,
-and notes left; a pass is done when the notes stop being about it.
+Reviewing the first films put the ceiling in the engine's output, not the
+tool loop: agent-drawn characters looked generated, animals bobbed like
+stickers, nothing had weight, nobody looked at anyone, scenes were one flat
+layer. Decided up front: one style (**outlined cartoon**, Bluey-like);
+animals from a **library of rigged species** that agents recolour, drawing
+from scratch the exception; **procedural motion with springs, not a physics
+engine** (rigid bodies give ragdolls, not cartoon motion, and would break
+determinism and preview speed). Audio went last so it would not mask visual
+problems. A pass was done when review notes stopped being about it.
 
 ### 7.1 Art direction and character construction
 
-First, because every later pass draws on the characters and the rules make a
-linter possible. The guide got a style sheet (one dark line colour, flat
-fills with one darker shade for inner detail, no gradients on characters,
-eyes as white + iris + highlight) and per-rig construction rules (limbs as
-strokes from their pivots, overlapping the body, nothing outside the box,
-feet on the baseline).
-
-**Done 2026-10-21, with two changes from the plan.**
-
-- **The engine draws the outline** (`outline.ts`), not the artist with
-  `paint-order`: under each part goes a copy in the line colour with filled
-  shapes and strokes widened, so only a rim shows. Agents forget strokes and
-  mix widths; the engine owning the line is the engine-owns-motion argument
-  again. The width is fixed on screen (3.4 px at scale 1), not per rig, so a
-  90 px mouse and a 300 px adult look drawn with one pen. That made the
-  planned "missing outline" and "inconsistent width" checks unnecessary.
-- **The linter rasterises** (`construction.ts`) each part and shape at one
-  pixel per unit with resvg instead of parsing paths, so caps, arcs and
-  transforms count exactly as drawn; overlap is the thickness of the
-  intersection at the joint.
-
-The library characters were redrawn in the style; the scenes waited for 7.5.
+- The guide holds a style sheet (one dark line colour, flat fills plus one
+  darker shade, no gradients on characters) and per-rig construction rules;
+  the rules are what make a linter possible.
+- **The engine draws the outline** (`outline.ts`) at a fixed on-screen width,
+  not per rig. Agents forget strokes and mix widths; a fixed width makes a
+  mouse and an adult look drawn with one pen, and removes the need for
+  outline checks.
+- **The linter rasterises** each part (`construction.ts`) rather than parsing
+  paths, so caps, arcs and transforms count exactly as drawn.
 
 ### 7.2 Quadruped rig and library species
 
 Most children's stories are animal stories, and the simple rig cannot walk.
 
-**Done 2026-10-21.** The `quadruped` rig (260 × 200) is in the guide. Changes
-from the plan and why:
-
-- **Both ears sit behind the head.** An ear in front carries its own outline
-  across the forehead and reads as a sticker; behind, the head's outline
-  closes its base.
-- Every leg, the tail and the head hang from the body, which turns about the
-  hips, so `sit` is one rotation plus a drop. One diagonal-pair walk, no
-  separate trot.
-- The rig data carries what used to be `if humanoid` branches (expected
-  parts, feet, joints, the bubble point), so the linter checks every rig the
-  same way. Birds and fish stay on the simple rig; the library dog moved to
-  the quadruped, and a small bird became the simple rig's worked example.
-
-**Later, 2026-10-24**, from watching the films:
-
-- **Fused near legs.** Hind legs read as drumsticks pressed onto the body,
-  each carrying its own outline round. The near legs are fused into the
-  body like the head (`Rig.fuse`), with the outline split from the fill so
-  it bends with the leg, plus a thigh crease, hock line and elbow line for
-  form. A more lifelike style (long muzzle, almond eye) was studied and
-  rejected: the cast keeps its round cartoon look.
-- **A slow turn.** An animal flipping in 0.2 s like a person read as
-  instant. It takes 0.7 s: the head leads, the body narrows only to 0.45
-  (about end-on; narrower reads as a card flipping), a standing animal
-  steps round, and a walking one keeps its gait as it turns.
-- **Hocks.** Every leg lifted with the knee forward, which is wrong for a
-  hind leg. `Rig.hocks` names the hind legs, which lift by swinging the
-  joint back; the foot lands where it did, so the gait is unchanged.
-- **Shading at elbows and knees.** The shade nudge is mostly upward, so a
-  limb's wide end laid its lit copy over the limb above. A limb now loses
-  shade only where a sideways-nudged copy is lit too.
-- **Hung parts** (`hangs`): the kid's pigtails need to turn about their ties
-  and nod with the head. A character hangs a part from another at a point;
-  `rigOf` merges hung parts into the rig, so drawing, springs and the linter
-  treat them as the rig's own. Preferred to new humanoid parts with fixed
-  pivots, which would have fitted the kid's head and no one else's.
-- Creases on people's thin bare limbs read as scratches at half size; the
-  detail went into cloth folds instead.
-
-**Library, three batches (2026-10-24)**, for the Indian folk tales the films
-tell: boy, woman, farmer, grandpa, tiger, jackal, crow; a pond with
-crocodile, swan, frog and fish; pirate, parrot, grandma, cobra. A recolour
-is not a new character. What each taught:
-
-- A kurta stops above the knee bend (the torso is rigid). Cloth and hair
-  that swing are hung parts. The pagdi's wraps cross high, since lower reads
-  to the linter as face that will not turn.
-- The pond's water is a translucent `foreground` band, so a swimmer is cut
-  at the line and tinted below; one band means one swimming depth. A fish
-  leaps by moving above the line, since `jump` lifts too little. Springs
-  answer changes of speed, so a fish's tail swishes on a start, not
-  steadily. Necks that carry the face (swan, cobra) stay rigid. A heavy
-  spring tail drags into the floor as a walk starts, so the crocodile's is
-  not one.
-- A peg leg drawn below the knee walks like any leg; a hobble would be
-  engine work. A grandma's sari skirt goes on the legs so `sit: ground`
-  keeps her off the floor, at the cost of parting like trousers in a stride.
-  A part hung from the torso draws under it from behind, so her pallu is
-  drawn on the torso.
-- Open: ripples round a swimmer (engine), a parrot riding a shoulder
-  (`attach` to a named point). Not drawings at all: a crane (two-legged bird
-  rig), a slithering snake, crutches, a wheelchair.
-
-**Resting, 2026-10-24.**
-
-- **`belly` and `hem`.** `lie` lowered every animal a fixed 48 units, and six
-  library animals were drawn off that line (the deer hovered, the rabbit
-  sank). Redrawing a slender deer stockier would have been worse, so a
-  character says where its underside is (`belly`). People sitting on the
-  ground sank their kurtas through the floor; resting the hem on the seat
-  was tried and is wrong on a stool, so a person sits on the hem (`hem`)
-  only when it would reach through the floor. The construction check
-  measures both and gives the number when the field is more than 5 out.
-- **Raised seats.** Sitting `to` a seat anchor stood the actor on the
-  cushion for an instant; now the body starts lowered by the seat's height
-  and rises as the knees bend, and getting up runs it backwards. A sit or
-  lie more than 24 px away walks to the seat first. An animal hops up and
-  down instead, with the jump's arc.
-- **Facing out.** A plait hung from the head lay across the chest of someone
-  walking toward the viewer; it now goes behind the torso, fading over the
-  turn (`Pose.toward`, a how-far).
-- **Paws and hooves.** A lying animal's legs folded inside its outline. The
-  forelegs now reach forward to paws in front of the chest; nothing in the
-  drawing tells hooves from paws, so a character says `hooves`, and hooves
-  fold back under the chest. The hind legs still vanished: folded against
-  the flank, a fused leg never leaves the body, so it had no line at all.
-  Lying, a paw animal's near hind leg is `loose` (`Pose.loose`): drawn with
-  its whole outline, folded as when sitting, the foot flat on the floor.
-- The park bench was redrawn: it read as a fence and its legs went below its
-  floor. Its seat anchor is 42 above the floor, so a child's feet swing clear.
+- Legs, tail and head hang from the body, which turns about the hips: `sit`
+  is one rotation plus a drop; one diagonal-pair walk, no trot. Rig data
+  carries what used to be `if humanoid` branches, so the linter treats every
+  rig alike. Birds and fish stay on the simple rig.
+- **Ears behind the head**: an ear in front carries its outline across the
+  forehead and reads as a sticker.
+- **Fused near legs and head** (`Rig.fuse`): separate legs read as drumsticks
+  pressed on, a neck as a line across the chest. A more lifelike style was
+  rejected; the cast keeps its round cartoon look.
+- **A slow animal turn** (0.7 s, narrowing only to 0.45): a 0.2 s flip read as
+  instant, narrower as a card flipping. **Hocks** (`Rig.hocks`) lift hind
+  legs by swinging the joint back.
+- **Hung parts** (`hangs`): plaits and cloth hang from another part at a
+  point and join the rig, rather than new fixed humanoid parts that would fit
+  one head only.
+- **`belly`, `hem`, `hooves`, `Pose.loose`**: the character says where its
+  underside and hem are and whether it has hooves, because one fixed lying
+  drop left animals hovering or sunk, and redrawing them to fit would be
+  worse; nothing in a drawing tells hooves from paws. The hem is sat on only
+  when it would reach through the floor (resting it on the seat is wrong on a
+  stool).
+- **Raised seats**: the body starts lowered by the seat's height and rises as
+  the knees bend; an animal hops up instead.
+- Drawing lessons from the library batches (kurta length, water as a
+  translucent foreground band, rigid necks that carry a face) are in the
+  guide.
 
 ### 7.3 Motion with weight
 
 Smoothness is contact, anticipation and follow-through, not interpolation.
-All of it is engine code; the agent vocabulary does not grow.
 
-**Done 2026-10-22.**
-
-- **Planted feet.** The leg cycle is driven by distance, not the clock: each
-  gait is a duty factor and a landing offset per leg, and a planted leg's
-  angle keeps sin(angle) linear in travel, so the foot stays still. The
-  cycle is shortened to fit whole half cycles into the move, so a walk
-  starts and ends with the legs together; that is what makes any duration
-  work without a speed limit. Moves ramp speed over 0.3 s at each end, so
-  the legs slow with the body. Jumps are crouch, flight, landing.
-  Breathing is a stretch about the feet (the old bob lifted them).
-- **Springs** are angular for parts the rig places (pushed by the pivot's
-  acceleration across a lever to the part's rough centre) and a small sway
-  for parts it does not. They integrate at 120 Hz from the start of the
-  shot and are cached per shot, so a frame renders the same alone or in
-  order; a teleport or a facing flip is a cut, not a push.
-- Not done: a walk in depth (mostly y) still slides its feet.
+- **Planted feet**: the leg cycle runs on distance, not the clock, and is
+  shortened to fit whole half cycles into a move, so any duration works with
+  no speed limit and a walk starts and ends with the legs together.
+- **Springs** integrate at 120 Hz from the shot's start and are cached per
+  shot, so a frame renders the same alone or in order; a teleport or a facing
+  flip is a cut, not a push.
 
 ### 7.4 Acting
 
-Characters placed in a frame are a diorama; characters that look at each
-other are a scene.
-
-**Done 2026-10-22.**
-
-- **Looking** is a head tilt toward the target's eyes, half the true angle
-  and capped (10° people, 8° animals): the full angle read as a glare.
-  Attention comes from the shot's lines alone, latest event wins (a line
-  makes listeners watch the speaker; walking and pointing look ahead). Only
-  targets in front count and nothing turns a body round, because an
-  automatic about-face would fight the author's `facing`. The listener is
-  the existing `to` on a line with no `do`, not a new field.
-- **`attach`** is an action field, not a verb, so a drop and a move share
-  one action. Each rig names a hold point in a part (near hand, quadruped's
-  mouth), so the prop follows the arm. Letting go reads the hand just
-  before, as the arm relaxes the moment it stops holding. Not done: the prop
-  stays upright as the hand turns, and a carrier cannot be carried.
+- **Looking** tilts the head toward the target at half the true angle, capped
+  (10° people, 8° animals): the full angle read as a glare. The listener is
+  the existing `to` on a line, not a new field. (Body turns came with 8.1.)
+- **`attach`** is an action field, not a verb, so a drop and a move share one
+  action; each rig names a hold point, so the prop follows the arm.
 
 ### 7.5 Depth and camera
 
-**Done 2026-10-22.**
-
-- **Layers `far` and `near`**, not back/mid/front: `foreground` already
-  meant "in front of the actors at their depth", and a front layer beside
-  it would be two words for different things. A layer at parallax p sees the
-  camera offset times p and the zoom raised to p; zoom as a power is what
-  guarantees a far layer that fills the frame still fills it at any view the
-  camera clamp allows. The rule this puts on authors: the far layer reaches
-  the bottom edge. The home interior is not layered; a room has no far.
-- **Shadows** are an ellipse as wide as the stance, drawn for every actor
-  before any actor, so a shadow never lies across someone behind. The simple
-  rig casts none by default, because it is mostly things in mid-air and the
-  engine cannot tell sky from floor.
-- **`crossfade`** runs the previous shot on past its end underneath, so the
-  film's length and every shot's timing stay as written.
-- The zoom vignette sits under bubbles and captions, so text is never
-  darkened.
-
-Four agent-written films (fox and crow, bear and honey, red umbrella, hill
-race) were the check before audio. The fixes they led to:
-
-- Several validation and timeline bugs (`to` needing an anchor, `set.at`
-  lost beside `attach: false`, a `face` that could not be cleared, thoughts moving the
-  mouth).
-- **Culling (`cull.ts`).** resvg cuts every group that needs its own canvas
-  to four times the frame and panics, uncatchably, when one lies wholly
-  outside it: a `near` layer at a close zoom, the stage past zoom 3, an
-  actor parked far off-screen. Every camera layer now leaves out shapes more
-  than a frame outside before drawing. No example pixel changed. Dissolves
-  fade with an alpha filter for the same reason. Later, blurred tree crowns
-  wider than the frame panicked from zoom 1.4: a canvas inside another is
-  bounded about the outer one's corner, not the frame's, and a blur's region
-  starts a frame or two left of the frame at a close camera, so a
-  see-through leaf just right of the frame was out of bounds. The whole
-  frame is now culled at once, through every layer and filter: a lone
-  shape's `opacity` moves into its `fill-opacity` or `stroke-opacity` where
-  that draws the same (no canvas, so no bounds, and fewer canvases to
-  allocate), and any canvas still outside its bounds, worked out as resvg
-  does, is left out. Groups with an `id` used to be kept whole, so swaying
-  crowns escaped culling; only an id something points at is kept whole now.
-  And a line was measured at the origin (`x1` did not read as a name).
-- **Fused heads.** A quadruped's neck carried its own line across the chest;
-  its head's outline now goes down with the body's (`Rig.fuse`).
-- **Knees and elbows** (`Rig.bends`, `Pose.bend`). Legs stuck out stiff on a
-  seat. The composer cuts a limb at the joint with a disc on each half and
-  turns the lower half, drawing both outlines before either fill, so the
-  joint is round with no line across it. In the engine rather than a new
-  shin part, so every leg already drawn as one stroke bends. `sit` folds the
-  legs from the hips' height so the feet stay down; an anchor's `floor`
-  says how far below the seat the floor is. A shortening leg now bends
-  instead of sliding into the body, except an animal's planted legs
-  (`give: false`): on legs that short, a give becomes a rubbery bend. Arms
-  bend at the elbow in the walk, the run and the wave.
-- **`lie`**, layered on sitting, for people and animals. The bubble point is
-  carried through postures, not through passing moves, so a "Zzz" stays on
-  the head.
-- `sit`, `lie` and `stand` take `duration`, so a shot can open with someone
-  already sat (agents had written `duration: 0.05` and got a 0.4 s sit).
-- **Turning faces and bodies** (`Rig.turn`, `Pose.yaw`, `ActorState.view`).
-  Front-on faces on side-on bodies stared at the viewer. The engine slides
-  and narrows the face parts toward the facing, which reads as
-  three-quarters on a round head, and narrows the torso with the far
-  shoulder and hip stepping in. A move mostly up the screen shows the back
-  (`back` variants; face parts hidden); limbs swinging toward the viewer are
-  foreshortened. In the engine rather than asking for three-quarter
-  drawings, so every character already drawn turns. Backs are variants, not
-  a new part list, so a character without one still works.
-- **Standing `on` someone** (2026-10-25). First only the draw order, which
-  goes by the feet. Then riding along, once the lion reel needed a mouse on
-  a lion that gets up: the spot is kept in the coordinates of the rig's main
-  part (a body, a torso) as the one underneath stood when the rider landed,
-  and carried through that part's pose each frame. The root alone was not
-  enough, since a lying animal lowers and levels its body part, not its
-  root; with it the mouse ended up on the lion's flank. A hop along the
-  back without `on` takes the rider off, which the reel itself got wrong,
-  so the check warns about it.
-
-Not done: a depth walk slides its feet; no camera shake or handheld drift.
+- **Layers `far` and `near`**, not back/mid/front: `foreground` already meant
+  "in front of the actors at their depth". A layer at parallax p takes the
+  zoom raised to p, which guarantees a far layer that fills the frame still
+  fills it; the authoring rule this costs is that `far` reaches the bottom
+  edge.
+- **Contact shadows** are drawn before any actor, so none lies across someone
+  behind. The simple rig casts none by default: it is mostly things in
+  mid-air.
+- **`crossfade`** plays the previous shot on underneath, so every shot's
+  length and timing stay as written.
+- **Culling** (`cull.ts`): resvg panics, uncatchably, on a canvas wholly
+  outside its bounds (four frames wide; a nested canvas is bounded about its
+  parent's corner). The whole frame is culled through every layer and filter;
+  a lone shape's `opacity` folds into fill/stroke opacity so it needs no
+  canvas; only an `id` something points at is kept whole.
+- **Knees and elbows** (`Rig.bends`) are cut and turned by the composer, not
+  drawn as shin parts, so every limb already drawn as one stroke bends. An
+  animal's planted legs do not give: on legs that short a give is rubbery.
+- **Turning faces and bodies** (`Rig.turn`, `back` variants): front-on faces
+  on side-on bodies stared at the viewer. The engine slides and narrows parts
+  for three-quarters, so every existing character turns; backs are variants,
+  so a character without one still works.
+- **Riding `on`**: the spot is kept in the coordinates of the carrier's main
+  part, not its root, because a lying animal lowers its body, not its root.
+- **Perspective** (`perspective`: floor y → scale, `depth.ts`): hand-set anchor
+  scales drifted apart and a raised platform at the back read as standing
+  beside the front row. `world.scale` flags a spot more than a fifth off it.
+  A perspective inferred for scenes that declare none was dropped: it flagged
+  deliberate sizes (birds in trees, a mountain's face). Aerial haze by depth
+  folds into the existing light filter, so it is free; a stage fire is drawn
+  among the actors by depth.
 
 ### 7.6 Weather and moving nature
 
-**Done 2026-10-23.** The red-umbrella film's rain was streaks painted into
-`near`, hanging in the air. A scene was a still picture, so nothing could
-flicker, fall or roll in. Now the engine draws what moves by itself, every
-frame, from time and `hash01`, so a frame still renders on its own. Scene
-`weather` (rain, snow, wind, leaves, clouds, lightning, heat) and `effects`
-(fire, smoke, waterfall, waves, sun) are in the guide. Decisions:
-
-- Rain and snow fall at three depths, each moving with the camera like a
-  layer and wrapping round the frame, so it is always evenly full.
-- The flash brightens through a gain filter rather than laying white over
-  the frame, which read as fog.
-- Heat haze displaces the far layer with scrolling noise; resvg fixes noise
-  to the group's coordinates, so the layer is shifted down inside a group
-  shifted back up.
-- A close-up scene sets `weather.scale`: the engine cannot tell a close-up
-  from a wide shot. Clouds, bolts and haze need a far layer; the validator
-  says so.
-- **Shelters** are spans, not shapes (a bench seat, an umbrella's canopy per
-  variant): a drop only needs to know where it stops, and a span can be read
-  off one's own drawing. A falling drip asks where a carried shelter's edge
-  was when it let go, by resolving the shot at that earlier time, so it does
-  not slide with a walking umbrella.
-- A `weather` action blends one weather into another over its duration.
-  Clouds sit in ten fixed slots so a clearing sky does not reshuffle them.
-- **Light.** `weather.light` tints the characters through a channel filter
-  (the scene is painted in its own colours and left alone); a fire warms the
-  actors near it, more the darker the light.
+- The engine draws what moves by itself (scene `weather`, `effects`) from time
+  and `hash01`, so a frame still renders on its own; painted rain hung in the
+  air.
+- Rain and snow at three depths move with the camera and wrap, so the frame
+  is always evenly full. Lightning brightens through a gain filter: white
+  laid over read as fog.
+- `weather.scale` marks a close-up: the engine cannot tell one from a wide
+  shot.
+- **Shelters are spans**, not shapes: a drop only needs where it stops, and a
+  span can be read off the drawing. A drip asks where a carried shelter's
+  edge was when it fell, so it does not slide with the umbrella.
+- Clouds sit in fixed slots, so a clearing sky does not reshuffle them.
+- `weather.light` tints the characters only; a scene is painted in its own
+  colours and left alone.
 
 ### 7.7 Light and form
 
-Better-looking characters were asked for (2026-10-23), with downloaded
-SVGs suggested. Dropped-in art does not suit the engine: a downloaded cat is one
-picture, the rig turns separate parts, art from several sources would not
-share a style, and art with its own outline gets a second one. What made the
-library look like stickers was flat colour. So the engine draws the light,
-as it draws the outline, and the library was redrawn in one style, using
-downloaded art as reference only.
+Downloaded art does not suit the engine: it is one picture where the rig needs
+parts, mixes styles, and brings its own outline. Flat colour was what made
+the library look like stickers, so **the engine draws the light**, as it
+draws the outline; downloads are reference only.
 
-- **Shade** (`shade.ts`): each part's silhouette in a cool dark at about 20%,
-  masked by the silhouette nudged toward the light, so only the far side
-  shows. Hard-edged like cel shading, and one mask per part with no blur, so
-  resvg stays fast. The nudge turns with the part and mirrors with the
-  actor. A fused part adds its parent's silhouette to its mask, or a shaded
-  edge would cross the neck.
-- **Firelight** swings the light toward the fire the more it outshines the
-  scene and puts a warm rim on the near side.
-- **Clouds grade the far layer** (saturation, and brightness for storm
-  clouds) in screen space, so a sky painted blue goes overcast under them
-  and comes back when a `weather` turn clears them. The stage is left as
-  painted, since wet ground stays wet.
-- **A move gets up first.** Agents forgot the guide's `stand` before a walk
-  from sitting and slid along the floor; now the move waits until the actor
-  is up.
+- **Shade** (`shade.ts`): a hard-edged mask of each part nudged toward the
+  light, one mask and no blur, so resvg stays fast.
+- Clouds grade the far layer in screen space; the stage is left as painted
+  (wet ground stays wet).
+- **A move gets up first**: agents forgot `stand` and slid along the floor.
 - **`camera.follow`**: agents timed pans by hand and got them wrong. The
-  camera aims ahead of a cast member and trails through a weighted mean of
-  where they were over the last 0.9 s. A mean of past states rather than a
-  spring keeps every frame computable on its own (nine lookups, nothing
-  integrated). Each sample is clamped into the scene first, or the camera
-  would hit the scene's edge and stop dead.
-- **The library redrawn**: the cat first as the pattern, the rest by agents
-  from it, each checked on its sheets. Part names, variants and tokens did
-  not change, so projects that copied a character keep working. Two rules
-  came out of it for the guide: a leg below the knee runs down the knee's
-  x, and a haunch ends above the knee. Each half of a bent limb now keeps
-  only the pieces on its side of the joint, which removed a dark spike at
-  sharp bends. The examples were recast onto the new drawings, deriving
-  extra shades from their own base colours; the agent-drawn gull, lantern,
-  kite, monkey and reflection stay as the record of what an agent draws.
-- **Devanagari.** resvg misplaces Hindi vowel signs and drops spaces with
-  every font tried, in its newest build too. HarfBuzz (`harfbuzzjs`) shapes
-  it correctly, so a Devanagari line is shaped in the bundled Baloo 2 and
-  drawn as outlines (`glyphs.ts`), its width from the same shaping. Only
-  that script takes this path; bundling one font for all text would have
-  changed every film's look for a problem only Hindi has.
-- **Cast shadows** (`cast.ts`), asked for in review. Each light throws every
-  grounded actor's own silhouette across the floor, flattened by an affine
-  map that keeps the floor line, blurred and faded toward its far end. The
-  silhouette rather than an ellipse, so a raised arm or a tail shows, and
-  one map serves every rig. A sky light sits behind the stage, so shadows
-  fall forward and fan out from under it; a lamp or fire on the stage
-  throws them along the floor. Lights are declared (`lights`), not guessed
-  from the art, and a scene without them renders as before. Painted scenery
-  keeps the painter's shadows.
-- **`pickup` and `putdown`.** The sticks film's bundles appeared in hands
-  from nowhere, because `attach` could only snap. Now the carrier stoops and
-  the prop eases from where it lay; any attach eases (a hand-to-hand pass
-  travels) unless it comes from further than the carrier's height, which
-  reads as a cut. The validator says where to stand when the hand would not
-  reach, and warns when someone ends a shot carrying something and starts
-  the next without it.
+  camera trails a weighted mean of the last 0.9 s rather than a spring, so
+  every frame is computable alone; samples are clamped into the scene first.
+- **Devanagari** is shaped with HarfBuzz into outlines in bundled Baloo 2
+  (`glyphs.ts`): resvg misplaces vowel signs with every font. Only that
+  script takes this path; one bundled font for all text would have changed
+  every film's look for a Hindi-only problem.
+- **Cast shadows** (`cast.ts`): the actor's own silhouette, not an ellipse,
+  so a raised arm shows, through one affine map that serves every rig. Lights
+  are declared, not guessed from the art; painted scenery keeps its
+  painter's shadows.
+- **`pickup` / `putdown`**: props appeared in hands from nowhere. Any attach
+  eases, unless from further than the carrier's height, which reads as a
+  cut.
 
-### 7.8 Audio (last, on purpose)
+### 7.8 Audio
 
-Sound makes a silent film feel finished and would hide what still looked
-wrong, so it came after 7.1 to 7.7. Planned 2026-10-23. Six
-layers, each with one owner:
+**The engine owns sound that follows from what is on screen** (footsteps,
+ambience, thunder, landings); the agent chooses only what a story chooses:
+voices, music, one-off noises. Layers: music (agent), ambience and effects
+(engine, plus a `sound` action), thoughts, dialogue and narration (TTS).
 
-| Layer         | Who writes it                       | Where it comes from                                                       |
-| ------------- | ----------------------------------- | ------------------------------------------------------------------------- |
-| Music         | the agent, per project and per shot | bundled tracks, or a file in the project                                  |
-| Ambience      | the engine, from the scene          | weather and effects, thunder after each strike, plus a scene's `ambience` |
-| Sound effects | the engine, plus a `sound` action   | footsteps on planted feet; appear, jump, pickup; roars, knocks            |
-| Thoughts      | the agent's thought bubbles         | the character's voice, quieter, with a little room                        |
-| Dialogue      | the agent's `say` lines             | a local TTS model, in the character's `voice`                             |
-| Narrator      | the agent's captions                | the same model, in the project's `narrator` voice                         |
-
-The principle is the visual rule again: **the engine owns sound that follows
-from what is on screen.** The agent chooses only what a story chooses: who
-sounds like what, which music, and the one-off noises.
-
-Decisions:
-
-- **Sources are CC0 or public domain only**, with `sounds/CREDITS.md`. They
-  ship in a public MIT repo, which is redistribution: that rules out CC-BY
-  (every film would owe a credit) and the Pixabay and Mixkit licences (free
-  to use, not to redistribute). A project can use its own files from
-  `audio/`. The library (166 files, 32 MB) is normalised on the way in, so
-  the mix uses fixed levels: effects peak at -1 dBFS, ambience -23 LUFS,
-  music -18 LUFS, lines levelled to one speaking loudness.
-- **Voices from a local model, not a service**, through a Python sidecar
-  (`tools/tts/`, run with `uv`) on MLX: the good models are Python and
-  MLX-only. A voice is `engine:name`, so a model can be added without a
-  format change. Without the sidecar everything works silently on estimated
-  timings.
-- **Voice audio is cached in the project** (`audio/voices/`, keyed by a hash
-  of the voice, text and emotion) and the render reads only the cache. The
-  models are not bit-identical run to run, so this is what keeps a render
-  deterministic, and the examples render with sound on a machine without a
-  model.
-- **A voiced line lasts as long as its audio.** The mouth follows the line's
-  loudness envelope. The validator warns on overruns, and the shot sheet has
-  an audio lane so an overrun shows in every write's picture.
-- **Mixing is our code, not an ffmpeg filter graph.** ffmpeg decodes clips to
-  PCM; the mixer sums them with known gains and ducks the music on ramps
-  computed from when each line plays, so no compressor is guessing. The cue
-  sheet is a pure function (`sound.ts`); decoding and summing are I/O
-  (`audio.ts`). A film with nothing to hear gets no audio track.
-
-Built in four commits (cue sheet and mixer; voices; engine-owned sound; the
-bundled library with `list_sounds` and `list_voices`), then listened to.
-
-**The voice model** (2026-10-23, the same lines through each, scored by
-Whisper large-v3-turbo as characters heard differently):
-
-| Model                      | Hindi | English | Speed on an M4 Pro | Licence    |
-| -------------------------- | ----- | ------- | ------------------ | ---------- |
-| Kokoro 82M                 | 8–12% | 0%      | a line in ~0.2 s   | Apache-2.0 |
-| Chatterbox multilingual v3 | 5–8%  | 14%     | ~0.6× real time    | MIT        |
-| rumik-oss 1                | 5–19% | 4%      | ~2.5× real time    | model card |
-| Voxtral 4B                 | 3–8%  | 0%      | ~2× real time      | CC-BY-NC   |
-
-rumik-oss is slow with only four women's voices; Voxtral's licence rules out
-films that are sold. Kokoro was the first default: fast enough to speak a
-shot's lines inside `write_shot`, and its mistakes were vowel lengths, not
-wrong words. After the first listen
-(2026-10-24) Chatterbox was judged always better, for dialogue and
-narration: it said हँसा right where Kokoro was badly wrong, and it acts. So
-every voice is `chatterbox:<kokoro voice>`: Kokoro reads a calm reference
-passage once at the character's pitch and speed (cached in
-`~/.cache/talekit/references/`) and Chatterbox speaks every line in that
-voice. `kokoro:` stays for quick drafts. A line takes about a second, which
-`write_shot` can afford.
-
-**First listen** (lion-mouse-hi) also led to:
-
-- **A line is said with its speaker's emotion**, the one its face has then.
-  No new field, because a face and a voice that disagree is a mistake.
-  Chatterbox's exaggeration is set per emotion from review notes (an
-  excited thought was better at 1.26 than 0.5, an angry shout at 0.5 than
-  1.4, since the words carry the anger).
-- **A sound is not a word.** Agents wrote growls and laughs into lines and a
-  voice read them out. Text between asterisks is shown, never spoken; the
-  action's `sound` is what is heard. The validator flags unmarked ones.
-- **Nobody talks over the narrator.** The validator warns when a line and a
-  narration overlap; a voiced line is talking until its voice stops, not
-  until its bubble fades.
-- Two espeak-ng slips in Hindi fixed in the sidecar (ड़, ऊँ). Later,
-  Chatterbox was heard saying हंस as "has": the spectrograms showed a nasal
-  vowel where a good take closes the n. Written हन्स for it alone, every take
-  closed the n (12 of 12, against 2 of 12), so the sidecar respells such words
-  for Chatterbox and the screen keeps the real spelling.
-
-**Second listen** (on a phone, the race and sticks films): beds too loud
-against dialogue. Measured in 0.4 s blocks, voices were 16 dB over the beds
-in the median but 7 dB in the loudest tenth, and the music swelled back in
-every gap. So: lower beds (music 0.24, ambience 0.32 of source), deeper
-ducking that holds through gaps under 1.5 s, and **a mix the listener sets**
-(`mix`: per-layer volumes on top of the engine's levels), because the right
-balance depends on where the film is heard. The review app plays each layer
-as its own cached stem through a gain per slider, so a change is heard
-while playing; mixing is linear, so the stems sum to the film. Remixing puts
-new sound under the mp4 with the video copied, in seconds. A compressor keyed
-on the voices was the alternative; fixed levels with a hold do it without
-guessing and keep the mix a function of the cue sheet.
-
-**The .mkv** (2026-10-24), for watching on a phone: the full mix, music and
-effects without dialogue, the same with the narrator, subtitles in each
-language (off by default) and a chapter per shot. MKV, because it carries
-named sound and subtitle tracks, styled ASS subtitles and their font; the
-mp4 stays, since a phone's gallery may not play an .mkv. It is built from
-the rendered mp4 with the picture copied: two more mixes and a mux, not a
-render. The dialogue-free tracks leave the lines out of the ducking, since
-music that dips for an unheard voice sounds like a fault. Without the
-voices those tracks measured 6 to 10 LU under the full mix (2026-10-25),
-so a player switched to one had to be turned up; each is now raised to the
-full mix's loudness, with a limiter 3 dB under full scale for the effects
-the gain pushes over (AAC's true peak passed 0 dB at 2). Translations come
-from the agent (`translation` on each line), not a model at render time: the
-agent knows the story, and the render stays deterministic and offline.
-Baloo 2's narrow space is widened in the subtitles, and a subtitle over a
-narration caption moves to the top.
+- **CC0 or public domain only**, credited in `sounds/CREDITS.md`: a public MIT
+  repo is redistribution, which rules out CC-BY and Pixabay/Mixkit terms. The
+  library is normalised on the way in, so the mix uses fixed levels.
+- **Voices from a local model, not a service**, via a Python sidecar
+  (`tools/tts/`) on MLX, where the good models are. A voice is `engine:name`,
+  so models can be added without a format change. Without the sidecar
+  everything works silently on estimated timings.
+- **Takes are cached in the project** and the render reads only the cache: the
+  models are not bit-identical run to run, so this is what keeps rendering
+  deterministic.
+- **A voiced line lasts as long as its audio**; the mouth follows its
+  loudness.
+- **Our own mixer, not an ffmpeg filter graph**: it sums with known gains and
+  ducks music on ramps computed from when lines play, so no compressor is
+  guessing. The cue sheet is pure (`sound.ts`); I/O is `audio.ts`.
+- **Model** (2026-10, scored by Whisper and by ear): Chatterbox multilingual
+  speaks every line, in a voice made by Kokoro reading a reference passage at
+  the character's pitch; it acts and got Hindi right where Kokoro did not.
+  Kokoro stays for quick drafts. Rejected: rumik-oss (slow, four women's
+  voices), Voxtral (non-commercial licence).
+- **A line is said with its face's emotion**, no new field: a face and voice
+  that disagree is a mistake. Exaggeration per emotion is tuned from notes.
+- **Sounds are not words**: text between asterisks is shown, never spoken.
+  **Nobody talks over the narrator** (a validator check). The sidecar
+  respells words Chatterbox mispronounces (`RESPELL`; the screen keeps the
+  real spelling).
+- **Beds were too loud on a phone**: lower beds, ducking that holds through
+  gaps under 1.5 s, and a listener-set `mix` (the review app plays cached
+  stems through gains; mixing is linear, so stems sum to the film). Chosen
+  over a voice-keyed compressor: fixed levels with a hold do it without
+  guessing.
+- **The .mkv** carries the full mix, music-and-effects with and without the
+  narrator (each raised to the full mix's loudness, with a limiter), subtitles
+  and a chapter per shot; the mp4 stays because phone galleries may not play
+  mkv. It is built from the mp4 with the picture copied. The dialogue-free
+  tracks do not duck for unheard lines. **Translations come from the agent**
+  (`translation`), not a model at render time: the agent knows the story, and
+  the render stays offline and deterministic.
 
 ### 7.9 Reels (portrait)
 
-Most viewers watch reels, not films (2026-10-24), so a story
-also comes as a portrait reel: 720 × 1280, at most three minutes, one mp4.
-It is its own project, a second, shorter telling with its scenes drawn tall,
-not a reframe of the film. A 9:16 window on a 16:9 scene keeps a third of
-its width, and `left` and `right` are 716 px apart, so a conversation does
-not fit; pan and scan would have made every exchange a whip pan or a cut and
-left the wide shots a slice. The agent writes both versions from the story,
-as a person adapting it would. The engine's part is small:
+Most viewers watch reels, so each story also comes as a 720 × 1280 reel of at
+most three minutes. **A reel is its own project**, a second, shorter telling
+with tall scenes, not a reframe: a 9:16 window keeps a third of a wide scene,
+so a conversation does not fit and pan-and-scan would make every exchange a
+whip pan.
 
-- **Text by the short side.** Bubbles, captions, weather and effects scale by
-  `min(width, height) / 720`, so a reel's text is the size a film's is on
-  the same phone.
-- **A safe area.** The apps draw over the bottom fifth, down the right and
-  across the top. Bubbles and captions keep clear (insets 22% bottom, 14%
-  right, 10% top, 6% left: the usual Reels and Shorts figures, a little
-  generous, since the apps move their overlays), the default floor is 0.78 ×
-  height, and the stage shortcuts sit at 26% and 72%. Narration goes at the
-  top: at the bottom it sat on the cast.
-- **Three minutes** is a warning, not an error, so a draft can run over.
-- **No .mkv**: the apps play one sound track and no subtitles.
+- Text scales by the short side, so a reel's text matches a film's on the same
+  phone. Bubbles and captions keep out of the area the apps draw over;
+  narration goes at the top (at the bottom it sat on the cast).
+- Three minutes is a warning, so a draft can run over. No .mkv: the apps play
+  one track and no subtitles.
+- **No format field**: a frame taller than wide is portrait. Tall library
+  scenes are marked by a `-tall` suffix for the same reason.
+- **Reels are narrator-led** (a guide rule, no engine change): reels that kept
+  the films' dialogue cut causal beats to fit (the hare stopping to eat, which
+  is why he sleeps).
 
-A frame is portrait when it is taller than wide; there is no format field,
-since the size already says it.
+### 7.10 Voices that sound human — Open
 
-Four of the reels' tall scenes went into the library (2026-10-25) as
-`cave-tall`, `courtyard-tall`, `forest-tall` and `fields-tall`, with their
-story-bound anchors renamed (`son1` became `front-left`): every reel had
-painted its own scenes from nothing, which is the slowest and least
-reliable part of making one. The suffix, not a field, marks them, for the
-same reason there is no format field.
+After twenty-two released films the voices are the weakest part: clear, but
+read, not acted. Causes:
 
-The first reels kept the films' dialogue and cut events to fit, and told too
-little: the race reel lost the hare stopping to eat, which is why he sleeps,
-while two conversations took most of its time (review, 2026-10-25). A reel is
-told by the narrator instead, a sentence or two a shot over the cast acting
-it out, with a character speaking only where the words turn the story. That
-is a rule for the agent, in the guide; the engine needs nothing new.
+- **Every voice copies a synthetic one.** Chatterbox copies its reference
+  clip's timbre _and_ its flat read-aloud delivery, and the reference is
+  Kokoro reading calmly (`reference()` in `tools/tts/speak.py`). Every story
+  uses one of four such voices.
+- **Characters are told apart by `asetrate`**, which shifts formants with
+  pitch: it sounds unnatural rather than like another person.
+- **Each line is spoken alone**, so there is no back-and-forth rhythm.
+- **The mix flattens acting.** `level()` (`src/project/voices.ts`) brings every
+  take to one loudness; only `STYLE_GAIN` (`src/engine/sound.ts`) lifts a
+  shout and lowers a thought. A scared whisper plays as loud as plain speech,
+  and spoken lines are dry in every scene.
+- Chatterbox's Hindi is its weaker language (hence `RESPELL`).
+
+Tasks, in order:
+
+1. **Other models** — done, first round. Wanted: Hindi, cloning or described
+   voices, a licence that allows sold films. Candidates were VoxCPM2
+   (Apache-2.0, in mlx-audio), IndicF5 (MIT, gated), Indic Parler-TTS
+   (Apache-2.0, gated) and Chatterbox with a human reference. Ruled out by
+   licence: OmniVoice, Fish Audio S2, XTTS-v2, Voxtral, Higgs Audio v3. The ear
+   decides, not Whisper, since a flat take can be heard perfectly. Nine lines
+   of clever-rabbit through VoxCPM2: clearly better only on two lines
+   Chatterbox got wrong. **The model is not what holds the voices back**, so
+   no switch; a second engine for takes the retake loop gives up on stays an
+   option.
+2. **Human reference clips** (next). Each voice recorded once by a real
+   person, about ten seconds per emotion, reused across stories; a line uses
+   the clip of its emotion, since the model copies delivery as well as voice.
+   Kept out of the repo (a voice belongs to its speaker; the repo is public)
+   and used only with consent. Ends `asetrate`: a character gets a different
+   person, not a shifted one.
+3. **Mix.** Loudness by emotion and style (scared and sad quieter, angry
+   louder), and the scene's room on spoken lines (indoors, forest, well).
+   Both pure functions of the cue sheet.
+4. **A hosted voice, last resort.** ElevenLabs v3 speaks Hindi, acts from tags
+   and voices a dialogue in one pass, but reverses "local model, not a
+   service" (7.8). Takes would still be cached, so renders stay
+   deterministic. A narrower use: the narrator only, who speaks most.
 
 ## Phase 8 — The world model
 
-After eighteen released films (2026-11-14), the person's review notes were
-sorted by kind: about 110 notes, of which about 70 were mistakes the engine
-could have known about. The rest were drawing quality, pacing and taste.
+After eighteen released films, about 70 of 110 review notes were mistakes
+the engine could have known about: support and gravity (a floating baby,
+washers beating cloth in the air), teleports and continuity (a roti flying
+between mouths), attention (listeners facing away), readability (bubbles over
+faces), solidity (walking through a well), reach (an axe landing outside the
+bed), audio (lines with no voice). The cause each time: the engine knew where
+things were drawn, not what they were. Principles 6 and 7 came out of this.
 
-| Kind                  | Notes | For example                                                                                                                                         |
-| --------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Support, gravity      | ~14   | a baby floating; cats halfway up a trunk; washers beating cloth in the air (three films); clothes leaving a fixed line; a vase not falling straight |
-| Teleports, continuity | ~10   | a roti flying between mouths; a bundle jumping across the floor; a man asleep in one shot and awake in the next                                     |
-| Attention, facing     | ~8    | listeners facing away; a man beating the empty side; animals fleeing from what they never saw                                                       |
-| Readability           | ~9    | bubbles over faces; a bucket hiding the otter; a hidden spy half seen                                                                               |
-| Solidity              | ~7    | walking through a well (three times); bars you could walk round                                                                                     |
-| Reach, contact        | ~7    | the vessel moving to the hand, not the hand to the vessel; an axe landing outside the bed                                                           |
-| Audio                 | ~14   | हंस said as "has"; lines with no voice; भाई said to a woman's voice                                                                                 |
+Every finding has a code, shot, time span, actors, one sentence on what is
+wrong and why it shows, a patch when mechanical, and a frame with the spot
+ringed. The same findings come from `check`, `render` and every MCP write.
+**A write is saved anyway** so the agent can look and iterate; only the
+render is refused. Each check was calibrated over the released stories: a
+finding there is a false positive to tune away or a mistake the review
+missed.
 
-Each one cost a person's careful watch to find. The cause is the same every
-time. The engine knew where things were drawn, not what they were. A scene's
-ground was one `y`; water was decoration; a well was pixels; nothing said
-who a line was for beyond `to`.
+**Not Blender, Unity or Godot.** The failures are about knowing the world, not
+drawing it; moving would put the agent in front of a much larger, mostly 3D
+API and lose the rigs, library and contract. Rapier, a navmesh and Clipper2
+were planned; only resvg and whisper.cpp went in: falling was simple enough
+to work out directly, routing is a visibility graph, and the polygon tests
+are a few lines of our own.
 
-The user of this engine is an LLM, not a person, and the goal is a film
-with no glitches in it. Two decisions follow from that.
+### 8.0 Base
 
-1. **The engine fixes whatever has one right answer.** Intent is clear but
-   the execution is wrong: a listener should face the speaker, a pot let go
-   of should fall straight, a walk should go round the well. An agent
-   forgets these over and over, so the engine owns them, as it owns motion
-   (principle 1). It works them out when it loads a shot, like a constraint
-   solver, and never writes them back into the file: the file says what was
-   meant, and `talekit explain` says what the engine made of it.
-2. **Everything else is an error with a way out.** When the engine cannot
-   know what was meant (a land animal in deep water, a roti that jumps), it
-   reports an error that blocks the render, until the shot is fixed or the
-   error is waived with a reason (`allow`). There are no soft warnings for
-   these kinds of mistake: an agent learns to skip warnings, and every
-   skipped one reaches the person as a glitch. A check that cries wolf is
-   tuned, not demoted.
+- Scenes say where feet can stand (`walk`) and where water is (`water`,
+  `wade`); characters say where they can be (`habitat`). `allow` waivers carry
+  a reason, and a key that names no check is an error, so a typo waives
+  nothing.
+- `world.ts` samples each shot every 0.1 s and runs the rules; the first is
+  **support**. `write_scene` does not refuse on a world error: an agent fixing
+  its walk areas needs the sheet to do it.
+- **Walk wins over water** (a washing stone in a river). A `river` effect's
+  points are not the water (they run over the bank). **Areas are flat on the
+  screen**: they cannot tell a pot floating in front of the floor from one
+  standing further back, so the rest needs motion rules (no gliding `move`,
+  gravity, `climb`).
 
-Every finding has a code, the shot, the time span, the actors, one sentence
-on what is wrong and why it shows, a patch when the fix is mechanical, and a
-frame with the spot ringed (principle 3). The same findings come back from
-`talekit check`, `render` and every MCP write. A write is saved anyway, so
-the agent can look at it and iterate. Only the render is refused.
+### 8.1 Attention and gravity
 
-### The plan
+- **Attention** (`stage.ts`): the engine stages `set.facing` turns: the
+  speaker to its `to`, listeners to the speaker staggered by `hash01`, a
+  `reacts` to its cause just before. Busy, walking, lying, eyes-closed or
+  carried actors do not turn. Only a `set.facing` near the line counts as the
+  agent directing it; a move does not (guards who ran in kept facing their
+  run). `attention.*` findings judge the whole line, not a moment. An archer's
+  `aim` keeps its eyes on the mark.
+- **Gravity**: a let-go prop falls straight to the floor its carrier stands on;
+  `fall` drops a thing off a shelf. Worked out directly (exact for a straight
+  drop), so Rapier waits for tumbling and rolling. Feet within 12 px snap onto
+  a walk area.
+- **`climb`** for ladders and trunks, held to `climb` areas: guards slid down
+  a machaan ladder in a standing pose with `move`. A `move` that lifts a
+  walker off the ground is flagged and names `climb`, `jump`, `fall`.
+- **`continuity.jump`**: anything in sight faster than 1500 px/s between
+  samples (a hand-over from too far, a `set.at` in view). Arrows, falls, and
+  props through their holder's turn are exempt. An arrow now shows on the
+  string only after the archer's turn, since the side-on drawing mirrors half
+  way round.
+- **`give`**: the two face each other and each reaches its share of the way,
+  by arm length; the prop changes hands at the meeting point, so it never
+  leaves a hand. A stoop at chest height was dropped: at the limit the two
+  crouched into each other. `give.reach` flags hands that cannot meet.
+- **Speech check** (`speech.ts`, `hear.ts`): every take is heard by
+  whisper.cpp (MIT; AI4Bharat's Hindi model is gated behind a login, so
+  cannot be the default). Whisper spells Hindi loosely, so line and hearing
+  are both reduced to a skeleton of sounds a listener tells apart, and
+  differences are read as runs. A take that seems wrong is heard again cut at
+  its pauses (Whisper drops a word said alone). A bad take is retried with
+  other seeds, up to three; a line no take says is `speech.mismatch`. Only
+  what was heard is stored and judged afresh on load, so a better judge never
+  leaves a stale verdict.
 
-- **8.0 Base.**
-  - Scenes say where the ground is: `walk` areas (floors, stairs, perches,
-    a branch top) and `water` areas (deep, or shallow enough to wade).
-  - Characters say where they can be on their own (`habitat`: land, water,
-    air).
-  - A simulator steps each shot through the timeline (a pure function
-    already) at 10 fps and runs rules on the states.
-  - Findings, waivers (`allow` on a shot or a scene), the render gate, and
-    ringed frames (`talekit check --frames`).
-  - The first rule: **support**.
-- **8.1 Attention and gravity.**
-  - Attention: the audience of a line (its `to`, else everyone awake and
-    idle) turns to the speaker, staggered by `hash01`. A striker faces its
-    target. A reaction (`reacts`) looks at its cause first.
-  - Gravity: a prop let go of falls straight to what is under it (Rapier 2D,
-    deterministic build).
-  - Feet a few pixels off the ground snap onto it.
-  - A `climb` verb for ladders, trees and walls, so nothing slides up or
-    down them with `move`; a `move` that carries a walker off the ground
-    is flagged.
-  - Teleports inside a shot are flagged, and a `give` verb hands a thing
-    from one actor to another.
-  - Every voiced take is transcribed (whisper.cpp or AI4Bharat's Hindi
-    models, whichever reads our takes better) and re-voiced when it does not
-    match its line.
-- **8.2 Continuity.**
-  - A shot in the same place starts where the last one ended: positions,
-    posture, sleep, held props, looks. `cut: 'later'` starts fresh.
-  - The 180° rule is checked across cuts.
-  - Smart objects: an anchor says what is done there and how (a washing
-    stone: seated, facing right, the cloth landing at x, y).
-  - Contact verbs walk the actor to a use point and bend the arm onto the
-    target.
-- **8.3 Solids and readability.**
-  - Solids with footprints and named openings; walks route round them on a
-    2D navmesh.
-  - Bubbles are placed off every face box. Art over a speaker's face, or a
-    `hidden` actor who shows, is flagged.
-  - Art checks on the sheets: a drawing that comes apart in a pose (a split
-    elbow, a loose tail), and a sway group whose far end moves too far.
-- **8.4 A vision critic.** The agent checks a contact sheet against a
-  checklist before the person sees anything. It is not deterministic, so it
-  adds to the checks and replaces none of them.
+### 8.2 Continuity
 
-Each kind of note becomes a fixture that must be fixed or flagged, and the
-checks are run over the released stories: a finding there is either a false
-positive to tune away or a mistake that got past the review.
+- **`cut: 'next' | 'later'`**: a hard cut defaults to `next`, a crossfade to
+  `later` (a dissolve reads as time passing); after a title card or in another
+  scene a shot starts fresh. Across a `next` cut everyone must start as left
+  (place, posture, sleep, held props, size) or it is `continuity.cut`.
+  **Errors, not fixes**: the cast states starts explicitly, and the engine
+  cannot tell a slip from a jump in time; a skip is one word.
+- **Facing carries** across a `next` cut as a visible 0.2 s turn at t 0, staged
+  by the engine. An aimed archer's bow stays in the far hand down a chain of
+  carry-on shots (it had jumped 40 px at each cut).
+- **Screen direction** (`continuity.direction`): a journey keeps its direction
+  across places, dissolves included ("they walked for days" skips time, not
+  the way). A new trip after a skip is waived, since the engine cannot tell
+  it from the same trip. Agents habitually send people off left and bring
+  them on moving right.
+- **The 180° line** (`continuity.line`) across a cut to a closer view or
+  insert: on a 2D stage a swap is only ever the cast moved. **Eyelines were
+  tried and dropped**: 20 of 23 hits were dissolves to another place, where a
+  turn to leave or lead is as common as a broken eyeline.
+- **Blows that land**: `strike` takes `to` and the tool's `tip` comes down on
+  it (washers had beaten cloth in the air, since a strike chopped the air in
+  front). A `strike`, `wipe` or `hold` turns an idle doer to its target.
+  `contact.reach` checks the hand or tip at contact. A `hold` or `wipe` with a
+  tipped tool puts the tip on `to` (priests' ladles hung off the hand
+  wherever); a carried prop never rests below its holder's floor line, and a
+  seated holder props a tool across the lap.
+- **Anchor `use`** (smart objects): `pose`, `facing` and `at`, the work point.
+  Work at the anchor lands on `at`, and the doer is walked or sat there and
+  turned first. Before this, washing stones were drawn wherever an unaimed
+  blow happened to fall. A cot was left out: lying is `lie` with `to`, and a
+  turn while lying flips the body.
 
-**Not Blender, Unity or Godot.** They would bring physics, but the failures
-above are about knowing the world, not about drawing it. Moving the engine
-would put the agent in front of a much larger API, mostly in 3D, which is
-harder for it to get right, and lose the rigs, the library and the authoring
-contract. Proven parts go inside instead: Rapier 2D for falling and
-settling, a 2D navmesh for routing, Clipper2 for polygon overlap, resvg
-(already here) for pixel-exact occlusion, and whisper.cpp for speech.
+### 8.3 Solids and readability
 
-As built, only resvg and whisper.cpp went in. Falling and settling turned
-out simple enough to work out directly (8.1), routing is a visibility graph
-round the solids (8.3), and the polygon tests are a few lines of our own;
-the plan above keeps the parts it was written with.
-
-### 8.0 as built
-
-- **What a scene is.** Scenes take `walk` (polygons where feet can stand)
-  and `water` (areas, `wade` for shallow). A character takes `habitat`
-  (land, water, air; land by default, plus air for one that `flaps`).
-  Shots and scenes take `allow`: waivers keyed by code or `code:actor`,
-  each with a reason. A key that names no check is an error, so a typo
-  waives nothing.
-- **The rules.** `src/engine/world.ts` samples each shot every 0.1 s
-  through `resolveActor` and runs the rules. `support` holds every actor
-  to what it can rest on. Carried, ridden (`on`), mid-jump, falling,
-  invisible (`visible: false`) and off-frame actors are held up already. On the scene itself, `world.walk`
-  (no walk areas) and `world.anchor` (an anchor on no ground or water) are
-  checked.
-- **How findings come back.** A finding is a `Problem` with a `code` and
-  the finding itself. `validateProject` runs the shot rules once nothing
-  else is wrong, so `check` and `render` see them and `render` refuses.
-  `write_shot` and `patch_shot` save anyway and add the findings, with up
-  to three frames of them, each spot ringed (`findingFrameSvg`).
-  `write_scene` no longer refuses on a world error: an agent fixing its
-  walk areas needs the sheet to do it.
-- **Pictures and tools.** The scene sheet hatches walk areas green and
-  water blue. `talekit check --frames dir` saves a ringed frame per
-  finding. The Python kit has `below()` and `ledge()`.
-- **The library.** All eleven library scenes and the four examples were
-  given walk areas, read off their sheets. Birds, the swan, the fish, the
-  frog and the crocodile were given habitats.
-
-**First catches.** The examples had two real ones. The lighthouse's
-lantern glided from Pip's hand to the pedestal with a `move` (now a
-`putdown`), and lost-kite's kite and the lighthouse gull had no way to be
-in the air (now `habitat`).
-
-**A trial on a released film.** गाने वाला गधा (R18, already reviewed by the
-person) was given walk areas and checked. It found the two guards sliding
-down the machaan's ladder in a standing pose: a `move`, since the engine
-has no climbing. That was a real glitch the review missed. It also taught
-three things about the model:
-
-- **Walk wins over water.** A washing stone in the river is a walk area
-  on top of the water.
-- **A `river` effect's points are not the water.** Its polygon runs over
-  the bank, where the art hides the ripples, so a scene with a river
-  gives `water`.
-- **Areas are flat on the screen.** They cannot tell a pot floating in
-  front of the floor from one standing further back on it, or a gull
-  over the sea from one standing in it. They catch what floats above the
-  ground line, or in the wrong medium. The rest needs motion rules: no
-  gliding with `move`, gravity for what is let go (8.1), and `climb` for
-  ladders and trees (added to 8.1).
-
-### 8.1 as built
-
-- **Attention** (`src/engine/stage.ts`). Before a shot plays, the engine adds
-  `set.facing` actions. Everything downstream sees them, and the file is
-  untouched.
-  - The speaker turns to its `to`, or to whoever it replies to.
-  - Listeners turn to the speaker 0.15 to 0.5 s into the line, staggered
-    by `hash01`. They are the line's `to` alone, the one replied to, or
-    everyone when the speaker is the only one who talks in the shot, plus
-    the line's `audience`.
-  - Someone walking, busy with their hands, lying down, with eyes `closed`
-    or carried does not turn. One still moving turns once its move ends,
-    and listeners are looked at again every 0.5 s through the line.
-  - Only a `set.facing` near the line counts as the agent directing it. A
-    move does not: the guards in R18 ran in and kept facing their run,
-    which was the review note.
-  - `reacts` turns an actor to the cause 0.45 s before its reaction. A
-    later `reacts` to the speaker means the listener has not noticed yet,
-    so it turns then.
-  - `attention.*` findings catch the ones that could not turn, judged over
-    the whole line: facing away for more than half of it, after 0.7 s to
-    turn. An archer's `aim` keeps its eyes on the mark and is never a
-    finding.
-  - `talekit explain` and the MCP writes list every added turn.
-- **Gravity.**
-  - A prop let go of (`attach: false`) falls straight down from the hand to
-    the floor its carrier stands on. A perched carrier's drop falls past
-    its branch to the ground.
-  - The new `fall` verb drops a thing off a shelf or a branch.
-  - The fall accelerates (1800 px/s² at scale 1) and bounces once. It is
-    exact for a straight drop, so Rapier waits for tumbling and rolling.
-- **Feet snap** onto a walk area up to 12 px below them, for a walker on its
-  own feet.
-- **Climbing.** `climb` takes an actor up or down a ladder or a trunk to
-  `to`, at 70 px/s. A scene marks what can be climbed with `climb` areas,
-  and a climber is held to them instead of to the walk areas
-  (`support.climb`).
-  - A person turns its back to the viewer and goes hand over hand. Seen
-    from behind, the arms swing across the screen (`Pose.flat`), up in a V
-    either side of the head. The legs step into it, foreshortened. The
-    cycle is paced by the distance climbed, one hand and the other foot per
-    rung.
-  - An animal walks up, tipped up the slope by as much as 70°, about its
-    feet, easing into the tilt and out of it.
-  - A walker that a `move` takes off the ground is still `support.air`, but
-    the message now says it glides and names `climb`, `jump` and `fall`. That
-    is the R18 guards on the machaan ladder.
-- **The jump rule** (`continuity.jump`). Anything in sight moving faster
-  than 1500 px/s between samples is a finding: a hand-over from too far
-  (the roti), a `set.at` while it shows, a `move` too fast to be one (use
-  `fall`). Arrows, falls, a prop carried through its carrier's turn or
-  swung in a blow, and anything out of sight are left alone.
-
-- **The speech check** (`src/engine/speech.ts`, `src/project/hear.ts`).
-  Every voiced take is heard by whisper.cpp (large-v3-turbo, q5, 570 MB,
-  MIT-licensed) and compared with its line.
-  - AI4Bharat's Hindi wav2vec2 was the other candidate, but it is gated on
-    Hugging Face behind a login, so it cannot be the default.
-  - Whisper spells Hindi loosely (ध for द, ढ for ध, short vowels for long,
-    a nasal dropped). So the line and what was heard are both reduced to a
-    skeleton of the sounds a listener tells apart, and the remaining
-    differences are read as runs.
-  - A take is bad with 4 or more sounds missing or extra in a row (a skipped
-    word, babble), or more than 0.3 of it wrong (a garble, for a line of 8
-    sounds or more).
-  - Whisper writes numbers as digits ("100" for सौ), which are said back
-    in Hindi before comparing. A line under 12 sounds gives it little to go
-    on, so only more than 0.6 wrong counts there.
-  - On 500 released takes heard whole, 4 were judged wrong. Hearing in
-    pieces cleared 3 of them. The last says क्यारियाँ twice: R14's
-    `04-khudai` narration, 4.8 to 5.8 s into the take. That stutter is
-    probably real, and the review missed it. Takes cut short or paired with
-    another line came out at least 0.32 wrong, with runs of 4 to 28.
-  - Whisper drops a word said alone before a pause ("परछाईं...? शेर को…"),
-    so a take that seems wrong is heard again cut at its pauses, and the
-    better hearing counts.
-  - A bad take is said again with another seed, up to three takes
-    (Chatterbox only; Kokoro does not sample), and the best is kept.
-  - A line no take says is `speech.mismatch`, an error that blocks the
-    render until the line is reworded or the take is waived. Only what was
-    heard is stored, and the take is judged afresh on every load, so a
-    better judge never leaves a stale verdict behind.
-  - Without whisper-cli, takes are voiced but not heard, and the report
-    says so. Tests turn hearing off and pass in a fake hearer.
-
-**Calibration on the released stories.** The attention and jump rules need
-no walk areas, so they were run over all 36 projects.
-
-- At first they found 43 things. Most were archers who keep their eyes on
-  the bird while Drona speaks, which is right, hence the `aim` exemption.
-  The rest were listeners whose own move left them facing away, now turned
-  once the move ends.
-- Now they find 2, both one real glitch the review missed: the wooden bird
-  in the archery reel drops off its perch as a 0.55 s `move` at 1770 px/s,
-  carrying the arrow stuck in it.
-- Before the exemptions they also found two more real glitches, in the
-  engine itself, not in any shot:
-  - an arrow on the string jumps 150 to 480 px as an `aim` begins, or
-    when one arrow is reused by the next archer;
-  - a prop carried in a long animal's mouth swaps sides at mid-turn, with
-    the head.
-
-  The turn is how a side-on drawing turns, so the second stays, and
-  anything held, an arrow on a string among them, is exempt through its
-  holder's turn.
-
-- **The arrow fix.** The first came from the turn. An aim turns the
-  archer to face the mark, and half way round the side-on drawing mirrors,
-  the bow in hand with it; the arrow was already fading in on the string
-  and went too. Now it shows on the string only once the turn is done and
-  a hand is on the string (after the hand-over of a first aim). A reused
-  arrow fades off the last bow first and is out of sight for a moment
-  before it shows on the new one, where it used to cross the stage in one
-  frame. Run over the archery films again, the only arrow jumps left are
-  through an archer's turn; the rule's exemption for nocked arrows was cut
-  down to that.
-
-- **Give** (`do: 'give'` on a held prop, `attach` the taker). Handing a thing
-  over used to be an `attach` to the other hand, with no arm moving. Now the
-  two face each other first (staged, like a listener's turn), and each
-  reaches its near hand out to a meeting point, its share of the way by the
-  length of its arm, standing upright. The prop changes hands there half way
-  through, so it never leaves a hand. The point is worked out once, from
-  where the two stand at the hand-over. An animal's mouth is the meeting
-  point, and the person stoops to it, since it is lower than the hand
-  hangs. A stoop for a hand at chest height was tried first and dropped: at
-  the limit the two crouched into each other. `give.reach` flags two
-  whose hands do not meet: too far apart for both arms to reach (for two of
-  a size, about 0.7 of their height) or facing away, where a hand would
-  get there only behind the back.
-
-8.1 is done.
-
-### 8.2 as built
-
-- **Same-place continuity.** A shot says whether it carries straight on
-  from the last one in the same scene (`cut: 'next'`) or time has passed
-  (`cut: 'later'`).
-  - **Defaults.** A hard cut is `next` and a crossfade `later`: a dissolve
-    reads as time passing, as it does in film. A shot after a title card
-    starts afresh, and so does one in another scene.
-  - **What a continuous cut is held to.** Everyone in sight on either side
-    of it must start as the last shot left them: where they stood (within
-    12 px), sitting or lying, asleep or awake (lying with eyes `closed`:
-    shut eyes alone are as often a howl), holding what they held, at the
-    same size. Nobody may vanish from a spot the new shot
-    still shows, or appear in one the last shot showed empty. Each
-    difference is a `continuity.cut` finding. It gives the spot or the cast
-    entry to copy as the fix, and offers `cut: 'later'` as the way out.
-  - **Facing is the engine's.** Whoever the shot has facing the other way
-    starts facing as they were and turns at t 0, a 0.2 s turn you can see,
-    rather than a flip at the cut. The engine stages the turn, and
-    `explain` lists it. A thing with no eyes (a pot, a bow) cannot turn
-    itself, so it keeps the facing it had. Anything held faces with its
-    holder. Anyone lying down, or moved or turned by the shot at its start,
-    is left alone.
-  - **Why errors, not fixes, for the rest.** The cast says where everyone
-    starts, explicitly. When that differs from where they were left, the
-    engine cannot tell a slip from a jump in time. So the shot has to say
-    which, and a skipped time is one word.
-  - The project warning about a prop vanishing from a carrier's hand at a
-    cut now covers only cuts to another place or a later time.
-
-**Calibration.** Of 143 same-scene cuts in the 36 released projects
-that changed something, the rule finds 91 things.
-
-- **What the field could not mark.** Most are time skips the files had no
-  way to mark: a dream and back (`gadha-hi`), a dug garden between
-  shots (`prashn-hi`), an establishing shot of the forest before the
-  friends (`chand-hi`).
-- **Real slips the review missed**, checked frame by frame:
-  - an arrow left on the string of Yudhishthir's lowered bow vanishes at
-    the cut to the next prince (`lakshya-hi`);
-  - the camel, just inside the edge of the farmer's shot, is left out of it
-    and vanishes, and so does a melon (`oont-hi`).
-- **Seen in the numbers, not yet watched.** A darbar reframed by moving
-  the king, the vases and Ramaiya 60 to 120 px instead of the camera, so
-  they would slide against the set (`vase-hi`). A seated jackal stands at the
-  cut (`siyar-hi`), and so does a seated man (`sapna-hi`). The lion edges
-  40 to 70 px between two shots (`lion-mouse-hi`).
-- **Not found by the rule.** A bow held after an `aim` is in the far hand,
-  but the next shot started it back in the near one, so it jumped 40 px at
-  the cut. The rule lets held props go where their holder's hand goes, so
-  it misses this. The engine now carries it: an archer left aimed, bow in
-  hand, at the end of the shot a cut carries straight on from starts the
-  next one with the bow in the far hand, and a later `aim` there does not
-  hand it over again. In `lakshya-hi` and its reel that is 9 cuts where the
-  bow jumped 38 to 46 px, now 0 to 4 px. The aimed state now carries down
-  each chain of carry-on shots, so the survey now finds 16 aimed archers at those cuts. On the
-  first cut, frame by frame, the bow stays behind Yudhishthir's far side.
-  It changes angle a little at the cut (lowered and slanted at the end of
-  the aim, hanging upright at the start of the next shot): the lowered
-  angle is not carried.
-- **False alarms.** The cuts after a title card were the only class of
-  them, now exempt.
-
-The examples had three. clever-rabbit's rabbit stepped 120 px closer to
-the lion at a reframing cut, and now stays where it walked to. In
-lighthouse, Gus started in the sky in plain sight and now flies in from
-off the frame, and Grandma vanished from the beach while Pip found the
-lantern and now stays.
-
-- **Screen direction.** Held across a cut to another place; in the same
-  place the continuity check holds everyone already.
-  - **A journey keeps its direction** (`continuity.direction`). Someone
-    who goes off one side of the frame and is moving in the next place must
-    keep going the same way. Off to the right means on from the left,
-    moving right; coming on the other way reads as turning back. A dissolve
-    does not excuse it: "they walked for days" skips time, not the way they
-    were going. A new trip after a skip (the next morning) is the one real
-    exception, and the engine cannot tell it from the same trip, so it is
-    waived with a reason rather than keyed to `cut`.
-  - **The 180° rule** (`continuity.line`). Across a cut to another scene
-    that carries straight on, a closer view or an insert of the same moment,
-    two in sight on both sides keep their sides. A 2D stage has no camera
-    to swing round, so a swap is only ever the cast moved, and they seem to
-    jump past each other. `cut: 'later'` marks a time skip, as it does in
-    the same place, and a hard cut is read as `next` here too.
-  - **Eyelines were tried and dropped.** The check was: someone faces
-    another, then a cut to them alone shows them facing away. It found 23
-    cuts in the released films. The one checked frame by frame was a rabbit
-    turning to lead the lion on, and 20 of the 23 are dissolves to another
-    place, where a turn to lead, leave or look elsewhere is as common as a
-    broken eyeline.
-
-**Calibration.** Over the 36 projects and the examples, 17 direction
-findings and 2 line findings.
-
-- **Direction.** Nearly all are the same habit: the agent sends people off
-  to the left and brings them on moving right, as if left to right meant
-  forward. About 13 are one journey. Seen in frames: the cats set off
-  from their tree for the village and come on moving the other way
-  (`billi-hi`), and the mouse runs to keep its promise and comes in from
-  the side it left by (`lion-mouse-hi` reel). Read in the scripts: the
-  mouse going to see the lion (`lion-mouse-hi`), the cats running off with
-  the roti (`billi-hi`), the servant sent for Birbal (`khichdi-hi`), the
-  rabbit setting off for the lion (`khargosh-hi`), Birbal sent to search
-  the bazaars (`bachcha-hi`), the brahman walking home with his alms
-  (`sapna-hi`). The rest are new trips after a skip, the donkey's routine
-  montage and his next morning (`gadha-hi`), which are what the waiver is
-  for.
-- **Line.** Both are time skips with a hard cut: the fields to the courtyard
-  (`sticks-hi`), and the walk down the street to the park in lost-kite,
-  now marked `cut: 'later'`. No film yet cuts to an insert of two people,
-  so the rule has found no real swap; it is there for when they do.
-
-- **Blows that land.** Of 684 work actions in the released films, `wipe` and
-  `hold` already land: the engine bends the arm onto their `to`, and the
-  hand ends a median 4 box units from it. `strike` had no target. It was
-  used 163 times, for beating washing on a stone (`gadha-hi`, `khichdi-hi`)
-  and for beating someone (`oont-hi`, `gadha-hi`, `bachcha-hi`), and it
-  chopped the air in front, wherever that was. That is how the `gadha-hi`
-  washers came to beat cloth in the air.
-  - **A `strike` takes `to`** (an actor, or a spot). The hand stops up and
-    back from the target by the length of what it swings, at 40° above it,
-    and the stick turns so its `tip` comes down on it. Someone struck is hit
-    on the shoulders (along the body, so lying down works too), an animal on
-    the middle of its back. On a camel, higher than the farmer's shoulder,
-    the blow comes in level, as it would.
-  - **The doer faces it.** A `strike`, `wipe` or `hold` at something turns
-    its doer to it first, if idle, as a give does. In the released films
-    that changes one shot: a seated wipe by the disguised king in the
-    `prashn-hi` reel (`bhaagta`), where he faced away from the spot and his
-    hand missed it by 44 units.
-  - **`contact.reach`.** At the moment of contact (a strike's hit, half way
-    through a wipe or a hold) the stick's end or the hand must be within
-    0.12 of the doer's height of the target. The finding says whether it
-    falls short or a long stick passes over, and where to stand. With the
-    turn in place it finds nothing in the released films, where no strike
-    had a `to`; it is there for the ones that will.
-  - **A tool reaches with its working end.** In `nevla-hi` five seated
-    priests pour ghee with long ladles (`sruva`) by a `hold` to a spot over
-    the fire: the hand went there and the ladle hung off it wherever,
-    toward the camera, so the two behind the fire seemed to reach into it
-    from in front, and the front priest's ladle lay on the floor at the
-    frame's edge. A `hold` or `wipe` by someone carrying a prop with a
-    `tip` now puts the tip on `to`, the hand stopping the tool's length
-    short as a strike's does (raised over a spot nearer than that, so a
-    ladle dips into a bowl at its holder's side from above), and
-    `contact.reach` judges the tip. A hold on someone stays a hand on the
-    shoulder: steadying a man is what that hold is for. At rest a carried
-    prop never goes below its holder's floor line, the line that keeps a
-    tail off the floor, and a seated holder props a tool up 30° across
-    the lap, which keeps each priest's ladle on his own side of the fire.
-
-Places used a certain way (smart objects):
-
-- **An anchor's `use`** says how the place is used: `pose` (`stand`, or
-  `sit` on the ground there, or on the seat with a `floor`), `facing`, and
-  `at`, the work point. A washing stone is the anchor where the washer sits
-  plus the spot on the stone's top where the cloth lands. Before this, the
-  `gadha-hi` washers were cast at a bare anchor, given an opening `sit` by
-  hand, and beat with no `to`; the stones were then drawn where that blow
-  happened to fall.
-- **A `strike`, `wipe` or `hold` whose `to` names the anchor** lands on
-  `at`, not on the feet point. Its doer is walked there, or sat there (a
-  `sit` to it walks over first), timed to finish a turn's time before the
-  work, then turned to `facing`. These are staged actions, so `talekit
-explain` lists them. A doer cast there and working from the first moment
-  opens the shot sat. A doer busy in that time, or sat somewhere else, is
-  left alone, and `contact.reach` says it never got there. A work point out
-  of reach is reported with where the blow lands from the anchor, which is
-  the value to put in `at`.
-- **Checked on a copy of `gadha-hi`'s ghat**, with Kallu's anchor given a
-  `use`, frame by frame:
-  - Cast at the anchor, he opens sat and turned to the stone, and the cloth
-    comes down from above on the slab's far end, where the scene draws the
-    wet cloth.
-  - Cast 240 px away, he walks over, sits and then beats.
-  - With `at` on the stone's near end, 45 px in front of him, the blow came
-    down almost straight, with the hand in front of his face. The guide
-    says to put the work about half the user's height in front.
-- **A cot was left out.** Lying is already `lie` with a `to`, and a turn
-  while lying flips the body, so `use` has no `lie` pose and gives no
-  facing on a bed.
-- **No released film changes.** None of their anchors has a `use`.
-
-8.2 is done: same-place continuity, screen direction, blows that land,
-places that say how they are used, and the bow carried across a cut.
-
-### 8.3 as built
-
-- **Bubbles off every face** (`src/engine/place.ts`). A bubble used to go
-  above its speaker, centred, and kept clear only of the speaker. Now each
-  line's bubble tries ten places: above, slid half or all the way sideways
-  (as far as the tail still reaches the head), raised, and beside the head.
-  It takes the one that covers least of the faces on screen, the speaker's
-  own counting double, plus a small cost for each step away from centred.
-  Touching a bubble already up costs more than any move. The choice is
-  made once per line, from five frames through it, and the bubble then
-  follows the head as before, so it does not hop when people move. A face
-  is the box round the head of anyone with eyes, in sight and over 10 px
+- **Bubbles off every face** (`place.ts`): ten candidate places, scored by
+  faces covered (the speaker's double) plus a small cost per step from
+  centred. Chosen once per line from five frames, then the bubble follows the
+  head, so it does not hop. Crowds where every place covers someone remain.
+- **What shows** (`sight.ts`) renders masks with resvg rather than reasoning
+  about boxes. `sight.face`: more than half a speaker's face under foreground
+  art (half, because approved films had a thief peeking round a pillar at 41%
+  and a jackal under 55%-opaque water). `sight.hidden`: a `hidden` actor is
+  still drawn (unlike `visible: false`) and is flagged if more than 3% shows.
+  Effects are left out; they come and go.
+- **Solids and routing** (`route.ts`): walks go round named footprints by the
+  shortest way on a visibility graph, keeping to the walk areas. **A solid is
+  passed on one side**: art is flat, so a well in `svg` is drawn under
+  everyone and one in `foreground` over everyone; the solid names its layer
+  and the strip behind or in front of it is blocked too (a lion routed round
+  the front walked "into" a foreground wall). **Openings are not built**: a
+  gap is where no footprint is, which is enough until enclosures have insides
   on screen.
-- **Over the released stories and examples**, at the middle of each of
-  954 lines:
-  - 106 bubbles covered more than 15% of a face, and 17 still do. Those
-    are crowds where every place covers someone (the khargosh-hi animals
-    round the hare trade the jackal's face for the deer's), and corners
-    with no room above or on one side (the gadha-hi guards on the
-    machaan).
-  - 156 bubbles moved.
-  - No two bubbles were up at once in any of them.
-  - Six were looked at before and after: lost-kite's Mia no longer covers
-    Dad's face, lighthouse's Pip no longer covers Grandma's, and the
-    kachhua-hi reel's Gudiya's bubble rises clear of the farmer's.
-- **What shows** (`src/project/sight.ts`). Two checks that need pixels,
-  so they render masks of the frame with resvg instead of reasoning about
-  boxes: just the art drawn over the actors (the `foreground` and `near`
-  layers, swayed as they are then), and one actor alone.
-  - `sight.face`: a speaker's face box, drawn about 32 px across at three
-    points through each line, counting each pixel by how opaque the art
-    over it is. More than half covered is a finding. Half, because the
-    released films passed review with a thag peeking round the temple
-    pillar (41% covered, eyes out) and the oont-hi jackal crying for help
-    under 55%-opaque water. Effects (rain, smoke) are left out: they come
-    and go.
-  - `sight.hidden`: a new `hidden` flag, on the cast and in `set`, for
-    someone meant to be out of sight behind the art or someone nearer.
-    Every 0.25 s while it is set, whatever of the actor is not under
-    mostly-opaque cover (70%) shows. More than 3% of it, and over 60 px, is
-    a finding, ringed where it shows. A hidden face is not kept clear of
-    bubbles. Unlike `visible: false`, the actor is still drawn.
-  - Over the released stories and examples: nothing, as calibrated. The
-    prashn-hi reel's spy behind the boulder, marked `hidden` with his peek
-    unhidden, gives nothing too; left hidden through the peek, the peek is
-    found (12.75 to 17 s, 28% of him) and the ring is on his head.
-  - It costs well under a second a film: only scenes with a `foreground` or
-    `near` layer are looked at for faces, and only shots that use `hidden`
-    for the rest.
-- **Solids and routing** (`src/engine/route.ts`). A scene's `solids` are
-  named footprints on the floor (a well's ring, a cot, a trunk's foot). A
-  `walk` or `run` whose straight line is blocked goes round by the
-  shortest way, found on a visibility graph rather than a navmesh. Its
-  nodes are the corners of the solids and the walk areas, each stood 14 px
-  off (scaled with the walker), and the points where two areas' edges
-  cross (a bridge laid over two banks). An edge joins two nodes when points
-  every 5 px along it are all on the ground. The move then carries its
-  turns: position, the gait's distance and the default duration all
-  follow the longer way, and facing is still set once, toward where it
-  ends.
-  - **A solid is passed on one side.** The art is flat: a well painted in
-    `svg` is drawn under everyone, so a walker behind it shows in front
-    of it, and one painted in `foreground` is drawn over everyone. So a
-    solid gives the `layer` its picture is in, and the strip behind it
-    (svg) or in front of it (foreground), as wide as its footprint, is in
-    the way too. Seen first on the khargosh-hi well, whose front wall is
-    foreground: routed round the front, the lion walked "into" the wall.
-    With the layer, the rabbit and the lion both go round the back and the
-    wall hides their legs as it should.
-  - Routes keep to the walk areas, so they cross water only where a walk
-    area is laid over it. With no walk areas, only solids are gone round:
-    a walk across the oont-hi river was first routed off the bottom of
-    the frame, since nothing said where the floor ends.
-  - A solid either end of the walk is on, or is in the strip of, is not
-    in its way: a walk to a seat on the cot goes straight in at the end.
-    Standing inside a footprint (cast, `set` or glided there) is
-    `support.solid`; sitting or lying on it is not.
-  - **Openings are not built.** A gap is where no footprint is (a hedge
-    with a gap is two solids), and an anchor names it if a walk goes
-    there. Named openings would add nothing to routing until there are
-    enclosures with insides on screen.
-  - **No released film changes.** Their scenes have no solids, and none
-    of their 767 walks leaves the walk areas, so none is routed.
-- **Art checks** (`src/project/construction.ts`, the scene check in
-  `validate.ts`). Both are warnings, like the rest of construction, and
-  show on the sheets.
-  - **A split elbow.** A bent limb is cut across its joint, and the lower
-    half turns under a disc as wide as the limb is drawn there. Where the
-    drawing reaches more than 4 units past that disc on either side, the
-    corners of the cut stick out of the bend. That is what Bhim's arms did
-    (lakshya-hi, review): before the elbows were centred on the drawing
-    they spilled about 10 units, and the check finds them again when his
-    elbows are put back at the rig's x with `bends`. Since then no elbow or
-    knee in the library, the examples or the released casts spills more
-    than 3.3 (a wide skirt's knees), so nothing is flagged. The message
-    gives the `bends` that centres the joint on the drawing.
-  - **A loose tail.** The pose sheet now shows the follow-through parts
-    thrown to their limit (28° each way), so a tail or an ear rooted
-    shallow is seen coming off. A check of every joint in every pose of
-    the sheet, each part drawn alone, was built and dropped. Over 316
-    released characters it found nothing, and on tails and ears moved off
-    their roots on purpose it fired only where the standing check already
-    had: a body is big, so a part that overlaps it standing still overlaps
-    it turned 28°. It added a quarter to `check`. Checking every variant of
-    a limb standing was tried too, and only flagged drooped ears in
-    approved films and the library farmer's back view.
-  - **A sway that moves too far.** The far end of a swaying group, at its
-    furthest turn in the scene's own wind, may move 40 px. The released
-    films' biggest crowns, approved, move 33 (lakshya-hi's `daal`), so
-    nothing there is flagged. The scene sheet draws the arc each far end
-    sweeps and labels it with the distance.
-  - **What pixels could not tell**: the gadha-hi clothes on a line,
-    swung as one group about the line's end, lifted off the rope by an
-    estimated 10 to 20 px, no more than a crown's edge moves. A check for
-    still art that a group touches away from its pivot was tried. The art
-    behind every group touches it too: the fixed per-cloth groups still
-    scored 12 px against the river bank, and the fireflies 17 against a
-    post. So the guide says to sway pieces held where they hang, and the
-    sheet's arcs let the eye see a cloth leave its rope.
-- **8.3 is done.**
+- **Art checks** (construction warnings, shown on sheets): a split elbow (the
+  drawing reaching more than 4 units past the joint disc; the message gives
+  the `bends` that centres it) and a sway whose far end moves more than 40 px
+  (approved crowns move 33). The pose sheet shows follow-through parts thrown
+  to their 28° limit. **Dropped**: a per-pose joint check (found nothing over
+  316 characters, a body is big enough that standing overlap implies turned
+  overlap, and it cost a quarter of `check`); a check for swaying art touching
+  still art (all art touches its background). The guide says to sway pieces
+  held where they hang instead.
 
-### 8.4 as built
+### 8.4 A vision critic
 
-- **What the critic is given** (`src/render/critic.ts`, `critique` in the
-  MCP, `talekit critic`). A shot's frames at its beats, not evenly spaced:
-  the first and last frame, the middle of every line, every verb at its
-  work (a blow, a scrub) or done (a walk arrived, a sit), and the last frame
-  of the shot before, across the cut. A verb done over and over (a blow a
-  second) is looked at once, beats within half a second are one look at
-  the later moment (so a walk is seen arrived), nothing is taken inside a
-  dissolve or a fade in, and a shot keeps at most eleven, lines first.
-  Under each frame is what the shot means then: who says what to whom, in
-  English where there is a translation, the verbs, the engine's own staging,
-  and how each actor in it is (walking, sitting, lying asleep, hidden, held,
-  facing). That caption is the point: the critic judges the picture against
-  what was meant, which is how a hut that should hold a sleeping man is
-  seen to be empty. Six landscape frames of 630 px (four portrait of 375)
-  go on a sheet, big enough to see a tail, small enough not to be shrunk.
-  The whole film gets a read-through: every line in the order it is heard,
-  with time, speaker, voice and English, and the silences of 4 s or more.
-- **The checklist** is a section of the authoring guide, "The critic",
-  which the tool and the CLI print from the guide, so there is one copy.
-  It has fifteen items, ten for the pictures and five for the
-  read-through, each from the review notes no check catches: drawing
-  (a crocodile on a bear's legs), parts that come apart, what is in front
-  (a moon before the trees, a garland's far strand), scenery that floats
-  or can be walked round, work that does not touch its work, picture
-  against words, changed things that change back, a place's layout, what
-  hides the action, a dead world; a missing step of the story, a turning
-  point said in a hurry, words that do not fit the speaker or the
-  listener, shared voices, and a film that drags.
-- **It is best done by a fresh agent**, given only the project's path and
-  the guide's section: the author knows what was meant and sees that.
-  It is judgment and not deterministic, so it gates nothing; the guide puts
-  it before the full render and in the checklist before `render`.
-- **The trial.** Five mistakes from real notes were planted in a copy of
-  gadha-hi (R18): the jackal's warning cut while the ending looks back to
-  it, "sister" said to the male donkey, the guards gone from the machaan
-  the jackal says they sleep on, the moon moved in front of the treeline,
-  and the garland given its far strand. A loose tail was tried first and
-  dropped as a fixture: the construction check already finds it. A fresh
-  agent with only the sheets, the read-through and the checklist found
-  the first four, sure, and the garland as unsure. It also found things
-  the person's review had not noted. Four were looked at and are true: a
-  hard-edged pale box round the buffalo's legs (the ghat's water band), an
-  evening shot under a midday sun, a shout bubble over a guard's head, and
-  the guards' heads in the machaan's thatch. Others (eating with no
-  vegetable at the mouth, a lathi raised a body length off) were not
-  checked.
-  Two of its findings were the sheet's fault: frames taken inside a 1 s
-  dissolve showed the shot before, so the bundles seemed to jump and the
-  donkey to change colour. Beats now start after the dissolve. One run on
-  one film is a sign, not a measure: how often it cries wolf will show
-  over the next films.
-- **8.4 is done, and with it phase 8.**
+- **Frames at beats, captioned with intent** (`critic.ts`, `critique`,
+  `talekit critic`): first and last frame, each line's middle, each verb at
+  its work or done, the frame before the cut; repeats looked at once, nothing
+  inside a dissolve, at most eleven. The caption (who says what to whom, the
+  verbs, the engine's staging, each actor's state) is the point: the critic
+  judges the picture against what was meant. Plus a read-through of every
+  line and silence of 4 s or more.
+- **The checklist is a guide section ("The critic")** printed by the tool, so
+  there is one copy; its items come from review notes no check catches.
+- **Best done by a fresh agent**: the author sees what was meant. It is
+  judgment, so it gates nothing.
+- Trial: five planted mistakes in a released film; a fresh agent found four
+  surely and the fifth unsure, plus true faults the review had missed. One run
+  is a sign, not a measure.
 
-### Cause and effect, as built (2026-11-14)
+### Cause and effect
 
-Checked against "every action has a reaction": wind already moved rain,
-snow, leaves, clouds, smoke, fire and the scenery's sway, and a `dig`
-threw up clods with a thud. Two causes reached nothing. A roar was only
-audio: in one film the author staged eleven animals' fright by hand, and
-two shots later six animals stood through the next roar unmoved. A blow
-was a pose: the thud and the victim's tremble were the author's to add,
-at 0.55 of the strike.
+"Every action has a reaction": wind already moved weather and sway. What did
+not reach anything:
 
-- **Startles** (stage.ts). The loud bundled sounds carry the face they
-  startle into (`STARTLES` in library/sounds.ts: a roar or a hiss
-  scares, a crash or a bray surprises). Everyone else in the shot who is
-  awake and has eyes changes face a moment after it (0.08 to 0.25 s),
-  which brings the head's take, and whoever is free turns to its actor.
-  The first cut frightened the lion's own side in the blue-jackal film:
-  his allies, angry at the jackal, looked scared when he roared "Catch
-  him!" at it. So a roar with a line said `to` someone startles that one
-  alone, only a calm face (neutral, happy, sad) changes, and a growl,
-  being a threat said low, startles nobody. Even so the mouse looked
-  scared of its friend the lion for the rest of a shot, and the lion's
-  court of him, since the engine cannot tell whose side anyone is on.
-  So the face settles back after 1.5 s: a flinch at a noise beside you
-  is physics, a lasting fear is the story's, set with an `emotion`.
-  Across the films a re-render would add about twenty such flinches,
-  each where a roar, a crash or a bray met a calm face.
-  Running away is left to the author: whether they flee is plot. So is
-  anyone the shot directs from 0.3 s before to 1 s after (a face, an
-  emotion, a turn, a `reacts`), which keeps the hand-staged films as
-  they were. A sound under volume 0.6 is far off; `startles` on the
-  action overrides the table. Asleep, they sleep on: waking someone
-  changes the story.
-- **The mouth of a sound** (timeline.ts). A sound made with the mouth
-  (`MOUTH_SOUNDS`) holds its actor's mouth open while it plays, up to
-  3 s, as a line's growl does.
-- **Hits that land** (timeline.ts, motion.ts, sound.ts). A `strike` with
-  a `to` gets a thud at the landing unless the shot has a sound within
-  0.3 s of it (99 hand-placed thuds in the films so far, none on a
-  strike with `to`, so no film doubles). Someone struck is thrown back
-  from the striker's side and leans with it, the eyes shut for 0.3 s
-  and a scared take, back to rest in 0.45 s. The knock is in the pose,
-  not the position, so the support and continuity checks never see an
-  actor shoved off its walk area for a moment. A blow on the ground
-  throws the dig's dust and four clods.
+- **Startles** (`stage.ts`, `STARTLES`): a loud sound briefly changes calm
+  faces and turns free heads to its source. A roar said `to` someone startles
+  that one only, and a growl nobody: the first cut frightened the lion's own
+  allies. The face settles after 1.5 s, because the engine cannot tell whose
+  side anyone is on: a flinch is physics, a lasting fear is the story's.
+  Fleeing, anyone the shot directs around then, and waking sleepers are left
+  to the author: they are plot.
+- **Mouth sounds** hold the mouth open while they play.
+- **Hits that land**: a `strike` with `to` gets a thud unless a sound is
+  already within 0.3 s (so hand-placed thuds are not doubled), and the struck
+  one recoils. The knock is in the pose, not the position, so support and
+  continuity never see an actor shoved off its area.
+- **Wind on springs**: gusts push springs as a pivot's acceleration would,
+  never past the 28° limit; each spring starts where the wind holds it, or
+  every shot in a gale opened with plaits swinging out.
+- **Landings and splashes** (`impact.ts`) are read off how actors move, not
+  off the actions; the landing surface decides dust, splash or nothing.
+  `waterline` exists because swimmers sit below a foreground band, which hid
+  splashes drawn at the feet. Sizes go by the square root of what lands, so a
+  frog's still shows.
+- **Bow waves** are built from the swimmer's sampled past, not a fixed shape,
+  so the V lengthens with speed, bends round a turn and fades when it stops.
+  Three ripples per arm: one line was lost in painted waterline dashes.
+- **Footprints** only on `surface: sand | snow`: prints on grass would be
+  wrong, and every grass scene would sprout trails on a re-render.
+- **Held sails** (`sail` on a prop) lean downwind about the grip as a function
+  of time, not a spring (a held pole is stiff). A marker, not a guess from the
+  shape: only the author knows a banner from a board.
 
-- **Wind on the springs** (springs.ts). The weather's wind pushes each
-  spring as an acceleration of its pivot would, gusting about it (a slow
-  swell, a quicker one, a flutter, each actor in its own phase, more
-  gusty as the wind rises): 14° for a part hanging straight down at wind
-  1, nothing for one held along the wind, never past the 28° the
-  follow-through cells show. Each spring starts the shot where the wind
-  holds it. Otherwise every shot in a gale opened with the plaits hanging
-  straight and swinging out over the first half second.
-- **Landings and splashes** (impact.ts). Read off how each actor moves,
-  not off the actions: a jump lands when its jump ends, a drop where its
-  fall stops falling, by sampling its state at 60 Hz from each `jump`,
-  `fall` or let-go. A walk into water is found by sampling every 0.5 s
-  and bisecting the crossing. The landing spot decides dust or a splash.
-  A walk area means dust, and wins over water under it (a stone in the
-  river). Water means a splash. Anything else (a branch, a seat,
-  someone's back) raises nothing. Water drawn the house way puts
-  swimmers below a foreground band, so splashes drawn at the feet sat
-  under the band, tinted out of sight. Hence `waterline` on the water:
-  the splash lies on the line, and the near half of its rings is drawn
-  over the band, clipped to that water so it never crosses the bank. The
-  spray is drawn with the actor, since it is all above the line. Sizes
-  go by the square root of what lands, so a frog's splash still shows.
-  Across the films a re-render adds 126 puffs of dust, 44 splashes
-  (all but one a walk or a swan's landing into water) and 212 rings.
-  The films' river scenes had no `water` and no `waterline`, so they were
-  given both (the `water` the painted river, kept off the floor: a river
-  effect's points ran over the bank, and a crier on a ghat's floor drew
-  rings). Finding them costs under 0.35 s a film.
-- **Bow waves** (impact.ts). Rings alone left a gliding swan looking
-  towed. Whatever is `wet` (the rings' test) and moving trails a V. It is
-  built the way a real wake forms, not drawn as a fixed shape: the
-  swimmer's place is sampled 12 times a second, each crest is where its
-  front was up to 1.4 s back, spread out sideways since at half its
-  speed then (a ship's wake opens at about a third; half reads better
-  foreshortened), and fading with age. So the arms lengthen and widen
-  with speed, bend round a turn, and when it stops no more crests leave
-  it and the V fades out on its own. The front is the way it moves, not
-  the way it faces. Each arm has three ripples, one behind the other: a
-  single line got lost in the art's white waterline dashes, and short
-  slanting crests across the arm read as hatching. The far arm is drawn
-  with the back half of the rings and the near arm with the near half,
-  over the band and clipped to the water. With a waterline every crest
-  lies on the line, so a dunk's up and down never turns the V. A cheap
-  look 4 times a second first skips anyone who never gets wet; across
-  the films it shows in about 3,200 frames (the camel's ford, the
-  crocodile's ride, the jackal's swim) for under 0.25 s a film, finding
-  and drawing.
-- **Footprints** (impact.ts, gait.ts `legFalls`). A new `surface`, `sand`
-  or `snow`, keeps them; `grass` (also earth) does not, since prints on a
-  lawn would be wrong and every film's grass scenes would sprout trails
-  on a re-render. Each foot's landing is found as the footsteps are,
-  where the gait's phase passes that leg's landing (30 samples a second),
-  and the spot is the leg's foot point in the pose then, which the gait
-  keeps planted through the stance; the far legs' prints sit a little up
-  the floor from the near ones'. A person leaves a sole and heel, one
-  path so the overlap is no darker, an animal a pad; they fade to about
-  half over 6 s and stay to the end of the shot, under every shadow.
-  None in water, on a seat, sitting, lying, carried or ridden, nor off
-  the walk areas. Sand and snow step like grass. No film has a sand scene
-  yet; played all on sand, the films would get 35 to 1,039 prints each,
-  costing under a second a film.
-- **Held sails** (timeline.ts, actor.ts, weather.ts). A carried prop
-  marked `sail` (0 to 1: an umbrella 1, a flag 0.6) leans downwind about
-  its grip, gusting by the springs' own gust model (moved to weather.ts
-  as `gusting`, so the two cannot drift apart), in the prop's own phase:
-  20° times the sail and the gust, eased by a tanh into 32° so a gale's
-  top gust bends on rather than stopping dead, about 24° at most. The
-  lean is a function of time, not a spring: a held pole is stiff, and
-  the gusts' swell and flutter already move it, so there is nothing to
-  start at equilibrium. The holder's state carries the lean (`blown`),
-  so poseFor turns the holding arm about the shoulder by 0.4 of it, the
-  way that takes the hand downwind (back for a hand below the shoulder),
-  and the prop is placed from that hand and turned about it. Grip and
-  hand are one point by construction, which every check reading
-  holdPoint (contact, give, pickup) sees too. A marker on the character
-  rather than a guess from the shape: an umbrella and a parasol look
-  alike, and only the author knows a banner from a board. The first
-  render showed a flag held by someone facing left streaming into the
-  wind, since props are drawn facing right and carried facing the way
-  their holder does; a sail in a wind now faces downwind instead. A
-  shelter (the canopy's dry span) follows the tilt, as it does a swing.
-  No library prop is an umbrella or a flag, and no story carries one yet
-  (the films' flags are painted into the scenery).
-
-Not done: prints across a cut (each shot starts with clean ground), a
-wake that breaks on a bank or a rock (it is drawn over them), the body
-leaning into a gale, a planted flag (the scene's `sway` moves it,
-without facing downwind). Birds taking off at a roar are the author's,
-since they leave the shot.
+**Open:** prints across a cut, a wake that breaks on a bank, a body leaning
+into a gale, a planted flag facing downwind.
 
 ## Render speed
 
-Measured 2026-10-23 on a 12-core M-series Mac, on the race film (273 s,
-agent-painted scenery at 100 to 200 KB of SVG) and lost-kite (61 s):
+Measured on a 12-core Mac: the race film went from 262 s to 39 s,
+byte-identical.
 
-- **Fonts, not drawing, were most of a frame.** resvg read every system font
-  for any SVG with fonts on, about 75 ms against 15 to 35 ms of drawing. Each
-  `<text>` is now laid out once by resvg (`Resvg.toString()` returns the
-  paths) and frames render with no fonts. Latin text frames move a few edge
-  pixels by a step or two of 255. Text that inherits its look or sits under
-  a `<style>` stays text.
-- **Worker threads** (all cores but two, up to 8) each compose and rasterise
-  whole frames; the main thread orders them for ffmpeg, as raw RGBA rather
-  than PNG.
-- **Memory.** resvg's frames live outside the JS heap, so V8 seldom collected
-  and a worker held 6 GB in minutes. Each worker draws one frame per turn and
-  runs a young-generation collection after it: under 1 GB.
-
-The race film went from 262 s to 39 s (byte-identical), lost-kite from 41 s
-to 10 s. Drawing still dominates: ffmpeg alone encodes the race in 7 s.
-
-Drawing the scenery once per shot was tried and dropped. The backdrop is 27
-of 38 ms a frame, but it is not still (a `sun` turns its rays, clouds and
-rain move), so a cached backdrop repeated in 2 of 16 race shots; the still
-parts cost less than unpacking a cached picture (about 8 ms), and drawing
-the scene on a clear layer moved edge pixels by up to 54 of 255.
+- **Fonts, not drawing, were most of a frame** (resvg read every system font).
+  Each `<text>` is laid out once into paths and frames render with no fonts.
+- **Worker threads** compose and rasterise whole frames, sent to ffmpeg as raw
+  RGBA. Each worker draws one frame per turn and runs a young-generation GC
+  after it: resvg's memory lives outside the JS heap, so V8 seldom collected
+  and a worker grew to 6 GB.
+- **Drawing the scenery once per shot was dropped**: the backdrop is not still
+  (sun rays, clouds, rain), its still parts cost less than unpacking a cached
+  picture, and drawing on a clear layer moved edge pixels.
 
 ## Later (deliberately not now)
 
 - A run with a non-Claude agent, and more MCP ergonomics.
 - More emotions and eyebrows; image-model backgrounds as a layer.
 - A bundled font for identical Latin text across machines (Devanagari is
-  bundled already, see 7.7).
-- From the passes above: ripples round a swimmer, `attach` to a named point
-  (a parrot on a shoulder), a depth walk with planted feet, camera shake, a
-  prop that turns with the hand, a hobble.
+  bundled already, 7.7).
+- From the passes above: a depth walk with planted feet (a walk mostly in y
+  still slides its feet), camera shake, a prop that turns with the hand,
+  `attach` to a named point (a parrot on a shoulder), a hobble, a carrier
+  that is itself carried.
+- Needing engine work, not drawing: a slithering snake, crutches, a
+  wheelchair.
