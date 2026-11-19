@@ -128,6 +128,22 @@ function worldReport(project: Project, shot: Shot): { text: string; frames: Cont
 /** Errors that stop a write: all but the world's, which the agent must see the result to fix. */
 const blocking = (problems: Problem[]) => problems.filter((p) => p.level === 'error' && !p.code);
 
+/** Check and save a scene for write_scene and copy_from_library alike: its world findings come
+ * back with the anchor sheet and block only the render. */
+async function writeScene(root: string, scene: Scene) {
+  const project = await loadProject(root);
+  const problems = [
+    ...validateScene(scene, project.meta.width, project.meta.height),
+    ...sceneSoundProblems(scene, project),
+  ];
+  if (blocking(problems).length) return fail(formatProblems(problems));
+  const file = await saveScene(root, scene);
+  return ok(
+    text(`wrote ${file}\n${formatProblems(problems)}`),
+    reduced(sceneSheetSvg(project, scene), SCENE_SHEET)
+  );
+}
+
 /**
  * Speak the lines in these shots that have no audio yet, and say what happened in a line
  * for the tool's text. Never throws: without the sidecar the lines stay silent, on
@@ -413,7 +429,7 @@ export function buildServer(): McpServer {
     {
       title: 'Copy from library',
       description:
-        'Copy a built-in character or scene into the project, optionally under a new id, name, colours, height or (scene) added anchors. Returns the pose sheet (a library drawing already passes construction) or the anchor sheet.',
+        'Copy a built-in character or scene into the project, optionally under a new id, name, colours, height or (scene) added anchors. Returns the pose sheet (a library drawing already passes construction) or the anchor sheet; a scene is checked and saved as write_scene does it, world findings included.',
       inputSchema: {
         path: pathArg,
         libraryId: z.string(),
@@ -465,14 +481,7 @@ export function buildServer(): McpServer {
             name: name ?? s.name,
             anchors: { ...s.anchors, ...(anchors ?? {}) },
           });
-          const project = await loadProject(root);
-          const problems = validateScene(scene, project.meta.width, project.meta.height);
-          if (hasErrors(problems)) return fail(formatProblems(problems));
-          const file = await saveScene(root, scene);
-          return ok(
-            text(`wrote ${file}\n${formatProblems(problems)}`),
-            reduced(sceneSheetSvg(project, scene), SCENE_SHEET)
-          );
+          return await writeScene(root, scene);
         }
         return fail(`no library item '${libraryId}'`);
       } catch (e) {
@@ -519,17 +528,7 @@ export function buildServer(): McpServer {
     },
     async ({ path: root, scene }) => {
       try {
-        const project = await loadProject(root);
-        const problems = [
-          ...validateScene(scene, project.meta.width, project.meta.height),
-          ...sceneSoundProblems(scene, project),
-        ];
-        if (blocking(problems).length) return fail(formatProblems(problems));
-        const file = await saveScene(root, scene);
-        return ok(
-          text(`wrote ${file}\n${formatProblems(problems)}`),
-          reduced(sceneSheetSvg(project, scene), SCENE_SHEET)
-        );
+        return await writeScene(root, scene);
       } catch (e) {
         return fail((e as Error).message);
       }
