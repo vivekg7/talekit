@@ -13,14 +13,14 @@ import json
 import math
 import os
 
-from .svg import taper
+from .svg import f1, taper
 
 LINE = "#2e2633"
 
 
 def f(v):
-    """A number to one decimal, without a trailing .0 or 0."""
-    return f"{v:.1f}".rstrip("0").rstrip(".")
+    """svg.f1: a number to one decimal, without a trailing .0."""
+    return f1(v)
 
 
 def blob(cx, cy, rx, ry, rnd, n=9, jitter=0.18):

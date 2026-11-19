@@ -58,7 +58,6 @@ CAST = {
         mouth=p.mouth(),
         description="A boy of twelve: spiky hair, mustard kurta, white pyjama, tan juttis.",
         voice={"id": "chatterbox:hm_psi", "pitch": 3},
-        hold=[129, 284],
         colors={
             "skin": "#c58c60",
             "hair": "#2b201b",

@@ -123,9 +123,7 @@ def act(m):
 def delivery(req):
     """How a line is said, from its speaker's emotion and its style: pitch range, shift, pace."""
     e = MOOD.get(req.get("emotion", "neutral"), MOOD["neutral"])
-    s = STYLE.get(
-        req.get("style", "speech"), {"range": 1.0, "shift": 0.0, "speed": 1.0}
-    )
+    s = STYLE.get(req.get("style", "speech"), MOOD["neutral"])
     return {
         "range": e["range"] * s["range"],
         "shift": e["shift"] + s["shift"],

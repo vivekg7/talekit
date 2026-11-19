@@ -2,7 +2,7 @@
 the lookup tables (BEARDS, TILAK, LOOKS...), read from the modules themselves.
 
 usage: python3 kit/talekit/api.py [module|name ...]
-No argument prints the whole kit (about 5k tokens, against 25k for people.py alone); a
+No argument prints the whole kit (about 6k tokens, against 25k for people.py alone); a
 module name (people, shots...) prints that module, any other name the helpers and tables
 it matches. Read this instead of the source; open a body only when its docstring is not
 enough."""

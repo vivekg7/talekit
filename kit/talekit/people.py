@@ -46,31 +46,35 @@ Torso = namedtuple("Torso", "front back hem")
 # engine bends it at the elbow (y 226). `near` is True for armR, the arm toward the viewer.
 
 
-def hand(hx, hy):
-    """A mitten hand, thumb forward, the fingers' curl as a short line."""
-    return (
-        fill(
-            f"M{hx - 11} {hy - 8} C{hx - 13} {hy + 3} {hx - 8} {hy + 12} {hx} {hy + 12} C{hx + 9} {hy + 12} {hx + 12} {hy + 4} "
-            f"{hx + 11} {hy - 7} C{hx + 9} {hy - 15} {hx - 9} {hy - 16} {hx - 11} {hy - 8} Z",
-            "{skin}",
-        )
-        + fill(
-            f"M{hx} {hy - 9} C{hx + 10} {hy - 17} {hx + 17} {hy - 12} {hx + 16} {hy - 5} C{hx + 15} {hy} {hx + 10} {hy + 5} {hx} {hy + 3} Z",
-            "{skin}",
-        )
-        + line(f"M{hx - 7} {hy + 5} Q{hx - 2} {hy + 9} {hx + 3} {hy + 6}", 2.5, "{skinDark}")
+def _mitten(hx, hy):
+    return fill(
+        f"M{hx - 11} {hy - 8} C{hx - 13} {hy + 3} {hx - 8} {hy + 12} {hx} {hy + 12} C{hx + 9} {hy + 12} {hx + 12} {hy + 4} "
+        f"{hx + 11} {hy - 7} C{hx + 9} {hy - 15} {hx - 9} {hy - 16} {hx - 11} {hy - 8} Z",
+        "{skin}",
+    ) + fill(
+        f"M{hx} {hy - 9} C{hx + 10} {hy - 17} {hx + 17} {hy - 12} {hx + 16} {hy - 5} C{hx + 15} {hy} {hx + 10} {hy + 5} {hx} {hy + 3} Z",
+        "{skin}",
     )
 
 
-def _band_across(px, hx, cy, h, hw, col, at):
-    """A band square across the arm's line, centred at height cy: a cuff, an armlet."""
+def hand(hx, hy):
+    """A mitten hand, thumb forward, the fingers' curl as a short line."""
+    return _mitten(hx, hy) + line(f"M{hx - 7} {hy + 5} Q{hx - 2} {hy + 9} {hx + 3} {hy + 6}", 2.5, "{skinDark}")
+
+
+def _arm_line(px, hx):
+    """x at height y on the arm's line from the shoulder (px, 178) to the hand (hx, 288)."""
+    return lambda y: px + (hx - px) * (y - 178) / 110
+
+
+def _band(px, hx, c, a, b, hw, col):
+    """A band square across the arm's line, from a to b along it about the point c."""
     dx, dy = hx - px, 110
     ln = math.hypot(dx, dy)
     ux, uy = dx / ln, dy / ln
     nx, ny = -uy, ux
-    cx = at(cy)
-    c0 = (cx - ux * h / 2, cy - uy * h / 2)
-    c1 = (cx + ux * h / 2, cy + uy * h / 2)
+    c0 = (c[0] + ux * a, c[1] + uy * a)
+    c1 = (c[0] + ux * b, c[1] + uy * b)
     pts = [
         (c0[0] + nx * hw, c0[1] + ny * hw),
         (c1[0] + nx * hw, c1[1] + ny * hw),
@@ -80,15 +84,19 @@ def _band_across(px, hx, cy, h, hw, col, at):
     return fill(poly(pts), col)
 
 
+def _band_across(px, hx, cy, h, hw, col, at):
+    """A band square across the arm's line, centred at height cy: a cuff, an armlet. `at` is
+    the arm's _arm_line."""
+    return _band(px, hx, (at(cy), cy), -h / 2, h / 2, hw, col)
+
+
 def sleeves(cloth="shirt", cuff="cuff", bangle=False):
     """Full sleeves of a kurta or tunic to a cuff at the wrist, a bare wrist, the hand; a fold
     where the sleeve bends at the elbow. Tokens: skin, <cloth>, <cloth>Dark, cuff (or the
     `cuff` token given), gold for a bangle."""
 
     def arm(px, hx, near=False):
-        def at(y):
-            return px + (hx - px) * (y - 178) / 110
-
+        at = _arm_line(px, hx)
         wy = 262
         wx = at(wy)
         out = stroke(f"M{f1(at(250))} 250 L{hx} 284", "{skin}", 15) + hand(hx, 292)
@@ -99,20 +107,7 @@ def sleeves(cloth="shirt", cuff="cuff", bangle=False):
             + stroke(f"M{px} 178 L{f1(wx)} {wy}", f"{{{cloth}}}", 22, "butt")
             + stroke(f"M{px} 178 L{f1(at(200))} 200", f"{{{cloth}}}", 22)
         )
-        dx, dy = hx - px, 110
-        ln = math.hypot(dx, dy)
-        ux, uy = dx / ln, dy / ln
-        nx, ny = -uy, ux
-        c0 = (wx - ux * 9, wy - uy * 9)
-        c1 = (wx + ux * 1, wy + uy * 1)
-        hw = 12
-        pts = [
-            (c0[0] + nx * hw, c0[1] + ny * hw),
-            (c1[0] + nx * hw, c1[1] + ny * hw),
-            (c1[0] - nx * hw, c1[1] - ny * hw),
-            (c0[0] - nx * hw, c0[1] - ny * hw),
-        ]
-        out += fill(poly(pts), f"{{{cuff}}}")
+        out += _band(px, hx, (wx, wy), -9, 1, 12, f"{{{cuff}}}")
         out += line(f"M{f1(at(222) - 6)} 221 Q{f1(at(226))} 226 {f1(at(224) + 7)} 223", 2.5, f"{{{cloth}Dark}}")
         return out
 
@@ -124,24 +119,11 @@ def royal_sleeves(cloth="coat", width=24, armlet=True, ring=True):
     near hand. Tokens: skin, <cloth>, gold, goldDark, ruby."""
 
     def arm(px, hx, near=False):
-        def at(y):
-            return px + (hx - px) * (y - 178) / 110
-
+        at = _arm_line(px, hx)
         wy = 262
         wx = at(wy)
-        out = stroke(f"M{f1(at(250))} 250 L{hx} 288", "{skin}", 15)
-        out += (
-            fill(
-                f"M{hx - 11} 284 C{hx - 13} 295 {hx - 8} 304 {hx} 304 C{hx + 9} 304 {hx + 12} 296 {hx + 11} 285 "
-                f"C{hx + 9} 277 {hx - 9} 276 {hx - 11} 284 Z",
-                "{skin}",
-            )
-            + fill(
-                f"M{hx} 283 C{hx + 10} 275 {hx + 17} 280 {hx + 16} 287 C{hx + 15} 292 {hx + 10} 297 {hx} 295 Z",
-                "{skin}",
-            )
-            + fill(f"M{hx - 8} 294 Q{hx - 3} 299.7 {hx + 2} 295 Q{hx - 3} 297.3 {hx - 8} 294 Z", "{line}")
-        )
+        out = stroke(f"M{f1(at(250))} 250 L{hx} 288", "{skin}", 15) + _mitten(hx, 292)
+        out += fill(f"M{hx - 8} 294 Q{hx - 3} 299.7 {hx + 2} 295 Q{hx - 3} 297.3 {hx - 8} 294 Z", "{line}")
         out += (
             circle(px, 174, width / 2 + 3, f"{{{cloth}}}")
             + stroke(f"M{px} 178 L{f1(wx)} {wy}", f"{{{cloth}}}", width, "butt")
@@ -186,9 +168,7 @@ def blouse_sleeves(cloth="blouse", trim="border", end=210, bangles=3):
     gold), bangle (gold), bangle2 (ruby)."""
 
     def arm(px, hx, near=False):
-        def at(y):
-            return px + (hx - px) * (y - 178) / 110
-
+        at = _arm_line(px, hx)
         out = stroke(f"M{px} 178 L{hx} 284", "{skin}", 14) + hand(hx, 292)
         for i, cy in enumerate((264, 269.5, 275)[:bangles]):
             out += _band_across(px, hx, cy, 4, 9, "{bangle}" if i % 2 == 0 else "{bangle2}", at)
@@ -205,15 +185,25 @@ def blouse_sleeves(cloth="blouse", trim="border", end=210, bangles=3):
 # A foot stands on y=400 with the heel at fx-14 and the toe toward the right.
 
 
+def _foot_outline(x):
+    return (
+        f"M{x} 396 C{x - 1} 387 {x + 4} 380 {x + 13} 379 L{x + 22} 381 C{x + 31} 384 {x + 41} 388 {x + 47} 392 "
+        f"C{x + 51} 395 {x + 50} 400 {x + 45} 400 L{x + 3} 400 Q{x} 400 {x} 396 Z"
+    )
+
+
+def _sole(x):
+    """A shoe's pale sole edge."""
+    return fill(
+        f"M{x - 2} 394 L{x + 50} 394 Q{x + 49} 400 {x + 43} 400 L{x + 2} 400 Q{x - 2} 400 {x - 2} 394 Z", "{sole}"
+    )
+
+
 def bare_foot(fx):
     """A bare foot flat on the floor, the toes marked. Tokens: skin, skinDark."""
     x = fx - 14
     return (
-        fill(
-            f"M{x} 396 C{x - 1} 387 {x + 4} 380 {x + 13} 379 L{x + 22} 381 C{x + 31} 384 {x + 41} 388 {x + 47} 392 "
-            f"C{x + 51} 395 {x + 50} 400 {x + 45} 400 L{x + 3} 400 Q{x} 400 {x} 396 Z",
-            "{skin}",
-        )
+        fill(_foot_outline(x), "{skin}")
         + line(f"M{x + 40} 393 L{x + 39} 397", 2.2, "{skinDark}")
         + line(f"M{x + 35} 392 L{x + 34} 396", 2.2, "{skinDark}")
         + line(f"M{x + 8} 386 Q{x + 12} 388 {x + 16} 386", 2.2, "{skinDark}")
@@ -248,9 +238,7 @@ def jutti(fx):
             f"C{x + 54} 384 {x + 57} 381 {x + 58} 379 C{x + 59} 386 {x + 54} 394 {x + 46} 397 L{x} 397 Z",
             "{shoes}",
         )
-        + fill(
-            f"M{x - 2} 394 L{x + 50} 394 Q{x + 49} 400 {x + 43} 400 L{x + 2} 400 Q{x - 2} 400 {x - 2} 394 Z", "{sole}"
-        )
+        + _sole(x)
         + line(f"M{x + 16} 384 Q{x + 30} 384 {x + 44} 389", 2.5, "{shoesLight}")
     )
 
@@ -265,9 +253,7 @@ def royal_jutti(fx):
             f"C{x + 55} 382 {x + 57} 377 {x + 56} 372 C{x + 62} 376 {x + 60} 390 {x + 48} 397 L{x} 397 Z",
             "{shoes}",
         )
-        + fill(
-            f"M{x - 2} 394 L{x + 50} 394 Q{x + 49} 400 {x + 43} 400 L{x + 2} 400 Q{x - 2} 400 {x - 2} 394 Z", "{sole}"
-        )
+        + _sole(x)
         + line(f"M{x + 14} 384 Q{x + 30} 383 {x + 46} 389", 3, "{shoesLight}")
         + circle(x + 56, 372, 2.6, "{shoesLight}")
     )
@@ -284,9 +270,7 @@ def boot(fx):
             f"C{x + 55} 384 {x + 58} 380 {x + 59} 377 C{x + 60} 386 {x + 55} 394 {x + 46} 397 L{x} 397 Z",
             "{shoes}",
         )
-        + fill(
-            f"M{x - 2} 394 L{x + 50} 394 Q{x + 49} 400 {x + 43} 400 L{x + 2} 400 Q{x - 2} 400 {x - 2} 394 Z", "{sole}"
-        )
+        + _sole(x)
         + fill(f"M{fx - 13} 344 L{fx + 13} 344 L{fx + 13} 353 L{fx - 13} 353 Z", "{shoesDark}")
         + line(f"M{x + 18} 383 Q{x + 32} 383 {x + 46} 389", 2.5, "{shoesLight}")
     )
@@ -297,13 +281,8 @@ def khadau(fx):
     between the first two toes: a sage, a temple student, a pilgrim. Tokens: skin, skinDark,
     shoes, shoesDark."""
     x = fx - 14
-    foot = shift_y(
-        f"M{x} 396 C{x - 1} 387 {x + 4} 380 {x + 13} 379 L{x + 22} 381 C{x + 31} 384 {x + 41} 388 {x + 47} 392 "
-        f"C{x + 51} 395 {x + 50} 400 {x + 45} 400 L{x + 3} 400 Q{x} 400 {x} 396 Z",
-        -7,
-    )
     return (
-        fill(foot, "{skin}")
+        fill(shift_y(_foot_outline(x), -7), "{skin}")
         + line(f"M{x + 8} 379 Q{x + 12} 381 {x + 16} 379", 2.2, "{skinDark}")
         + fill(
             f"M{x - 3} 389 L{x + 51} 389 Q{x + 54} 400 {x + 46} 400 L{x + 1} 400 Q{x - 3} 400 {x - 3} 389 Z", "{shoes}"
@@ -448,6 +427,7 @@ EARS_BACK = "<ellipse cx='56' cy='106' rx='10' ry='14' fill='{skin}'/><ellipse c
 EARS_WIDE = "<ellipse cx='55' cy='106' rx='10' ry='14' fill='{skin}'/><ellipse cx='145' cy='106' rx='10' ry='14' fill='{skin}'/>"
 SIDEBURN = fill("M54 98 C54 90 60 84 70 82 C72 92 72 102 72 112 Q70 116 66 110 L64 100 C60 98 57 98 54 100 Z", "{hair}")
 TEMPLE = fill("M54 98 C54 90 60 84 70 82 C72 92 72 100 72 108 Q70 112 66 106 L64 98 C60 96 57 97 54 100 Z", "{hair}")
+HAIR_BEHIND = fill("M60 128 C44 116 38 84 50 62 C62 42 90 38 110 44 L100 104 Z", "{hair}")
 BACK_OF_HEAD = "M50 108 C42 62 70 40 100 40 C130 40 158 62 150 108 C146 126 124 134 100 134 C76 134 54 126 50 108 Z"
 
 
@@ -490,14 +470,13 @@ def short_hair():
 def side_part():
     """Fuller hair, neatly combed with a side parting and locks over the brow. Tokens: hair,
     hairLight, hairDark."""
-    back_hair = fill("M60 128 C44 116 38 84 50 62 C62 42 90 38 110 44 L100 104 Z", "{hair}")
     cap = (
         "M46 98 C42 72 56 44 84 34 C112 26 146 30 154 50 C158 60 156 72 148 80 "
         + _locks([(148, 80), (132, 70), (112, 66), (92, 66), (74, 72)])
         + "C72 82 72 92 72 104 Q70 108 66 104 L64 92 C58 90 52 92 46 98 Z"
     )
     front = (
-        back_hair
+        HAIR_BEHIND
         + SKIN
         + EAR
         + fill(cap, "{hair}")
@@ -516,7 +495,6 @@ def side_part():
 def spiky_hair():
     """Short hair standing up in spikes over the forehead, a cowlick on the crown: a boy, the
     youngest brother. Tokens: hair, hairLight."""
-    back_hair = fill("M60 128 C44 116 38 84 50 62 C62 42 90 38 110 44 L100 104 Z", "{hair}")
     cap = (
         "M46 98 C42 72 54 46 78 34 "
         "L80 18 L92 31 L100 12 L110 30 L124 14 L126 34 L142 24 L140 42 "
@@ -525,7 +503,7 @@ def spiky_hair():
         + "C72 84 72 92 72 104 Q70 108 66 104 L64 92 C58 90 52 92 46 98 Z"
     )
     front = (
-        back_hair
+        HAIR_BEHIND
         + SKIN
         + EAR
         + fill(cap, "{hair}")
@@ -577,7 +555,7 @@ def curly_hair():
         return "".join(line(f"M{x - 4} {y + 1} Q{x} {y - 5} {x + 4} {y + 1}", 2.5, "{hairLight}") for x, y in pts)
 
     front = (
-        fill("M60 128 C44 116 38 84 50 62 C62 42 90 38 110 44 L100 104 Z", "{hair}")
+        HAIR_BEHIND
         + _curls([(54, 116), (48, 102)], 11)
         + SKIN
         + EAR
@@ -619,7 +597,7 @@ def head_band():
     )
     front = (
         tails
-        + fill("M60 128 C44 116 38 84 50 62 C62 42 90 38 110 44 L100 104 Z", "{hair}")
+        + HAIR_BEHIND
         + SKIN
         + EAR
         + fill(cap, "{hair}")
@@ -837,13 +815,12 @@ def _shikha(x, y, lean):
 
 
 def shaven_head(fringe=True, shikha=True, stubble=False, beard=False, locks=False):
-    """A head shaved for a sage or a temple student: the crown bare with a shine. `fringe`
-    leaves an old man's ring of hair round the sides and back; `shikha` the tuft left long at
-    the back of the crown, knotted at its root; `stubble` a faint shadow of regrowth over the
-    scalp (a young man freshly shaved); `beard` whiskers along the far jaw from the ear, to
-    join a long beard drawn by face(beard='long') (the beard turns with the face, so it lives
-    there); `locks` lets the fringe grow long, down past the ear to the shoulders in waves:
-    an old sadhu or rishi. Tokens: skin, skinLight, skinDark, hair, hairDark."""
+    """A head shaved for a sage or a temple student, the crown bare with a shine. `fringe`: an
+    old man's ring of hair round the sides and back; `shikha`: the tuft left long at the back
+    of the crown; `stubble`: faint regrowth over the scalp (a young man); `beard`: whiskers on
+    the far jaw to join face(beard='long'), which draws the beard so it turns with the face;
+    `locks`: the fringe grown long to the shoulders (an old sadhu or rishi). Tokens: skin,
+    skinLight, skinDark, hair, hairDark."""
     dome = (
         "M53 100 C50 72 70 49 100 48 C127 48 146 64 149 82 "
         "C132 74 108 72 88 76 C79 80 74 88 72 98 L67 102 C61 98 57 98 53 100 Z"
@@ -1022,7 +999,7 @@ def _jhumka(x, y):
 
 
 def _woman_front(earrings):
-    return SKIN + _PARTED + _PARTING + _SHEEN + EAR + (_jhumka(57, 122) if earrings else "")
+    return _LONG_BACK + SKIN + _PARTED + _PARTING + _SHEEN + EAR + (_jhumka(57, 122) if earrings else "")
 
 
 def _woman_back(earrings, dome=_DOME):
@@ -1053,18 +1030,12 @@ def _braid(top, bottom, w0, w1, n):
     seg = (y1 - y0) / n
     for k in range(1, n):
         x, y, hw = c(k)
-        if k % 2:
-            s += line(
-                f"M{f1(x - hw)} {f1(y)} Q{f1(x + hw * 0.05)} {f1(y + seg * 0.55)} {f1(x + hw * 0.25)} {f1(y + seg * 0.9)}",
-                2.5,
-                "{hairDark}",
-            )
-        else:
-            s += line(
-                f"M{f1(x + hw)} {f1(y)} Q{f1(x - hw * 0.05)} {f1(y + seg * 0.55)} {f1(x - hw * 0.25)} {f1(y + seg * 0.9)}",
-                2.5,
-                "{hairDark}",
-            )
+        hw *= -1 if k % 2 else 1
+        s += line(
+            f"M{f1(x + hw)} {f1(y)} Q{f1(x - hw * 0.05)} {f1(y + seg * 0.55)} {f1(x - hw * 0.25)} {f1(y + seg * 0.9)}",
+            2.5,
+            "{hairDark}",
+        )
     return s
 
 
@@ -1107,7 +1078,7 @@ def bun(gajra=True, veil=False, earrings=True):
             circle(x, y, 3.2, "{gajra}") for x, y in ((31, 122), (32, 115), (35, 109), (40.5, 105), (47, 103.5))
         )
     # Under a veil the cloth hides the bun from the front.
-    front = ("" if veil else knot) + _LONG_BACK + _woman_front(earrings)
+    front = ("" if veil else knot) + _woman_front(earrings)
     knot_b = circle(100, 126, 20, "{hair}") + line("M100 112 Q114 118 108 132 Q98 140 88 130", 2.5, "{hairDark}")
     if gajra:
         knot_b += "".join(
@@ -1148,7 +1119,7 @@ def plait(earrings=True):
     swings as she walks, hangs over the far shoulder from in front and down the middle of
     the back from behind. Tokens: hair, hairLight, hairDark, earring (gold), tie (ruby),
     trim (gold)."""
-    front = _LONG_BACK + _woman_front(earrings)
+    front = _woman_front(earrings)
     back = (
         _woman_back(earrings)
         + line("M72 54 Q82 100 96 138", 2.5, "{hairDark}")
@@ -1173,7 +1144,7 @@ def two_plaits(earrings=False):
     """A girl's two plaits, one each side from behind the ears to the shoulders, each tied
     with a ribbon bow; both swing. Tokens: hair, hairLight, hairDark, ribbon (ruby), earring
     (gold) when `earrings`."""
-    front = _LONG_BACK + _woman_front(earrings)
+    front = _woman_front(earrings)
     back = _woman_back(earrings) + line("M100 44 L100 132", 2.5, "{hairDark}")
     hung = {
         "parts": {
@@ -1439,7 +1410,7 @@ def eyes(look="plain", brow=6.5, twinkle=False, lashes=False):
             s += _lid(84, 100 + dy, rx, ry, cut, slant) + _lid(116, 100 + dy, rx, ry, cut, -slant)
         return s
 
-    sad_lid = {"cut": lk["eye"]["cut"] + 1} if "cut" in lk["eye"] and look == "old" else {}
+    sad_lid = {"cut": lk["eye"]["cut"] + 1} if look == "old" else {}
 
     def flick(dy=0):
         return line(f"M77 {95 + dy} L71 {91 + dy}", 2.5) + line(f"M123 {95 + dy} L129 {91 + dy}", 2.5) if lashes else ""
@@ -1503,7 +1474,7 @@ def mouth(dy=0, closed="plain", angry="teeth", lips=False):
     }
 
 
-_EYES, _MOUTH = eyes, mouth
+_EYES, _MOUTH = eyes, mouth  # person()'s eyes= and mouth= hide these names
 
 # ================================================================ torsos
 NECK = "<rect x='89' y='122' width='22' height='54' rx='9' fill='{skin}'/>"
@@ -2008,7 +1979,7 @@ def person(
     hang (x at the wrist): (64, 136) for a broad build. `hem` defaults to the torso's.
     `head_scale` draws the head and face larger about the neck: 1.15 to 1.2 for a child. A
     head with a plait brings its hung parts, hangs and springs. `more` passes other fields
-    through: hold, hangs, springs, shadow."""
+    through: hangs, springs, shadow."""
     hf, hb, *rest = head
     hung = rest[0] if rest else {"parts": {}, "hangs": {}, "springs": []}
     k = head_scale

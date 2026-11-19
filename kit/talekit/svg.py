@@ -69,20 +69,28 @@ def qpts(p0, c, p1, step):
     return out
 
 
-def ribbon(p0, c1, c2, p1, w0, w1=None, n=16):
-    """A band of even (or w0 to w1) width along a cubic, square ended, as a fill: a border,
-    a wrap of a turban, a sash. Filled rather than stroked so the engine outlines it."""
-    w1 = w0 if w1 is None else w1
-    pts = [bez(p0, c1, c2, p1, i / n) for i in range(n + 1)]
-    L, R = [], []
+def _sides(pts, half):
+    """The points `half(i)` out to each side of point i of a polyline, and the normals."""
+    n = len(pts) - 1
+    L, R, N = [], [], []
     for i, q in enumerate(pts):
         a, b = pts[max(0, i - 1)], pts[min(n, i + 1)]
         dx, dy = b[0] - a[0], b[1] - a[1]
         ln = math.hypot(dx, dy) or 1
         nx, ny = -dy / ln, dx / ln
-        w = (w0 + (w1 - w0) * i / n) / 2
+        N.append((nx, ny))
+        w = half(i)
         L.append((q[0] + nx * w, q[1] + ny * w))
         R.append((q[0] - nx * w, q[1] - ny * w))
+    return L, R, N
+
+
+def ribbon(p0, c1, c2, p1, w0, w1=None, n=16):
+    """A band of even (or w0 to w1) width along a cubic, square ended, as a fill: a border,
+    a wrap of a turban, a sash. Filled rather than stroked so the engine outlines it."""
+    w1 = w0 if w1 is None else w1
+    pts = [bez(p0, c1, c2, p1, i / n) for i in range(n + 1)]
+    L, R, _ = _sides(pts, lambda i: (w0 + (w1 - w0) * i / n) / 2)
     return poly(L + R[::-1])
 
 
@@ -90,18 +98,9 @@ def taper(p0, c1, c2, p1, w0, w1, n=14, ease=1.0):
     """A filled path along a cubic, w0 wide at the start to w1 at the end, round ends: a
     tail, a haunch, a moustache's sweep, a plume."""
     pts = [bez(p0, c1, c2, p1, i / n) for i in range(n + 1)]
-    L, R, N = [], [], []  # each end is a pointed semicircle along the tangent: no arc flags
-    for i, p in enumerate(pts):
-        a, b = pts[max(0, i - 1)], pts[min(n, i + 1)]
-        dx, dy = b[0] - a[0], b[1] - a[1]
-        ln = math.hypot(dx, dy) or 1
-        nx, ny = -dy / ln, dx / ln
-        N.append((nx, ny))
-        w = (w0 + (w1 - w0) * (i / n) ** ease) / 2
-        L.append((p[0] + nx * w, p[1] + ny * w))
-        R.append((p[0] - nx * w, p[1] - ny * w))
+    L, R, N = _sides(pts, lambda i: (w0 + (w1 - w0) * (i / n) ** ease) / 2)
 
-    def cap(c, nrm, r):
+    def cap(c, nrm, r):  # each end a pointed semicircle along the tangent: no arc flags
         nx, ny = nrm
         tx, ty = ny, -nx
         return [

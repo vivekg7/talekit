@@ -204,9 +204,13 @@ def _when(t):
     return {"after": float(t)} if isinstance(t, after) else {"t": round(t, 2)}
 
 
+def _dur(duration):
+    return {} if duration is None else {"duration": duration}
+
+
 def say(t, actor, text, en=None, **more):
-    """A spoken line. `more`: to (who they say it to), bubble ('shout', 'thought',
-    'whisper'), emotion, duration."""
+    """A spoken line. `more`: to (who they say it to), bubble ('shout', 'thought'),
+    emotion, duration."""
     return {**_when(t), "actor": actor, "say": text, **({"translation": {"en": en}} if en else {}), **more}
 
 
@@ -223,10 +227,7 @@ def do(t, actor, verb, duration=None, **more):
     hold, aim, shoot, ...). `more`: to, which for a wipe names what is dusted (an actor, whose middle
     the hand goes round on), for a hold whom the hand rests on (their shoulder), for an aim what is
     aimed at (an actor's `mark`, an anchor, a spot); arrow, the arrow an aim puts on the string."""
-    a = {**_when(t), "actor": actor, "do": verb, **more}
-    if duration is not None:
-        a["duration"] = duration
-    return a
+    return {**_when(t), "actor": actor, "do": verb, **more, **_dur(duration)}
 
 
 def feel(t, actor, emotion):
@@ -277,10 +278,6 @@ def putdown(t, prop, to=None, duration=None):
     """The holder sets the prop down at `to` (a table top: the hand reaches out to it), or
     without one on the floor under the hand."""
     return {**_when(t), "actor": prop, "attach": False, "do": "putdown", **({"to": to} if to else {}), **_dur(duration)}
-
-
-def _dur(duration):
-    return {} if duration is None else {"duration": duration}
 
 
 def release(t, prop, to, duration=0.35):
