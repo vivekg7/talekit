@@ -185,6 +185,40 @@ describe('review app', () => {
     }
   });
 
+  it('sends an old address to what is served now, and checks the film apart from it', async () => {
+    const app = await serve('examples/lost-kite', 4900);
+    const base = app.url.replace(/[^/]+\/$/, '');
+    const page = (url: string) =>
+      fetch(new URL(url, base), { headers: { accept: 'text/html' }, redirect: 'manual' });
+    try {
+      // A reel reviewed before, refreshed after the server moved on.
+      expect((await page('/gone-reel/')).headers.get('location')).toBe('/');
+      // Its page, still open, is told so by its poll and goes too.
+      const poll = await fetch(new URL('/gone-reel/api/version', base));
+      expect([poll.status, (await poll.json()).gone]).toEqual([404, true]);
+      expect((await page('/lost-kite/nowhere')).headers.get('location')).toBe('/lost-kite/');
+      expect((await fetch(new URL('nowhere.svg', app.url))).status).toBe(404);
+
+      const info = await (await fetch(new URL('api/project', app.url))).json();
+      expect(info.problems).toBeUndefined();
+      const { problems } = await (await fetch(new URL('api/problems', app.url))).json();
+      expect(typeof problems).toBe('string');
+      const sound = await (await fetch(new URL('api/sound', app.url))).json();
+      expect(sound.key).toMatch(/^[0-9a-f]{16}$/);
+      expect(sound.buses.length).toBeGreaterThan(0);
+
+      // A picture of a version is kept by the browser; one asked for while playing is not.
+      const shot = info.shots[0].id;
+      const kept = await fetch(new URL(`api/frame?shot=${shot}&t=1&v=${info.version}`, app.url));
+      expect(kept.headers.get('cache-control')).toContain('immutable');
+      const once = await fetch(new URL(`api/frame?shot=${shot}&t=1`, app.url));
+      expect(once.headers.get('cache-control')).toBe('no-store');
+      expect(await once.text()).toBe(await kept.text());
+    } finally {
+      app.close();
+    }
+  });
+
   it('draws pictures with the engine as it is now, and reloads the page when it changes', async () => {
     const app = await serve('examples/lost-kite', 4870);
     const get = (url: string) => fetch(new URL(url, app.url));

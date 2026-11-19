@@ -88,7 +88,13 @@ appear as it works, and the engine's code too: the paused picture and the
 sheets are drawn by a worker that starts afresh whenever a source file
 changes, so a fix to the engine shows without restarting the app (the
 playing video is still the last render). The address follows the moment
-(`#hua@3.90`), so a copied link opens on it.
+(`#hua@3.90`), so a copied link opens on it; an address no longer served
+(a reel from an earlier session, refreshed) goes to the server's front
+page. The checks' report and the film's sounds are worked out in a worker
+of their own, read ahead for everything served, and fill in once the
+picture is up, so each tab of a batch opens at once; the browser keeps the
+pictures of a version, so going back to a tab draws nothing again. Play at
+the end of the film starts it again from the top.
 
 For a reel, **safe area** shades what the Shorts and Reels apps draw over
 (caption, buttons, search), and playback can be slowed, sped up or looped

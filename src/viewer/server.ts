@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { gzipSync } from 'node:zlib';
 import { z } from 'zod';
-import { cueSheet, type Bus } from '../engine/sound.js';
+import type { Bus } from '../engine/sound.js';
 import { movieDuration } from '../engine/timeline.js';
 import { MixSchema, type Project } from '../engine/types.js';
 import {
@@ -26,13 +26,12 @@ import {
 } from '../project/notes.js';
 import { choiceDirs, listOptions, OPTIONS_DIR, parsePicks } from '../project/options.js';
 import { isProject, loadProject, projectPaths, saveMeta } from '../project/store.js';
-import { formatProblems, validateProject } from '../project/validate.js';
 import { mixAudio, RATE } from '../render/audio.js';
 import { writeMkv } from '../render/mkv.js';
 import { isPortrait, safeInsets } from '../engine/format.js';
 import { lineDuration, shownText } from '../engine/voice.js';
 import { remixVideo } from '../render/video.js';
-import type { DrawRequest } from './draw-worker.js';
+import { bare, STEMS, type DrawRequest, type Stems } from './draw-worker.js';
 import { BOARD } from './board-page.js';
 import { PAGE } from './page.js';
 
@@ -73,73 +72,108 @@ async function codeVersion(): Promise<number> {
   return code.version;
 }
 
+interface Job {
+  job: DrawRequest & { version: number };
+  low: boolean;
+  resolve: (result: unknown) => void;
+  reject: (e: Error) => void;
+}
 interface Drawer {
   worker: Worker;
   version: number;
-  pending: Map<number, { resolve: (svg: string) => void; reject: (e: Error) => void }>;
+  /** Waiting, in the order asked; the first not `low` goes before them all. */
+  queue: Job[];
+  /** One job at a time in the worker, so the server can choose what goes next. */
+  busy?: Job;
   retired: boolean;
 }
 /**
  * One worker per project, so the film's frames and the reel's, open in two tabs, are drawn
  * side by side rather than in one queue; each keeps its project loaded (draw-worker.ts).
- * The ones used longest ago are let go past a few.
+ * The ones used longest ago are let go past a few: a worker holds its project's per-shot
+ * caches, a few hundred MB on a busy film. The checks (the report and the sound) go to a
+ * worker of their own, CHECK, so seconds of them hold up no picture.
  */
 const drawers = new Map<string, Drawer>();
 const MAX_DRAWERS = 4;
+const CHECK = '\0check';
 let drawSeq = 0;
+
+function pump(d: Drawer): void {
+  if (d.busy) return;
+  if (!d.queue.length) {
+    if (d.retired) void d.worker.terminate();
+    return;
+  }
+  const i = Math.max(
+    0,
+    d.queue.findIndex((j) => !j.low)
+  );
+  const next = d.queue.splice(i, 1)[0];
+  d.busy = next;
+  d.worker.postMessage({ ...next.job, seq: ++drawSeq });
+}
 
 function retire(d: Drawer): void {
   d.retired = true;
-  if (!d.pending.size) void d.worker.terminate();
+  pump(d);
 }
 
 /**
- * A picture drawn in the project's worker (draw-worker.ts). A worker serves until the code
- * changes; then the next picture starts a new one, which imports the new code, and the old
- * one is let go once it has answered what it was asked. One that dies (a half-saved source
- * file) fails what it held, and the next picture tries again.
+ * Something worked out in a worker (draw-worker.ts): a picture of `root`'s, or (`key`
+ * CHECK) its checks. A worker serves until the code changes; then the next job starts a new
+ * one, which imports the new code, and the old one is let go once it has done what it was
+ * given. One that dies (a half-saved source file) fails what it held, and the next job
+ * tries again. A `low` job (a thumbnail, a check read ahead) waits for the rest.
  */
-async function drawSvg(job: DrawRequest): Promise<string> {
+async function ask<T>(key: string, job: DrawRequest, low = false): Promise<T> {
   const version = await codeVersion();
-  let drawer = drawers.get(job.root);
+  // The worker keeps the project it loaded until its files move. Read before the worker is
+  // chosen: from here on nothing waits, so the worker cannot be let go before the job lands.
+  const files = await projectVersion(job.root);
+  let drawer = drawers.get(key);
   if (!drawer || drawer.version !== version) {
     if (drawer) retire(drawer);
     const fresh: Drawer = {
       worker: new Worker(DRAW_WORKER, { execArgv: workerArgs() }),
       version,
-      pending: new Map(),
+      queue: [],
       retired: false,
     };
-    fresh.worker.on('message', (m: { seq: number; svg?: string; error?: string }) => {
-      const wait = fresh.pending.get(m.seq);
-      fresh.pending.delete(m.seq);
-      if (m.error !== undefined) wait?.reject(new Error(m.error));
-      else wait?.resolve(m.svg!);
-      if (fresh.retired && !fresh.pending.size) void fresh.worker.terminate();
+    fresh.worker.on('message', (m: { result?: unknown; error?: string }) => {
+      const done = fresh.busy;
+      fresh.busy = undefined;
+      if (m.error !== undefined) done?.reject(new Error(m.error));
+      else done?.resolve(m.result);
+      pump(fresh);
     });
     fresh.worker.on('error', (e: Error) => {
-      for (const wait of fresh.pending.values()) wait.reject(e);
-      fresh.pending.clear();
-      if (drawers.get(job.root) === fresh) drawers.delete(job.root);
+      for (const j of [...(fresh.busy ? [fresh.busy] : []), ...fresh.queue]) j.reject(e);
+      fresh.busy = undefined;
+      fresh.queue = [];
+      if (drawers.get(key) === fresh) drawers.delete(key);
     });
     fresh.worker.unref();
     drawer = fresh;
   }
   // Most recently used last, so the first is the one to let go.
-  drawers.delete(job.root);
-  drawers.set(job.root, drawer);
-  for (const [root, old] of drawers) {
-    if (drawers.size <= MAX_DRAWERS) break;
-    drawers.delete(root);
+  drawers.delete(key);
+  drawers.set(key, drawer);
+  for (const [k, old] of drawers) {
+    if (drawers.size <= MAX_DRAWERS + (drawers.has(CHECK) ? 1 : 0)) break;
+    if (k === CHECK) continue;
+    drawers.delete(k);
     retire(old);
   }
-  // The worker keeps the project it loaded until its files move.
-  const files = await projectVersion(job.root);
   const d = drawer;
-  const seq = ++drawSeq;
-  return new Promise((resolve, reject) => {
-    d.pending.set(seq, { resolve, reject });
-    d.worker.postMessage({ ...job, version: files, seq });
+  return new Promise<T>((resolve, reject) => {
+    d.queue.push({
+      job: { ...job, version: files },
+      low,
+      resolve: resolve as (r: unknown) => void,
+      reject,
+    });
+    pump(d);
   });
 }
 
@@ -147,19 +181,28 @@ async function drawSvg(job: DrawRequest): Promise<string> {
  * A drawn picture, gzipped when the browser takes it: a busy frame is 2 MB of SVG and about
  * a fifth of that gzipped (12 ms at level 1), which is what a phone on the network waits for.
  */
-function sendSvg(req: http.IncomingMessage, res: Res, svg: string): void {
+function sendSvg(req: http.IncomingMessage, res: Res, url: URL, svg: string): void {
+  const head = { 'content-type': 'image/svg+xml', ...cacheFor(url) };
   if (!/\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''))) {
-    res.writeHead(200, { 'content-type': 'image/svg+xml' }).end(svg);
+    res.writeHead(200, head).end(svg);
     return;
   }
   res
-    .writeHead(200, {
-      'content-type': 'image/svg+xml',
-      'content-encoding': 'gzip',
-      vary: 'accept-encoding',
-    })
+    .writeHead(200, { ...head, 'content-encoding': 'gzip', vary: 'accept-encoding' })
     .end(gzipSync(svg, { level: 1 }));
 }
+
+/**
+ * A picture asked for with the project's version (`v`) is the same picture for as long as
+ * that version stands (the engine draws the same frame every time), and a new version is a
+ * new address: the browser keeps it, so going back to a film's tab shows its shots and the
+ * paused frame without drawing them again. Frames asked for while playing carry no version
+ * and are not kept: they would fill the cache with pictures seen once.
+ */
+const cacheFor = (url: URL): Record<string, string> =>
+  url.searchParams.has('v')
+    ? { 'cache-control': 'private, max-age=86400, immutable' }
+    : { 'cache-control': 'no-store' };
 
 /**
  * Newest mtime across everything that changes what the page shows, the engine's code
@@ -196,19 +239,43 @@ async function projectVersion(root: string): Promise<number> {
 }
 
 /**
- * The checks' report, worked out again only when the project changed. The page asks for the
- * project after every agent write and every note, and the world and sight checks take most
- * of a second on a film; frames wait behind them. The checks read nothing but the project,
- * so its JSON is the key.
+ * The checks' report and the film's sounds, worked out in the CHECK worker and again only
+ * when the project changed. The page asks for them after every agent write and every note;
+ * the world, sight and construction checks take seconds on a film, and the cue sheet a
+ * second or two. Both read nothing but the project, so its JSON is the key.
  */
-const PROBLEMS = new Map<string, { key: string; report: string }>();
-function problemsOf(root: string, project: Project, opt = ''): string {
+const CHECKS = new Map<string, { key: string; value: Promise<unknown> }>();
+function checked<T>(
+  kind: 'problems' | 'stems',
+  root: string,
+  over: string[],
+  project: Project,
+  low = false
+): Promise<T> {
+  const id = [kind, root, ...over].join('\0');
   const key = createHash('sha1').update(JSON.stringify(project)).digest('hex');
-  const known = PROBLEMS.get(root + opt);
-  if (known?.key === key) return known.report;
-  const report = formatProblems(validateProject(project));
-  PROBLEMS.set(root + opt, { key, report });
-  return report;
+  const known = CHECKS.get(id);
+  if (known?.key === key) return known.value as Promise<T>;
+  const value = ask<T>(CHECK, { kind, root, over }, low);
+  CHECKS.set(id, { key, value });
+  // One that failed (a file half written) is asked again next time.
+  value.catch(() => CHECKS.get(id)?.value === value && CHECKS.delete(id));
+  return value;
+}
+
+/** The project with the options looked at, or as it is when they do not load, and why. */
+async function withOptions(
+  root: string,
+  over: string[]
+): Promise<{ project: Project; base: Project; over: string[]; optError: string }> {
+  const base = await loadProject(root);
+  if (!over.length) return { project: base, base, over, optError: '' };
+  try {
+    return { project: await loadProject(root, over), base, over, optError: '' };
+  } catch (e) {
+    // A choice that does not load says why, over the film as it is, and can be let go of.
+    return { project: base, base, over: [], optError: `options: ${(e as Error).message}\n` };
+  }
 }
 
 async function movieInfo(root: string): Promise<{ mtime: number; stale: boolean } | null> {
@@ -232,18 +299,9 @@ async function movieInfo(root: string): Promise<{ mtime: number; stale: boolean 
  * linear, so the four played together at the mix's gains are the film's sound (short of the
  * soft clip on the loudest peaks). Keyed by the cue sheet: the same sound is mixed once.
  */
-const STEMS: Bus[] = ['voice', 'music', 'ambience', 'sfx'];
-function stemsOf(project: Project): { key: string; buses: Bus[]; bare: Project } | undefined {
-  const bare = { ...project, meta: { ...project.meta, mix: undefined } };
-  const cues = cueSheet(bare);
-  if (!cues.length) return undefined;
-  const key = createHash('sha1').update(JSON.stringify(cues)).digest('hex').slice(0, 16);
-  return { key, buses: STEMS.filter((b) => cues.some((c) => c.bus === b)), bare };
-}
 const making = new Map<string, Promise<void>>();
-async function makeStem(root: string, project: Project, bus: Bus): Promise<string> {
-  const stems = stemsOf(project);
-  if (!stems) throw new Error('nothing sounds in this film');
+async function makeStem(root: string, project: Project, stems: Stems, bus: Bus): Promise<string> {
+  if (!stems.buses.includes(bus)) throw new Error('nothing sounds on that bus in this film');
   const dir = path.join(projectPaths(root).out, 'stems');
   const file = path.join(dir, `${stems.key}-${bus}.m4a`);
   if (existsSync(file)) return file;
@@ -251,7 +309,8 @@ async function makeStem(root: string, project: Project, bus: Bus): Promise<strin
     making.set(
       file,
       (async () => {
-        const samples = (await mixAudio(stems.bare, stems.bare.shots, { buses: [bus] }))!;
+        const quiet = bare(project);
+        const samples = (await mixAudio(quiet, quiet.shots, { buses: [bus] }))!;
         await mkdir(dir, { recursive: true });
         const tmp = `${file}.tmp.m4a`;
         await new Promise<void>((resolve, reject) => {
@@ -311,7 +370,8 @@ async function serveFile(
   file: string,
   type: string,
   req: http.IncomingMessage,
-  res: http.ServerResponse
+  res: http.ServerResponse,
+  headers: Record<string, string> = {}
 ) {
   const size = (await stat(file)).size;
   const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? '');
@@ -328,6 +388,7 @@ async function serveFile(
     }
   }
   res.writeHead(range ? 206 : 200, {
+    ...headers,
     'content-type': type,
     'accept-ranges': 'bytes',
     'content-length': end - start + 1,
@@ -352,6 +413,21 @@ function readBody(req: http.IncomingMessage): Promise<unknown> {
 }
 
 type Res = http.ServerResponse;
+
+/**
+ * A browser loading a page, which says it takes HTML: not the page asking its api, nor a
+ * picture, a video or a sound.
+ */
+const isPage = (req: http.IncomingMessage, rel = '/') =>
+  req.method === 'GET' &&
+  !rel.startsWith('/api/') &&
+  String(req.headers.accept ?? '').includes('text/html');
+
+/** Nothing at this address of the item's: a page goes to the item's own, the rest is a 404. */
+function notFound(item: { slug: string }, rel: string, req: http.IncomingMessage, res: Res) {
+  if (isPage(req, rel)) res.writeHead(302, { location: `/${item.slug}/` }).end();
+  else res.writeHead(404).end('not found');
+}
 const json = (res: Res, body: unknown, status = 200) =>
   res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(body));
 
@@ -434,7 +510,6 @@ async function projectRoute(
   // The options the page is looking at (`tail:b,chase:a`), laid over the project.
   const opt = url.searchParams.get('opt') ?? '';
   const over = () => choiceDirs(root, parsePicks(opt));
-  const load = () => loadProject(root, over());
   if (rel === '/') {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(PAGE);
     return;
@@ -446,7 +521,8 @@ async function projectRoute(
   if (rel === '/movie.mp4') {
     const file = path.join(projectPaths(root).out, 'movie.mp4');
     if (!existsSync(file)) throw new Error('no rendered movie');
-    await serveFile(file, 'video/mp4', req, res);
+    // Asked for by its mtime (`?v=`), a render is the same file until the next one.
+    await serveFile(file, 'video/mp4', req, res, cacheFor(url));
     return;
   }
   if (rel === '/thumbnail.png') {
@@ -458,7 +534,11 @@ async function projectRoute(
   if (rel === '/api/stem') {
     const bus = url.searchParams.get('bus') as Bus;
     if (!STEMS.includes(bus)) throw new Error('unknown bus');
-    await serveFile(await makeStem(root, await load(), bus), 'audio/mp4', req, res);
+    const { project, over: dirs } = await withOptions(root, over());
+    const stems = await checked<Stems>('stems', root, dirs, project);
+    // Named by its cue sheet's hash (`?v=`), a layer is the same sound for good.
+    const file = await makeStem(root, project, stems, bus);
+    await serveFile(file, 'audio/mp4', req, res, cacheFor(url));
     return;
   }
   if (rel === '/api/mix' && method === 'POST') {
@@ -484,23 +564,32 @@ async function projectRoute(
     if (t.kind === 'file') throw new Error('a file note is for a board');
   };
   if (await noteRoute(root, rel, method, req, res, projectNote)) return;
-  if (rel === '/api/project') {
-    // A half-written file from the agent must not take the page down: report, keep polling.
-    let project, base;
-    let optError = '';
+  // The checks' report and the film's sounds come apart from the project, worked out in a
+  // worker: the page shows the film first, and they fill in when they are ready.
+  if (rel === '/api/problems' || rel === '/api/sound') {
+    let loaded;
     try {
-      base = await loadProject(root);
+      loaded = await withOptions(root, over());
     } catch (e) {
       json(res, { error: (e as Error).message });
       return;
     }
+    const { project, over: dirs, optError } = loaded;
+    if (rel === '/api/sound') json(res, await checked<Stems>('stems', root, dirs, project));
+    else
+      json(res, { problems: optError + (await checked<string>('problems', root, dirs, project)) });
+    return;
+  }
+  if (rel === '/api/project') {
+    // A half-written file from the agent must not take the page down: report, keep polling.
+    let loaded;
     try {
-      project = opt ? await load() : base;
+      loaded = await withOptions(root, over());
     } catch (e) {
-      // A choice that does not load says why, over the film as it is, and can be let go of.
-      project = base;
-      optError = `options: ${(e as Error).message}\n`;
+      json(res, { error: (e as Error).message });
+      return;
     }
+    const { project, base, optError } = loaded;
     json(res, {
       title: project.meta.title,
       fps: project.meta.fps,
@@ -526,39 +615,39 @@ async function projectRoute(
         ...q,
         choices: choices.map(({ dir: _dir, ...c }) => c),
       })),
-      problems: optError + problemsOf(root, project, opt),
+      optError,
       notes: await loadNotes(root),
       movie: await movieInfo(root),
       mix: project.meta.mix ?? {},
-      stems: (({ key, buses }) => ({ key, buses }))(stemsOf(project) ?? { key: '', buses: [] }),
       version: await projectVersion(root),
     });
     return;
   }
   if (rel === '/api/frame') {
-    const svg = await drawSvg({
+    // A thumbnail (`low`) waits for the frame the person is looking at.
+    const job: DrawRequest = {
       kind: 'frame',
       root,
       over: over(),
       shot: url.searchParams.get('shot') ?? '',
       t: Number(url.searchParams.get('t') ?? 0),
       debug: url.searchParams.has('debug'),
-    });
-    sendSvg(req, res, svg);
+    };
+    sendSvg(req, res, url, await ask<string>(root, job, url.searchParams.has('low')));
     return;
   }
   if (rel === '/api/sheet') {
-    const svg = await drawSvg({
+    const job: DrawRequest = {
       kind: 'sheet',
       root,
       over: over(),
       id: url.searchParams.get('id') ?? '',
       construction: url.searchParams.get('kind') === 'construction',
-    });
-    sendSvg(req, res, svg);
+    };
+    sendSvg(req, res, url, await ask<string>(root, job, url.searchParams.has('low')));
     return;
   }
-  res.writeHead(404).end('not found');
+  notFound(item, rel, req, res);
 }
 
 /* ---- boards: a folder of samples to listen to, watch and pick from ---- */
@@ -731,7 +820,7 @@ async function boardRoute(
     });
     return;
   }
-  res.writeHead(404).end('not found');
+  notFound(item, rel, req, res);
 }
 
 /** The header's switch: every film, reel and board served, this one marked. */
@@ -772,6 +861,15 @@ async function indexPage(items: Item[]): Promise<string> {
     })
   );
   return `<!doctype html><html><head><meta charset='utf-8'><title>talekit review</title><meta name='viewport' content='width=device-width, initial-scale=1'><link rel='icon' href='data:,'><style>body{margin:0;padding:20px;font:15px system-ui,sans-serif;background:#1b1f24;color:#ddd}h1{font-size:17px;margin:0 0 16px}#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px}.card{display:flex;flex-direction:column;gap:4px;color:#ddd;text-decoration:none;background:#242a31;border-radius:8px;padding:8px}.card:hover{background:#2e353e}.card img,.card .none{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:5px;background:#111}.card.tall img,.card.tall .none{aspect-ratio:9/16}.none{display:flex;align-items:center;justify-content:center;color:#666}b{color:#ffd166;font-size:14px}em{font-style:normal;background:#ffd166;color:#000;border-radius:9px;padding:0 6px;font-size:11px;margin-left:6px}span{color:#9aa3ad;font-size:12px}</style></head><body><h1>talekit review · ${shown.length}</h1><div id='grid'>${cards.join('')}</div></body></html>`;
+}
+
+/**
+ * A film or reel's checks and sounds, worked out in the background as soon as it is served,
+ * behind anything a page asks for: a batch of reels is ready by the time each tab is opened.
+ */
+function readAhead(root: string, project: Project): void {
+  for (const kind of ['stems', 'problems'] as const)
+    checked(kind, root, [], project, true).catch(() => {});
 }
 
 export interface Review {
@@ -840,7 +938,11 @@ export async function startReview(port: number, opts: { lan?: boolean } = {}): P
       }
       const item = items.find((i) => i.slug === decodeURIComponent(m[1]));
       if (!item) {
-        res.writeHead(404).end('not served here');
+        // An address from before (a reel reviewed yesterday, a server since restarted with
+        // others): the page goes to what is served now, and a page still open there is told
+        // it is gone, so it can go too.
+        if (isPage(req, m[2])) res.writeHead(302, { location: '/' }).end();
+        else json(res, { error: 'not served here', gone: true }, 404);
         return;
       }
       // The page's own links are relative, so it needs the slash.
@@ -885,6 +987,7 @@ export async function startReview(port: number, opts: { lan?: boolean } = {}): P
               portrait: project ? isPortrait(project.meta) : false,
             };
             items.push(item);
+            if (project) readAhead(root, project);
           }
           return `${url}${item.slug}/`;
         },

@@ -184,6 +184,8 @@ function load() {
 var version = null;
 setInterval(function () {
   api('api/version').then(function (r) {
+    // This board is no longer served (the server restarted with others): go to what is.
+    if (r.gone) { location.replace('../'); return; }
     if (version !== null && r.version !== version) load();
     version = r.version; $('live').classList.remove('off');
   }).catch(function () { $('live').classList.add('off'); });

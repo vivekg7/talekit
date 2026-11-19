@@ -99,6 +99,7 @@ body.portrait #shots .shot b{white-space:normal}
 #side h3{margin:8px 0 0;font-size:12px;font-weight:600;color:var(--dim);text-transform:uppercase;letter-spacing:.05em}
 #problems{white-space:pre-wrap;color:var(--bad);font-family:ui-monospace,monospace;font-size:12px}
 #problems:empty{display:none}
+#problems.wait{color:var(--dim)}
 #note-where{color:var(--dim);font-size:12px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 #note-where .pinned{color:#fff;background:var(--pin);border-radius:4px;padding:0 5px}
 #note-where button{background:none;border:0;color:var(--dim);cursor:pointer;padding:0 2px}
@@ -247,6 +248,8 @@ body.portrait #options-list .cands{grid-template-columns:repeat(auto-fill,minmax
 'use strict';
 var info = null, shot = null, t = 0, playing = false, last = 0, busy = false, pending = false, view = 'film';
 var pin = null, focusNote = null, notesFilter = 'todo';
+/* The checks' report and the film's sounds, which the server works out apart from the project. */
+var problems = null, stems = { key: '', buses: [] }, checkSeq = 0;
 var $ = function (id) { return document.getElementById(id); };
 var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
 var api = function (url, opts) { return fetch(url, opts).then(function (r) { return r.json(); }); };
@@ -339,7 +342,7 @@ function load() {
     document.body.classList.toggle('portrait', info.height > info.width);
     document.title = info.title + ' · talekit review';
     $('title').textContent = info.title + ' · ' + info.duration.toFixed(1) + 's · ' + info.shots.length + ' shots';
-    $('problems').textContent = info.problems === 'OK' ? '' : info.problems;
+    showProblems();
     var open = info.notes.filter(function (n) { return stateOf(n) === 'open'; }).length;
     var check = info.notes.filter(function (n) { return stateOf(n) === 'check'; }).length;
     $('nopen').hidden = !open; $('nopen').textContent = open; $('nopen').title = open + ' open';
@@ -350,6 +353,7 @@ function load() {
     if ((!info.movie || looking()) && $('source').value === 'video') $('source').value = 'live';
     $('safe-label').style.display = info.safe.bottom ? '' : 'none';
     renderApps(); renderShots(); renderCards('characters'); renderCards('scenes'); renderNotes(); renderOptions(); setupSound(); drawSafe();
+    checks();
     var cur = shot && info.shots.find(function (s) { return s.id === shot.id; });
     if (first) {
       // Back where this page was, after a reload or a trip to the film's other cut.
@@ -364,6 +368,27 @@ function load() {
     renderSide(); syncStage(); fit(); draw();
     if (first && asked.get('view') && $('view-' + asked.get('view'))) show(asked.get('view'));
   });
+}
+
+/**
+ * The report and the sounds, asked for after the film is up: they take the server seconds
+ * when the project has changed, and nothing when it has not. An answer for a project the
+ * page has since reloaded is let go.
+ */
+function checks() {
+  var my = ++checkSeq;
+  api(withOpt('api/sound')).then(function (r) {
+    if (my !== checkSeq || r.error) return;
+    stems = r; setupSound();
+  }).catch(function () {});
+  api(withOpt('api/problems')).then(function (r) {
+    if (my !== checkSeq) return;
+    problems = r.error || r.problems; showProblems();
+  }).catch(function () {});
+}
+function showProblems() {
+  $('problems').textContent = (info.optError || '') + (problems === null ? 'checking the film…' : problems === 'OK' ? '' : problems);
+  $('problems').classList.toggle('wait', problems === null && !info.optError);
 }
 
 /* ---- the film, its reel and any board of samples, switched between from the header ---- */
@@ -393,16 +418,28 @@ function renderApps() {
   }).join('');
 }
 
+/*
+ * The strip's pictures wait for the first frame on the stage: asked for at once, a reel's
+ * dozen would take the browser's six connections and the stage's frame would queue behind
+ * them. They go to the server as low too, behind any frame of the stage.
+ */
+var stageShown = false;
 function renderShots() {
   var el = $('shots'); el.innerHTML = '';
   info.shots.forEach(function (s, i) {
     var d = document.createElement('div'); d.className = 'shot'; d.dataset.id = s.id;
     var n = notesOn('shot', s.id).filter(function (x) { return stateOf(x) === 'open'; }).length;
-    d.innerHTML = "<img loading='lazy' src='" + withOpt('api/frame?shot=' + encodeURIComponent(s.id) + '&t=' + (s.duration / 2) + '&v=' + info.version) + "'><b>" + (i + 1) + '. ' + esc(s.id) + ' · ' + s.duration + 's' + (n ? " <span class='dots'>" + '●'.repeat(Math.min(n, 5)) + '</span>' : '') + '</b>';
+    d.innerHTML = "<img loading='lazy' alt=''><b>" + (i + 1) + '. ' + esc(s.id) + ' · ' + s.duration + 's' + (n ? " <span class='dots'>" + '●'.repeat(Math.min(n, 5)) + '</span>' : '') + '</b>';
+    d.querySelector('img').dataset.src = withOpt('api/frame?shot=' + encodeURIComponent(s.id) + '&t=' + (s.duration / 2) + '&v=' + info.version + '&low=1');
     d.onclick = function () { jumpTo(s.id, 0); };
     el.appendChild(d);
   });
+  if (stageShown) showThumbs();
   markShots();
+}
+function showThumbs() {
+  stageShown = true;
+  document.querySelectorAll('#shots img[data-src]').forEach(function (img) { img.src = img.dataset.src; img.removeAttribute('data-src'); });
 }
 function markShots() {
   document.querySelectorAll('#shots .shot').forEach(function (d) {
@@ -470,11 +507,14 @@ function moment() {
 }
 // Where the page is, so a reload or a trip to the other cut comes back to it.
 // The address follows the moment too, so a copied link opens on it.
-setInterval(function () {
+function remember() {
   if (!shot) return;
   store('at:' + location.pathname, { shot: shot.id, t: t });
   history.replaceState(null, '', '#' + encodeURIComponent(shot.id) + '@' + t.toFixed(2));
-}, 1000);
+}
+setInterval(remember, 1000);
+// Switching to the other cut within the second still comes back to the moment left.
+addEventListener('pagehide', remember);
 function drawPins() {
   var el = $('pins'); el.innerHTML = '';
   var add = function (at, label, cls) {
@@ -677,7 +717,7 @@ function renderOptions() {
       var picks = {}; if (c.id) picks[q.id] = c.id;
       var card = document.createElement('div');
       card.className = 'cand' + (won && (won.target.choice || '') === c.id ? ' won' : '');
-      var pics = at ? "<img loading='lazy' title='" + esc(at) + ' at ' + tt.toFixed(1) + "s' src='" + withOpt('api/frame?shot=' + encodeURIComponent(at) + '&t=' + tt + '&v=' + info.version, picks) + "'>" : '';
+      var pics = at ? "<img loading='lazy' title='" + esc(at) + ' at ' + tt.toFixed(1) + "s' src='" + withOpt('api/frame?shot=' + encodeURIComponent(at) + '&t=' + tt + '&v=' + info.version + '&low=1', picks) + "'>" : '';
       chars.forEach(function (id) { pics += "<img loading='lazy' class='sheet' title='" + esc(id) + "' src='" + withOpt('api/sheet?id=' + encodeURIComponent(id) + '&v=' + info.version, picks) + "'>"; });
       card.innerHTML = pics + "<div class='body'><b>" + esc(c.id || AS_IS) + '</b>' + (c.label ? '<div>' + esc(c.label) + '</div>' : '') +
         (c.id ? "<div class='what'>" + esc(changesOf(c)) + '</div>' : '') + "<div class='nb'></div></div>";
@@ -743,7 +783,7 @@ function syncStage() {
       var v = pic.querySelector('video');
       v.muted = true; v.playbackRate = rate();
       v.ontimeupdate = function () { if (!loopVideo(v)) fromVideo(v); };
-      v.onended = function () { if ($('loop').checked) { jumpTo(shot.id, 0); v.play(); return; } playing = false; $('play').textContent = 'Play'; soundPause(); };
+      v.onended = function () { if ($('loop').checked) { jumpTo(shot.id, 0); v.play(); return; } fromVideo(v); playing = false; $('play').textContent = 'Play'; soundPause(); };
       // The sound starts when the picture does, not when it was asked to.
       v.onplaying = function () { if (playing) soundPlay(); };
       v.onloadedmetadata = function () { if (shot) v.currentTime = shotStart(shot) + t; };
@@ -755,18 +795,22 @@ $('source').onchange = function () { if (playing) $('play').click(); syncStage()
 function draw() {
   if (!shot) { $('pic').innerHTML = ''; return; }
   moment();
-  if (video()) return;
+  if (video()) { showThumbs(); return; }
   if (busy) { pending = true; return; }
   busy = true;
+  // A paused frame carries the version, so the browser keeps it for a return to this tab;
+  // frames while playing are seen once and left out of its cache.
+  var url = 'api/frame?shot=' + encodeURIComponent(shot.id) + '&t=' + t + ($('debug').checked ? '&debug=1' : '') + (playing ? '' : '&v=' + info.version);
   // A frame that fails (the server restarting, a half-written file) keeps the last picture
   // and lets the next one be asked for; left busy, the picture would stop for good.
-  fetch(withOpt('api/frame?shot=' + encodeURIComponent(shot.id) + '&t=' + t + ($('debug').checked ? '&debug=1' : ''))).then(function (r) {
+  fetch(withOpt(url)).then(function (r) {
     if (!r.ok) throw new Error('frame ' + r.status);
     return r.text();
   }).then(function (svg) {
     if (!video()) $('pic').innerHTML = svg;
   }).catch(function () {}).then(function () {
-    busy = false; if (pending) { pending = false; draw(); }
+    busy = false; showThumbs();
+    if (pending) { pending = false; draw(); }
   });
 }
 function tick(now) {
@@ -782,12 +826,20 @@ function tick(now) {
   }
   soundDrift(); draw(); requestAnimationFrame(tick);
 }
+/** On a shot's last frame, where playing stops (it holds the last frame, not the cut). */
+var atEnd = function () { return t >= shot.duration - 1 / info.fps - 0.001; };
 $('play').onclick = function () {
   if (!shot) return;
   playing = !playing; $('play').textContent = playing ? 'Pause' : 'Play';
   var v = video();
-  if (v) { if (playing) { if (t >= shot.duration - 0.02) jumpTo(shot.id, 0); v.play(); requestAnimationFrame(tick); } else { v.pause(); soundPause(); } return; }
-  if (playing) { if (t >= shot.duration - 0.02) t = 0; last = performance.now(); requestAnimationFrame(tick); soundPlay(); } else soundPause();
+  if (playing && (atEnd() || (v && v.ended))) {
+    // Played to the end: the film again from the top, or the shot when it loops or when
+    // the person stopped on its last frame.
+    var lastOne = info.shots.indexOf(shot) === info.shots.length - 1;
+    jumpTo(lastOne && !$('loop').checked ? info.shots[0].id : shot.id, 0);
+  }
+  if (v) { if (playing) { v.play(); requestAnimationFrame(tick); } else { v.pause(); soundPause(); } return; }
+  if (playing) { last = performance.now(); requestAnimationFrame(tick); soundPlay(); } else soundPause();
 };
 $('scrub').oninput = function (e) { t = Number(e.target.value); var v = video(); if (v) v.currentTime = shotStart(shot) + t; soundSeek(); draw(); };
 $('debug').onchange = draw;
@@ -842,7 +894,7 @@ function showLevels() {
   });
 }
 function setupSound() {
-  var st = info.stems;
+  var st = stems;
   sound.buses = st.buses; showMixer();
   $('mix-remix').style.display = info.movie ? '' : 'none';
   if (!sound.dirty) sliders().forEach(function (el) { var g = info.mix[el.dataset.k]; el.value = dbOf(g === undefined ? 1 : g); });
@@ -857,7 +909,7 @@ function setupSound() {
       var el = new Audio(); el.preload = 'auto';
       el.oncanplaythrough = function () { el.oncanplaythrough = null; if (--waiting === 0 && sound.key === st.key) $('mix-status').textContent = ''; };
       el.onerror = function () { $('mix-status').textContent = 'the ' + b + ' layer could not be mixed'; };
-      el.src = withOpt('api/stem?bus=' + b + '&k=' + st.key);
+      el.src = withOpt('api/stem?bus=' + b + '&v=' + st.key);
       sound.els[b] = el;
     });
     if (sound.ctx) connectSound();
@@ -922,6 +974,8 @@ $('mix-remix').onclick = function () {
 var version = null;
 setInterval(function () {
   api('api/version').then(function (r) {
+    // This film is no longer served (the server restarted with others): go to what is.
+    if (r.gone) { location.replace('../'); return; }
     if (version !== null && r.version !== version) load();
     version = r.version; $('live').classList.remove('off');
   }).catch(function () { $('live').classList.add('off'); });
