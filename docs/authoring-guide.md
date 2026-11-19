@@ -1194,7 +1194,10 @@ adds the sounds of its own motion and sets the mix.
   `music` (`"tense"`, `{ "track": "sad", "volume": 0.7 }`, `false` for
   silence) is for that shot only, so set it on each shot of a lasting
   mood. A continuing track plays across cuts, a new one crossfades; music
-  ducks under voices. Change it only where the mood turns.
+  ducks under voices. Change it only where the mood turns. In a film with
+  no voiced line (no narrator, no character voice) music and ambience play
+  about 11 dB louder, the music near -19 LUFS where dialogue would sit, so
+  a silent reel needs no `mix` to be heard.
 - **Ambience**: a scene's `ambience` loops (`["jungle"]`,
   `[{ "sound": "village", "volume": 0.6 }]`; library scenes have it),
   carrying across cuts in one place. `surface` (`hard` default, `grass`,

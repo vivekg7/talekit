@@ -299,6 +299,14 @@ voices, music, one-off noises. Layers: music (agent), ambience and effects
   stems through gains; mixing is linear, so stems sum to the film). Chosen
   over a voice-keyed compressor: fixed levels with a hold do it without
   guessing.
+- **No voices, no room left for them** (2026-11): music and ambience sit
+  13 and 16 dB under dialogue, so a film with no voiced line came out near
+  -31 LUFS against -18 to -22 for released reels, and silent reels each set
+  `mix: { music: 3 }`. Now they come up 3.5× (+11 dB, music near -19 LUFS)
+  when the film has no voiced line; effects stay, as they were set against
+  dialogue's level, where the music now is. Judged on the whole film's
+  lines, not the shots mixed or their takes: a shot heard alone sounds as
+  in the film, and the music does not drop once the lines are voiced.
 - **The .mkv** carries the full mix, music-and-effects with and without the
   narrator (each raised to the full mix's loudness, with a limiter), subtitles
   and a chapter per shot; the mp4 stays because phone galleries may not play

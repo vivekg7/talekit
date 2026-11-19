@@ -115,6 +115,27 @@ describe('cue sheet', () => {
     expect(gain(mixed, 'ambience')).toBe(gain(plain, 'ambience'));
   });
 
+  it('lifts music and ambience, not effects, in a film nobody speaks in', () => {
+    const shots = [
+      shot('a', { actions: [{ t: 0.5, sound: 'ping' }] }),
+      shot('b', { actions: [{ t: 0.5, caption: 'Once there was a kid.' }] }),
+    ];
+    const silent = project(shots, 'tune');
+    // The same film with a narrator to read its caption, not yet voiced.
+    const told = project(shots, 'tune');
+    told.meta.narrator = 'kokoro:bf_emma';
+    const gain = (p: Project, bus: string, s = p.shots) =>
+      cueSheet(p, s).find((c) => c.bus === bus)!.gain;
+    expect(gain(silent, 'music')).toBeCloseTo(gain(told, 'music') * 3.5);
+    expect(gain(silent, 'ambience')).toBeCloseTo(gain(told, 'ambience') * 3.5);
+    expect(gain(silent, 'sfx')).toBe(gain(told, 'sfx'));
+    // A shot with no line of its own is heard at the film's levels.
+    expect(gain(told, 'music', told.shots.slice(0, 1))).toBe(gain(told, 'music'));
+    // The project's mix still scales the lifted level.
+    silent.meta.mix = { music: 0.5 };
+    expect(gain(silent, 'music')).toBeCloseTo(gain(told, 'music') * 1.75);
+  });
+
   it('hears footsteps as feet land, rain as hard as it falls and thunder after a strike', () => {
     const p = project([
       shot('a', {

@@ -70,6 +70,14 @@ export interface Cue {
  * music 9 dB under the voices was too loud between the lines (2026-10-24).
  */
 const LEVEL: Record<Bus, number> = { music: 0.24, ambience: 0.32, sfx: 0.8, voice: 1.5 };
+/**
+ * How far music and ambience come up in a film nobody speaks in: the room they leave for
+ * dialogue is not needed, so the music sits where the dialogue would (about -19 LUFS, where
+ * released reels are) and the ambience keeps its place under it. Effects stay: they were
+ * set against dialogue's level, which is where the music now is. Silent reels came out near
+ * -31 LUFS without it (2026-11-19).
+ */
+const NO_VOICES_LIFT = 3.5;
 /** The project's `mix` field names each bus. */
 const MIX_KEY: Record<Bus, keyof Mix> = {
   music: 'music',
@@ -387,6 +395,9 @@ export function cueSheet(project: Project, shots: Shot[] = project.shots): Cue[]
   const end = starts.length ? starts.at(-1)! + shots.at(-1)!.duration : 0;
   const endFade = Math.max(END_FADE, shots.at(-1)?.fadeOut ?? 0);
   const cues: Cue[] = [];
+  // Judged on the whole film, so a shot heard alone sounds as it does in the film, and on
+  // its lines rather than their takes, so music does not drop once the lines are voiced.
+  const lift = voiceLines(project).length ? 1 : NO_VOICES_LIFT;
 
   // Music: a run of shots with the same track is one cue, so it plays on across the cuts.
   for (let i = 0; i < shots.length;) {
@@ -408,7 +419,7 @@ export function cueSheet(project: Project, shots: Shot[] = project.shots): Cue[]
         until: last ? end : starts[j] + MUSIC_OUT,
         fadeIn: MUSIC_IN,
         fadeOut: last ? endFade : MUSIC_OUT,
-        gain: LEVEL.music * m.volume,
+        gain: LEVEL.music * lift * m.volume,
         pan: 0,
         label: m.track,
         shot: shots[i].id,
@@ -433,7 +444,7 @@ export function cueSheet(project: Project, shots: Shot[] = project.shots): Cue[]
       until: last ? end : starts[j] + BED_FADE,
       fadeIn: BED_FADE,
       fadeOut: last ? endFade : BED_FADE,
-      gain: LEVEL.ambience,
+      gain: LEVEL.ambience * lift,
       level,
       pan: bed.pan,
       label: bed.name,

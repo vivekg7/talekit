@@ -47,6 +47,7 @@ import {
   voiceProblems,
   speechProblems,
   validateProject,
+  onlySketched,
   validateScene,
   validateShot,
   worldProblems,
@@ -135,7 +136,12 @@ const blocking = (problems: Problem[]) => problems.filter((p) => p.level === 'er
 async function writeScene(root: string, scene: Scene) {
   const project = await loadProject(root);
   const problems = [
-    ...validateScene(scene, project.meta.width, project.meta.height),
+    ...validateScene(
+      scene,
+      project.meta.width,
+      project.meta.height,
+      onlySketched(project, scene.id)
+    ),
     ...sceneSoundProblems(scene, project),
   ];
   if (blocking(problems).length) return fail(formatProblems(problems));

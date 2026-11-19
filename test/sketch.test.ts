@@ -272,6 +272,24 @@ describe('a sketch in a shot', () => {
     await saveSketch(root, 'fine', WALKER);
     expect((await loadProject(root)).sketches?.fine).toBeDefined();
   });
+
+  it('is not an empty shot, and its blank canvas needs no anchors', async () => {
+    const root = await sketchProject(WALKER);
+    const warnings = async () =>
+      validateProject(await loadProject(root))
+        .filter((x) => x.level === 'warning')
+        .map((x) => `${x.where}: ${x.message}`)
+        .join('\n');
+    expect(await warnings()).not.toMatch(/empty shot|no anchors/);
+    // A shot in the same scene without a sketch is empty, and would stand someone there.
+    await writeFile(
+      path.join(root, 'shots/02-t.json'),
+      JSON.stringify({ id: 't', scene: 'blank', duration: 1, sketchParams: { n: 1 } })
+    );
+    expect(await warnings()).toMatch(/shot 't'.*empty shot/);
+    expect(await warnings()).toMatch(/no anchors/);
+    expect(await warnings()).toMatch(/shot 't'.*sketchParams without a sketch/);
+  });
 });
 
 describe('render lanes', () => {

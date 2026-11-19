@@ -248,7 +248,19 @@ function needsFar(where: string, weather: Weather | undefined, effects: Effect[]
   ];
 }
 
-export function validateScene(s: Scene, width: number, height: number): Problem[] {
+/** Every shot in this scene draws a sketch over it (and at least one does). */
+export function onlySketched(project: Project, scene: string): boolean {
+  const shots = project.shots.filter((s) => s.scene === scene);
+  return shots.length > 0 && shots.every((s) => s.sketch);
+}
+
+/** `sketched`: only sketches are drawn over this scene ({@link onlySketched}). */
+export function validateScene(
+  s: Scene,
+  width: number,
+  height: number,
+  sketched = false
+): Problem[] {
   const out: Problem[] = [];
   const { error, warn } = report(out);
   const where = `scene '${s.id}'`;
@@ -289,7 +301,8 @@ export function validateScene(s: Scene, width: number, height: number): Problem[
         `anchor '${name}' faces ${u.facing}, away from its use.at [${u.at[0]}, ${u.at[1]}]`
       );
   }
-  if (Object.keys(s.anchors).length === 0)
+  // A blank canvas under sketches has nobody standing in it, so no places to stand.
+  if (Object.keys(s.anchors).length === 0 && !(sketched && !s.svg))
     warn(where, 'no anchors; only the stage shortcuts left/center/right are available');
   out.push(...swayProblems(s));
   return out;
@@ -622,8 +635,10 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
   }
   out.push(...pickupReach(shot, project));
   out.push(...stepsOff(shot, project));
-  if (shot.actions.length === 0 && Object.keys(shot.cast).length === 0)
+  if (!shot.sketch && shot.actions.length === 0 && Object.keys(shot.cast).length === 0)
     warn(where, 'empty shot: no cast and no actions');
+  if (!shot.sketch && shot.sketchParams)
+    warn(where, 'sketchParams without a sketch: nothing reads them');
   return out;
 }
 
@@ -794,7 +809,9 @@ export function validateProject(project: Project): Problem[] {
   const out: Problem[] = [];
   for (const c of Object.values(project.characters)) out.push(...validateCharacter(c));
   for (const s of Object.values(project.scenes)) {
-    out.push(...validateScene(s, project.meta.width, project.meta.height));
+    out.push(
+      ...validateScene(s, project.meta.width, project.meta.height, onlySketched(project, s.id))
+    );
     out.push(...sceneSoundProblems(s, project));
   }
   out.push(...musicProblems('project', project.meta.music, project));
