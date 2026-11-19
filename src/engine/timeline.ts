@@ -70,9 +70,13 @@ export interface ActiveVerb {
   loose?: number;
   /** An `aim`, the first in the shot: the bow is taken from the near hand as it comes up. */
   handOver?: boolean;
+  /** A `hold` or `wipe` at `to` done with the working end of a tool in the hand (toolReaches). */
+  tool?: boolean;
   /**
    * A `strike` at `to`: how far past the hand what it swings reaches, grip to working end,
-   * in the actor's box units (0 bare-handed), so the hand stops short by that much.
+   * in the actor's box units (0 bare-handed), so the hand stops short by that much. A
+   * `hold` or `wipe` at `to` with a tool (a prop with a `tip`): the tool's length, so its
+   * working end goes there.
    */
   reach?: number;
 }
@@ -764,12 +768,20 @@ function heldPoint(
 
 /**
  * How far past the hand what `id` carries at t reaches, grip to working end (`tip`), in
- * scene pixels at its holder's perspective: 0 with nothing in hand.
+ * scene pixels at its holder's perspective: 0 with nothing in hand. With `tool`, only a
+ * prop drawn with a `tip` counts.
  */
-function swungLength(project: Project, shot: Shot, id: string, t: number, perspective: number) {
+function swungLength(
+  project: Project,
+  shot: Shot,
+  id: string,
+  t: number,
+  perspective: number,
+  tool = false
+) {
   for (const pid of Object.keys(shot.cast)) {
     const prop = project.characters[pid];
-    if (!prop || holderAt(shot, pid, t) !== id) continue;
+    if (!prop || holderAt(shot, pid, t) !== id || (tool && !prop.tip)) continue;
     const rig = rigOf(prop);
     const [gx, gy] = prop.grip ?? [rig.width / 2, rig.height / 2];
     const [tx, ty] = prop.tip ?? [gx, 0];
@@ -777,6 +789,32 @@ function swungLength(project: Project, shot: Shot, id: string, t: number, perspe
     return k * Math.hypot(tx - gx, ty - gy);
   }
   return 0;
+}
+
+/**
+ * Whether a `hold` or `wipe` by `id` at `to` puts a tool's working end there rather than
+ * the hand: `id` carries a prop with a `tip` at t, and `to` is not someone a hold rests a
+ * hand on (a living thing's shoulder, to steady or help them up).
+ */
+export function toolReaches(
+  project: Project,
+  shot: Shot,
+  id: string,
+  verb: Verb,
+  to: Position | undefined,
+  t: number
+): boolean {
+  if ((verb !== 'hold' && verb !== 'wipe') || to === undefined) return false;
+  if (
+    verb === 'hold' &&
+    typeof to === 'string' &&
+    shot.cast[to] &&
+    project.characters[to]?.parts.eyes
+  )
+    return false;
+  return Object.keys(shot.cast).some(
+    (pid) => project.characters[pid]?.tip && holderAt(shot, pid, t) === id
+  );
 }
 
 /**
@@ -867,6 +905,31 @@ function heldFrom(holder: ActorState, pose: Pose, prop: Character, propScale: nu
     wield = (wield ?? 0) + pose.bow.turn * bowTurn(prop, pose.bow.deg);
   // A sail (an umbrella, a flag) leaned downwind about the hand.
   if (prop.sail && holder.blown) wield = (wield ?? 0) + holder.blown;
+  // Carried at rest, a tool is not left pointing at the floor in front of its holder. In a
+  // seated holder's hand it is propped up toward the way they face, SEATED_TOOL above level,
+  // across the lap, rather than laid out along the floor. And nothing a hand carries goes
+  // into the floor: it is swung up about the grip, the nearer way, until its working end
+  // rests on the floor line, where its holder stands or under the seat they sit on. A tool
+  // put to something is left where it is put.
+  const free = 1 - Math.max(pose.bite ?? 0, pose.hit?.k ?? 0);
+  const r = Math.hypot(dx, dy);
+  if (free > 0 && r > 0 && !prop.bowstring) {
+    // The angle of the working end from the hand, y down, 0 toward the facing.
+    const angle = () => Math.atan2(dy, dx) + ((wield ?? 0) * Math.PI) / 180;
+    const swing = (to: number, k: number) => {
+      const d = to - angle();
+      wield = (wield ?? 0) + Math.atan2(Math.sin(d), Math.cos(d)) * (180 / Math.PI) * k;
+    };
+    const sat = prop.tip ? Math.min(1, holder.sit) * free : 0;
+    if (sat > 0 && Math.sin(angle()) > -Math.sin(SEATED_TOOL))
+      swing(Math.cos(angle()) >= 0 ? -SEATED_TOOL : Math.PI + SEATED_TOOL, sat);
+    const floor = holder.y + (holder.sit > 0 && !holder.perched ? holder.seat : 0);
+    const drop = floor - hand.y;
+    if (Math.abs(drop) < r && r * Math.sin(angle()) > drop) {
+      const q = Math.asin(drop / r);
+      swing(Math.cos(angle()) >= 0 ? q : Math.PI - q, free);
+    }
+  }
   const rad = ((wield ?? 0) * Math.PI) / 180;
   return {
     point: {
@@ -888,6 +951,9 @@ function heldFrom(holder: ActorState, pose: Pose, prop: Character, propScale: nu
     far,
   };
 }
+
+/** How far above level a seated holder props up a tool at rest, radians. */
+const SEATED_TOOL = (30 * Math.PI) / 180;
 
 /** Clods a dig's blow throws up, and a blow struck on the ground. */
 const DIG_CLODS = 14;
@@ -1371,8 +1437,14 @@ export function resolveActor(
           const v: ActiveVerb = { verb, u: (t - a.t) / d, span: d };
           verbs.push(v);
           const to = a.to;
-          if ((verb === 'wipe' || verb === 'hold' || verb === 'strike') && to && depth < MAX_DEPTH)
+          if (
+            (verb === 'wipe' || verb === 'hold' || verb === 'strike') &&
+            to &&
+            depth < MAX_DEPTH
+          ) {
             aims.push({ v, spot: () => wipeSpot(project, scene, shot, to, t, depth, verb) });
+            if (toolReaches(project, shot, id, verb, to, t)) v.tool = true;
+          }
         }
       }
     }
@@ -1585,6 +1657,7 @@ export function resolveActor(
     if (at.stands !== undefined && rig.height + (at.stands - state.y) / s > knee) continue;
     v.to = [(at.x - state.x) / (s * side) + rig.width / 2, (at.y - state.y) / s + rig.height];
     if (v.verb === 'strike') v.reach = swungLength(project, shot, id, t, state.perspective) / s;
+    else if (v.tool) v.reach = swungLength(project, shot, id, t, state.perspective, true) / s;
   }
   // Looks are worked out for the actors on screen, not for the ones resolved to find them.
   if (depth === 0 && !heldBy) state.look = lookPitch(project, scene, shot, state, t, depth);

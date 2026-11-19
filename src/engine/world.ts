@@ -38,6 +38,7 @@ import {
   giveParties,
   resolveActor,
   resolveCamera,
+  toolReaches,
   touchPoint,
   wipeSpot,
   type ActorState,
@@ -721,7 +722,7 @@ function axisRule(project: Project, shot: Shot): Finding[] {
 /**
  * A blow, a wipe or a hold at something (`to`) lands on it: at the moment of contact (a
  * strike's hit, half way through a wipe or a hold) the working end of what a blow swings,
- * or the hand of a wipe or a hold, is on the target. The engine bends the arm and swings the stick there, but only
+ * or of the tool a wipe or a hold is done with, or else its hand, is on the target. The engine bends the arm and swings the stick there, but only
  * as far as the arm and the stick reach: stood too far off it falls short, and too close
  * a long stick passes over it.
  */
@@ -738,9 +739,13 @@ function contactRule(project: Project, shot: Shot): Finding[] {
     const me = resolveActor(project, scene, shot, id, t);
     if (!me.visible || me.character.rig !== 'humanoid') continue;
     const target = wipeSpot(project, scene, shot, a.to, t, 0, a.do);
-    // A blow lands with what it swings; a wipe or a hold with the hand, whatever it carries.
+    // A blow lands with what it swings; a wipe or a hold with the working end of the tool
+    // it carries (a ladle's bowl), else with the hand.
     const hand = holdPoint(me, poseFor(me, t));
-    const end = a.do === 'strike' ? touchPoint(project, scene, shot, id, t) : hand;
+    const end =
+      a.do === 'strike' || toolReaches(project, shot, id, a.do, a.to, t)
+        ? touchPoint(project, scene, shot, id, t)
+        : hand;
     const miss = Math.hypot(end.x - target.x, end.y - target.y);
     const tall = me.character.height * me.scale;
     if (miss <= CONTACT_MISS * tall) continue;

@@ -798,7 +798,7 @@ every finding is fixed or waived.
 | `continuity.direction` | someone goes off one side of the frame and, in the next place, comes on moving back the way they came                                                                                    |
 | `continuity.line`      | across a cut to another place that carries straight on (an insert, a closer view), two in sight on both sides swap sides: the 180° rule                                                  |
 | `speech.mismatch`      | no voiced take of a line, heard by speech recognition, says it (see [Sound](#sound))                                                                                                     |
-| `contact.reach`        | a `strike`, `wipe` or `hold` at `to` stands too far off for the hand (or what a blow swings) to land on it, or so close a long stick passes over it                                      |
+| `contact.reach`        | a `strike`, `wipe` or `hold` at `to` stands too far off for the hand (or what a blow swings, or a tool's `tip`) to land on it, or so close a long stick passes over it                   |
 | `give.reach`           | the two in a `give` stand too far apart, or face away, so their hands do not meet and the prop floats across                                                                             |
 | `sight.face`           | a speaker's face is more than half behind the `foreground` or `near` art while saying its line                                                                                           |
 | `sight.hidden`         | an actor meant to be out of sight (`hidden`) shows from behind what hides it                                                                                                             |
@@ -1128,13 +1128,13 @@ falling the same way.
 | `appear`, `disappear` | pop in past full size and settle / swell a touch and shrink away                                                           | 0.4s                    |
 | `pickup`, `putdown`   | on a prop, with `attach`: its carrier stoops or reaches for it (below)                                                     | 1.2s                    |
 | `give`                | on a held prop, with `attach`: its holder and the taker reach out and it changes hands where their hands meet (below)      | 1.4s                    |
-| `wipe`                | near hand out to `to` (an actor or a spot), going round on it: dusting                                                     | 2.4s                    |
+| `wipe`                | near hand (or a tool's `tip`) out to `to` (an actor or a spot), going round on it: dusting                                 | 2.4s                    |
 | `kick`                | near leg draws back, snaps out forward and up (lying: up off the bed; four legs: buck)                                     | 0.9s                    |
 | `eat`                 | near hand and what it holds to the mouth, chewing (four legs: head down; simple: peck)                                     | 1.6s                    |
 | `strike`              | near arm up overhead, chops down forward, swinging what it holds; at `to`, onto it (four legs: a butt)                     | 0.7s                    |
 | `swim`                | paddles in place, legs churning under a still body, head up; pair with a `move`                                            | 3s                      |
 | `dig`                 | bent over, swings what it holds up and down into the floor in front, clods flying                                          | 2.5s (2 strokes)        |
-| `hold`                | near hand out to `to` (an actor's shoulder, or a spot) and kept there                                                      | 2s                      |
+| `hold`                | near hand out to `to` (an actor's shoulder, or a spot; a tool's `tip` to a spot) and kept there                            | 2s                      |
 | `aim`                 | draws a held bow at `to` and holds it, then lowers it; its `arrow` on the string                                           | 3s                      |
 | `shoot`               | looses the arrow of the aim in progress; it flies to the target and sticks there                                           | flight: distance ÷ 2400 |
 
@@ -1201,6 +1201,21 @@ is drawn just in front; its own moves are ignored.
   rubs round in small circles; stand them as close as for a pickup. Like a
   `hold` and a `strike` with `to`, the engine turns them to it first, and a
   hand that cannot reach is a `contact.reach` finding.
+- **A tool's working end**: a `hold` or a `wipe` with `to` by someone
+  carrying a tool (a prop with a `tip`) puts the tool's `tip` there, not
+  the hand: a ladle dipped in a bowl of ghee and then held over the fire,
+  a brush on a wall, a pointer on a map. The hand stops the tool's length
+  short of the spot, on the line from the shoulder, so the arm goes out
+  only as far as it must, and the tool turns about the grip to land its
+  tip there and stays there for the hold. When the spot is nearer than
+  that (a bowl on the floor at a seated priest's side) the hand is raised
+  and the tool comes down onto it from above; when it is up level with
+  the shoulder, the hand stays low in front and the tool angles up to it.
+  So give the spot where the tip goes (in the fire, in the bowl), not
+  where the hand would be, and stand or seat the holder about the tool's
+  length from it: a tip that cannot get there is a `contact.reach`
+  finding. A `hold` on someone (`to` an animal or a person in the cast)
+  is still the hand on their shoulder. Without a `tip` the hand does it.
 - **Steadying, supporting**: `{ "do": "hold", "to": "ghayal" }` puts the
   near hand on the named actor's shoulder (or on a spot) and keeps it there
   for the `duration`, following them: as they get up off the floor it
@@ -1266,6 +1281,19 @@ is drawn just in front; its own moves are ignored.
   lantern's handle); default its middle. The construction sheet marks a
   character's `hold` and a prop's `grip` (and `tip`, a tool's working end;
   a bow's string and `nock`; a target's `mark`).
+- `tip` makes a prop a tool: the point in its box that does the work (a
+  hoe's blade edge, a ladle's bowl, a brush's bristles). A `dig` brings it
+  down onto the floor, a `strike` onto what is struck, and a `hold` or a
+  `wipe` with `to` puts it on `to` (above). Default: the top of the box
+  straight above the grip.
+- At rest, what a hand carries never goes into the floor in front of its
+  holder: a tool hanging down further than the hand is high (a long pole
+  hung by its top) is swung up about the grip, the nearer way, just until
+  its working end rests on the floor line, where they stand or, sat on a
+  raised seat, the seat's `floor`. A seated holder props a tool up across
+  the lap instead, its `tip` 30° above level toward the way they face, so
+  a ring of seated priests each holds his ladle up by himself rather than
+  laying it out along the floor (or across the fire) in front.
 - `sail` (0 to 1) is how much of the weather's `wind` a prop catches while
   it is carried: an open umbrella or a banner 1, a flag on a pole about
   0.6; a stick or a lantern none (leave it out). In a wind it leans

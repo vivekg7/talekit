@@ -1092,6 +1092,20 @@ findings and 2 line findings.
     falls short or a long stick passes over, and where to stand. With the
     turn in place it finds nothing in the released films, where no strike
     had a `to`; it is there for the ones that will.
+  - **A tool reaches with its working end.** In `nevla-hi` five seated
+    priests pour ghee with long ladles (`sruva`) by a `hold` to a spot over
+    the fire: the hand went there and the ladle hung off it wherever,
+    toward the camera, so the two behind the fire seemed to reach into it
+    from in front, and the front priest's ladle lay on the floor at the
+    frame's edge. A `hold` or `wipe` by someone carrying a prop with a
+    `tip` now puts the tip on `to`, the hand stopping the tool's length
+    short as a strike's does (raised over a spot nearer than that, so a
+    ladle dips into a bowl at its holder's side from above), and
+    `contact.reach` judges the tip. A hold on someone stays a hand on the
+    shoulder: steadying a man is what that hold is for. At rest a carried
+    prop never goes below its holder's floor line, the line that keeps a
+    tail off the floor, and a seated holder props a tool up 30° across
+    the lap, which keeps each priest's ladle on his own side of the fire.
 
 Places used a certain way (smart objects):
 

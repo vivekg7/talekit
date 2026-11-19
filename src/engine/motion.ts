@@ -78,9 +78,10 @@ export interface Pose {
    */
   bite?: number;
   /**
-   * A `strike` at a target: the spot it lands on, in the actor's box as it faces, and how
-   * far the blow has come down onto it, 0..1. What the near hand carries is swung so its
-   * working end points there; the swing is solved where the prop is placed.
+   * A `strike` at a target, or a `hold` or `wipe` there with a tool: the spot it lands on,
+   * in the actor's box as it faces, and how far the blow has come down onto it (the tool
+   * has gone to it), 0..1. What the near hand carries is swung so its working end points
+   * there; the swing is solved where the prop is placed.
    */
   hit?: { at: Pt; k: number };
   /**
@@ -1211,6 +1212,46 @@ function strikeHand(rig: Rig, to: Pt, reach: number): Pt {
 const STRIKE_SLOPE = 40;
 
 /**
+ * Where the hand goes to put the working end of a tool `reach` long on `to` (a ladle's
+ * bowl in the fire, a brush on a wall): that far short of it on the line from the
+ * shoulder, so the arm goes out only as far as it must. Nearer than that, the hand is
+ * kept TOOL_NEAR of an arm out from the shoulder and the tool angled to it: down onto it
+ * from above, as a ladle dips into a bowl at its holder's side, or up to it from a hand
+ * held out low in front. `to` and the
+ * answer are in the box with the body offset, as reachTo takes them.
+ */
+function toolHand(rig: Rig, pose: Pose, to: Pt, reach: number): Pt {
+  const arm = rig.parts.armR;
+  const elbow = rig.bends.armR;
+  if (!arm || !elbow || reach <= 0) return to;
+  // The shoulder where the pose has put it (lower, sat down).
+  const [rx, ry] = toRoot(rig, pose, 'armR', arm.pivot);
+  const sx = rx + pose.dx;
+  const sy = ry + pose.dy;
+  const near = TOOL_NEAR * 2 * Math.hypot(elbow[0] - arm.pivot[0], elbow[1] - arm.pivot[1]);
+  const ux = to[0] - sx;
+  const uy = to[1] - sy;
+  const d = Math.hypot(ux, uy) || 1;
+  if (d - reach >= near) return [to[0] - (reach * ux) / d, to[1] - (reach * uy) / d];
+  // Where the circle the hand keeps to about the shoulder meets the one the tool's length
+  // draws about the target; of the two, the one in front, and then the higher (a hand
+  // flung back behind the head to put a tool on something near is never right).
+  const along = (near * near - reach * reach + d * d) / (2 * d);
+  const h2 = near * near - along * along;
+  if (h2 < 0) return [sx + (near * ux) / d, sy + (near * uy) / d];
+  const h = Math.sqrt(h2);
+  const mx = sx + (along * ux) / d;
+  const my = sy + (along * uy) / d;
+  const a: Pt = [mx - (h * uy) / d, my + (h * ux) / d];
+  const b: Pt = [mx + (h * uy) / d, my - (h * ux) / d];
+  const score = (p: Pt) => p[0] - 0.3 * p[1];
+  return score(a) >= score(b) ? a : b;
+}
+
+/** How far out from the shoulder, as a share of the arm, a hand stays that puts a tool on something near. */
+const TOOL_NEAR = 0.45;
+
+/**
  * Layer a timed verb over the base pose. `u` is progress 0..1 through the action; for
  * `sit` it is how far down the actor is, so sitting and standing can ease, and `seat` is
  * how far below the hips the floor is (canonical units; 0 sits on the ground). An `aim` is
@@ -1364,7 +1405,12 @@ export function applyVerb(
       const turns = Math.max(2, Math.round(span / 0.5)) * TAU * u;
       if (humanoid) {
         const [x, y] = to ?? WIPE_AT;
-        reachTo(rig, pose, [x + 7 * Math.cos(turns), y + 5 * Math.sin(turns)], k);
+        const at: Pt = [x + 7 * Math.cos(turns), y + 5 * Math.sin(turns)];
+        // With a tool in the hand (`reach` long), it is the tool's working end that wipes.
+        if (to && reach > 0) {
+          reachTo(rig, pose, toolHand(rig, pose, at, reach), k);
+          pose.hit = { at, k };
+        } else reachTo(rig, pose, at, k);
       } else {
         // No arm: the body rubs back and forth against it.
         pose.rot.body = (pose.rot.body ?? 0) + k * (6 + 4 * Math.sin(turns));
@@ -1375,10 +1421,15 @@ export function applyVerb(
     case 'hold': {
       // The near hand out to `to` (else in front of the chest) and kept there: a hand on
       // someone's shoulder to steady them as they walk, on a door, on a cart's side. It goes
-      // with whatever it rests on, so walk the two together.
+      // with whatever it rests on, so walk the two together. With a tool in the hand
+      // (`reach` long), its working end goes there instead (a ladle into the fire, a pointer
+      // on a map): the hand stops that far short and the tool is swung about the grip to it.
       const ease = Math.min(0.3, 0.35 / Math.max(span, 0.35));
       const k = settle(u, ease, ease);
-      if (humanoid) reachTo(rig, pose, to ?? WIPE_AT, k);
+      if (humanoid && to && reach > 0) {
+        reachTo(rig, pose, toolHand(rig, pose, to, reach), k);
+        pose.hit = { at: to, k };
+      } else if (humanoid) reachTo(rig, pose, to ?? WIPE_AT, k);
       else pose.dx += 4 * k;
       break;
     }

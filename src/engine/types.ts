@@ -233,14 +233,15 @@ export const CharacterSchema = z.object({
     ),
   /**
    * The working end of a tool, in its own canonical coordinates: the edge of a hoe's blade,
-   * the point of a spade. A `dig` brings it down onto the floor. Default: the top of the box
-   * straight above the grip.
+   * the point of a spade, a ladle's bowl. A `dig` brings it down onto the floor, a `strike`
+   * onto what is struck, and a `hold` or `wipe` with `to` puts it on `to`. Default: the top
+   * of the box straight above the grip.
    */
   tip: z
     .tuple([z.number(), z.number()])
     .optional()
     .describe(
-      "The working end of a tool, [x, y] in the character's own box (the edge of a hoe's blade, the point of a spade): what a `dig` brings down onto the floor. Default: the top of the box straight above the grip"
+      "The working end of a tool, [x, y] in the character's own box (the edge of a hoe's blade, the point of a spade, a ladle's bowl): what a `dig` brings down onto the floor and a `strike` onto what it hits; a `hold` or `wipe` with `to` by its carrier puts it on `to` (the hand stops the tool's length short and the tool turns to it) instead of the hand. Carried at rest it is kept off the floor in front of its holder, and propped up 30° above level by someone seated. Default: the top of the box straight above the grip"
     ),
   /**
    * How much of the weather's wind this prop catches when it is carried, 0..1: an open
@@ -945,7 +946,7 @@ export const ActionSchema = z
      * with no `do`, the id of the actor being spoken to.
      */
     to: PositionSchema.optional().describe(
-      "walk/run/move/fly/jump/climb/sit/lie/putdown: where to (anchor, stage shortcut or {x, y}); a sit or lie there walks over first. climb: the top (or foot) of the ladder or trunk, straight above (below) where the climber stands, inside one of the scene's `climb` areas. wipe: what the hand goes round on, an actor in the cast (its middle), an anchor with a `use` (its work point) or a spot. hold: what the hand rests on, an actor in the cast (its shoulder), an anchor with a `use` or a spot. strike: what the blow lands on, an actor in the cast (its shoulders, an animal's back), an anchor with a `use` (its work point, the top of a washing stone; the striker is walked there and sat down first) or a spot; without it the blow chops the air in front. aim: what the archer aims at, an actor in the cast (its `mark`), an anchor or a spot. shoot: where the arrow goes, if not where the aim was (a miss); on an arrow not on a bow, where it flies to. On a say without do: the id of the actor spoken to, when the engine would guess wrong"
+      "walk/run/move/fly/jump/climb/sit/lie/putdown: where to (anchor, stage shortcut or {x, y}); a sit or lie there walks over first. climb: the top (or foot) of the ladder or trunk, straight above (below) where the climber stands, inside one of the scene's `climb` areas. wipe: what the hand goes round on, an actor in the cast (its middle), an anchor with a `use` (its work point) or a spot. hold: what the hand rests on, an actor in the cast (its shoulder), an anchor with a `use` or a spot. With a tool in the hand (a prop with a `tip`), a wipe or hold puts the tool's tip there instead (a ladle in a bowl, then over the fire), the hand stopping the tool's length short; a hold on someone in the cast is still the hand on their shoulder. strike: what the blow lands on, an actor in the cast (its shoulders, an animal's back), an anchor with a `use` (its work point, the top of a washing stone; the striker is walked there and sat down first) or a spot; without it the blow chops the air in front. aim: what the archer aims at, an actor in the cast (its `mark`), an anchor or a spot. shoot: where the arrow goes, if not where the aim was (a miss); on an arrow not on a bow, where it flies to. On a say without do: the id of the actor spoken to, when the engine would guess wrong"
     ),
     /** On a move: points to pass on the way to `to`, in order. */
     via: z
