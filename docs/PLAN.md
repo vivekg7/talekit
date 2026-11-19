@@ -32,6 +32,11 @@ it; open work is marked **Open**.
    reason (`allow`). No soft warnings for staging mistakes: agents learn to
    skip warnings, and each skipped one reaches the person as a glitch. A check
    that cries wolf is tuned, not demoted.
+8. **Content belongs to the channel, not the engine.** The engine renders
+   whatever a story calls for, gentle or violent. Audience rules (kid-safe
+   endings for the children's channels) are kept per channel, out of the
+   code, the guide and the critic, so that one engine can serve an adult
+   channel too.
 
 ## Architecture
 

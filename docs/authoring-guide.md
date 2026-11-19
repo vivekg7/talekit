@@ -1301,7 +1301,7 @@ opens its own page. Optional `board.json`: `{ "title": …, "ask": …,
 slower" } }`. Notes and picks land in its `notes.json`; read them with
 `list_notes(folder)` (`file voices/a.wav · picked · warmer`).
 
-## Pacing a children's story
+## Pacing a story
 
 - Open with a title card over the first scene (`fadeIn`, `caption` style
   `title`); close with "The End" and a `fadeOut`.
