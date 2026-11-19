@@ -49,7 +49,7 @@ import { depthOf, offPerspective } from './depth.js';
 import { lineEnd } from './voice.js';
 
 export { waived };
-import type { Allow, Area, Character, Habitat, Project, Scene, Shot, View } from './types.js';
+import type { Allow, Area, Habitat, Project, Scene, Shot, View } from './types.js';
 
 export { groundOf, habitatOf, inArea, nearestIn };
 export type { Ground };
@@ -576,11 +576,11 @@ const inFrame = (v: View, p: XY, W: number, H: number) =>
 const shows = (s: ActorState) => s.visible && s.opacity > 0.05;
 
 /**
- * A cut that carries straight on in the same place (`follows`): everyone in sight on
- * either side of it starts as the last shot left them, where they stood, sitting or lying,
- * asleep (lying, eyes shut) or awake, holding what they held, at the size they were, and nobody appears in a
- * spot that was in sight empty or vanishes from one still in sight. Facing is not checked:
- * the engine turns whoever the shot has facing the other way (stage.ts).
+ * A cut that carries straight on in the same place (`follows`): everyone in sight on either
+ * side of it starts as the last shot left them (where they stood, sitting or lying, asleep
+ * or awake, holding what they held, at the size they were), and nobody appears in a spot
+ * that was in sight empty or vanishes from one still in sight. Facing is not checked: the
+ * engine turns whoever the shot has facing the other way (stage.ts).
  */
 function cutRule(project: Project, shot: Shot): Finding[] {
   const prev = follows(project, shot);
@@ -748,9 +748,9 @@ function axisRule(project: Project, shot: Shot): Finding[] {
 /**
  * A blow, a wipe or a hold at something (`to`) lands on it: at the moment of contact (a
  * strike's hit, half way through a wipe or a hold) the working end of what a blow swings,
- * or of the tool a wipe or a hold is done with, or else its hand, is on the target. The engine bends the arm and swings the stick there, but only
- * as far as the arm and the stick reach: stood too far off it falls short, and too close
- * a long stick passes over it.
+ * or of the tool a wipe or a hold is done with, or else its hand, is on the target. The
+ * engine bends the arm and swings the stick there, but only as far as they reach: stood
+ * too far off it falls short, and too close a long stick passes over it.
  */
 function contactRule(project: Project, shot: Shot): Finding[] {
   const scene = project.scenes[shot.scene];

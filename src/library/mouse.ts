@@ -1,11 +1,8 @@
 import type { CharacterInput } from '../engine/types.js';
 
 /**
- * A tiny round mouse: a pear of a body fat at the rump with a pale belly, a round haunch on
- * the near hind leg, short legs on little pink feet, big round ears with pink insides sunk
- * into the head, a pointy snout with a pink button nose and whiskers (thin line work, no
- * outline), a big dark eye, and a long tail that thins to a point (a filled path along a
- * curve, not a stroke).
+ * A tiny round mouse: big round ears sunk into the head, whiskers as thin line work (no outline),
+ * and a long tail that thins to a point (a filled path along a curve, not a stroke).
  */
 export const MOUSE: CharacterInput = {
   id: 'mouse',

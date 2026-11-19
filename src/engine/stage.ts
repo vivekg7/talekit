@@ -1,28 +1,20 @@
 /**
- * The engine's own staging: what it adds to a shot before it plays, so the agent does not
- * have to stage what has one right answer (docs/PLAN.md, phase 8.1).
+ * The engine's own staging: what it adds to a shot so the agent need not stage what has
+ * one right answer (docs/PLAN.md, phases 8.1-8.2). The shot file is never changed; added
+ * actions are marked `staged` and `talekit explain` lists them.
  *
- * Attention: who listens to a line turns to face the speaker, a moment after it starts and
- * each in their own time, and the speaker turns to whoever the line is said to. A reaction
- * (`reacts`) looks at its cause first. Only someone idle turns: walking, busy with their
- * hands, lying down, carried or without eyes, they stay as they are, and the world check
- * says so when it matters (world.ts). The shot file is never changed; the added actions are
- * marked `staged` and `talekit explain` lists them.
+ * Attention: listeners turn to the speaker, each in their own time, and the speaker to whom
+ * the line is said; a reaction (`reacts`) looks at its cause first. Only someone idle turns
+ * (not walking, busy, lying, carried or eyeless); world.ts flags it when it matters.
  *
- * Continuity (phase 8.2): a shot that carries straight on from the last one in the same
- * place (`follows`) starts everyone facing the way they were left; one the shot has facing
- * the other way turns at its start, rather than flipping at the cut.
+ * Continuity: a shot that `follows` the last starts everyone facing as left; one it has
+ * facing the other way turns at its start rather than flipping at the cut.
  *
- * Places (phase 8.2): a blow, a wipe or a hold at an anchor that says how it is used (`use`)
- * walks its doer there and sits it down first, then turns it to the place's facing.
+ * Places: work at an anchor with a `use` walks (and sits) its doer there first.
  *
- * Startles: a loud sound (a roar, a crash; `soundTraits`) frightens or startles everyone else
- * in the shot who is awake and has eyes, at once and each a moment apart, and whoever is
- * free turns to where it came from; the face settles back after STARTLE_HOLD, the jump at a
- * noise and not a change of heart. One roared with a line said `to` someone startles that
- * one (and the line's `audience`) alone. Only a calm face changes (neutral, happy, sad): the
- * angry stand their ground. One the shot already gives a face or a turn just then is left
- * to it.
+ * Startles: a loud sound (`soundTraits`) startles everyone else awake with eyes, and the free
+ * turn to it; one roared `to` someone startles only them (and the `audience`). Only calm
+ * faces change, and a face or turn the shot gives just then is left to it.
  */
 import { anchorScale } from './depth.js';
 import { waived } from './allow.js';
@@ -142,8 +134,8 @@ export function staging(project: Project, scene: Scene, shot: Shot): StagedActio
     added.push(a);
     work = raw({ ...work, actions: sortByTime([...work.actions, a]) });
   };
-  // Carried on from the last shot facing the other way: turns to how this shot has it, or,
-  // a thing that cannot turn itself, stays as it was.
+  // Carried on facing the other way: turns to how this shot has it (a thing that cannot
+  // turn itself stays as it was).
   for (const [id, facing] of Object.entries(carried(project, shot))) {
     const turns = !!project.characters[id].parts.eyes;
     add({
@@ -153,10 +145,7 @@ export function staging(project: Project, scene: Scene, shot: Shot): StagedActio
       staged: turns ? `was facing ${facing}` : 'left as it was',
     } as StagedAction);
   }
-  /**
-   * Turn `id` to face `toward` at t, if it faces away; one still on the move or busy then
-   * turns as soon as it is free, if that is before `until` (the line's end).
-   */
+  /** Turn `id` to face `toward` at t, or as soon as it is free, if before `until`. */
   const turn = (
     id: string,
     toward: string | { x: number } | { facing: Facing },
@@ -343,11 +332,9 @@ export function staging(project: Project, scene: Scene, shot: Shot): StagedActio
 }
 
 /**
- * Getting `id` to the anchor it works at by `t`: a walk there (pose stand) or a sit there,
- * which walks over first (pose sit), timed to be done a turn's time before the work. None
- * when it is there already in the pose, when it is busy, moving or sat elsewhere in the time
- * that takes, or when there is no time for it; a doer cast standing at the anchor of a seated
- * place, working from the start of the shot, opens the shot sat there.
+ * A walk or a sit (walking over first) getting `id` to the anchor it works at, done a turn's
+ * time before `t`; none if already there, otherwise occupied, or out of time. A doer cast at
+ * a seated place and working from the start opens the shot sat there.
  */
 function approach(
   scene: Scene,
@@ -428,9 +415,8 @@ export function sideOf(me: { x: number }, them: { x: number }): Facing | undefin
 }
 
 /**
- * Whether the shot itself turns `id` (a `set.facing`) from a little before `from` to `to`:
- * then the agent is directing it, and the engine leaves it alone. A move is not: where it
- * leaves someone facing is where it went, and the engine turns them once it ends.
+ * Whether the shot itself turns `id` (a `set.facing`) from a little before `from` to `to`,
+ * so the engine leaves it alone. A move does not count: the engine turns them once it ends.
  */
 export function directs(shot: Shot, id: string, from: number, to: number): boolean {
   return shot.actions.some(
@@ -438,11 +424,7 @@ export function directs(shot: Shot, id: string, from: number, to: number): boole
   );
 }
 
-/**
- * The shot this one carries straight on from: the one before it in the film, in the same
- * scene, with no time passed between (`cut: 'next'`, the default for a hard cut), and
- * not a title card.
- */
+/** The shot just before, in the same scene with no time passed (`carriesOn`), not a title card. */
 export function follows(project: Project, shot: Shot): Shot | undefined {
   const prev = shotBefore(project, shot);
   if (!prev || prev.scene !== shot.scene || !project.scenes[prev.scene]) return undefined;
@@ -472,10 +454,9 @@ export function leftAs(project: Project, shot: Shot, id: string): ActorState | u
 const CARRIED = new WeakMap<Project, WeakMap<Shot, Record<string, Facing>>>();
 
 /**
- * Who this shot has facing other than the way the last shot left them (in sight there),
- * and that way. One who sets off on a move at the start, or that the shot turns itself
- * then, is left to it; so is anything held (it faces with its holder) and anyone lying
- * down (a turn would flip them over).
+ * Who this shot has facing other than the last shot left them, and that way. Left out: one
+ * moving or turned by the shot at the start, anything held (it faces with its holder) and
+ * anyone lying (a turn would flip them over).
  */
 function carried(project: Project, shot: Shot): Record<string, Facing> {
   // Per project as well as shot: what comes before a shot depends on the film it is in.

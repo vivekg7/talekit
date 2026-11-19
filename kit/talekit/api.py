@@ -2,13 +2,14 @@
 the lookup tables (BEARDS, TILAK, LOOKS...), read from the modules themselves.
 
 usage: python3 kit/talekit/api.py [module|name ...]
-With no argument it prints the whole kit (about 5k tokens, against 25k for people.py
-alone); a module name (people, shots...) prints that module, any other name the helpers
-and tables it matches. Read this instead of the source: open a function's body only when
-its docstring is not enough. Generated from the code, so it cannot go stale."""
+No argument prints the whole kit (about 5k tokens, against 25k for people.py alone); a
+module name (people, shots...) prints that module, any other name the helpers and tables
+it matches. Read this instead of the source; open a body only when its docstring is not
+enough."""
 
 import inspect
 import pathlib
+import re
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
@@ -28,8 +29,15 @@ def _public(mod):
             yield name, obj
 
 
+def _sig(obj):
+    """The signature, a function default shown by its name (dhoti(foot=chappal))."""
+    return re.sub(r"<function (\w+) at 0x[0-9a-f]+>", r"\1", str(inspect.signature(obj)))
+
+
 def _doc(obj, indent="    "):
     doc = inspect.getdoc(obj)
+    if doc and doc.startswith(f"{obj.__name__}("):  # a namedtuple's own "Torso(front, back, hem)"
+        doc = None
     return "".join(f"\n{indent}{ln}" if ln else "\n" for ln in doc.splitlines()) if doc else ""
 
 
@@ -37,12 +45,12 @@ def describe(name, obj):
     if isinstance(obj, dict):
         return f"{name}: {', '.join(repr(k) for k in obj)}"
     if inspect.isclass(obj):
-        out = f"class {name}{inspect.signature(obj)}{_doc(obj)}"
+        out = f"class {name}{_sig(obj)}{_doc(obj)}"
         for m, fn in vars(obj).items():
             if inspect.isfunction(fn) and not m.startswith("_"):
-                out += f"\n  .{m}{inspect.signature(fn)}{_doc(fn, '      ')}"
+                out += f"\n  .{m}{_sig(fn)}{_doc(fn, '      ')}"
         return out
-    return f"{name}{inspect.signature(obj)}{_doc(obj)}"
+    return f"{name}{_sig(obj)}{_doc(obj)}"
 
 
 def main(args):

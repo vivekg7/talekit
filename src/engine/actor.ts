@@ -23,10 +23,7 @@ import { applyColors, n, spanAt, topLevelPieces, verticalExtent } from './svg.js
 import type { ActorState } from './timeline.js';
 import type { Character, Facing } from './types.js';
 
-/**
- * Full pose for an actor at this instant, without its springs (those need the whole shot;
- * see springs.ts).
- */
+/** Full pose for an actor at this instant, without its springs (they need the whole shot). */
 export function poseFor(actor: ActorState, t: number): Pose {
   const rig = rigOf(actor.character);
   const sat = actor.sit > 0 || actor.lie > 0;
@@ -258,10 +255,9 @@ function turnPart(rig: Rig, pose: Pose, name: string): string {
 }
 
 /**
- * The radius of the disc a bent limb keeps round its joint (`bentLimb`): as wide as the limb
- * is drawn across the joint, so a thick arm's disc covers it edge to edge; a drawing that
- * cannot be measured there takes its stroke, or a typical width. A limb drawn wider at the
- * joint than this, or off to one side of it, shows the corners of its cut when it bends.
+ * The radius of a bent limb's joint disc: as wide as the limb is drawn across the joint
+ * (else its stroke, or a typical width). A limb wider there, or off to one side, shows the
+ * corners of its cut when it bends.
  */
 export function jointRadius(svg: string, [kx, ky]: [number, number]): number {
   const span = spanAt(svg, ky, kx);
@@ -269,10 +265,9 @@ export function jointRadius(svg: string, [kx, ky]: [number, number]): number {
 }
 
 /**
- * A limb bent at the knee or elbow: the part drawn twice, cut across the joint, the lower
- * half turned by `bend`. Each half keeps a disc as wide as the limb round the joint, so the
- * turn opens no gap and the joint is round; both outlines go down before either fill, so no
- * line crosses where the halves meet and the limb reads as one shape.
+ * A limb bent at the knee or elbow: drawn twice, cut across the joint, the lower half turned
+ * by `bend`, each with a disc round the joint so no gap opens; both outlines go down before
+ * either fill, so no line crosses where the halves meet.
  */
 function bentLimb(
   id: string,
@@ -317,10 +312,8 @@ function bentLimb(
 }
 
 /**
- * A part that bends along its length (`Rig.links`): drawn once per link, each cut square to
- * the part at its joints and turned by the links before it and its own, with a disc as wide
- * as the part round every joint so a bend opens no gap. As for a bent limb, every outline
- * goes down before any fill, so no line crosses where the links meet.
+ * A part that bends along its length (`Rig.links`): drawn once per link, cut square at its
+ * joints and turned by the links up to its own, discs and outlines as for `bentLimb`.
  */
 function chainedPart(
   id: string,
@@ -510,11 +503,8 @@ export function characterBody(
 }
 
 /**
- * The mirror as a signed horizontal scale: 1 facing right, -1 facing left, and through a
- * turn a squash from one to the other (never quite flat, so the actor does not vanish).
- * A character whose face turns (`Rig.turn`) squashes far less: its face, front-on at
- * the mirror, carries the turn, so the body need only hide the swap of its near and far
- * sides.
+ * The mirror as a signed horizontal scale: 1 right, -1 left, squashed through a turn (never
+ * quite flat). A character whose face turns (`Rig.turn`) squashes far less: the face carries it.
  */
 export function sideOf(actor: Pick<ActorState, 'facing' | 'turn' | 'character'>): number {
   const to = actor.facing === 'left' ? -1 : 1;
@@ -674,10 +664,9 @@ export function renderArchery(actor: ActorState): string {
 const SOIL = ['#4f3521', '#6b4a2e', '#8a6440', '#a98457'];
 
 /**
- * The clods a `dig` throws up where the blade went in (`ActorState.soil`): a spray of lumps
- * flung up and mostly back toward the digger, falling and settling on the floor, and a low
- * puff of dust spreading and thinning; a `strike` on the ground throws the dust and a few
- * lumps. Each blow's spray is its own (hash01 of its salt).
+ * The clods and dust a `dig` throws up where the blade went in (`ActorState.soil`), mostly
+ * back toward the digger; a `strike` on the ground throws dust and a few. Each blow's spray
+ * is its own (hash01 of its salt).
  */
 export function renderSoil(actor: ActorState): string {
   if (!actor.soil || !actor.visible) return '';
@@ -726,11 +715,7 @@ export const SHADOW_DEFS =
   "<stop offset='0.6' stop-color='#000' stop-opacity='0.32'/>" +
   "<stop offset='1' stop-color='#000' stop-opacity='0'/></radialGradient>";
 
-/**
- * A shadow on the ground under the feet point, as wide as the rig's stance. The higher the
- * pose lifts the body off the ground (a jump, a bounce), the smaller and fainter it gets,
- * which is what sells the height.
- */
+/** A ground shadow under the feet point, as wide as the stance; smaller and fainter the higher the body is lifted. */
 export function shadowSvg(
   character: Character,
   pose: Pose,
@@ -845,10 +830,9 @@ export function partToScene(
 const SAIL_GIVE = 0.4;
 
 /**
- * The holding arm giving to a sail the wind leans `deg` (clockwise, own frame) about the
- * hand: turned about the shoulder by a share of it, the way that carries the hand downwind
- * (back on the clock for a hand below the shoulder, on for one held up over it). The prop
- * is placed from the hand after, so its grip stays in it.
+ * The holding arm giving to a sail the wind leans `deg` (clockwise, own frame): turned
+ * about the shoulder by a share of it, carrying the hand downwind. The prop is placed from
+ * the hand after, so its grip stays in it.
  */
 function giveToSail(rig: Rig, pose: Pose, deg: number): void {
   const arm = rig.hold.part;

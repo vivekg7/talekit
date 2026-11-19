@@ -1,16 +1,9 @@
 import type { CharacterInput } from '../engine/types.js';
 
 /**
- * A tiger, the lion's build without the mane: a heavy bean of a body with a deep chest, a
- * round haunch on the near hind leg, thick legs and big paws with toe lines. Black stripes
- * are tapered filled paths: down from the spine and up from the white belly, in arcs round
- * the haunch, in short bars across the back of every leg, as rings round a long tail that
- * hangs from the rump and turns up at a dark tip, and over the forehead and cheeks. The head
- * is round with a ruff of pointed cheek fluff flaring back from the cheeks, white cheeks and
- * muzzle, a white brow over each eye and a pink nose; the round ears show their orange back
- * under a thin dark rim, with a white inside. Head, ears and face are the lion's, drawn 15%
- * larger about the neck pivot and 9 units further back to stay in the box: without the mane,
- * a lion-sized head reads as a cub's on this body.
+ * A tiger, the lion's build without the mane, its stripes tapered filled paths. Head, ears and
+ * face are the lion's, drawn 15% larger about the neck pivot and 9 units further back to stay in
+ * the box: without the mane, a lion-sized head reads as a cub's on this body.
  */
 export const TIGER: CharacterInput = {
   id: 'tiger',

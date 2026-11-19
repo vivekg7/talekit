@@ -1,15 +1,10 @@
 import type { CharacterInput } from '../engine/types.js';
 
 /**
- * A little boy in a striped T-shirt and shorts: the kid's box, pivots, proportions and big eyes,
- * with a boy's silhouette. Short tousled hair with a spiky fringe and two tufts swept up on the
- * crown, drawn three-quarters with the ear on the far side showing below it. A neck in a ribbed
- * crew collar, a T-shirt with three stripes worn loose over the shorts; short sleeves round the
- * shoulder pivot with a stripe and a hemmed cuff; mitten hands with the thumb forward and a line
- * where the fingers curl. Shorts to just above the knee, so the knee bends bare; striped socks and
- * sneakers with a thick pale sole and laces. Limbs are round-capped strokes from their pivots, the
- * neck reaches 30 units into the head and the shorts start 36 above the hips, so nothing opens up
- * in motion.
+ * A little boy in a striped T-shirt and shorts, on the kid's box, pivots and proportions. The
+ * shorts end above the knee, so the knee bends bare. Limbs are round-capped strokes from their
+ * pivots, the neck reaches 30 units into the head and the shorts start 36 above the hips, so
+ * nothing opens up in motion.
  */
 export const BOY: CharacterInput = {
   id: 'boy',

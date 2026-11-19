@@ -2,14 +2,10 @@ import type { CharacterInput } from '../engine/types.js';
 
 /**
  * A white mute swan floating, on the `simple` rig: 200×200 box, base on y=200, faces right. The
- * base line is the waterline's underside, so nothing is drawn below the body (no feet) and the
- * bottom of the body stays plain for a scene's water to cover. One `body` part in depth order:
- * a boat-shaped body with a pointed tail tipped up at the left and a cool grey shade under the
- * wing, a tapering S-curved neck rising from the chest to a small head near the top right, the
- * black knob and mask of a mute swan, then the folded wing over the back, arched and rising to
- * layered flight feathers at the back. The beak is the `mouth`, so talking opens it: orange
- * with a dark nail at the tip. The eye sits on the black mask, so it has a white ring to read,
- * and the closed and happy eyes are drawn in white.
+ * base line is the waterline's underside, so nothing is drawn below the body (no feet) and its
+ * bottom stays plain for a scene's water to cover. The beak is the `mouth`, so talking opens it.
+ * The eye sits on the black mask, so it has a white ring to read, and the closed and happy eyes
+ * are drawn in white.
  */
 export const SWAN: CharacterInput = {
   id: 'swan',

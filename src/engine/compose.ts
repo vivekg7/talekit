@@ -94,10 +94,9 @@ function captionSvg(
 ): string {
   const fontSize = (style === 'title' ? 54 : 28) * k;
   const lineHeight = fontSize * 1.25;
-  // Kept clear of what a reel app draws over the frame, as wide on both sides so it stays
-  // in the middle. A reel's narration goes at the top, over the sky: above the app's
-  // caption it would sit on the cast's feet. A film's goes at the top when the timeline
-  // found it would cover the cast's faces at the bottom (narrationBox there).
+  // Clear of a reel app's overlays, equal on both sides. A reel's narration goes at the top
+  // (above the app's caption it would sit on the cast's feet); a film's only when at the
+  // bottom it would cover faces (narrationBox).
   const safe = safeInsets({ width: W, height: H });
   const side = Math.max(safe.left, safe.right);
   const lines = wrapText(text, Math.min(W * 0.8, W - 2 * side), fontSize, true);
@@ -227,12 +226,9 @@ function fireAt(
 const FIRE_RIM = '#ffb45a';
 
 /**
- * The light an actor stands in, and its colour. Its shading (shade.ts) is lit by day from
- * high to the left; by a fire, lit on the side toward the fire with a warm rim, its shadow
- * swung round to the far side the more the fire outshines the scene. Its colours are
- * tinted toward `weather.light` (characters are drawn in daylight; a night scene is not)
- * and warmed by the fire, through a filter that scales each colour channel. A fire matters
- * more the darker it is around it.
+ * The light an actor stands in: by day from the sun or high left; by a fire, a warm rim on
+ * its side and the shadow swung away, more so the darker the scene. Colours are tinted
+ * toward `weather.light` (characters are drawn in daylight) by a per-channel filter.
  */
 function lightOf(
   actor: ActorState,
@@ -461,11 +457,7 @@ export function maskDocument(
   );
 }
 
-/**
- * How much of a bow's string and arrow is drawn over its archer as the bow comes up
- * (`Pose.bow.raise`): none hanging at his side, behind him, all of it once it is out in
- * front; between, faded over the copy behind, so neither jumps from one side to the other.
- */
+/** How much of a bow is drawn over its archer as it comes up (`Pose.bow.raise`), faded so it never jumps sides. */
 export function bowOver(raise: number): number {
   return clamp01((raise - 0.15) / 0.35);
 }
@@ -541,11 +533,8 @@ function frameBody(project: Project, frame: FrameState, opts: ComposeOptions): s
   const lights = castLights(scene, fires);
   const sun = lights.find((l) => l.kind === 'sky');
   world += castShadows(posed, lights, w, W, H);
-  // An archer's bow is in his far hand once an aim has taken it there, so it and its string
-  // and the arrow on it are drawn behind him (timeline.ts puts them there); raised to draw,
-  // they come over him as well, faded in as the bow comes up, and his near arm, on the
-  // string, over them. Part way from the near hand to the far one, the bow is drawn in
-  // front too, fading out as it goes.
+  // A bow in the far hand is drawn behind its archer (timeline.ts); raised, it fades in over
+  // him too, under his near arm on the string. Mid hand-over it is drawn in front, fading out.
   const overArcher = new Map<string, number[]>();
   for (const [i, { actor }] of posed.entries()) {
     const archer = actor.nockedOn ?? (actor.behind && actor.bowstring ? actor.heldBy : undefined);

@@ -5,11 +5,9 @@ import { rigPart, type Rig } from './rigs.js';
 
 /** How far a move has got, in canonical units of the actor's own rig (see timeline). */
 export interface Travel {
-  /** Distance covered since the move began. */
   dist: number;
-  /** Length of the whole move. */
   total: number;
-  /** Seconds the whole move takes. */
+  /** Seconds. */
   time: number;
 }
 
@@ -124,10 +122,7 @@ function gaitOf(rig: Rig, loco: 'walk' | 'run'): Gait | undefined {
   return GAITS[rig.name]?.[loco];
 }
 
-/**
- * A leg's length for the gait: hip to floor, or hip to knee for a sprawling leg, which
- * swings only that far.
- */
+/** Hip to floor, or hip to knee for a sprawling leg, which swings only that far. */
 function legLength(rig: Rig, leg: string): number {
   const pivot = rigPart(rig, leg).pivot;
   const knee = rig.bends[leg];
@@ -265,11 +260,7 @@ function plan(rig: Rig, gait: Gait, t: number, travel?: Travel): Plan {
   return { gait, cycle, sinA, phase: start + travel.dist / cycle, env: clamp01(edge) };
 }
 
-/**
- * Where a walk or run is in its leg cycle, counted in whole cycles from the start of the
- * move: a foot comes down each time it passes one of `footfalls`. Undefined for a rig with
- * no such gait (it bobs instead).
- */
+/** Whole leg cycles since the move began (a foot lands at each `footfalls`); none if the rig bobs. */
 export function gaitPhase(rig: Rig, loco: 'walk' | 'run', travel: Travel): number | undefined {
   const gait = gaitOf(rig, loco);
   return gait && plan(rig, gait, 0, travel).phase;
@@ -281,7 +272,7 @@ export function footfalls(rig: Rig, loco: 'walk' | 'run'): number[] {
   return gait ? [...new Set(Object.values(gait.legs))].sort((a, b) => a - b) : [];
 }
 
-/** When each leg lands in a cycle, by leg (nothing for a rig with no such gait). */
+/** When each leg lands in a cycle (nothing for a rig with no such gait). */
 export function legFalls(rig: Rig, loco: 'walk' | 'run'): Record<string, number> {
   return { ...gaitOf(rig, loco)?.legs };
 }
@@ -363,13 +354,10 @@ function stanceDrop(rig: Rig, pl: Plan, phase: number): number {
 }
 
 /**
- * Pose the legs and body for a walk or run. Feet on the ground land exactly on the base
- * line and stay put; the others clear it. The body rises and falls with the legs (and
- * flies between contacts when the gait has a flight phase); the legs make up any
- * difference by bending at the knee, or by sliding up into the body (see `give`). Returns
- * the cycle phase in radians for the caller's secondary motion (arms, head, tail), and how
- * far into the stride the move is (0 with the legs together at either end, 1 in full
- * stride), so that motion can settle with the legs.
+ * Pose the legs and body for a walk or run: planted feet stay put on the base line, the
+ * body rises, falls (and flies in a flight phase), and the knees or a slide into the body
+ * (`give`) make up the difference. Returns the phase in radians for secondary motion, and
+ * how far into full stride the move is (0 with the legs together), so it settles with them.
  */
 export function stride(
   rig: Rig,
@@ -465,9 +453,8 @@ export function raiseFoot(rig: Rig, pose: Pose, leg: string, by: number): void {
 }
 
 /**
- * Put these feet back on the base line after a verb has moved the body (a crouch, a
- * landing, sitting down): a leg the body has come down onto bends at the knee, or slides
- * up into the body when it has none; one the body has lifted slides down to the line.
+ * Put these feet back on the base line after a verb moved the body (a crouch, a landing):
+ * a leg the body came down onto bends at the knee (or slides up), a lifted one slides down.
  */
 export function plantFeet(rig: Rig, pose: Pose, legs: string[]): void {
   for (const leg of legs) {

@@ -12,12 +12,10 @@ import { formatProblems, validateProject } from '../project/validate.js';
 import { characterSheetSvg, constructionSheetSvg, sceneSheetSvg } from '../render/sheets.js';
 
 /**
- * The review app's pictures (a shot's frame, a pose, construction or anchor sheet) as SVG,
- * and its slow reads of a project (the checks' report, which sounds the film has). They are
- * worked out here rather than in the server so that a change to the engine shows up
- * without restarting the app: the server starts a fresh worker, which imports the code as
- * it now is, whenever a source file changes (see `ask` in server.ts). It also keeps the
- * server answering while a check takes seconds.
+ * The review app's pictures (frames, pose, construction and anchor sheets) and its slow
+ * reads (the checks' report, the film's sounds). Done in a worker so an engine change shows
+ * without a restart (a fresh worker imports the new code, see `ask` in server.ts), and so
+ * the server keeps answering while a check takes seconds.
  */
 export type DrawRequest = { root: string; /** option choices laid over it */ over: string[] } & (
   | { kind: 'frame'; shot: string; t: number; debug: boolean }

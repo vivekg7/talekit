@@ -17,7 +17,6 @@ from talekit.svg import edge, ellipse, fill, line, poly
 PROJ = project_dir(__file__)
 
 CAST = {
-    # An old farmer: white pagdi, a long kurta with a gamchha, dhoti, chappals.
     "dada": p.person(
         "dada",
         "दादा",
@@ -46,7 +45,6 @@ CAST = {
             "shoes": "#8a5530",
         },
     ),
-    # His grandson: spiky hair, a short kurta, pyjama, juttis.
     "beta": p.person(
         "beta",
         "बेटा",

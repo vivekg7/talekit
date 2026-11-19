@@ -1,26 +1,16 @@
 import type { CharacterInput } from '../engine/types.js';
 
 /**
- * A mugger crocodile, the friendly villain of the monkey-and-crocodile tale, drawn low and
- * sprawling (`sprawl`): the belly just off the floor, the body short and deep toward the head
- * with a row of rounded scutes along the back and dark osteoderm dots down the flank, a pale
- * belly with cross scales, and a long tail held out behind in a shallow curve, crested with
- * points along its top, its tip just on the floor. A body run back to the box's left edge
- * leaves the tail no room, and a tail dropping from a high rump to the floor hangs like a
- * kangaroo's, so the body stops at x≈74 and the tail takes the rest. Short, scaly legs hang
- * from hips and shoulders low in the flank (`pivots`) and bend beside the belly (`bends`): the
- * hind thigh slants forward and down to the knee and the shin back to the ankle; the upper arm
- * runs back to the elbow and the forearm forward to the wrist. Each knee is within 8 of
- * straight under its hip, so the walk can swing the upper leg and keep the foot planted.
- * Dark scale bands cross each leg, and each foot lies flat on the ground with long spread
- * toes pointing forward (four behind, five in front), each ending in a dark claw; there is no
- * round paw. Legs under a high body read as a dog's or a bear's, which is what this replaces.
- * The head is a flat skull with the eye in a dome on top and a long broad snout with a
- * nostril bump at the tip, so the top line reads when the water hides the rest; the mouth
- * line curls up under the eye into a toothy grin, and talking drops the lower jaw on its
- * hinge. `springs` is empty: a heavy tail on a spring trails down into the floor when a walk
- * starts, and it still swings with the gait. Tapered shapes and the scute rows are filled
- * paths along a curve.
+ * A mugger crocodile, drawn low and sprawling (`sprawl`), the belly just off the floor. The body
+ * stops at x≈74 and the tail takes the rest: a body run to the box's left edge leaves the tail no
+ * room, and a tail dropping from a high rump to the floor hangs like a kangaroo's. Short legs hang
+ * low in the flank (`pivots`) and bend beside the belly (`bends`); each knee is within 8 of
+ * straight under its hip, so the walk can swing the upper leg and keep the foot planted. Feet lie
+ * flat with long spread clawed toes and no round paw: legs under a high body read as a dog's or a
+ * bear's. The flat skull with the eye domed on top keeps the top line readable when the water
+ * hides the rest; talking drops the lower jaw on its hinge. `springs` is empty: a heavy tail on a
+ * spring trails down into the floor when a walk starts, and it still swings with the gait. Tapered
+ * shapes and the scute rows are filled paths along a curve.
  */
 export const CROCODILE: CharacterInput = {
   id: 'crocodile',

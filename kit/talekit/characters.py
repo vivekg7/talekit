@@ -1,23 +1,14 @@
 """Write a character JSON: the colours it uses, checked and completed, and the file.
 
-`character()` builds the dict, `write()` saves it as <project>/characters/<id>.json. Every
-`{token}` the parts use must resolve, or the project fails validation; this module fills
-the routine ones so a spec names only the colours that make the character:
-
-- `BASE` gives line, cheek, mouth, tongue, the golds, gems, pearl, a tilak's white and
-  red, sandal paste (chandan), a gamchha's red and white, a leather belt and scabbard, a
-  white plume, jasmine, rudraksha brown and a janeu's white.
-- `FALLBACK` points a token at another: `iris` to `line`, `brow` to `hair`, `cuff` to
-  `shirtDark`, `button`, `sash`, `border`, `trim`, `earring` and `bangle` to `gold`,
-  `bangle2`, `tie`, `ribbon` and `tassel` to `ruby`, `sole` to `shoesDark`, `veil` to
-  `sari`, `bindi` to `tilakRed`, `lip` to `mouth`, `glasses` to `line`.
-- A missing `<x>Dark` or `<x>Light` is shaded from `<x>` (svg.darker, svg.lighter).
-
-Anything still missing raises, naming the token and the part, before talekit sees it."""
+Every `{token}` the parts use must resolve, or the project fails validation. So a spec
+names only the colours that make the character: `BASE` gives the routine ones, `FALLBACK`
+points a token at another (`iris` to `line`), and a missing `<x>Dark` or `<x>Light` is
+shaded from `<x>`. Anything still missing raises, naming the token and the part."""
 
 import json
 import os
 import re
+import sys
 
 from .svg import darker, lighter
 
@@ -147,8 +138,6 @@ def prop(id, name, height, body, colors, description="", grip=None, shadow=True,
 def project_dir(script, up=1):
     """The project a generator writes into: argv[1] if given, else `up` folders above the
     folder of the script (src/people.py -> the project; src/scenes/x.py -> up=2)."""
-    import sys
-
     if len(sys.argv) > 1 and not sys.argv[1].startswith("-"):
         return os.path.abspath(sys.argv[1])
     d = os.path.dirname(os.path.abspath(script))
@@ -158,12 +147,11 @@ def project_dir(script, up=1):
 
 
 def option(project, question, choice, ask=None, label=None, shot=None, t=None):
-    """The folder one choice of an option is written into: <project>/options/<question>/<choice>,
-    laid out like the project, so write(option(...), c) and scenes.write(option(...), s)
-    save a second way of drawing it there, and Film.option() a second way of staging a
-    shot. Only for a real open choice the person should make: otherwise just make it.
-    ask (the question), label (a line on this choice), shot and t (where it shows best)
-    go to the question's question.json for the review app."""
+    """The folder <project>/options/<question>/<choice>, laid out like the project:
+    write(option(...), c) and scenes.write(option(...), s) save a second way of drawing it
+    there, Film.option() a second way of staging a shot. Only for a real open choice the
+    person should make; otherwise just make it. ask (the question), label (a line on this
+    choice), shot and t (where it shows best) go to question.json for the review app."""
     qdir = os.path.join(project, "options", question)
     folder = os.path.join(qdir, choice)
     os.makedirs(folder, exist_ok=True)

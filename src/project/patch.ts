@@ -35,8 +35,7 @@ export const SETTABLE = [
 
 export interface Patched {
   shot: Shot;
-  /** The stretch of the shot the change shows in, for the picture: all of it for a change
-   * to the shot as a whole (its scene, camera, cast, length). */
+  /** Where the change shows, for the picture: all of it for a whole-shot change (scene, cast…). */
   from: number;
   to: number;
 }

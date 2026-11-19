@@ -1,10 +1,8 @@
 import type { CharacterInput } from '../engine/types.js';
 
 /**
- * A slim ginger tabby: a bean of a body with a dipped back and a deep chest, a round haunch
- * on the near hind leg, a tail that thins to a dark tip, tapered tabby stripes, cheek fluff,
- * pointed ears sunk into the head, whiskers as thin line work (no outline), slit pupils.
- * Tapered shapes (tail, stripes) are filled paths along a curve, not strokes.
+ * A slim ginger tabby. Whiskers are thin line work (no outline); tapered shapes (tail, stripes)
+ * are filled paths along a curve, not strokes.
  */
 export const CAT: CharacterInput = {
   id: 'cat',

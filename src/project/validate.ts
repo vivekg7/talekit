@@ -512,7 +512,6 @@ export function validateShot(shot: Shot, project: Project): Problem[] {
       if (w) out.push(...needsFar(where, w, []));
   if (!scene.far && shot.actions.some((a) => a.lightning))
     out.push(...needsFar(where, { lightning: { every: 8 } }, []));
-  /** What is wrong with `on` (who an actor stands on), if anything. */
   const onError = (id: string, on: string | undefined): string | undefined =>
     on === undefined
       ? undefined
@@ -794,10 +793,8 @@ function archery(shot: Shot, project: Project, a: Action, w: string): Problem[] 
 }
 
 /**
- * A pickup the hand cannot reach: where the carrier's hand gets to, stooping or reaching
- * out to a table, against
- * where the prop's grip lies. The engine eases the prop into the hand whatever the gap,
- * but a wide one shows as the prop sliding across the floor to it.
+ * A pickup the hand cannot reach (stooping, or reaching out to a table). The engine eases
+ * the prop into the hand whatever the gap, but a wide one shows it sliding across the floor.
  */
 function pickupReach(shot: Shot, project: Project): Problem[] {
   const out: Problem[] = [];
@@ -861,9 +858,8 @@ function stepsOff(shot: Shot, project: Project): Problem[] {
 }
 
 /**
- * Continuity between shots: whoever ends a shot carrying something should start the next
- * one with it in hand, or the audience sees it vanish at the cut. A cut that carries
- * straight on in the same place is the world check's (continuity.cut).
+ * Whoever ends a shot carrying something should start the next with it in hand, or it
+ * vanishes at the cut.
  */
 function carriedAcrossCuts(project: Project): Problem[] {
   const out: Problem[] = [];

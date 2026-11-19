@@ -944,7 +944,7 @@ export function constructionSheetSvg(character: Character): string {
     const [[ax, ay], [bx, by]] = character.bowstring;
     parts += `<path d='M${ax} ${ay} L${bx} ${by}' stroke='#0a7' stroke-width='${1.5 / scale}' stroke-dasharray='${5 / scale} ${3 / scale}'/>`;
     parts += marker(ax, ay, 'string') + marker(bx, by, 'string');
-    const [gx, gy] = character.grip ?? [rig.width / 2, rig.height / 2];
+    const [, gy] = character.grip ?? [rig.width / 2, rig.height / 2];
     const u = by !== ay ? (gy - ay) / (by - ay) : 0.5;
     parts += marker(...(character.nock ?? [ax + (bx - ax) * u, ay + (by - ay) * u]), 'nock');
   }

@@ -1,12 +1,8 @@
 import type { CharacterInput } from '../engine/types.js';
 
 /**
- * A golden jackal, the fox's lean cousin: a slim bean of a body that leaves more leg showing,
- * tan above and cream below, with a dark grizzled saddle along the back whose lower edge is
- * ragged; thin legs that turn rufous toward small paws; a bushy tail carried low that swells
- * from the rump, darkens along the top and ends in a black tip; big pointed ears with a pale
- * inside and a rufous rim; a long narrow muzzle, darker on the bridge, with a cream jaw and
- * cheek ruff and a black nose; a pale brow over half-lidded amber eyes that give it its
+ * A golden jackal, the fox's lean cousin: a slimmer body that leaves more leg showing, a dark
+ * grizzled saddle, a bushy low tail with a black tip, and half-lidded amber eyes that give it its
  * sly look. Tapered shapes are filled paths along a curve.
  */
 export const JACKAL: CharacterInput = {

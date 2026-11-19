@@ -6,8 +6,8 @@ import { lineDuration, shownText } from './voice.js';
 
 /**
  * The film's subtitles: every say and caption, in the language it is written in and in
- * each language its `translation` gives, timed to when its bubble or caption is up. Pure,
- * like the rest of the engine; src/render/mkv.ts muxes them.
+ * each language its `translation` gives, timed to when its bubble or caption is up;
+ * src/render/mkv.ts muxes them.
  */
 
 export interface Subtitle {

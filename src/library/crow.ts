@@ -1,16 +1,10 @@
 import type { CharacterInput } from '../engine/types.js';
 
 /**
- * An Indian house crow on the `simple` rig, laid out like `bird`: 200×200 box, base on y=200,
- * faces right. Slimmer and longer than the songbird, standing taller on its legs. One `body`
- * part in depth order: sturdy dark legs with three toes reaching the base line, a long wedge of
- * a tail angled down behind, a glossy black body under a long, flat-crowned head on a thick
- * neck, the grey collar of a house crow over the nape, neck and upper breast (face and throat
- * stay black), a long folded wing with blue-black sheen lines down the flight feathers. The eye
- * is pale with a dark pupil so it reads on black, and the closed and happy eyes are drawn in
- * the same pale grey. The heavy beak is the `mouth`, so talking opens it into a caw: slate grey
- * so it parts from the black face, the upper mandible curving down to the tip, with a light
- * ridge along the top and a dark gape line where the mandibles meet.
+ * An Indian house crow on the `simple` rig, laid out like `bird` (200×200 box, base on y=200,
+ * faces right), slimmer and standing taller. The eye is pale with a dark pupil so it reads on
+ * black, and the closed and happy eyes are pale grey too. The heavy beak is the `mouth`, so
+ * talking opens it into a caw; it is slate grey so it parts from the black face.
  */
 export const CROW: CharacterInput = {
   id: 'crow',

@@ -1,12 +1,9 @@
 import type { CharacterInput } from '../engine/types.js';
 
 /**
- * A friendly family dog on the quadruped rig: a bean of a body with a dipped back, a deep
- * chest under a light bib and a darker beagle saddle, a round haunch on the near hind leg, a
- * happy upright tail that thins to a light tip, a long floppy ear hanging past the back of the
- * skull, a block of a snout with a light muzzle, a big nose and a mouth line, and a red collar
- * with a tag. Far legs and the far ear are a shade darker so the near side reads in front.
- * Tapered shapes (the tail) are filled paths along a curve, not strokes.
+ * A friendly family dog on the quadruped rig, with a beagle saddle and a red collar. Far legs and
+ * the far ear are a shade darker so the near side reads in front. Tapered shapes (the tail) are
+ * filled paths along a curve, not strokes.
  */
 export const DOG: CharacterInput = {
   id: 'dog',

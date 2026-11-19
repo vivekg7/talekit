@@ -1,11 +1,9 @@
 import type { CharacterInput } from '../engine/types.js';
 
 /**
- * A lion, majestic but friendly: a heavy bean of a body with a deep chest, a round haunch on
- * the near hind leg, a thick near foreleg, big paws with toe lines, and a long tail that
- * thins from the rump and ends in a dark tuft. The head carries a two-layer mane of pointed
- * tufts (dark behind, warm in front) round a face with a broad muzzle, cheek fluff and a
- * forelock; round ears poke out over the mane. Tapered shapes are filled paths, not strokes.
+ * A lion, majestic but friendly: a heavy body, a long tail ending in a dark tuft, and a two-layer
+ * mane of pointed tufts (dark behind, warm in front) round the face. Tapered shapes are filled
+ * paths, not strokes.
  */
 export const LION: CharacterInput = {
   id: 'lion',

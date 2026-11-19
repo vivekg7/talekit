@@ -1,13 +1,12 @@
 /**
- * The way a walk goes (docs/PLAN.md, phase 8.3): straight to where it is going when nothing
- * is in the way, and otherwise round what is, by the shortest way the ground leaves. In the
- * way is a solid (a well, a cot, a trunk: `scene.solids`) and the edge of the walk areas
- * (water is in the way where no walk area is laid over it). A scene with no walk areas says
- * nothing of where its floor ends, so there only solids are gone round. A solid is passed on one side only: the art is flat, so one painted in `svg`
- * is drawn under everyone, and a walker behind it would show in front of it; one painted
- * in `foreground` is drawn over everyone, so in front of it is as wrong. The strip behind
- * (or in front of) its footprint, as wide as it, is in the way as well. The way is found on a visibility graph: the corners of all of those, each
- * stood a step off, joined wherever the straight line between two stays on the ground.
+ * The way a walk goes (docs/PLAN.md, phase 8.3): straight when nothing is in the way, else
+ * the shortest way round. In the way are solids (`scene.solids`: a well, a cot) and the edge
+ * of the walk areas (water is in the way where no walk area covers it); a scene with no walk
+ * areas only has its solids gone round. A solid is passed on one side only: the art is flat,
+ * so a walker behind one painted in `svg` would show in front of it, and one in `foreground`
+ * is drawn over everyone; the strip behind (or in front of) its footprint is in the way too.
+ * Found on a visibility graph: every corner stood a step off, joined wherever the straight
+ * line between two stays on the ground.
  */
 import { dist, EDGE_TOLERANCE, groundOf, inArea, nearestIn, type XY } from './area.js';
 import type { Area, Scene } from './types.js';

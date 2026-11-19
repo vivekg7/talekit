@@ -190,11 +190,9 @@ export const EMOTION_FACE: Record<Emotion, Record<string, string[]>> = {
 const BREATH_HEIGHT = 400;
 
 /**
- * Breathing: a slow stretch about the feet, so the chest rises and the feet stay on the
- * line (moving the whole body would lift them). `height` is the character's standing
- * height: anything taller than a body (a board that fills the frame, a drawing laid over
- * the scene) breathes less and less, by the square of how much taller it is, since a
- * 1.5% stretch of a 2000-unit prop heaves the whole picture by 30 px.
+ * Breathing: a slow stretch about the feet, so they stay on the line. Art taller than a
+ * body (`height`) breathes less by the square of how much taller: a 1.5% stretch of a
+ * 2000-unit prop heaves the whole picture by 30 px.
  */
 function breathe(p: Pose, t: number, phase: number, depth: number, height: number): void {
   const fade = height > BREATH_HEIGHT ? (BREATH_HEIGHT / height) ** 2 : 1;
@@ -252,10 +250,8 @@ function quadrupedBase(
 }
 
 /**
- * Base locomotion cycle. `t` is seconds since the actor started this locomotion; `travel`
- * is how far the current move has got, which drives the leg cycle so feet do not slide.
- * Without it (sheets, tests) a walk or run cycles at its own cadence. `height` is the
- * character's standing height, which only damps the breathing of very tall art.
+ * Base locomotion cycle, `t` seconds in. `travel` drives the leg cycle so feet do not slide;
+ * without it (sheets, tests) a gait cycles at its own cadence. `height` only damps breathing.
  */
 export function basePose(
   rig: Rig,
@@ -340,10 +336,8 @@ export function basePose(
 }
 
 /**
- * Hand over hand up (or down) a ladder or a trunk, seen from behind (the timeline turns the
- * climber into the screen): both arms up, one hand reaching for the next rung as the other
- * holds at the face, and the opposite foot lifting to the next rung as the other stands
- * straight on its own. Paced by the distance climbed, so it never runs on the spot.
+ * Hand over hand up or down a ladder or trunk, seen from behind, opposite hand and foot
+ * reaching together; paced by the distance climbed, so it never runs on the spot.
  */
 function climbCycle(rig: Rig, p: Pose, t: number, travel?: Travel): void {
   const u = travel ? travel.dist / (CLIMB_CYCLE * rig.height) : t / 1.1;
@@ -384,9 +378,6 @@ function climbCycle(rig: Rig, p: Pose, t: number, travel?: Travel): void {
 export function climbTilt(ascent: number): number {
   return Math.max(-70, Math.min(70, ascent));
 }
-
-/** Ease in and out of a held pose over the first and last `1/k` of the action. */
-const hold = (u: number, k = 4): number => Math.min(1, u * k, (1 - u) * k);
 
 /** 0 to 1, passing 1 by a few percent and settling back: a limb thrown to a pose. */
 const backOut = (x: number, s = 1.2): number => {
@@ -469,12 +460,9 @@ const seatDepth = (rig: Rig, seat: number): number =>
   Math.max(SEAT_DEPTH, (rig.hem ?? 0) - rig.parts.legR.pivot[1] - seat);
 
 /**
- * A leg folding to sit, with its foot on a floor `h` below the hip: the thigh comes
- * forward and up to `raise` degrees above level, never lower than `lowest` (a thigh on a
- * seat stays level, one on the way down can point at the floor), and the shin reaches
- * from the knee to the floor, or hangs straight down when it cannot. The thigh is the
- * leg's hip-to-knee length; the shin runs on to the base line. Returns the thigh's turn
- * and the knee's bend, in degrees.
+ * A leg folding to sit, its foot on a floor `h` below the hip: the thigh up to `raise`
+ * degrees above level (never below `lowest`), the shin reaching the floor or hanging
+ * straight. Returns the thigh's turn and the knee's bend, in degrees.
  */
 function foldLeg(
   rig: Rig,
@@ -506,11 +494,9 @@ function sprawlDown(rig: Rig, pose: Pose, k: number): void {
 }
 
 /**
- * A four-legged animal turning round to face the other way; the mirror flips halfway
- * (`sideOf`). The head leads, lifting and swinging back toward where it is going before
- * the body follows; the body dips as it brings its weight round; the tail swings wide and
- * lags. Standing, the feet step round in diagonal pairs, so it turns on its feet instead
- * of spinning on them; `busy` (walking, sitting) leaves the legs to what they are doing.
+ * A four-legged animal turning round (the mirror flips halfway, `sideOf`): head leading,
+ * body dipping, tail wide and lagging; standing, the feet step round in diagonal pairs.
+ * `busy` (walking, sitting) leaves the legs alone.
  */
 export function quadrupedTurn(rig: Rig, pose: Pose, u: number, busy: boolean): void {
   const add = (part: string, deg: number) => (pose.rot[part] = (pose.rot[part] ?? 0) + deg);
@@ -583,10 +569,8 @@ export function digHits(span: number): number[] {
 }
 
 /**
- * The beats of a `dig`, at u of a span of `span` seconds: `k` how far into the digging
- * stance it is (eased in over the first stroke's wind-up, out over the last one's recovery),
- * and within each stroke `up` the tool raised over the shoulder, `bite` its blade down in the
- * soil (from the blow to the end of the pull) and `pull` the draw back through it toward
+ * The beats of a `dig`: `k` into the digging stance; per stroke `up` the tool over the
+ * shoulder, `bite` the blade in the soil (blow to end of pull), `pull` drawn back toward
  * the feet. The blow is fast; the pull and the lift are heavy.
  */
 function digBeats(u: number, span: number): { k: number; up: number; bite: number; pull: number } {
@@ -680,12 +664,9 @@ export function aimBeats(
 }
 
 /**
- * Put the hand at the end of `arm` on `target` (box units in the root frame, before the
- * body offset): the upper arm swings from the shoulder and the forearm folds at the elbow,
- * the elbow below the line from shoulder to hand (`up` false) or above it. Out of reach
- * the hand gets as near as it can, the arm straight. Mixed in by `k`, the short way round
- * from where the arm is, or (`forward`) swung up in front of the body; the elbow's bend by
- * `fold`, if that is to go at its own pace.
+ * Put the hand at the end of `arm` on `target` (box units, before the body offset), the
+ * elbow above the shoulder-hand line if `up`; out of reach, as near as straight goes. Mixed
+ * in by `k` the short way round, or (`forward`) up in front; the elbow by `fold` if given.
  */
 function armTo(
   rig: Rig,
@@ -734,13 +715,10 @@ const clampCos = (c: number) => Math.max(-1, Math.min(1, c));
 
 /**
  * Drawing a bow at `to` (box units with the body offset), a right-handed archer seen from
- * his right: standing side-on and upright, the feet set apart, the head tipped up along the
- * line; the far arm (the bow hand, `Rig.farHold`) straight out from the far shoulder to put
- * the bow on the line, out from behind the chest; the near arm folded with the elbow up and
- * back behind the head, its hand on the string at the near jaw (the arrow's nock), on that
- * line too. `e` seconds into an aim of `span`, loosed `loose` seconds in. With `handOver`,
- * the bow is still in the near hand, as it is carried: both hands come to it as it comes up,
- * the far one takes it, and the near one goes back to the string.
+ * his right: far arm (`Rig.farHold`) straight out with the bow on the line, near elbow up
+ * behind the head, its hand on the string at the near jaw. `e` seconds into an aim of
+ * `span`, loosed at `loose`. With `handOver` the near hand still carries the bow and passes
+ * it to the far one as it comes up.
  */
 function aimPose(
   rig: Rig,
@@ -830,11 +808,8 @@ function aimPose(
     kNear = easeInOut(clamp01(e / HAND_OVER.meet));
     held = easeInOut(clamp01((e - HAND_OVER.pass) / HAND_OVER.passing));
   }
-  // The elbow always on the side of the line from shoulder to hand that puts it up and
-  // back once the hand is at the face, so it never flips over as the hand comes back; the
-  // arm comes up in front to the string, not round behind, and goes down the short way.
-  // Coming down, the elbow drops first, the arm still folded, so the hand goes down by the
-  // neck and not across the face; then it straightens.
+  // The elbow kept on the side that ends up and back, so it never flips as the hand comes
+  // back. Coming down it drops first, still folded, so the hand passes the neck, not the face.
   const fold = down > 0 ? Math.min(1, 2 * kNear) : kNear;
   armTo(rig, pose, 'armR', rig.hold.point, hand, true, kNear, down === 0, fold);
   const loosed = loose !== undefined && e >= loose;
@@ -971,10 +946,8 @@ function quadrupedVerb(rig: Rig, pose: Pose, verb: Verb, u: number, span: number
       return true;
     }
     case 'swim': {
-      // A paddle: the forelegs churn in turn, reaching out in front and pulling down, the hind
-      // legs pushing back, all under a body held still, low at the rump and nose up, the head
-      // straining up out of the water. Nothing bobs: the legs work, the body goes nowhere
-      // (a `move` carries it, a river sweeps it along).
+      // A paddle: legs churn under a still body, rump low and nose up. Nothing bobs; a `move`
+      // or a river carries it.
       const { k, phi } = swimBeats(u, span);
       const s = Math.sin(phi);
       const c = Math.sin(phi + Math.PI);
@@ -1100,12 +1073,9 @@ function quadrupedVerb(rig: Rig, pose: Pose, verb: Verb, u: number, span: number
         // slanted shin would reach below the belly with its corner.
         const floor = rig.height - hip[1] - LIE_TUCK * l;
         const hind = leg.startsWith('legB');
-        // The hind legs are already folded: hooves tucked under, paws on the real floor as
-        // when sitting, the haunch drawn whole on the flank (`loose`) and the foot showing
-        // flat along the floor beneath it. The front ones go from planted to stretched out
-        // in front, the upper leg down to the floor and the paw on it ahead of the chest,
-        // where it shows (folded under, it would be lost in the body). Hooves fold back
-        // under the chest, knees forward.
+        // Hind legs stay folded as sat, the haunch drawn whole (`loose`). Paws stretch out in
+        // front, where they show (folded under they would be lost in the body); hooves fold
+        // back under the chest.
         const [turn, bend] = hind
           ? foldLeg(rig, leg, rig.hooves ? floor : floor + LIE_TUCK * l, 0, -90)
           : rig.hooves
@@ -1165,11 +1135,9 @@ const GIVE_AT: Pt = [206, 228];
 const WIPE_AT: Pt = [206, 214];
 
 /**
- * The near hand out to `to` (box units with the body offset, the actor facing right) by
- * `k`, 0 at rest and 1 there. The body leans over as for a stoop, but only as far as it
- * must to bring the shoulder within an arm's length of it; then the arm swings from the
- * shoulder and folds forward at the elbow to put the hand on it. Out of reach, the hand
- * gets as near as it can. With `stoop` false it stands upright and only the arm goes out.
+ * The near hand out to `to` (box units with the body offset, facing right) by `k`, leaning
+ * over only as far as needed to bring the shoulder in reach (not at all if `stoop` is false).
+ * Out of reach, the hand gets as near as it can.
  */
 export function reachTo(rig: Rig, pose: Pose, to: Pt, k: number, stoop = true): void {
   const arm = rig.parts.armR;
@@ -1235,13 +1203,9 @@ function strikeHand(rig: Rig, to: Pt, reach: number): Pt {
 const STRIKE_SLOPE = 40;
 
 /**
- * Where the hand goes to put the working end of a tool `reach` long on `to` (a ladle's
- * bowl in the fire, a brush on a wall): that far short of it on the line from the
- * shoulder, so the arm goes out only as far as it must. Nearer than that, the hand is
- * kept TOOL_NEAR of an arm out from the shoulder and the tool angled to it: down onto it
- * from above, as a ladle dips into a bowl at its holder's side, or up to it from a hand
- * held out low in front. `to` and the
- * answer are in the box with the body offset, as reachTo takes them.
+ * Where the hand goes to put the end of a tool `reach` long on `to`: that far short of it
+ * on the line from the shoulder. Nearer, the hand stays TOOL_NEAR of an arm out and the
+ * tool angles to it (a ladle dipped at the holder's side). Box units, as reachTo takes.
  */
 function toolHand(rig: Rig, pose: Pose, to: Pt, reach: number): Pt {
   const arm = rig.parts.armR;
@@ -1275,11 +1239,9 @@ function toolHand(rig: Rig, pose: Pose, to: Pt, reach: number): Pt {
 const TOOL_NEAR = 0.45;
 
 /**
- * Layer a timed verb over the base pose. `u` is progress 0..1 through the action; for
- * `sit` it is how far down the actor is, so sitting and standing can ease, and `seat` is
- * how far below the hips the floor is (canonical units; 0 sits on the ground). An `aim` is
- * `span` seconds long, loosed `loose` seconds in, and with `handOver` takes the bow from the
- * near hand that carries it.
+ * Layer a timed verb over the base pose. `u` is progress 0..1 (for `sit`, how far down);
+ * `seat` is how far below the hips the floor is (canonical units, 0 on the ground). An `aim`
+ * is `span` seconds, loosed at `loose`, with `handOver` taking the bow from the near hand.
  */
 export function applyVerb(
   rig: Rig,
@@ -1389,11 +1351,8 @@ export function applyVerb(
     }
     case 'pickup':
     case 'putdown': {
-      // A stoop: the knees bend with the feet planted, the back leans over from the hips and
-      // the near arm hangs down from the shoulder to the floor in front, where the hand
-      // takes the prop or leaves it; the head keeps half an eye on it.
-      // Off a table or a shelf (`to`, where the prop is held), the hand goes out to it and
-      // the body leans over only as far as it must.
+      // A stoop to the floor; off a table or a shelf (`to`), the hand goes out to it and the
+      // body leans only as far as it must.
       const k = stoopDepth(u);
       if (humanoid && to) reachTo(rig, pose, to, k);
       else if (humanoid) {
@@ -1410,11 +1369,8 @@ export function applyVerb(
       break;
     }
     case 'give': {
-      // Handing a thing over, or taking it: the near hand out to where the two hands meet
-      // (`to`) by the hand-over half way through, a beat there, and back, timed as a stoop
-      // is; standing upright, only the arm going out, unless it is lower than the hand hangs
-      // (an animal's mouth) and the body bends down to it. No arm, nothing moves: the other
-      // comes to the mouth.
+      // The near hand out to where the hands meet (`to`), timed as a stoop, bending down only
+      // if it is lower than the hand hangs (an animal's mouth). No arm: the other comes to it.
       if (humanoid) {
         const at = to ?? GIVE_AT;
         reachTo(rig, pose, at, stoopDepth(u), at[1] > rig.hold.point[1]);
@@ -1442,11 +1398,8 @@ export function applyVerb(
       break;
     }
     case 'hold': {
-      // The near hand out to `to` (else in front of the chest) and kept there: a hand on
-      // someone's shoulder to steady them as they walk, on a door, on a cart's side. It goes
-      // with whatever it rests on, so walk the two together. With a tool in the hand
-      // (`reach` long), its working end goes there instead (a ladle into the fire, a pointer
-      // on a map): the hand stops that far short and the tool is swung about the grip to it.
+      // The near hand kept on `to` (else in front of the chest), following what it rests on.
+      // With a tool (`reach` long) its working end goes there and the tool swings about the grip.
       const ease = Math.min(0.3, 0.35 / Math.max(span, 0.35));
       const k = settle(u, ease, ease);
       if (humanoid && to && reach > 0) {
@@ -1489,10 +1442,8 @@ export function applyVerb(
       break;
     }
     case 'dig': {
-      // Digging with a hoe or spade: bent forward over the ground with the knees given, the
-      // near arm lifts the tool up over the shoulder, brings it down hard in front so the
-      // blade bites the soil, and draws it back toward the feet, the back bowing into the
-      // pull; again and again. What it bites with is solved where the prop is placed.
+      // Digging: bent forward, the tool up over the shoulder, down hard into the soil, drawn
+      // back toward the feet; the blade's position is solved where the prop is placed.
       const { k, up, bite, pull } = digBeats(u, span);
       if (humanoid) {
         // Bent from the hips, the knees only given a little: more as the blow goes in and
@@ -1549,10 +1500,8 @@ export function applyVerb(
       break;
     }
     case 'eat': {
-      // The near hand comes up to the mouth with whatever it holds, stays there while the
-      // head bobs with the chewing (the mouth flaps: `chewing`), and goes back down. The
-      // head tips a little toward the hand. With `to` (a plate, a fruit on the floor) the
-      // hand goes down to it first and takes the food up from there.
+      // The near hand to the mouth while the head bobs chewing (`chewing`), then back down;
+      // with `to` (a plate) it takes the food up from there first.
       if (humanoid && to) {
         const { k, m, chew } = eatFromBeats(u, span);
         pose.rot.head = (pose.rot.head ?? 0) + 5 * m * k;
@@ -1615,10 +1564,8 @@ export function applyVerb(
       }
       break;
     case 'lie': {
-      // From sitting on the ground: the torso turns back about the hips until the back is
-      // on the floor, the hips come up to the back's depth, the head tips forward as on a
-      // pillow, the arms rest along the body and the legs stretch out. `u` is how far
-      // back (0 sitting, 1 lying).
+      // From sitting: the torso turns back about the hips onto the floor, head as on a
+      // pillow, legs out. `u` is how far back (0 sitting, 1 lying).
       const l = easeInOut(u);
       if (humanoid) {
         pose.dy -= (BACK_DEPTH - seatDepth(rig, seat)) * l;

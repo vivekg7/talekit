@@ -1,10 +1,8 @@
 import type { CharacterInput } from '../engine/types.js';
 
 /**
- * A soft round rabbit: a pear of a body with a high round rump and a white chest ruff, a big
- * round haunch over a long hind foot, small front paws, a cotton-ball tail puffed out of the
- * rump, long round-tipped ears leaning back (bases sunk into the head), full cheeks, white
- * whisker pads round a pink split-lip nose, and a big dark eye with two highlights.
+ * A soft round rabbit: a high round rump over a long hind foot, a cotton-ball tail, and long ears
+ * leaning back with their bases sunk into the head.
  */
 export const RABBIT: CharacterInput = {
   id: 'rabbit',

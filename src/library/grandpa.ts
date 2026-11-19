@@ -1,17 +1,11 @@
 import type { CharacterInput } from '../engine/types.js';
 
 /**
- * An elderly man in a kurta and a sadri, on the same box and pivots as `grownup`, a little
- * shorter. A bald crown with a shine and a white fringe round the back and over the far ear (a
- * tuft at the near temple); round wire glasses, forehead lines and a white bushy moustache in
- * `face`, so they turn with it, and white eyebrows over the eyes; the mouths sit lower than the
- * grown-up's so they show under the moustache. A neck in a band collar; a sleeveless sadri
- * buttoned down the front with welt pockets, over a cream kurta that hangs to mid-thigh with
- * side slits and a band at the hem (the hem stays above the knees, so they bend in the open);
- * full kurta sleeves with a cuff, mitten hands with the thumb forward and a line where the
- * fingers curl; loose pyjamas gathered at the ankle, with folds at the back of the knee, and
- * juttis with a pointed toe and a line of embroidery. Limbs are round-capped strokes from the
- * pivots, the neck reaches 30 units into the head.
+ * An elderly man in a kurta and a sadri, on the `grownup` box and pivots, a little shorter.
+ * Glasses, forehead lines and the moustache are in `face`, so they turn with it; the mouths sit
+ * lower than the grown-up's so they show under the moustache. The kurta's hem stays above the
+ * knees, so they bend in the open. Limbs are round-capped strokes from the pivots, the neck
+ * reaches 30 units into the head.
  */
 export const GRANDPA: CharacterInput = {
   id: 'grandpa',

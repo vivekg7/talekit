@@ -67,7 +67,6 @@ function run(cmd: string, args: string[]): Promise<void> {
   });
 }
 
-/** Whether whisper-cli is installed. */
 function installed(): Promise<boolean> {
   return new Promise((resolve) => {
     const p = spawn('whisper-cli', ['--help'], { stdio: 'ignore' });

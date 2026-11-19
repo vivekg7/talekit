@@ -9,24 +9,13 @@ const BROWS = (far: string, near: string) =>
   `<path d='${far}' stroke='{beard}' stroke-width='7' fill='none' stroke-linecap='round'/><path d='${near}' stroke='{beard}' stroke-width='7' fill='none' stroke-linecap='round'/>`;
 
 /**
- * A pirate on one peg leg, in a tricorn and a long coat. Same box and pivots as `grownup`. A
- * black tricorn with a gold-edged brim cocked up in three points, its front corner a little
- * right of centre over the turned face, and a small skull and crossbones on it; dark hair
- * behind the far ear tied back in a queue with a red ribbon (the back of the head shows it
- * down the nape); a bushy brown beard round the jaw, drawn in `head` so it frames whichever
- * way the face turns, with a curled moustache in every `mouth` so it stays over the lips; a
- * round nose and a ruddy far cheek in `face`; a black patch over the near eye, drawn in every
- * `eyes` variant with its strings running up under the brim, so only the far eye and the two
- * eyebrows carry the expression. A striped shirt open at the collar between the lapels of a
- * crimson long coat with navy facings, gold buttons and a gold hem, hanging to mid-thigh with
- * a vent at the back; a green sash round the waist knotted at the far hip, a leather belt over
- * it with a brass buckle. Full coat sleeves with deep navy cuffs and mitten hands. Tan
- * breeches gathered in a band below the knee; the far leg in a tall black boot with a
- * turned-down top, the near leg (`legR`) a turned wooden peg from that band, tapering to an
- * iron tip on the ground line. Everything below the knee hangs below the bend line at y=330,
- * so the knee bends as on any leg and the peg swings and plants like a shin and foot. Limbs
- * are round-capped strokes from the pivots, the neck reaches 30 units into the head and the
- * coat hangs 40 below the hips.
+ * A pirate on one peg leg, in a tricorn and a long coat, on the `grownup` box and pivots. The
+ * beard is drawn in `head` so it frames whichever way the face turns, the moustache in every
+ * `mouth` so it stays over the lips. The patch over the near eye is drawn in every `eyes` variant,
+ * so only the far eye and the eyebrows carry the expression. The near leg (`legR`) is a wooden
+ * peg: everything below the knee hangs below the bend line at y=330, so the knee bends as on any
+ * leg and the peg swings and plants like a shin and foot. Limbs are round-capped strokes from the
+ * pivots, the neck reaches 30 units into the head and the coat hangs 40 below the hips.
  */
 export const PIRATE: CharacterInput = {
   id: 'pirate',

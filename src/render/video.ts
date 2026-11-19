@@ -13,9 +13,8 @@ export interface RenderOptions {
   shots?: Shot[];
   onProgress?: (done: number, total: number) => void;
   ffmpegPath?: string;
-  /** Worker threads drawing frames. Default: all cores but two (ffmpeg needs them), up to 8, past which the encoder is the bottleneck. */
+  /** Default: all cores but two (ffmpeg needs them), up to 8, past which ffmpeg is the bottleneck. */
   workers?: number;
-  /** Leave the sound out. */
   silent?: boolean;
 }
 

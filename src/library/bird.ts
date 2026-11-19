@@ -1,12 +1,10 @@
 import type { CharacterInput } from '../engine/types.js';
 
 /**
- * A plump little songbird on the `simple` rig: the worked example for anything that bobs,
- * hops or flies rather than walks. 200×200 box, base on y=200, faces right. One `body` part
- * in depth order: thin line-work legs reaching the base line, a fanned tail of three tapered
- * feathers, one egg-shaped body and head (no neck), a two-feather crest, a lighter breast,
- * a wing of three feathers fanning back with lighter feather lines, a faint blush. The beak
- * is the `mouth`, so talking opens it.
+ * A plump little songbird on the `simple` rig: the worked example for anything that bobs, hops or
+ * flies rather than walks. 200×200 box, base on y=200, faces right. One `body` part in depth order
+ * (legs, tail, one egg-shaped body and head with no neck, wing). The beak is the `mouth`, so
+ * talking opens it.
  */
 export const BIRD: CharacterInput = {
   id: 'bird',

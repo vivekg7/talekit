@@ -2,13 +2,9 @@ import type { CharacterInput } from '../engine/types.js';
 
 /**
  * A squat storybook frog sitting on the `simple` rig: 200×200 box, base on y=200, turned
- * three-quarter to the right. `body` in depth order: the far front foot behind, one domed
- * body and head (no neck), the two eye bulges on top of the head (the far one smaller and
- * further right), a pale throat and belly down the front, darker spots on the back, the near
- * thigh folded against the flank with its crease, the long near hind foot lying forward
- * along the base line, the near front leg straight down, the toes marked with short creases,
- * nostrils and a faint blush. The eyeballs sit in the bulges as `eyes`, so a blink or a
- * frown lids them and the bulge stays; `mouth.open` puffs the throat out under the chin.
+ * three-quarter to the right. The eyeballs sit in the bulges on top of the head as `eyes`, so a
+ * blink or a frown lids them and the bulge stays; `mouth.open` puffs the throat out under the
+ * chin.
  */
 export const FROG: CharacterInput = {
   id: 'frog',

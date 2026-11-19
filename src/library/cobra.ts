@@ -2,20 +2,12 @@ import type { CharacterInput } from '../engine/types.js';
 
 /**
  * An Indian spectacled cobra coiled on the ground, on the `simple` rig: 200×200 box, base on
- * y=200, faces right. One rigid `body` part in depth order: three coils stacked smaller to
- * the top, each a ring stroked wide with a light line along its back, the pale belly showing
- * under its front, rows of scale arcs and a dark line where it rests on the coil below (the
- * outline underlay goes round the whole part, so the coils draw their own); the tail tip
- * comes out under the front of the bottom coil and curls up at the right. From behind the
- * top coil the neck rises in an S, its belly band facing us, into the hood: a shield nearly
- * twice the head's width that bulges out on both sides below the head and tapers back into
- * the neck, so it reads as a cobra in silhouette. The hood is turned a little toward us: the
- * far (left) flare shows its back with one eye of the spectacle mark, the pale front carries
- * the ventral scale lines and two dark throat bands. The head sits on top of the hood with
- * the snout to the right, outlined so it parts from the hood behind it. The eye has a slit
- * pupil; brows are the dark scale over it. `mouth.open` drops the jaw on two fangs and
- * flicks the forked tongue out, so talking is a hiss. The neck does not sway: the face parts
- * are placed on `body`, so a hung neck would leave the eyes and mouth behind.
+ * y=200, faces right. One rigid `body` part: three stacked coils, each drawing its own dark line
+ * where it rests on the one below (the outline underlay goes round the whole part); the neck rises
+ * in an S into a hood nearly twice the head's width, so it reads as a cobra in silhouette; the
+ * head on top is outlined to part from the hood. `mouth.open` drops the jaw on two fangs and
+ * flicks the tongue out, so talking is a hiss. The neck does not sway: the face parts are placed
+ * on `body`, so a hung neck would leave the eyes and mouth behind.
  */
 export const COBRA: CharacterInput = {
   id: 'cobra',

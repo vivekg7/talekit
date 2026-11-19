@@ -3,17 +3,11 @@ import type { CharacterInput } from '../engine/types.js';
 /**
  * A little girl in a red dress with pigtails: the humanoid bar for the house style. Canonical
  * 200×400 box, feet on y=400. Pivots: neck (100,152), shoulders (76,170)/(124,170), hips
- * (86,272)/(114,272). No outlines or shading drawn here: the engine adds them.
- * A bob with a swept fringe and a shine, drawn three-quarters (the back of the head on the
- * left), a pigtail each side tied with a red bobble (the pigtails are parts of their own,
- * hung from the bobbles with `hangs` so they swing as springs; the bobbles stay on the
- * head, over the hair); a neck that grows into a Peter Pan collar; an A-line dress with a
- * sash, two pleats and a hem band that flares at the hem (a bow on the sash from behind);
- * puff sleeves round the shoulder pivot so they look the same at every swing; mitten hands
- * with the thumb forward and a line where the fingers curl; socks with a turned cuff and
- * shoes with a pale sole and a toe. Limbs are round-capped strokes from their pivots, the
- * neck reaches 30 units into the head and the hem hangs 20 below the hips, so nothing
- * opens up in motion.
+ * (86,272)/(114,272). No outlines or shading drawn here: the engine adds them. The pigtails are
+ * parts of their own, hung from the bobbles with `hangs` so they swing as springs; the bobbles
+ * stay on the head, over the hair. Puff sleeves round the shoulder pivot look the same at every
+ * swing. Limbs are round-capped strokes from their pivots, the neck reaches 30 units into the head
+ * and the hem hangs 20 below the hips, so nothing opens up in motion.
  */
 export const KID: CharacterInput = {
   id: 'kid',

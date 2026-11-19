@@ -70,13 +70,11 @@ export interface Ground {
   climb: Area[];
 }
 
-/**
- * The scene's walk, water and climb areas; a `river` effect's outline is deep water too.
- */
+/** Cached: asked for every actor on every frame, and a scene's areas do not change once loaded. */
 const GROUND = new WeakMap<Scene, Ground>();
 
+/** The scene's walk, water and climb areas; a `river` effect's outline is deep water too. */
 export function groundOf(scene: Scene): Ground {
-  // Asked for every actor on every frame; a scene's areas do not change once loaded.
   const known = GROUND.get(scene);
   if (known) return known;
   const deep: Area[] = [];

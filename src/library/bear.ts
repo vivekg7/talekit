@@ -1,10 +1,8 @@
 import type { CharacterInput } from '../engine/types.js';
 
 /**
- * A big, huggable brown bear: a heavy bean of a body that rises to a round hump over the
- * shoulders, a big round haunch on the near hind leg, thick legs sunk deep into the body ending
- * in big flat paws (toe creases and pale claws as thin line work), a stubby nub of a tail, small
- * round ears with a lighter inside, a cheek ruff, and a broad pale muzzle with a big dark nose.
+ * A big, huggable brown bear: a heavy body humped over the shoulders, thick legs sunk deep into
+ * the body, flat paws with toe creases and claws as thin line work.
  */
 export const BEAR: CharacterInput = {
   id: 'bear',

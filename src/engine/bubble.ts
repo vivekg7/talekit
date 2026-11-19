@@ -28,7 +28,6 @@ export function wrapText(text: string, maxWidth: number, fontSize: number, bold 
       const candidate = line ? `${line} ${word}` : word;
       if (textWidth(candidate, fontSize, bold) <= maxWidth || !line) {
         if (textWidth(candidate, fontSize, bold) > maxWidth && !line) {
-          // hard-split an over-long word
           let chunk = '';
           for (const ch of word) {
             if (textWidth(chunk + ch, fontSize, bold) > maxWidth && chunk) {
@@ -88,7 +87,6 @@ export interface BubblePlace {
   lift: number;
 }
 
-/** A box on screen. */
 export interface Box {
   x: number;
   y: number;
@@ -241,7 +239,6 @@ function bubbleShape(spec: BubbleSpec): string {
   }
 
   if (spec.style === 'shout') {
-    // starburst around the text box
     const cx = x + w / 2;
     const cy = y + h / 2;
     const n = 18;

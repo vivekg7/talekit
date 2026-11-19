@@ -126,7 +126,6 @@ class Film:
                 "duration": round(end + tail, 2),
                 "cast": cast,
                 "camera": camera or {"zoom": 1},
-                # In time order, unless some are placed after a line: then as written.
                 "actions": actions if any("after" in a for a in actions) else sorted(actions, key=lambda a: a["t"]),
                 **more,
             }
@@ -202,7 +201,6 @@ class after(float):
 
 
 def _when(t):
-    """The action's time: {'t': ...}, or {'after': ...} for an after()."""
     return {"after": float(t)} if isinstance(t, after) else {"t": round(t, 2)}
 
 

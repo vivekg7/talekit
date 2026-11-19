@@ -624,7 +624,6 @@ function choose(q, c) {
   if (c) next[q] = c; else delete next[q];
   return setSel(next);
 }
-/** The person's last pick on a question, if any. */
 function pickOf(q) {
   var p = info.notes.filter(function (n) { return n.pick && n.target.kind === 'option' && n.target.id === q; });
   return p[p.length - 1];
@@ -752,7 +751,6 @@ function jumpTo(id, time) {
 
 /* ---- the stage: live SVG frames, or the rendered mp4 when it exists ---- */
 function video() { return $('source').value === 'video' ? $('pic').querySelector('video') : null; }
-/** Shot and time from where the video is. */
 function fromVideo(v) {
   if (!shot) return;
   var tt = v.currentTime;

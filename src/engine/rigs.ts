@@ -3,9 +3,8 @@ import { spanAt } from './svg.js';
 import type { Character, RigName } from './types.js';
 
 export interface RigPart {
-  /** Parent part whose rotation this part inherits. */
   parent?: string;
-  /** Rotation pivot in canonical coordinates. */
+  /** In canonical coordinates. */
   pivot: [number, number];
   /** Draw order; lower is further back. */
   z: number;
@@ -18,16 +17,12 @@ export interface Rig {
   parts: Record<string, RigPart>;
   /** Used for parts the character defines that the rig does not know about. */
   unknown: RigPart;
-  /** The part that must exist for the character to be drawable. */
   required: string;
   /** Parts that animate when present; missing ones are worth a warning. */
   expected: string[];
   /** Parts that must reach the base line: the feet. Empty means "the lowest point". */
   feet: string[];
-  /**
-   * Joints the construction linter checks: `part` must sink into `into`, and when `pivot`
-   * is set, must also cover its own pivot (it hangs from there).
-   */
+  /** Linter checks: `part` sinks into `into`, and with `pivot` also covers its own pivot. */
   joints: { part: string; into: string; pivot: boolean }[];
   /** Where a speech bubble points, in canonical coordinates: just above the head. */
   speaker: [number, number];
@@ -63,7 +58,7 @@ export interface Rig {
    * character says otherwise (`Character.chains`): a quadruped's tail.
    */
   chains?: Record<string, number>;
-  /** The links of each chain part, worked out from how this character draws it. */
+  /** Each chain part's links, worked out from how this character draws it. */
   links?: Record<string, Link>;
   /**
    * Limbs whose joint points back, not forward: an animal's hind legs, which bend at the
@@ -71,16 +66,9 @@ export interface Rig {
    * where a knee or a wrist comes forward and lets the foot trail.
    */
   hocks?: string[];
-  /**
-   * The underside of the body, where a four-legged animal lies on the floor (`lie` brings
-   * it down to the base line). A character can move it (`belly`), since a deer's belly is
-   * drawn higher than a bear's.
-   */
+  /** The underside a four-legged animal lies on; a character moves it (`belly`): a deer's is higher than a bear's. */
   belly?: number;
-  /**
-   * Hooves rather than paws: lying, the forelegs fold under the chest rather than stretch
-   * out in front. A character says so (`hooves`).
-   */
+  /** Hooves: lying, the forelegs fold under the chest rather than stretch out in front. */
   hooves?: boolean;
   /**
    * A reptile's low sprawl rather than legs under the body: the belly just off the floor
@@ -89,10 +77,7 @@ export interface Rig {
    * knee points forward, the elbow back. A character says so (`sprawl`).
    */
   sprawl?: boolean;
-  /**
-   * Where a person's torso ends, a little under the hips or lower for a kurta or a coat:
-   * what `sit` rests on the seat. A character can move it (`hem`).
-   */
+  /** Where a person's torso ends (lower for a kurta): what `sit` rests on the seat. */
   hem?: number;
   /**
    * The turn: `parts` (the face) are drawn front-on, centred on x = `centre`, and the
@@ -275,14 +260,9 @@ export function rigPart(rig: Rig, name: string): RigPart {
 const HUNG = new WeakMap<object, Rig>();
 
 /**
- * The rig a character is drawn on: its rig, with the parts it hangs itself (`hangs`) placed
- * like the rig's own, each turning about its pivot as a child of the part it hangs from and
- * drawn just behind or in front of it, and checked by the construction linter as a joint.
- * A hung part may hang from another; one whose chain does not reach a rig part, or loops,
- * is left to the rig's fallback (`validate` reports it). A part the character turns about
- * its own point (`pivots`) turns there, a limb it bends at its own knee (`bends`) bends
- * there, and a part that bends along its length (`chains`, or the rig's) is cut into links
- * where the drawing has them (see chain.ts).
+ * The rig a character is drawn on, with its own `hangs` (child parts, linted as joints; a
+ * chain that loops or never reaches a rig part falls back to `unknown`), `pivots`, `bends`
+ * and `chains` applied.
  */
 export function rigOf(character: RigSource): Rig {
   const own = JOINTED.get(character);
@@ -297,20 +277,16 @@ type RigSource = Pick<Character, 'rig' | 'hangs' | 'belly' | 'hem' | 'hooves' | 
 
 const JOINTED = new WeakMap<object, Rig>();
 
-/** The character's own pivots and links, on top of its rig. */
 function jointed(rig: Rig, character: RigSource): Rig {
   const pivots = Object.entries(character.pivots ?? {}).filter(([name]) => rig.parts[name]);
   const knees = Object.entries(character.bends ?? {}).filter(([name]) => rig.bends[name]);
-  // A sprawling reptile: only where the rig has a belly (a four-legged animal).
   const sprawl = rig.belly !== undefined && !!character.sprawl;
   const chains = { ...rig.chains, ...character.chains };
   const parts = { ...rig.parts };
   for (const [name, pivot] of pivots) parts[name] = { ...parts[name], pivot };
   const bends = { ...rig.bends, ...Object.fromEntries(knees) };
-  // An elbow the character does not place sits on the middle of its arm as drawn: an arm
-  // reaching wider or narrower than the rig's (a broad strongman's) would otherwise bend
-  // about a point off its centre line, and the turned forearm would step out from under
-  // the upper arm at the joint.
+  // An unplaced elbow sits mid-arm as drawn: off a wide arm's centre line the turned
+  // forearm would step out from under the upper arm.
   let centred = false;
   for (const [name, [kx, ky]] of Object.entries(rig.bends)) {
     if (!name.startsWith('arm') || character.bends?.[name]) continue;
@@ -339,7 +315,7 @@ function jointed(rig: Rig, character: RigSource): Rig {
   return own;
 }
 
-/** How a part is drawn: its only drawing, or its first variant's. */
+/** Its only drawing, or its first variant's. */
 function drawingOf(character: RigSource, name: string): string | undefined {
   const part = character.parts?.[name];
   return typeof part === 'string' ? part : part && Object.values(part)[0];
@@ -348,12 +324,10 @@ function drawingOf(character: RigSource, name: string): string | undefined {
 /** The rig with the parts the character hangs, and its belly, hem, hooves and muzzle. */
 function shaped(character: RigSource): Rig {
   const rig = hungRig(character);
-  // A character's own belly line or hem, and hooves, where the rig has them.
   const belly = rig.belly === undefined ? undefined : character.belly;
   const hem = rig.hem === undefined ? undefined : character.hem;
   const hooves = rig.belly !== undefined && !!character.hooves;
-  // A four-legged animal's own mouth (a camel's, far up a long neck): what holds a carried
-  // prop and what `eat` brings down to the floor.
+  // A quadruped's own mouth (a camel's, up a long neck): what holds a prop and what `eat` lowers.
   const muzzle = rig.belly === undefined ? undefined : character.muzzle;
   if ((belly ?? rig.belly) === rig.belly && (hem ?? rig.hem) === rig.hem && !hooves && !muzzle)
     return rig;

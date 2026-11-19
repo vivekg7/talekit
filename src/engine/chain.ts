@@ -25,7 +25,7 @@ export interface Link {
   tip: Pt;
 }
 
-/** The most links a part may be cut into, and how close together joints may sit. */
+/** The most links a part may be cut into. */
 export const MAX_LINKS = 8;
 
 const RAD = Math.PI / 180;

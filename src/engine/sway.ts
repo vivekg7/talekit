@@ -33,7 +33,6 @@ function locate(svg: string, ids: string[]): Map<string, Found> {
   return out;
 }
 
-/** How far the furthest corner of a box is from (px, py). */
 type Box = [number, number, number, number];
 
 /** The corner of a group's box furthest from its pivot: the end that swings most. */

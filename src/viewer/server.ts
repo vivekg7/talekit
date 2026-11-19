@@ -38,7 +38,6 @@ import { PAGE } from './page.js';
 /** The source tree this file runs from: src/ under tsx, dist/ once built. */
 const CODE = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const EXT = path.extname(fileURLToPath(import.meta.url));
-/** The drawing worker beside this file, as .ts under tsx and .js once built. */
 const DRAW_WORKER = new URL(`./draw-worker${EXT}`, import.meta.url);
 
 /**
@@ -88,11 +87,10 @@ interface Drawer {
   retired: boolean;
 }
 /**
- * One worker per project, so the film's frames and the reel's, open in two tabs, are drawn
- * side by side rather than in one queue; each keeps its project loaded (draw-worker.ts).
- * The ones used longest ago are let go past a few: a worker holds its project's per-shot
- * caches, a few hundred MB on a busy film. The checks (the report and the sound) go to a
- * worker of their own, CHECK, so seconds of them hold up no picture.
+ * One worker per project, so a film and its reel in two tabs draw side by side; each keeps
+ * its project loaded (draw-worker.ts). The least recently used go past a few: each holds
+ * per-shot caches, a few hundred MB on a busy film. The checks get their own worker, CHECK,
+ * so they hold up no picture.
  */
 const drawers = new Map<string, Drawer>();
 const MAX_DRAWERS = 4;
@@ -193,11 +191,9 @@ function sendSvg(req: http.IncomingMessage, res: Res, url: URL, svg: string): vo
 }
 
 /**
- * A picture asked for with the project's version (`v`) is the same picture for as long as
- * that version stands (the engine draws the same frame every time), and a new version is a
- * new address: the browser keeps it, so going back to a film's tab shows its shots and the
- * paused frame without drawing them again. Frames asked for while playing carry no version
- * and are not kept: they would fill the cache with pictures seen once.
+ * A picture asked for with the project's version (`v`) never changes (rendering is
+ * deterministic), so the browser keeps it and a revisited tab needs no redraw. Frames asked
+ * for while playing carry no version and are not kept: they would fill the cache.
  */
 const cacheFor = (url: URL): Record<string, string> =>
   url.searchParams.has('v')
@@ -358,7 +354,6 @@ function linesOf(project: Project) {
   );
 }
 
-/** This machine's address on the local network, for a phone to reach a LAN review app. */
 function lanAddress(): string {
   for (const list of Object.values(os.networkInterfaces()))
     for (const a of list ?? []) if (a.family === 'IPv4' && !a.internal) return a.address;
@@ -496,7 +491,6 @@ async function noteRoute(
   return false;
 }
 
-/** The film or reel's review app: live frames, sheets, the mix, options and notes. */
 async function projectRoute(
   item: Item,
   items: Item[],
@@ -883,15 +877,11 @@ export interface Review {
 }
 
 /**
- * The review server: every film, reel and sample board in one place, each under its own
- * path (`/lost-kite/`), so the film and its reel, and whatever samples are waiting, are
- * one tab apart. A project gets the review app: live frames of every shot, the assets as
- * pose and anchor sheets, the options to pick from, and notes a person leaves on any of
- * them for the agent to pick up with `list_notes`; a board, each sample with a player.
- * Everything is read again on every request, so edits show up at once. A port already
- * taken (often an earlier review server) moves it to the next free one. With `lan` it
- * listens on every interface, at this machine's network address, for a phone on the same
- * Wi-Fi.
+ * The review server: every film, reel and sample board, each under its own path
+ * (`/lost-kite/`). A project gets the review app (live frames, asset sheets, options, notes
+ * for `list_notes`); a board, a player per sample. Everything is read again on every
+ * request, so edits show at once. A taken port moves to the next free one. With `lan` it
+ * listens at this machine's network address, for a phone on the same Wi-Fi.
  */
 export async function startReview(port: number, opts: { lan?: boolean } = {}): Promise<Review> {
   const items: Item[] = [];

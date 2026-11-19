@@ -26,9 +26,9 @@ The kinds of part:
 
 Colour tokens the pieces use: skin, hair, shirt (kurta, banyan, tunic, kameez), coat
 (angrakha), pants (dhoti, pyjama, churidar), sari and blouse (sari), blouse and skirt
-(choli, ghagra), shoes, turban, and per piece the ones its docstring names. A woman wears
-a sari over sari_skirt, a choli over a ghagra, or a kameez over pyjama or churidar. Shades (<x>Dark, <x>Light) and the routine colours are filled in by characters.py.
-Everything here is the same on every run: no randomness."""
+(choli, ghagra), shoes, turban, and per piece the ones its docstring names; characters.py
+fills in shades (<x>Dark, <x>Light) and the routine colours. A woman wears a sari over
+sari_skirt, a choli over a ghagra, or a kameez over pyjama or churidar. No randomness."""
 
 import itertools
 import math

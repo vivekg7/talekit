@@ -1,14 +1,9 @@
 import type { CharacterInput } from '../engine/types.js';
 
 /**
- * An adult in a shirt and trousers. Same box and pivots as `kid`, a smaller head and taller
- * on screen. Short hair with a side parting and a swept quiff, an ear and a sideburn on the
- * far side, a rounded nose in `face`; a neck in an open collar, a shirt with a placket and a
- * pocket tucked into a belted waist and bloused over it (a yoke from behind); sleeves
- * rolled above the elbow, mitten hands with the thumb forward and a line where the fingers
- * curl; trousers with a fold above and below the back of the knee that break over lace-up
- * shoes with a pale sole and a heel. Limbs are round-capped strokes from the pivots, the
- * neck reaches 30 units into the head, the trousers start 36 above the hips.
+ * An adult in a shirt and trousers: the `kid`'s box and pivots, a smaller head and taller on
+ * screen, the nose in `face`. Limbs are round-capped strokes from the pivots, the neck reaches 30
+ * units into the head, the trousers start 36 above the hips.
  */
 export const GROWNUP: CharacterInput = {
   id: 'grownup',

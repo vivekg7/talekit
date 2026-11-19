@@ -1,19 +1,12 @@
 import type { CharacterInput } from '../engine/types.js';
 
 /**
- * An elderly woman in a sari, on the grown-up's box and pivots, shorter than grandpa. Grey-white
- * hair parted in the middle and combed back to a low bun at the nape with a string of jasmine
- * round it; a small gold stud at the ear. Round wire glasses, a bindi, a line across the forehead
- * and soft lines from the nose to the mouth in `face`, so they turn with it, and grey brows over
- * the eyes. A neck in a round neckline; an elbow-length blouse under the sari, whose pallu crosses
- * the chest from the near hip to the far shoulder with a gold border and falls down the back (it
- * shows past the rounded back in profile, and down the middle of it from behind), with the pleats
- * tucked at the waist. The skirt of the sari is drawn on the legs, half on each, as wide strokes
- * with the pleats down the near half and a gold border at the hem over the feet: the torso stops
- * at the hips (so sitting on the ground does not push it through the floor) and the knees bend
- * inside the sari. Bare forearms with gold and red bangles, mitten hands with the thumb forward
- * and a line where the fingers curl, and chappals with a toe post. Limbs are round-capped strokes
- * from the pivots, and the neck reaches 30 units into the head.
+ * An elderly woman in a sari, on the grown-up's box and pivots, shorter than grandpa. Glasses,
+ * bindi and face lines are in `face`, so they turn with it. The pallu shows past the rounded back
+ * in profile, and down the middle of it from behind. The sari's skirt is drawn on the legs, half
+ * on each: the torso stops at the hips (so sitting on the ground does not push it through the
+ * floor) and the knees bend inside the sari. Limbs are round-capped strokes from the pivots, and
+ * the neck reaches 30 units into the head.
  */
 export const GRANDMA: CharacterInput = {
   id: 'grandma',

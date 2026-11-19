@@ -1,13 +1,10 @@
 import type { CharacterInput } from '../engine/types.js';
 
 /**
- * A round storybook goldfish on the `simple` rig: 200×200 box, faces right, the belly near
- * the base line. `body` in depth order: the dorsal fin and a small fin underneath behind the
- * body, one round body with a lighter belly, columns of scale arcs, the gill line behind the
- * head, a pectoral fin fanned back over the side, a faint blush. The forked tail is its own
- * part hung from the body at the tail root and listed in `springs`, so it swishes behind the
- * bob of a swim (a `walk`) and flicks on the stop. Swimming in water is the scene's job: a
- * pond's `foreground` laid over the fish.
+ * A round storybook goldfish on the `simple` rig: 200×200 box, faces right, the belly near the
+ * base line. The forked tail is its own part hung from the body at the tail root and listed in
+ * `springs`, so it swishes behind the bob of a swim (a `walk`) and flicks on the stop. Swimming in
+ * water is the scene's job: a pond's `foreground` laid over the fish.
  */
 export const FISH: CharacterInput = {
   id: 'fish',

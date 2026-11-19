@@ -63,8 +63,8 @@ export interface ActiveVerb {
   /** How long it lasts, seconds. */
   span?: number;
   /**
-   * Where the near hand goes, in the actor's box (as it faces): what a `wipe` wipes, the food an `eat` takes up, or the
-   * grip of a prop a `pickup` takes off a table (from the floor it stoops, without one).
+   * Where the near hand goes, in the actor's box (as it faces): what a `wipe` wipes, the
+   * food an `eat` takes up, the grip of a prop a `pickup` takes off a table.
    */
   to?: Pt;
   /** An `aim`: seconds into it at which the arrow was loosed, if it was. */
@@ -74,10 +74,8 @@ export interface ActiveVerb {
   /** A `hold` or `wipe` at `to` done with the working end of a tool in the hand (toolReaches). */
   tool?: boolean;
   /**
-   * A `strike` at `to`: how far past the hand what it swings reaches, grip to working end,
-   * in the actor's box units (0 bare-handed), so the hand stops short by that much. A
-   * `hold` or `wipe` at `to` with a tool (a prop with a `tip`): the tool's length, so its
-   * working end goes there.
+   * Grip to working end of what the hand holds, box units (0 bare-handed), for a `strike`,
+   * or a `hold`/`wipe` with a tool, at `to`: the hand stops short by that much.
    */
   reach?: number;
 }
@@ -183,11 +181,7 @@ export interface ActorState {
   /** Carried by this actor (`attach`), and whether this actor is carrying something. */
   heldBy?: string;
   holding: boolean;
-  /**
-   * Carrying a prop that catches the wind (`sail`): how far the wind leans it now, degrees
-   * clockwise in this actor's own frame (facing right), about the grip. The holding arm
-   * gives with it (actor.ts), and the prop is turned by it (heldFrom).
-   */
+  /** How far the wind leans a carried `sail` now, degrees clockwise in the own frame, about the grip. */
   blown?: number;
   /** Head tilt toward whoever the actor is attending to, degrees (down is positive). */
   look: number;
@@ -235,7 +229,7 @@ export const STAGE_SHORTCUTS = ['left', 'center', 'right', 'offLeft', 'offRight'
 
 /** Resolve an anchor name, stage shortcut or explicit point into scene coordinates. */
 export function resolvePosition(project: Project, scene: Scene, pos: Position): Point {
-  const { width, height } = project.meta;
+  const { width } = project.meta;
   const ground = scene.ground ?? defaultGround(project.meta);
   const [left, right] = stageSides(project.meta);
   // Unscaled, a spot is as big as the scene's perspective makes it there (depth.ts).
@@ -283,10 +277,8 @@ function bedHeight(scene: Scene, at: Point): number {
 }
 
 /**
- * The turns a walk or run from `from` to `to` takes round what is in the way (route.ts):
- * none for other moves, or between spots on someone. `through` are the points the action
- * says to pass on the way (its `via`), in order; a walk goes round what is in the way on
- * each leg between them.
+ * The turns a walk or run takes round what is in the way (route.ts), on each leg between
+ * the `through` points (its `via`); none for other moves, or between spots on someone.
  */
 function viaOf(scene: Scene, verb: Verb, from: Point, to: Point, through: XY[] = []): XY[] {
   if (from.rides || to.rides) return [];
@@ -490,10 +482,8 @@ function timeAt(m: Move, e: number): number {
 }
 
 /**
- * The way a walk faces along each leg of its route, and from when: the first from `start`
- * (it turns before it sets off), each later change as it reaches the corner where the way
- * doubles back (round the end of a river to the bridge and back along the far bank). A
- * straight walk, or one whose way only bends, faces one way, toward where it is going.
+ * The way a walk faces along its route, and from when: from `start`, then changing only at
+ * a corner where the way doubles back (round a river's end to the bridge and back).
  */
 function legFacings(m: Move, start: number): { at: number; facing: Facing }[] {
   const pts = [m.from, ...(m.via ?? []), m.to];
@@ -588,10 +578,9 @@ export function giveParties(shot: Shot, a: Action): { giver: string; taker: stri
 const MEETINGS = new WeakMap<Shot, Map<Action, XY | null>>();
 
 /**
- * Where the hands meet in a give, in the scene: between the two, each reaching its share
- * of the way by the length of its arm, a little under the shoulders (lower the closer they
- * stand, as hands meet in front of the chest); at the mouth of one with no arms. Worked
- * out once, from where the two stand at the hand-over.
+ * Where the hands meet in a give: between the two, shared by arm length, a little under the
+ * shoulders (lower the closer they stand); at the mouth of one with no arms. Worked out
+ * once, from where they stand at the hand-over.
  */
 function meetingPoint(project: Project, scene: Scene, shot: Shot, a: Action): XY | undefined {
   let known = MEETINGS.get(shot);
@@ -700,9 +689,8 @@ const SAIL_LEAN = 20;
 const SAIL_MAX = 32;
 
 /**
- * How far the wind leans the sail `id` carries at t (see `ActorState.blown`): downwind,
- * gusting in the prop's own phase, as far as it catches the wind; easing into SAIL_MAX
- * rather than stopping dead at it. 0 with no sail in hand or no wind.
+ * How far the wind leans the sail `id` carries at t (`ActorState.blown`): gusting in the
+ * prop's own phase, easing into SAIL_MAX rather than stopping dead at it.
  */
 function blownAt(
   project: Project,
@@ -724,9 +712,8 @@ function blownAt(
 }
 
 /**
- * How far a sail catching `sail` of the wind leans in a wind blowing `gust` (clockwise for
- * a wind to the right), degrees; with no gust given, the furthest it ever leans, at the top
- * of a gale's gust (the pose sheet shows it).
+ * How far a sail catching `sail` of the wind leans in `gust`, degrees clockwise for a wind
+ * to the right; without `gust`, the furthest it ever leans (the pose sheet shows it).
  */
 export function sailLean(sail: number, gust = 1.58): number {
   return SAIL_MAX * Math.tanh((SAIL_LEAN * sail * gust) / SAIL_MAX);
@@ -796,9 +783,8 @@ function swungLength(
 }
 
 /**
- * Whether a `hold` or `wipe` by `id` at `to` puts a tool's working end there rather than
- * the hand: `id` carries a prop with a `tip` at t, and `to` is not someone a hold rests a
- * hand on (a living thing's shoulder, to steady or help them up).
+ * Whether a `hold` or `wipe` by `id` at `to` puts a tool's working end there: it carries a
+ * prop with a `tip`, and `to` is not a living thing whose shoulder a hold rests on.
  */
 export function toolReaches(
   project: Project,
@@ -882,10 +868,9 @@ function heldFrom(holder: ActorState, pose: Pose, prop: Character, propScale: nu
   const dy = k * (ty - gy);
   let wield = pose.wield;
   if (pose.bite && pose.bite > 0) {
-    // Brought down onto the floor: the swing that puts the tip at the holder's feet level.
-    // Turned by w toward the facing, the tip sits dx sin w + dy cos w below the hand; of the
-    // two swings that reach, the first one coming down from overhead. Out of reach, it
-    // points as low as it can.
+    // Onto the floor: turned by w toward the facing, the tip sits dx sin w + dy cos w below
+    // the hand; of the two swings that reach, the first coming down from overhead. Out of
+    // reach, as low as it can.
     const r = Math.hypot(dx, dy);
     const drop = holder.y - hand.y;
     const a = Math.atan2(dy, dx);
@@ -909,12 +894,9 @@ function heldFrom(holder: ActorState, pose: Pose, prop: Character, propScale: nu
     wield = (wield ?? 0) + pose.bow.turn * bowTurn(prop, pose.bow.deg);
   // A sail (an umbrella, a flag) leaned downwind about the hand.
   if (prop.sail && holder.blown) wield = (wield ?? 0) + holder.blown;
-  // Carried at rest, a tool is not left pointing at the floor in front of its holder. In a
-  // seated holder's hand it is propped up toward the way they face, SEATED_TOOL above level,
-  // across the lap, rather than laid out along the floor. And nothing a hand carries goes
-  // into the floor: it is swung up about the grip, the nearer way, until its working end
-  // rests on the floor line, where its holder stands or under the seat they sit on. A tool
-  // put to something is left where it is put.
+  // At rest, a seated holder's tool is propped SEATED_TOOL above level across the lap, and
+  // nothing carried goes into the floor: it swings up about the grip, the nearer way, until
+  // its end rests on the floor line. A tool put to something is left where it is put.
   const free = 1 - Math.max(pose.bite ?? 0, pose.hit?.k ?? 0);
   const r = Math.hypot(dx, dy);
   if (free > 0 && r > 0 && !prop.bowstring) {
@@ -970,11 +952,7 @@ function onTheGround(shot: Shot, scene: Scene, to: Position | undefined): boolea
   return !shot.cast[to] && !scene.anchors[to]?.use?.at;
 }
 
-/**
- * The clods still in the air from the blows a held tool has struck in its holder's `dig`s,
- * thrown up where its tip went into the soil, and the dust of a `strike` on the ground: for
- * SOIL_TIME after each blow.
- */
+/** The clods of a held tool's `dig` blows, and the dust of a `strike` on the ground, for SOIL_TIME after each. */
 function soilBursts(
   project: Project,
   scene: Scene,
@@ -1042,9 +1020,8 @@ export function resolveActor(
   let sitting = false;
   let seat = 0;
   let perched = false;
-  // Lying on a raised bed (a cot with a `floor`): how high it is, so getting up off it steps
-  // down to the floor in front, as off a seat. Lying is on the bed's surface, so `seat`
-  // stays 0 while lying, and takes the bed's height as it gets up.
+  // A raised bed's height (a cot with a `floor`): `seat` stays 0 while lying on it and takes
+  // this as it gets up, stepping down in front as off a seat.
   let bed = 0;
   // Standing on another actor, and when a move that takes it off lands.
   let on = cast.on;
@@ -1109,9 +1086,8 @@ export function resolveActor(
   let locomotion: Locomotion = 'idle';
   const verbs: ActiveVerb[] = [];
   /**
-   * Verbs whose hand goes somewhere in the scene, worked out into the box once it is known
-   * where the actor stands. `stands` is where a prop taken or set down stands: the hand
-   * goes to it only when that is up off the floor.
+   * Verbs whose hand goes somewhere in the scene, put into the box once the actor's place is
+   * known. `stands`: where a prop taken or set down stands (reached for only off the floor).
    */
   const aims: {
     v: ActiveVerb;
@@ -1345,9 +1321,8 @@ export function resolveActor(
           // How far the floor is below it: a cot is lain on from the floor in front of it.
           const high = verb === 'sit' ? seatHeight(scene, ground, to) : bedHeight(scene, to);
           const foot = { ...to, y: to.y + high };
-          // Already standing on the seat itself (cast there to open the shot sat on it): it
-          // sits where it is, rather than walking down to the floor under a high seat (a
-          // branch) and climbing back up.
+          // Already standing on the seat (cast there): sits where it is, not down to the
+          // floor under a high seat and back up.
           const there = Math.hypot(to.x - point.x, to.y - point.y) < 1;
           const far = !there && Math.hypot(foot.x - ground.x, foot.y - ground.y) > APPROACH;
           const up = hops && high > 0 && !there;
@@ -1780,10 +1755,9 @@ function eyePoint(a: ActorState): { x: number; y: number } {
 const ATTENTION_VERBS: ReadonlySet<Verb> = new Set(['walk', 'run', 'move', 'fly', 'jump', 'point']);
 
 /**
- * Who an actor is attending to at time t: whoever spoke last (a listener watches the
- * speaker), or, while speaking, the one spoken to (`to`, else whoever spoke before, else
- * the nearest actor in front). Walking, jumping and pointing look straight ahead.
- * Returns the last two targets and when the latest began, so the head can ease over.
+ * Who an actor attends to at t: the last speaker, or, while speaking, the one spoken to
+ * (`to`, else the last speaker, else the nearest in front); walking, jumping and pointing
+ * look ahead. Returns the last two targets and when the latest began, for easing.
  */
 function attention(shot: Shot, a: ActorState, t: number) {
   type Target = string | undefined; // undefined: straight ahead
@@ -1873,11 +1847,9 @@ const FOLLOW_LAG = 0.9;
 const FOLLOW_LEAD = 0.12;
 
 /**
- * The view `u` (0..1) of the way from one camera to another. Zoom goes geometrically, so
- * every moment of a zoom from 1 to 6 looks as fast as every other, and the point at the
- * frame centre moves with 1 / zoom: the one move that zooms about a fixed point (as a pinch
- * does), so a far zoom-in onto one spot closes on it steadily instead of swinging past.
- * With the zoom (nearly) unchanged that is a plain pan.
+ * The view `u` (0..1) of the way from one camera to another. Zoom goes geometrically and
+ * the centre moves with 1 / zoom: the one move that zooms about a fixed point, so a far
+ * zoom-in closes on its spot steadily instead of swinging past. Unzoomed, a plain pan.
  */
 export function cameraBetween(from: View, to: View, u: number): View {
   const z0 = Math.max(1e-3, from.zoom);
@@ -1914,9 +1886,8 @@ export function resolveCamera(project: Project, scene: Scene, shot: Shot, t: num
       y: Math.min(height - hh, Math.max(hh, c.y)),
     };
   };
-  // Where following an actor puts the camera: the mean of where it has been over the last
-  // moment, newer places weighing more, so the camera eases after a start and settles
-  // after a stop instead of being nailed to the actor. Pure in t, as every frame must be.
+  // Following: a recency-weighted mean of where the actor has been, so the camera eases
+  // and settles instead of being nailed to it. Pure in t, as every frame must be.
   const followed = (id: string, zoom: number, time: number): View => {
     // A sample a frame: the lead flips when the actor turns, and with fewer the camera
     // would move in steps as each sample flipped.
@@ -1998,11 +1969,9 @@ function narrationBox(
 const onTop = new WeakMap<Action, boolean>();
 
 /**
- * Whether a landscape film's narration goes along the top: when along the bottom it would
- * cover more of the cast's faces than along the top, at the start, middle or end of the
- * line (a group sitting on the floor in a wide shot, an animal near the camera). The
- * choice holds for the whole line, so the strip never jumps while it is up. A reel's
- * narration is always at the top (the app covers the bottom).
+ * Whether a landscape film's narration goes along the top: when at the bottom it would
+ * cover more faces, at the line's start, middle or end. It holds for the whole line, so the
+ * strip never jumps. (A reel's is always at the top.)
  */
 export function narrationOnTop(project: Project, shot: Shot, a: Action): boolean {
   if (isPortrait(project.meta) || !a.caption) return false;
@@ -2439,10 +2408,9 @@ function nockTime(project: Project, scene: Scene, shot: Shot, aim: Action, depth
 type ArrowAt = Partial<ActorState> | { fade: number };
 
 /**
- * Where an arrow is at t, when archery has it: on the string of a bow in an aim (or left on a
- * lowered one), in flight, or stuck in what it hit and going where that goes. Nothing when
- * something since (an attach, a set, a move of its own) has taken it. Only what was done
- * before `before` counts: where it was when an aim took it.
+ * Where an arrow is at t, when archery has it: on a string, in flight, or stuck in what it
+ * hit. Nothing once an attach, set or move has taken it. Only what was done before
+ * `before` counts.
  */
 function arrowAt(
   project: Project,
@@ -2552,9 +2520,8 @@ function arrowAt(
   const archer = nock.actor!;
   const nocked = nockTime(project, scene, shot, nock, depth);
   if (t < nocked) {
-    // Not on the string yet: it fades from where it was (another archer's bow, the
-    // ground), and shows on this one once the archer has turned and has a hand on it, so
-    // it neither jumps across the stage nor goes round with the drawing as it turns.
+    // Not on the string yet: fades from where it was, and shows here once the archer has
+    // turned and has a hand on the string, so it neither jumps across nor turns with him.
     const fade = 1 - clamp01((t - nock.t) / NOCK_FADE);
     const was = arrowAt(project, scene, shot, id, t, depth + 1, nock.t);
     if (!was) return { fade };

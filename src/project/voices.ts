@@ -234,7 +234,6 @@ class Sidecar {
     this.answers = createInterface({ input: proc.stdout })[Symbol.asyncIterator]();
   }
 
-  /** Ask for one line: the sidecar's answer. */
   async say(req: object): Promise<{ ok: boolean; error?: string; pitched?: boolean }> {
     if (!this.proc) await this.start();
     this.proc!.stdin.write(JSON.stringify(req) + '\n');

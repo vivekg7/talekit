@@ -1,15 +1,9 @@
 import type { CharacterInput } from '../engine/types.js';
 
 /**
- * A scarlet macaw on the `simple` rig, laid out like `bird`: 200×200 box, base on y=200, faces
- * right. Upright, as a parrot stands. One `body` part in depth order: a long red tail tapering
- * down behind to the base line with blue tips, short grey legs with zygodactyl feet (two toes
- * forward, two back) gripping the base line, a red body and round head in one shape, the bare
- * pale face patch with fine red feather lines round the eye, and a folded wing: red coverts at
- * the shoulder, the yellow band with green tips below it, then blue flight feathers sweeping
- * back over the tail. The pale iris rings a dark pupil. The heavy hooked beak is the `mouth`, so
- * talking opens it: an ivory upper mandible hooking over a dark lower one, with a dark tongue
- * when open.
+ * A scarlet macaw on the `simple` rig, laid out like `bird` (200×200 box, base on y=200, faces
+ * right), upright as a parrot stands, its zygodactyl feet (two toes forward, two back) gripping
+ * the base line. The heavy hooked beak is the `mouth`, so talking opens it.
  */
 export const PARROT: CharacterInput = {
   id: 'parrot',

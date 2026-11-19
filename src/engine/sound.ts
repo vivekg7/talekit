@@ -32,7 +32,7 @@ import { voiceLines, type Line } from './voice.js';
 
 /**
  * What a film sounds like, as a list of cues: which clip plays when, how loud and from
- * where. Pure, like the rest of the engine; src/render/audio.ts decodes and sums them.
+ * where; src/render/audio.ts decodes and sums them.
  */
 
 export type Bus = 'music' | 'ambience' | 'sfx' | 'voice';

@@ -100,61 +100,34 @@ export const CharacterSchema = z.object({
   height: z.number().positive().default(220),
   /** Named colour tokens; `{token}` inside part SVG is replaced with the value. */
   colors: z.record(z.string(), z.string()).default({}),
-  /**
-   * The engine draws the house outline around every part, in `colors.line` if set. Turn it
-   * off only for things that should not look drawn: a glow, a ghost, a reflection's ripple.
-   */
   outline: z
     .boolean()
     .default(true)
     .describe('Engine-drawn outline around every part (default true); false for glows and ghosts'),
-  /**
-   * The engine shades every part on the side away from the light (and lights the side
-   * toward a fire). Turn it off for things that give light or have no form: a glow, a ghost.
-   */
   shade: z
     .boolean()
     .default(true)
     .describe(
       'Engine-drawn shading: a darker side away from the light on every part, and a warm rim toward a fire (default true); false for glows, ghosts, flat signs'
     ),
-  /**
-   * Whole drawings of the character end-on, for an animal (whose rig is side-on only)
-   * walking straight into the screen or out of it. See ends.ts.
-   */
   ends: z
     .object({ back: EndViewSchema.optional(), front: EndViewSchema.optional() })
     .optional()
     .describe(
       "Drawings of the character end-on, in the same box as the side view, its feet on the same base line: `back` seen from behind (walking into the screen, up it), `front` face to the viewer (walking out of it, down it). The engine draws one while a walk or a run goes mostly up or down the screen, narrowing through the swap from the side view and back, and walks it: the parts named `legL` and `legR` (the legs on the picture's left and right: the hind legs from behind, the forelegs from the front) lift in turn on the gait's beat, the rest bobs and rocks a little, and a part given a pivot (a tail) sways about it; pawprints fall in two tracks under the two legs. Mainly for animals in a scene seen from above (a maze, a yard): a person turns round on its own (`back` variants). Parts are drawn in the order given; nothing else of the side view is used"
     ),
-  /**
-   * Follow-through: parts that swing behind the motion on a spring, so a tail trails a
-   * start and flicks on a stop. Absent means the rig's own list; `[]` turns them off.
-   */
   springs: z
     .array(z.string())
     .optional()
     .describe(
       "Parts that swing behind the motion on a spring (a tail, ears, a scarf). Default: the rig's (quadruped: tail, earL, earR; humanoid and simple: none); [] for none. A part the rig does not place (and `hangs` does not) sways instead of turning"
     ),
-  /**
-   * Wings: parts that beat up and down about their pivots while the actor flies. Each may
-   * have `spread` and `folded` variants, which the engine picks itself: spread in the air,
-   * folded at rest.
-   */
   flaps: z
     .array(z.string())
     .optional()
     .describe(
       'Wings: parts that beat up and down about their pivots while the actor flies (`fly`), about 40 degrees either side of the drawing, so draw a wing spread at mid-beat. Hang each from the body at its shoulder (`hangs`), the near wing `front: true`. A wing with `spread` and `folded` variants shows `spread` in the air and `folded` otherwise, so one bird both swims and flies; a `face` action still overrides it'
     ),
-  /**
-   * Where a part the rig does not know hangs: from another part, which carries it, turning
-   * about a point drawn in the box, just behind that part or just in front. A spring part
-   * hung this way swings about its pivot (a pigtail from its tie) instead of swaying, and
-   * one hung from the head turns and nods with it.
-   */
   hangs: z
     .record(
       z.string(),
@@ -179,33 +152,18 @@ export const CharacterSchema = z.object({
     .describe(
       "Parts the rig does not know, hung from one it does: { pigtailL: { from: 'head', at: [31, 103] } }. Such a part moves with `from` and, listed in `springs`, swings about `at`: pigtails, a ponytail, a scarf end, a feather on a hat"
     ),
-  /**
-   * Where a rig part turns, when the drawing's joint is not at the rig's pivot: a tail that
-   * leaves the body further along than the rig's tail pivot turns from its root, not from
-   * a point part way down it.
-   */
   pivots: z
     .record(z.string(), z.tuple([z.number(), z.number()]))
     .optional()
     .describe(
       "Rig parts that turn about a point of this character's own, [x, y] in the box: where the drawing joins its parent. { tail: [84, 128] } for a tail whose root is not at the rig's tail pivot (quadruped 44, 110), which would otherwise swing about a point part way along it. Hung parts set theirs in `hangs`"
     ),
-  /**
-   * Where a rig limb bends, when the drawing's knee or elbow is not at the rig's: a
-   * reptile's short legs bend low down, near the floor.
-   */
   bends: z
     .record(z.string(), z.tuple([z.number(), z.number()]))
     .optional()
     .describe(
       "Rig limbs that bend at a knee or elbow of this character's own, [x, y] in the box: { legBR: [124, 181] }. The quadruped's are halfway down the leg (y 166); set them with `pivots` on the legs when the legs are drawn shorter or lower, so the leg bends where it is drawn bent"
     ),
-  /**
-   * Parts that bend along their length, like a leg at the knee, rather than swinging stiff
-   * about their pivot: cut into links, each taking a share of the part's turn, so a tail
-   * curves and its follow-through runs down it to the tip. A head of two links bows from
-   * the neck as well as the head; what hangs from it (eyes, mouth) goes with the last link.
-   */
   chains: z
     .record(
       z.string(),
@@ -221,33 +179,18 @@ export const CharacterSchema = z.object({
     .describe(
       "Parts that bend along their length instead of turning stiff about one hinge: { tail: 4 } cuts the tail into 4 links evenly from its pivot to its far end; or give the joints, root first: { head: [[212, 104]] } bows a head from the neck and from behind the skull. Default: the rig's (quadruped: tail 4); 1 for a stiff part. Works for a part hung with `hangs` too (a monkey's tail)"
     ),
-  /**
-   * Where something carrying this character holds it (see the `attach` action), in its own
-   * canonical coordinates: a lantern's handle, a balloon's string end. Default: box centre.
-   */
   grip: z
     .tuple([z.number(), z.number()])
     .optional()
     .describe(
       "Where a carrier holds this prop when it is attached, [x, y] in the character's own box (a lantern's handle, the end of a balloon string). Default: the box centre"
     ),
-  /**
-   * The working end of a tool, in its own canonical coordinates: the edge of a hoe's blade,
-   * the point of a spade, a ladle's bowl. A `dig` brings it down onto the floor, a `strike`
-   * onto what is struck, and a `hold` or `wipe` with `to` puts it on `to`. Default: the top
-   * of the box straight above the grip.
-   */
   tip: z
     .tuple([z.number(), z.number()])
     .optional()
     .describe(
       "The working end of a tool, [x, y] in the character's own box (the edge of a hoe's blade, the point of a spade, a ladle's bowl): what a `dig` brings down onto the floor and a `strike` onto what it hits; a `hold` or `wipe` with `to` by its carrier puts it on `to` (the hand stops the tool's length short and the tool turns to it) instead of the hand. Carried at rest it is kept off the floor in front of its holder, and propped up 30° above level by someone seated. Default: the top of the box straight above the grip"
     ),
-  /**
-   * How much of the weather's wind this prop catches when it is carried, 0..1: an open
-   * umbrella or a banner 1, a flag on a pole about 0.6. Carried in a wind it leans downwind
-   * about its grip and gusts, and the arm that holds it gives with it.
-   */
   sail: z
     .number()
     .min(0)
@@ -256,86 +199,60 @@ export const CharacterSchema = z.object({
     .describe(
       "How much of the weather's `wind` this prop catches while it is carried (attach), 0..1: an open umbrella or a banner 1, a flag on a pole about 0.6, a stick or a lantern none (leave it out). Carried in a wind, it leans downwind about its grip (up to about 25° in a gale, at sail 1) and gusts, and the holding arm gives with it, so the hand stays on the grip. Put the grip at the bottom of the handle or pole, the part that catches the wind above it"
     ),
-  /**
-   * A bow: the two ends of its string, in its own canonical coordinates, the top one first.
-   * The engine draws the string itself between them, straight, or pulled back to the
-   * archer's hand in an `aim`; the bow is turned to stand across the line of the aim.
-   */
   bowstring: z
     .tuple([z.tuple([z.number(), z.number()]), z.tuple([z.number(), z.number()])])
     .optional()
     .describe(
       "Makes this prop a bow: the two ends of its string, [[x, y], [x, y]] in the box, the top one first, where the string is tied at the tips. Draw the bow without a string, the grip (`grip`) in the middle of the stave and the string side toward the left (the archer's side, facing right): the engine draws the string, pulls it back to the hand in an `aim` and turns the bow to stand across the line of the aim"
     ),
-  /**
-   * A bow's nocking point: where the arrow sits on the string at rest, in its own canonical
-   * coordinates. Default: the point on the string level with the grip.
-   */
   nock: z
     .tuple([z.number(), z.number()])
     .optional()
     .describe(
       "A bow only: where the arrow's end sits on the string at rest, [x, y] in the box. Default: the point on the string level with the grip, so the arrow lies across the hand"
     ),
-  /**
-   * Where a shot at this character hits, in its own canonical coordinates: a bird's eye,
-   * the middle of a target. Default: the middle of the box.
-   */
   mark: z
     .tuple([z.number(), z.number()])
     .optional()
     .describe(
       "Where an arrow aimed at this character hits it, [x, y] in the box: a bird's eye, the centre of a target's face. Default: the middle of the box. The arrow stays stuck there and goes wherever this character goes"
     ),
-  /**
-   * A soft ground shadow under the feet. Default: on for people and animals, off for the
-   * simple rig (birds, kites, things that hang in the air); set true for a prop that sits.
-   */
   shadow: z
     .boolean()
     .optional()
     .describe(
       'Soft ground shadow under the feet. Default: on for humanoid and quadruped, off for the simple rig (birds and kites hang in the air); true for a prop that sits on the ground'
     ),
-  /**
-   * A span this character keeps the rain and snow off (an umbrella's canopy, a hat brim),
-   * in its own box, optionally only while one of its parts shows a given variant.
-   */
   shelter: z
     .union([ShelterSpanSchema, z.array(ShelterSpanSchema)])
     .optional()
     .describe(
       "Keeps rain and snow off what is under it: the span from x to x + width at height y in the character's own box (an umbrella's canopy edge), or a list of them, one per variant. Drops stop on it, the ground below stays dry, and it drips at both ends"
     ),
-  /** Quadruped: where the underside of the body is drawn, which `lie` sets on the floor. */
   belly: z
     .number()
     .optional()
     .describe(
       'Quadruped only: y of the underside of the body in the box (default 152), which lie sets on the floor. Set it when the belly is drawn higher (a slender deer) or lower (a rabbit); the construction check measures it'
     ),
-  /** Quadruped: hooves rather than paws, which `lie` folds under the chest. */
   hooves: z
     .boolean()
     .optional()
     .describe(
       'Quadruped only: true for hooves (a deer, a goat, a horse). Lying, the forelegs fold under the chest; without it they stretch out in front, the paws on the floor under the chin'
     ),
-  /** Quadruped: a reptile's low sprawl, which lies down without sitting back first. */
   sprawl: z
     .boolean()
     .optional()
     .describe(
       "Quadruped only: true for a reptile (a crocodile, a lizard, a tortoise) drawn low on short legs splayed out at the knee and elbow. `sit` and `lie` let the belly down to the floor, level, the feet staying where they stand, rather than tipping back onto the haunches like a dog's; standing up lifts it again. The hind knee points forward and the elbow back"
     ),
-  /** Quadruped: where the mouth is, when it is far from the library animals' own. */
   muzzle: z
     .tuple([z.number(), z.number()])
     .optional()
     .describe(
       "Quadruped only: [x, y] of the mouth in the box (default [240, 100]), drawn in the head. A carried prop hangs from it, and eat lowers the head until it reaches the floor. Set it when the head reaches far from the neck pivot (196, 108): a camel's or a giraffe's, up a long neck"
     ),
-  /** Humanoid: where the torso ends, which `sit` rests on the seat. */
   hem: z
     .number()
     .optional()
@@ -361,10 +278,6 @@ export const AnchorSchema = z.object({
   x: z.number(),
   /** Floor point: where the character's feet go. */
   y: z.number(),
-  /**
-   * Perspective multiplier applied to the character's scale when standing here. Unset, it is
-   * the scene's `perspective` at the anchor's depth (`ground`, `floor` or `y`), else 1.
-   */
   scale: z
     .number()
     .positive()
@@ -680,11 +593,6 @@ export const SceneSchema = z.object({
   svg: z.string(),
   /** Optional SVG fragment drawn in front of the actors (a fence, a table edge). */
   foreground: z.string().optional(),
-  /**
-   * Depth layers. `far` is drawn behind `svg` and moves less than the stage when the camera
-   * pans or zooms; `near` is drawn over everything and moves more. `svg` and `foreground`
-   * stay at the stage's own depth, where the actors are.
-   */
   far: z
     .string()
     .optional()
@@ -713,10 +621,6 @@ export const SceneSchema = z.object({
   ground: z.number().optional(),
   /** Weather and moving nature the engine animates, so the author never draws a frame of it. */
   weather: WeatherSchema.optional(),
-  /**
-   * Groups of the art that sway, by their `<g id>` in any layer: each turned a little about
-   * its pivot every frame (a crown about the top of its trunk), more and quicker in wind.
-   */
   sway: z
     .record(
       z.string(),
@@ -872,10 +776,6 @@ export const SceneSchema = z.object({
     .describe(
       "What people's feet land on, for the sound of their steps and the dust a landing raises: hard (a floor, a path, stone; the default), grass (a lawn, a forest floor, earth), sand (a beach, a desert, a sandbank) or snow. Sand and snow keep footprints: each foot that comes down in a walk or a run on a walk area leaves its print there for the rest of the shot. Give a scene sand or snow only where the whole floor is soft: a stone path across a beach is a scene of its own, or hard"
     ),
-  /**
-   * On sand or snow: keep only each walker's last `trail` prints, the newest dark and the
-   * oldest faint, instead of every print for the rest of the shot.
-   */
   trail: z
     .number()
     .int()
@@ -960,10 +860,6 @@ export const CameraSchema = z.object({
   /** World point shown at the centre of the frame. Defaults to the frame centre. */
   x: z.number().optional(),
   y: z.number().optional(),
-  /**
-   * Keep an actor in frame: the camera trails it, a little ahead of the way it faces, and
-   * settles when it stops. Setting x or y, or an empty string, lets go of it.
-   */
   follow: z
     .string()
     .optional()
@@ -977,13 +873,11 @@ export type View = { zoom: number; x: number; y: number };
 
 export const ActionSchema = z
   .object({
-    /** Start time in seconds from the start of the shot (given here, or worked out from `after`). */
     t: z
       .number()
       .min(0)
       .optional()
       .describe('Seconds from the start of the shot. Give this or `after`'),
-    /** Seconds after the line before it in the list is spoken: the engine works out `t`. */
     after: z
       .number()
       .min(0)
@@ -991,7 +885,6 @@ export const ActionSchema = z
       .describe(
         "In place of t: start this many seconds after the line listed before it (the nearest earlier action with a say or caption) stops being spoken, 0.3 for a quick reply, 1 for a pause. The engine works out t from how long that line really takes, so the timing holds when the voices are made or a line is reworded; with no line before it, it counts from the start of the shot. Keep the actions in the order they happen. Any action can use it: a turn or an emotion just after someone's line"
       ),
-    /** Seconds. Each verb has a sensible default; on a shoot, how long the arrow flies. */
     duration: z
       .number()
       .positive()
@@ -1001,27 +894,18 @@ export const ActionSchema = z
       ),
     actor: IdSchema.optional(),
     do: VerbSchema.optional(),
-    /**
-     * Target for walk/run/move/fly/climb: an anchor name, a stage shortcut, or {x, y}. For a wipe,
-     * what is wiped: an actor in the cast or a spot; for a hold, whom (or where) the hand
-     * rests on; for an aim, what is aimed at; for a shoot, where the arrow goes. On a `say`
-     * with no `do`, the id of the actor being spoken to.
-     */
     to: PositionSchema.optional().describe(
       "walk/run/move/fly/jump/climb/sit/lie/putdown: where to (anchor, stage shortcut or {x, y}); a sit or lie there walks over first. climb: the top (or foot) of the ladder or trunk, straight above (below) where the climber stands, inside one of the scene's `climb` areas. wipe: what the hand goes round on, an actor in the cast (its middle), an anchor with a `use` (its work point) or a spot. hold: what the hand rests on, an actor in the cast (its shoulder), an anchor with a `use` or a spot. With a tool in the hand (a prop with a `tip`), a wipe or hold puts the tool's tip there instead (a ladle in a bowl, then over the fire), the hand stopping the tool's length short; a hold on someone in the cast is still the hand on their shoulder. eat: the food the hand takes up first, before it goes to the mouth (a share of roti on a plate in the cast: its middle, or a spot); without it the hand comes up to the mouth with whatever it holds, empty if nothing. strike: what the blow lands on, an actor in the cast (its shoulders, an animal's back), an anchor with a `use` (its work point, the top of a washing stone; the striker is walked there and sat down first) or a spot; without it the blow chops the air in front. aim: what the archer aims at, an actor in the cast (its `mark`), an anchor or a spot. shoot: where the arrow goes, if not where the aim was (a miss); on an arrow not on a bow, where it flies to. On a say without do: the id of the actor spoken to, when the engine would guess wrong"
     ),
-    /** On a move: points to pass on the way to `to`, in order. */
     via: z
       .array(PositionSchema)
       .optional()
       .describe(
         "walk/run/move/fly: points to pass on the way to `to`, in order (anchors or {x, y}): the corners of a path to keep to, as down the middle of a maze's lanes, where the shortest way would cut across. A walk still goes round solids on each leg between them, and turns to face each leg"
       ),
-    /** On an `aim`: the arrow (a cast actor) the engine puts on the string for it. */
     arrow: IdSchema.optional().describe(
       'aim only: the id of the arrow in the cast (a prop with `grip` at its nock and `tip` at its head, drawn pointing right). The engine puts it on the string once the archer has turned to `to` and has a hand on the string (taking it off any bow it was on), shows it drawn back with the string, and a `shoot` looses it; aimed and lowered without a shot, it stays on the bow, pointing down'
     ),
-    /** Dialogue shown in a bubble above the actor's head; also animates the mouth. */
     say: z
       .string()
       .optional()
@@ -1032,18 +916,15 @@ export const ActionSchema = z
       .enum(['speech', 'thought', 'shout'])
       .optional()
       .describe('speech (default), thought (the mouth stays still, nobody looks) or shout'),
-    /** Persistent facial expression until the next emotion action. */
     emotion: EmotionSchema.optional().describe(
       "The actor's face from now on, and how its lines are said: set it before or on the line that needs it"
     ),
-    /** Explicit part variants, e.g. { mouth: 'grin' }; persists like emotion. */
     face: z
       .record(z.string(), z.string())
       .optional()
       .describe(
         "Force part variants, e.g. { mouth: 'grin' }, until the shot ends (a forced part does not blink or talk); '' hands a part back to the emotion"
       ),
-    /** On-screen text that belongs to no actor: a title card or a narrator line. */
     caption: z
       .string()
       .optional()
@@ -1051,7 +932,6 @@ export const ActionSchema = z
         "Narration at the bottom or a title card, read by the project's narrator. As in `say`, *marked* text is shown and not read"
       ),
     captionStyle: z.enum(['title', 'narration']).optional(),
-    /** The say or caption in other languages, by language code, for the film's subtitles. */
     translation: z
       .record(z.string().regex(/^[a-z]{2,3}$/), z.string().min(1))
       .optional()
@@ -1060,28 +940,21 @@ export const ActionSchema = z
       ),
     /** Camera target, tweened over `duration` (default 1s; 0.05 for a cut). */
     camera: CameraSchema.partial().optional(),
-    /**
-     * Carry: this actor (a prop) is held by another's hand, or a four-legged one's mouth,
-     * and goes where they go until `false` lets go of it where it is.
-     */
     attach: z
       .union([IdSchema, z.literal(false)])
       .optional()
       .describe(
         "Carry this actor (a prop): the id of the carrier, whose near hand (or a four-legged animal's mouth) holds it at the prop's grip; false lets go, and it falls straight down to the floor its carrier stands on. With do: 'pickup' the carrier takes it from where it is, stooping to the floor for it or reaching out to it on a table or a shelf; with attach false and do: 'putdown' the carrier sets it down (at `to`, a table top reached out to, else on the floor under the hand); with do: 'give' whoever holds it hands it over: both reach out, it changes hands where their hands meet, half way through, and both arms come back (stand them close enough for their hands to meet)"
       ),
-    /** The weather changes, over `duration`, to this. */
     weather: WeatherSchema.optional().describe(
       'The weather turns to this over duration (default 2 s): the rain easing off, storm clouds rolling in, night falling with `light`. It replaces the weather in force; {} clears it'
     ),
-    /** A lightning strike at t: a bolt in the sky and a flash over the frame. */
     lightning: z
       .literal(true)
       .optional()
       .describe(
         "A lightning strike now: a bolt in the sky (needs the scene's far layer) and a flash"
       ),
-    /** A one-off sound at t, heard from where the actor is. */
     sound: z
       .string()
       .min(1)
@@ -1110,7 +983,6 @@ export const ActionSchema = z
     reacts: IdSchema.optional().describe(
       'What this action is a reaction to: the id of the actor that caused it (a run away from the lion, a scared look at the bray, a laugh at the joke). The engine turns this actor to look at the cause just before, so the reaction reads as seen; one facing away that cannot turn (walking, busy, asleep) is a world finding'
     ),
-    /** Standing on another actor: drawn in front of it while on it. */
     on: IdSchema.optional().describe(
       "With a walk, run, move, fly or jump that has a `to`, or with set.at: the id of the actor this one ends up standing on (a mouse on a sleeping lion's back), so it is drawn in front of that actor from when it sets off until a later move without `on` lands somewhere else. Put `to` on the top of that actor (read where it is off a preview_frame). It rides along on that spot of its body as the other gets up, walks or turns; a hop to another spot up there needs `on` again"
     ),
@@ -1196,10 +1068,6 @@ export const ShotSchema = z.object({
   /** Seconds of fade from black at the start / to black at the end. */
   fadeIn: z.number().min(0).default(0),
   fadeOut: z.number().min(0).default(0),
-  /**
-   * Seconds over which this shot dissolves in from the previous one, which carries on
-   * underneath. 0 is a cut.
-   */
   crossfade: z
     .number()
     .min(0)
@@ -1207,17 +1075,12 @@ export const ShotSchema = z.object({
     .describe(
       "Seconds this shot dissolves in from the previous one at its start (default 0, a cut). The previous shot's last moment carries on underneath, so it needs no fadeOut"
     ),
-  /**
-   * Whether this shot follows on from the last in the same scene (`next`) or time has passed
-   * (`later`): a hard cut is `next` unless it says so, a crossfade `later`.
-   */
   cut: z
     .enum(['next', 'later'])
     .optional()
     .describe(
       "Whether time passes at the cut from the shot before: 'next' (the default for a cut) if it carries straight on, 'later' (the default with a crossfade) if not. In the same scene, 'next' starts everyone where, how and as they were left (a turn shown as a turn), and 'later' starts the cast afresh. In another scene the cast always starts afresh, but 'next' (a closer view, an insert of the same moment) keeps two who show on both sides on the sides they were on (the 180° rule)"
     ),
-  /** Replaces the scene's weather for this shot: the rain stops, a storm starts. */
   weather: WeatherSchema.optional().describe(
     "This shot's weather instead of the scene's (the rain has stopped, a storm is coming); {} for clear weather in a scene that has some"
   ),

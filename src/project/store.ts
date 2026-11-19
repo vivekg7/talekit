@@ -91,7 +91,7 @@ export async function saveMeta(root: string, meta: ProjectMeta): Promise<string>
 }
 
 /**
- * Load every file. Schema errors are collected per file; cross-reference checks live in validate.ts.
+ * Load every file. Schema errors are collected per file; cross-references are validate.ts's.
  * `over` are option choices (options.ts), each a folder laid out like the project: an item
  * there replaces the project's one of the same id, a new id joins it (a shot in its file
  * name's place), its `talekit.json` is merged over the meta and its `audio/` files over the
@@ -274,8 +274,7 @@ export async function saveShot(root: string, s: Shot, order?: number): Promise<s
   return file;
 }
 
-/** A shot as its file has it: an action placed `after` a line keeps that, not the time it
- * last worked out to. */
+/** A shot as its file has it: an action placed `after` a line keeps that, not its last time. */
 export function storedShot(s: Shot): object {
   const actions = s.actions.map((a) => {
     if (a.after === undefined) return a;

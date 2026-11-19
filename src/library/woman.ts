@@ -1,17 +1,11 @@
 import type { CharacterInput } from '../engine/types.js';
 
 /**
- * A woman in a kurta and churidar: the grown-up's box, pivots and head size, a little slimmer.
- * Black hair parted in the middle and combed back smooth over the ear to the nape, where it goes
- * into a long plait (a part of its own, hung from the head with `hangs` so it swings as a spring)
- * with a red tie and tassel; a gold drop at the ear, a bindi in `face` and lashes at the outer
- * corners. A neck in a round neckline with a gold trim; a kurta with small buttis, side slits and a
- * gold hem band, to mid-thigh; three-quarter sleeves round the shoulder pivot with a gold cuff, a
- * gold and a red bangle at each wrist, mitten hands with the thumb forward and a line where the
- * fingers curl; churidar trousers gathered at the ankle over flat sandals with a strap. Seen from
- * behind, the plait hangs down the middle of her back. Limbs are round-capped strokes from the
- * pivots, the neck reaches 30 units into the head and the kurta hangs 28 below the hips, as the
- * kid's dress does, so the legs stride out from under it.
+ * A woman in a kurta and churidar: the grown-up's box, pivots and head size, a little slimmer. The
+ * plait is a part of its own, hung from the head with `hangs` so it swings as a spring; from
+ * behind it hangs down the middle of her back. The bindi is in `face`. Limbs are round-capped
+ * strokes from the pivots, the neck reaches 30 units into the head and the kurta hangs 28 below
+ * the hips, as the kid's dress does, so the legs stride out from under it.
  */
 export const WOMAN: CharacterInput = {
   id: 'woman',

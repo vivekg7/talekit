@@ -420,15 +420,11 @@ function measure(ps: Piece[], filters: Map<string, Region>): Partial<Boxes> {
 }
 
 /**
- * The pieces whose canvas would lie wholly outside the bounds resvg cuts it to, left out.
- *
- * resvg cuts each canvas (see the top of this file) to two frames either way of the corner
- * of the canvas it is drawn on: the frame's for the outermost, but for one inside another
- * that one's top-left corner, wherever it lies (no further than its own bounds). A blurred
- * crown at a close camera has its filter region start a frame or two left of the frame, so a
- * see-through group of it a frame right of the frame is outside its bounds, though not the
- * frame's; that panics as surely. `win` is the bounds of the canvas `ps` is drawn on, in the
- * frame's coordinates, and `t` maps `ps`'s coordinates to the frame's.
+ * The pieces whose canvas would lie wholly outside the bounds resvg cuts it to (see the top
+ * of this file), left out. Inside another canvas the bounds are two frames either way of
+ * that one's top-left corner, no further than its own bounds. `win` is the bounds of the
+ * canvas `ps` is drawn on, in the frame's coordinates; `t` maps `ps`'s coordinates to the
+ * frame's.
  */
 function fitCanvases(
   ps: Piece[],
@@ -470,11 +466,8 @@ function fitCanvases(
 }
 
 /**
- * `svg` drawn so that resvg can draw it: the shapes that `m` (its coordinates to the frame's)
- * puts wholly more than one frame outside the W×H frame left out, a lone shape's `opacity`
- * moved into its paint where that draws the same, and then whatever would still get a canvas
- * wholly outside the bounds resvg cuts it to left out too (see `fitCanvases`). `defs` holds
- * filters defined outside `svg` that it uses.
+ * `svg` culled in the three steps at the top of this file, so resvg can draw it. `m` maps its
+ * coordinates to the W×H frame's; `defs` holds filters defined outside `svg` that it uses.
  */
 export function cullOffFrame(svg: string, m: Affine, W: number, H: number, defs = ''): string {
   const out = (b: Box, t: Affine) => {

@@ -1,21 +1,12 @@
 import type { CharacterInput } from '../engine/types.js';
 
 /**
- * A village farmer in a pagdi, kurta and dhoti. Same box and pivots as `grownup`. A saffron
- * pagdi wound up into a mound that sits high on the head and swells out behind the skull,
- * its wraps crossing in stacked chevrons above the forehead, a pleated turra on top toward
- * the back and a short tail end hanging behind the ear (a part of its own, hung from the
- * head with `hangs`, so it swings; from behind it hangs at the middle of the back); an ear
- * under it on the far side, a rounded nose and a thick moustache that curls up at the tips
- * (drawn in every `mouth`, so it stays over the lips as they move); a neck in a band
- * collar, a kurta with a short buttoned placket, rolled sleeves above the elbow and side
- * slits, hanging to mid-thigh so the knees stay free; a checked gamchha round the neck
- * whose end hangs down the chest (hung from the torso, so it swings as he walks); mitten
- * hands with the thumb forward and a line where the fingers curl; a loose dhoti on each leg
- * to mid-calf with folds down the front, one behind the knee and a red border at the hem,
- * bare calves, and leather chappals with a strap over the foot. Limbs are round-capped
- * strokes from the pivots, the neck reaches 30 units into the head and the kurta hangs 30
- * below the hips.
+ * A village farmer in a pagdi, kurta and dhoti, on the `grownup` box and pivots. The pagdi's tail
+ * end is a part of its own, hung from the head with `hangs`, so it swings (from behind it hangs at
+ * the middle of the back); the gamchha's end is hung from the torso, so it swings as he walks. The
+ * moustache is drawn in every `mouth`, so it stays over the lips as they move. The kurta hangs to
+ * mid-thigh, so the knees stay free. Limbs are round-capped strokes from the pivots, the neck
+ * reaches 30 units into the head and the kurta hangs 30 below the hips.
  */
 export const FARMER: CharacterInput = {
   id: 'farmer',

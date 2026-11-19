@@ -7,10 +7,9 @@ import { projectPaths } from './store.js';
 /**
  * Review notes: what a person marked as wrong in the review app, for the agent to act on.
  * A note points at a character, a scene, one moment of a shot, a question's choice
- * (options.ts) or a file on a sample board; a pick is a note that says which choice or
- * sample the person chose. They live in
- * `<project>/notes.json` so the viewer (which writes them) and the MCP server (which reads
- * and resolves them) share nothing but the directory.
+ * (options.ts) or a file on a sample board; a pick says which choice or sample they chose.
+ * They live in `<project>/notes.json` so the viewer (which writes them) and the MCP server
+ * (which resolves them) share nothing but the directory.
  */
 export const NOTES_FILE = 'notes.json';
 

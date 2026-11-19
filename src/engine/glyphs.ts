@@ -5,8 +5,6 @@
  * is shaped here with HarfBuzz, in the bundled Baloo 2 (rounded, made for Hindi and Latin
  * both), and drawn as glyph outlines. Lines in Latin script keep the project font as
  * `<text>`, so films without Hindi render exactly as before.
- *
- * The font file is read once, the first time a Devanagari line is drawn.
  */
 import * as hb from 'harfbuzzjs';
 import { readFileSync } from 'node:fs';

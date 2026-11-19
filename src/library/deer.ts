@@ -1,12 +1,8 @@
 import type { CharacterInput } from '../engine/types.js';
 
 /**
- * A graceful spotted deer (a chital): a bean of a body with a deep chest and a slim waist, a
- * lean round haunch on the near hind leg, slender legs that taper below the knee to small dark
- * hooves, a long tapered neck drawn in the head part so a nod lowers the whole neck, large
- * ears, a short tail with a white underside, faint white spots, and small antlers made of
- * tapered filled shapes behind the head. The face is gentle: a big dark eye with a lash, a pale
- * chin and a dark nose.
+ * A graceful spotted deer (a chital). The long neck is drawn in the head part, so a nod lowers the
+ * whole neck; the small antlers are tapered filled shapes behind the head.
  */
 export const DEER: CharacterInput = {
   id: 'deer',

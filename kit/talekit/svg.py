@@ -88,10 +88,9 @@ def ribbon(p0, c1, c2, p1, w0, w1=None, n=16):
 
 def taper(p0, c1, c2, p1, w0, w1, n=14, ease=1.0):
     """A filled path along a cubic, w0 wide at the start to w1 at the end, round ends: a
-    tail, a haunch, a moustache's sweep, a plume. Each end is a point semicircle bulging
-    along the tangent, so there is no arc-flag ambiguity."""
+    tail, a haunch, a moustache's sweep, a plume."""
     pts = [bez(p0, c1, c2, p1, i / n) for i in range(n + 1)]
-    L, R, N = [], [], []
+    L, R, N = [], [], []  # each end is a pointed semicircle along the tangent: no arc flags
     for i, p in enumerate(pts):
         a, b = pts[max(0, i - 1)], pts[min(n, i + 1)]
         dx, dy = b[0] - a[0], b[1] - a[1]

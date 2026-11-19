@@ -1,11 +1,8 @@
 import type { CharacterInput } from '../engine/types.js';
 
 /**
- * A sly red fox on the quadruped rig: a slim bean of a body with a dipped back and a deep
- * chest under a white bib, a slim haunch on the near hind leg, black socks on every leg, a
- * huge brush of a tail that swells from the rump and narrows to a white tip, tall pointed
- * ears with dark backs and black tips, a long narrow muzzle with a white jaw that ends in a
- * cheek ruff, and almond amber eyes. Tapered shapes (the tail) are filled paths along a curve.
+ * A sly red fox on the quadruped rig: a white bib, black socks and a huge brush of a tail with a
+ * white tip. Tapered shapes (the tail) are filled paths along a curve.
  */
 export const FOX: CharacterInput = {
   id: 'fox',

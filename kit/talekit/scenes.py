@@ -167,8 +167,8 @@ def used(x, y, at, facing=None, pose="stand", **more):
     sits on the ground; give floor= for a seat) at (x, y) facing `facing`, and a strike, wipe
     or hold with this anchor as its `to` lands on `at`, (x, y) in the scene. The engine walks
     the doer over first and, for pose="sit", sits it down, if it has the time and nothing
-    else to do. used(960, 684, (1068, 604), "right", "sit") is a
-    washer beside a raised stone. `more`: scale, floor, ground."""
+    else to do. used(960, 684, (1068, 604), "right", "sit"): a washer beside a raised
+    stone. `more`: scale, floor, ground."""
     use = {"pose": pose, "at": [round(at[0]), round(at[1])]}
     if facing:
         use["facing"] = facing
