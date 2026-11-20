@@ -1,3 +1,4 @@
+import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import http from 'node:http';
 import os from 'node:os';
@@ -5,6 +6,7 @@ import { createReadStream, existsSync } from 'node:fs';
 import { mkdir, readdir, readFile, rename, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import { Worker } from 'node:worker_threads';
 import { gzipSync } from 'node:zlib';
 import { z } from 'zod';
@@ -220,7 +222,7 @@ async function projectVersion(root: string): Promise<number> {
   await touch(path.join(p.root, NOTES_FILE));
   await touch(p.movie);
   latest = Math.max(latest, await codeVersion());
-  for (const dir of [p.characters, p.scenes, p.shots]) {
+  for (const dir of [p.characters, p.scenes, p.shots, p.sketches]) {
     if (!existsSync(dir)) continue;
     await touch(dir);
     for (const f of await readdir(dir)) await touch(path.join(dir, f));
@@ -278,15 +280,40 @@ async function movieInfo(root: string): Promise<{ mtime: number; stale: boolean 
   const p = projectPaths(root);
   if (!existsSync(p.movie)) return null;
   const mtime = (await stat(p.movie)).mtimeMs;
-  // Stale when any shot (or scene or character) was written after the render.
+  // Stale when any shot (or scene, character or sketch) was written after the render.
   let newest = 0;
-  for (const dir of [p.characters, p.scenes, p.shots]) {
+  for (const dir of [p.characters, p.scenes, p.shots, p.sketches]) {
     if (!existsSync(dir)) continue;
     for (const f of await readdir(dir))
       newest = Math.max(newest, (await stat(path.join(dir, f))).mtimeMs);
   }
   return { mtime: Math.round(mtime), stale: newest > mtime };
 }
+
+/**
+ * A sketch shot's thumbnail from the rendered movie, while it is as new as the project: a
+ * sketch reaches mid-shot only by running every frame before it (15 to 35 s for a reel
+ * that is one long shot), and the movie has the frame already. Null when it is drawn.
+ */
+async function movieStill(root: string, shotId: string, t: number): Promise<Buffer | null> {
+  // A film without sketches is not loaded again for every thumbnail.
+  if (!existsSync(projectPaths(root).sketches)) return null;
+  const info = await movieInfo(root);
+  if (!info || info.stale) return null;
+  const { shots } = await loadProject(root);
+  const i = shots.findIndex((s) => s.id === shotId);
+  if (i < 0 || !shots[i].sketch) return null;
+  const at = shots.slice(0, i).reduce((sum, s) => sum + s.duration, 0) + t;
+  const args = ['-v', 'error', '-ss', at.toFixed(3), '-i', projectPaths(root).movie];
+  args.push('-frames:v', '1', '-vf', 'scale=iw/2:-2', '-q:v', '4', '-f', 'mjpeg', '-');
+  try {
+    const { stdout } = await run('ffmpeg', args, { encoding: 'buffer', maxBuffer: 1 << 26 });
+    return stdout.length ? stdout : null;
+  } catch {
+    return null;
+  }
+}
+const run = promisify(execFile);
 
 /**
  * The film's sound as the page plays it: each bus mixed on its own, at the engine's levels
@@ -574,7 +601,12 @@ async function projectRoute(
       width: project.meta.width,
       height: project.meta.height,
       duration: movieDuration(project),
-      shots: project.shots.map((s) => ({ id: s.id, duration: s.duration, scene: s.scene })),
+      shots: project.shots.map((s) => ({
+        id: s.id,
+        duration: s.duration,
+        scene: s.scene,
+        sketch: !!s.sketch,
+      })),
       characters: Object.values(project.characters).map((c) => ({
         id: c.id,
         name: c.name,
@@ -603,6 +635,7 @@ async function projectRoute(
   }
   if (rel === '/api/frame') {
     // A thumbnail (`low`) waits for the frame the person is looking at.
+    const low = url.searchParams.has('low');
     const job: DrawRequest = {
       kind: 'frame',
       root,
@@ -610,8 +643,16 @@ async function projectRoute(
       shot: url.searchParams.get('shot') ?? '',
       t: Number(url.searchParams.get('t') ?? 0),
       debug: url.searchParams.has('debug'),
+      thumb: low,
     };
-    sendSvg(req, res, url, await ask<string>(root, job, url.searchParams.has('low')));
+    // The movie is the film as it is: an option or the debug overlay is drawn.
+    const still =
+      low && !job.over.length && !job.debug && (await movieStill(root, job.shot, job.t));
+    if (still) {
+      res.writeHead(200, { 'content-type': 'image/jpeg', ...cacheFor(url) }).end(still);
+      return;
+    }
+    sendSvg(req, res, url, await ask<string>(root, job, low));
     return;
   }
   if (rel === '/api/sheet') {

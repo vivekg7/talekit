@@ -117,13 +117,13 @@ export function sketchAt(project: Project, shot: Shot, t: number, density: numbe
   return runTo(project, shot, t, density).sketch;
 }
 
-function runTo(project: Project, shot: Shot, t: number, density: number): Run {
+function runTo(project: Project, shot: Shot, t: number, density: number, lane = ''): Run {
   const id = shot.sketch!;
   const file = project.sketches?.[id];
   if (!file) throw new Error(`shot ${shot.id}: no sketch '${id}' in sketches/`);
   const main = modules.get(moduleKey(file));
   if (!main) throw new Error(`sketches/${id}.js was not loaded (loadSketches)`);
-  const key = `${moduleKey(file)}\0${shot.id}\0${shot.duration}\0${density}\0${paramsKey(shot)}`;
+  const key = `${moduleKey(file)}\0${shot.id}\0${shot.duration}\0${density}\0${paramsKey(shot)}\0${lane}`;
   const want = sketchFrameAt(project, t);
   let run = runs.get(key);
   runs.delete(key);
@@ -226,11 +226,19 @@ function keepPicture(href: string, sketch: Sketch): void {
   }
 }
 
-/** The canvas compose.ts asks for: each shot's sketch at t, as a picture href. */
-export function sketchCanvas(project: Project, density: number): ComposeOptions['canvas'] {
+/**
+ * The canvas compose.ts asks for: each shot's sketch at t, as a picture href. A `lane` has
+ * runs of its own: the review app's thumbnails, asked for mid-shot, would otherwise carry
+ * the run past the frame on the stage, and the stage's next frame would start it again.
+ */
+export function sketchCanvas(
+  project: Project,
+  density: number,
+  lane = ''
+): ComposeOptions['canvas'] {
   return (shot, t) => {
     if (!shot.sketch) return undefined;
-    const { sketch, id } = runTo(project, shot, t, density);
+    const { sketch, id } = runTo(project, shot, t, density, lane);
     const href = `${PICTURE_HOST}${encodeURIComponent(shot.id)}/${shot.sketch}/${id}/${sketchFrameAt(project, t)}@${density}.png`;
     keepPicture(href, sketch);
     return { href, screen: sketch.screen };
@@ -251,10 +259,10 @@ export function frameSvg(
   project: Project,
   shot: Shot,
   t: number,
-  opts: ComposeOptions & { density?: number } = {}
+  opts: ComposeOptions & { density?: number; lane?: string } = {}
 ): string {
-  const { density = PREVIEW_DENSITY, ...rest } = opts;
-  return composeFrame(project, shot, t, { ...rest, canvas: sketchCanvas(project, density) });
+  const { density = PREVIEW_DENSITY, lane, ...rest } = opts;
+  return composeFrame(project, shot, t, { ...rest, canvas: sketchCanvas(project, density, lane) });
 }
 
 /** A kept picture as PNG: stored, not squeezed, for resvg; level 1 for a browser. */

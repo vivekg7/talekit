@@ -224,6 +224,21 @@ describe('a sketch in a shot', () => {
     expect(at(0.2)).toEqual([255, 0, 0]);
   });
 
+  it("keeps a lane's run apart, so a thumbnail mid-shot leaves the stage's run where it was", async () => {
+    const counted = `export default function (p) {
+  p.draw = () => { globalThis.sketchDraws = (globalThis.sketchDraws ?? 0) + 1; };
+}`;
+    const p = await loadProject(await sketchProject(counted));
+    const shot = p.shots[0];
+    const g = globalThis as { sketchDraws?: number };
+    g.sketchDraws = 0;
+    frameSvg(p, shot, 0.5);
+    frameSvg(p, shot, 1.5, { lane: 'thumb' });
+    frameSvg(p, shot, 0.6);
+    // 6 draws to frame 5, 16 more for the thumbnail's own run, then one: not 7 from the start.
+    expect(g.sketchDraws).toBe(6 + 16 + 1);
+  });
+
   it('moves with the camera like the stage', async () => {
     const root = await sketchProject(WALKER, { camera: { zoom: 2, x: 50, y: 100 } });
     const p = await loadProject(root);

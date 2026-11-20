@@ -69,6 +69,8 @@ and the engine change. For a reel it shades the area the apps cover;
 `--lan` serves it to a phone on the local network (no login, so only on a
 trusted network). Sliders per sound layer save the `mix`, and **Save and
 remix video** puts the new sound under the mp4 without drawing any frames.
+A film with a sketch opens on its rendered video while that is up to date:
+a sketch is drawn live only by running it from its shot's start.
 
 Output: the film as `out/movie.mp4` plus `out/movie.mkv` (three sound
 tracks, subtitles per language, a chapter per shot) and the **reel**, a

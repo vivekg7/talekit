@@ -352,6 +352,9 @@ function load() {
     $('source').style.display = info.movie && !looking() ? '' : 'none';
     $('source').options[1].textContent = info.movie ? 'rendered video' + (info.movie.stale ? ' (older than the shots)' : '') : '';
     if ((!info.movie || looking()) && $('source').value === 'video') $('source').value = 'live';
+    // A sketch is drawn live only by running it from its shot's start, so a jump back or a
+    // skip ahead takes seconds: a film with one opens on its movie while that is up to date.
+    if (first && info.movie && !info.movie.stale && !looking() && info.shots.some(function (s) { return s.sketch; })) $('source').value = 'video';
     $('safe-label').style.display = info.safe.bottom ? '' : 'none';
     renderApps(); renderShots(); renderCards('characters'); renderCards('scenes'); renderNotes(); renderOptions(); setupSound(); drawSafe();
     checks();

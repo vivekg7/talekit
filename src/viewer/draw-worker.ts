@@ -24,7 +24,14 @@ import {
  * the server keeps answering while a check takes seconds.
  */
 export type DrawRequest = { root: string; /** option choices laid over it */ over: string[] } & (
-  | { kind: 'frame'; shot: string; t: number; debug: boolean }
+  | {
+      kind: 'frame';
+      shot: string;
+      t: number;
+      debug: boolean;
+      /** A strip's picture: a sketch runs apart from the stage's (sketch.ts `sketchCanvas`). */
+      thumb?: boolean;
+    }
   | { kind: 'sheet'; id: string; of?: SheetKind; construction: boolean }
   | { kind: 'problems' }
   | { kind: 'stems' }
@@ -112,7 +119,8 @@ async function draw(job: DrawJob): Promise<string | Stems> {
   if (job.kind === 'frame') {
     const shot = project.shots.find((s) => s.id === job.shot);
     if (!shot) throw new Error('unknown shot');
-    return inlinePictures(frameSvg(project, shot, job.t, { debug: job.debug }));
+    const lane = job.thumb ? 'thumb' : '';
+    return inlinePictures(frameSvg(project, shot, job.t, { debug: job.debug, lane }));
   }
   const target = sheetTarget(project, job.id, job.of);
   if (target.kind === 'scene') return sceneSheetSvg(project, target.scene);

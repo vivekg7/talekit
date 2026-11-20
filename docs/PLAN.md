@@ -403,6 +403,16 @@ canvas (`sketch`), drawn on the stage and composed with everything else.
   camera depends on where its actor walks, so then the whole shot and its
   scene are the camera's key. A picture's href names its run, so a
   restarted run never shows a kept picture of another.
+- **The review app and runs** (2026-11): a frame out of order replays the
+  shot from setup, 15 to 35 s for a reel that is one long sketch shot (a
+  flock's setup alone warms 10,000 birds for 11 s). So the strip's
+  thumbnails, asked for mid-shot, run in a lane of their own (`lane` in the
+  run key) rather than carrying the stage's run past its frame; while
+  `out/movie.mp4` is newer than the project (sketches included), a sketch
+  shot's thumbnail is a still from it instead (ffmpeg, ~0.15 s), and a film
+  with a sketch opens on the rendered video. Live frames stay one click
+  away, and an option or the debug overlay is always drawn live, as the
+  movie is the film as it is.
 - **The engine never runs code**: `composeFrame` takes a `canvas` callback
   that gives the picture's href, so the engine stays pure and a test's
   project draws without it.

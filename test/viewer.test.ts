@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { cp, mkdir, mkdtemp, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import os from 'node:os';
@@ -234,6 +235,50 @@ describe('review app', () => {
         'bench-seat'
       );
       expect((await (await get('api/sheet?id=kite')).json()).error).toMatch(/both/);
+    } finally {
+      app.close();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("takes a sketch shot's thumbnail from the movie while it is as new as the project", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'talekit-still-'));
+    for (const d of ['scenes', 'shots', 'sketches', 'out']) await mkdir(path.join(root, d));
+    const json = (f: string, v: object) => writeFile(path.join(root, f), JSON.stringify(v));
+    await json('talekit.json', { title: 'Sketch', width: 200, height: 400, fps: 10 });
+    await json('scenes/blank.json', {
+      id: 'blank',
+      name: 'Blank',
+      svg: '',
+      allow: { 'world.walk': 'a sketch, nobody stands' },
+    });
+    await json('shots/01-s.json', { id: 's', scene: 'blank', duration: 2, sketch: 'art' });
+    const art = path.join(root, 'sketches/art.js');
+    await writeFile(art, 'export default function (p) { p.draw = () => p.background(0, 0, 255); }');
+    const movie = path.join(root, 'out/movie.mp4');
+    const made = spawnSync('ffmpeg', [
+      ...['-v', 'error', '-f', 'lavfi', '-i', 'color=blue:s=200x400:r=10:d=2'],
+      ...['-pix_fmt', 'yuv420p', movie],
+    ]);
+    expect(made.status).toBe(0);
+    const app = await serve(root, 4920);
+    const get = (url: string) => fetch(new URL(url, app.url));
+    try {
+      const info = await (await get('api/project')).json();
+      expect(info.shots[0].sketch).toBe(true);
+      expect(info.movie.stale).toBe(false);
+      const thumb = await get('api/frame?shot=s&t=1&low=1&v=1');
+      expect(thumb.headers.get('content-type')).toBe('image/jpeg');
+      // The stage's frame is drawn live, as is a thumbnail with the debug overlay.
+      expect((await get('api/frame?shot=s&t=1')).headers.get('content-type')).toBe('image/svg+xml');
+      const debug = await get('api/frame?shot=s&t=1&low=1&debug=1');
+      expect(debug.headers.get('content-type')).toBe('image/svg+xml');
+      // A sketch edited after the render makes the movie stale: drawn again.
+      const later = new Date((await stat(movie)).mtimeMs + 2000);
+      await utimes(art, later, later);
+      expect((await (await get('api/project')).json()).movie.stale).toBe(true);
+      const again = await get('api/frame?shot=s&t=1&low=1&v=2');
+      expect(again.headers.get('content-type')).toBe('image/svg+xml');
     } finally {
       app.close();
       await rm(root, { recursive: true, force: true });
